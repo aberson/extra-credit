@@ -616,7 +616,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Generate a deterministic Math — Two Whats and a Wow sheet with exactly one valid statement per group.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** DONE
 - **Issue:** #5
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
