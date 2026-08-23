@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Extra Credit — Confirmed Project Plan</title>
+  <style>
+    :root {
+      --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --size-page: 72rem;
+      --space-1: 0.35rem;
+      --space-2: 0.65rem;
+      --space-3: 1rem;
+      --space-4: 1.5rem;
+      --space-5: 2.25rem;
+      --radius: 0.75rem;
+      --border-width: 1px;
+      --bg: #f7f5ef;
+      --surface: #ffffff;
+      --surface-alt: #eef5ef;
+      --text: #18211a;
+      --muted: #4b5d50;
+      --border: #b9c6bb;
+      --accent: #155d38;
+      --accent-soft: #dcefe2;
+      --picked: #235a9f;
+      --picked-soft: #e2edfa;
+      --focus: #a83f00;
+      --shadow: 0 0.5rem 1.4rem rgb(24 33 26 / 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #111712;
+        --surface: #182019;
+        --surface-alt: #1b2b20;
+        --text: #edf4ee;
+        --muted: #b8c8ba;
+        --border: #526456;
+        --accent: #8ed8aa;
+        --accent-soft: #203f2c;
+        --picked: #99c8ff;
+        --picked-soft: #203a59;
+        --focus: #ffb47a;
+        --shadow: none;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+    a { color: var(--accent); text-underline-offset: 0.18em; }
+    a:focus-visible, code:focus-visible {
+      outline: 0.2rem solid var(--focus);
+      outline-offset: 0.2rem;
+    }
+    .skip-link {
+      position: absolute;
+      left: var(--space-3);
+      top: -5rem;
+      z-index: 10;
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface);
+      color: var(--text);
+      border: var(--border-width) solid var(--border);
+    }
+    .skip-link:focus { top: var(--space-3); }
+    header, main, footer {
+      width: min(calc(100% - 2rem), var(--size-page));
+      margin-inline: auto;
+    }
+    header { padding-block: var(--space-5) var(--space-4); }
+    main { padding-bottom: var(--space-5); }
+    footer {
+      padding-block: var(--space-4);
+      border-top: var(--border-width) solid var(--border);
+      color: var(--muted);
+    }
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin: 0 0 var(--space-2); font-size: clamp(2rem, 6vw, 3.7rem); }
+    h2 { margin: var(--space-5) 0 var(--space-3); font-size: clamp(1.45rem, 3vw, 2rem); }
+    h3 { margin: 0; font-size: 1.12rem; }
+    p { max-width: 76ch; }
+    .lede { font-size: 1.16rem; color: var(--muted); }
+    .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-block: var(--space-3);
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2rem;
+      padding: var(--space-1) var(--space-2);
+      border: var(--border-width) solid var(--border);
+      border-radius: 99rem;
+      background: var(--surface);
+      font-weight: 650;
+    }
+    nav {
+      padding: var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2) var(--space-4);
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+      gap: var(--space-3);
+    }
+    .card {
+      padding: var(--space-4);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .card > :last-child { margin-bottom: 0; }
+    .tag {
+      display: inline-block;
+      margin-bottom: var(--space-2);
+      padding: 0.14rem 0.5rem;
+      border-radius: 0.35rem;
+      font-size: 0.82rem;
+      font-weight: 750;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .tag.picked { color: var(--picked); background: var(--picked-soft); }
+    .tag.defaulted { color: var(--accent); background: var(--accent-soft); }
+    .decision-id { font-family: var(--font-mono); }
+    .why { color: var(--muted); }
+    code {
+      padding: 0.1em 0.35em;
+      border-radius: 0.3em;
+      background: var(--surface-alt);
+      color: var(--text);
+      font-family: var(--font-mono);
+      overflow-wrap: anywhere;
+    }
+    .feedback {
+      padding: var(--space-4);
+      border-left: 0.35rem solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--surface-alt);
+    }
+    .roadmap {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+      gap: var(--space-3);
+      padding: 0;
+      list-style: none;
+      counter-reset: road;
+    }
+    .roadmap li {
+      counter-increment: road;
+      padding: var(--space-3);
+      border-top: 0.3rem solid var(--accent);
+      background: var(--surface);
+    }
+    .roadmap li::before {
+      content: counter(road, decimal-leading-zero);
+      display: block;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .compact li { margin-block: var(--space-1); }
+    @media print {
+      :root { --bg: #fff; --surface: #fff; --surface-alt: #f3f3f3; --text: #000; --muted: #333; --border: #777; --shadow: none; }
+      body { font-size: 10.5pt; }
+      .skip-link, nav { display: none; }
+      header, main, footer { width: 100%; }
+      .card { break-inside: avoid; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to proposal</a>
+  <header>
+    <p class="tag defaulted">Confirmed plan · revision 2</p>
+    <h1>Extra Credit</h1>
+    <p class="lede">A local-first, open-source tool for making personalized activity sheets that grow with a family.</p>
+    <div class="status-line" aria-label="Proposal status">
+      <span class="pill">V1 plan confirmed</span>
+      <span class="pill">9 operator choices locked</span>
+      <span class="pill">10 defaults confirmed</span>
+      <span class="pill">3 defaults revised</span>
+    </div>
+    <nav aria-label="Proposal sections">
+      <ul>
+        <li><a href="#outcome">Outcome</a></li>
+        <li><a href="#scope">Scope</a></li>
+        <li><a href="#picked">Locked choices</a></li>
+        <li><a href="#defaults">Confirmed defaults</a></li>
+        <li><a href="#roadmap">Roadmap</a></li>
+        <li><a href="#feedback">Future amendments</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="outcome" aria-labelledby="outcome-title">
+      <h2 id="outcome-title">The outcome</h2>
+      <div class="card">
+        <p>A parent sets up a child profile once, chooses a worksheet and a few options, previews it, and prints a one-page activity plus an optional answer key. Profiles and generated content stay on the family computer. V1 supports the complete setup-to-print path for ages four through eight and uses deterministic reviewed templates, so correct math never depends on a model or network service.</p>
+        <p><strong>Port clarification:</strong> the host and port solve different problems. The app binds to private loopback host <code>127.0.0.1</code>; dev-observatory has reserved collision-free ports <code>4310</code> for the built app/API and <code>4311</code> for Vite development.</p>
+      </div>
+    </section>
+
+    <section id="scope" aria-labelledby="scope-title">
+      <h2 id="scope-title">Scope boundary</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Now: V1</h3>
+          <ul class="compact">
+            <li>Dry Math</li>
+            <li>Two Whats and a Wow</li>
+            <li>Sentence Builder</li>
+            <li>Count, Compare &amp; Make</li>
+            <li>Reusable local profiles</li>
+            <li>Ages 4–8 setup-to-print support</li>
+            <li>Letter and A4 printing</li>
+            <li>Name, interests, and line-art toggles</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Later: separate plans</h3>
+          <ul class="compact">
+            <li>Explicitly enabled runtime AI experiment</li>
+            <li>Mini Mission activity</li>
+            <li>Reviewed packs for ages 9+</li>
+            <li>Additional languages or curricula</li>
+            <li>Accessible tagged-PDF export</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Outside V1</h3>
+          <ul class="compact">
+            <li>Public hosting and cloud sync</li>
+            <li>Accounts, analytics, ads, or tracking</li>
+            <li>Scores, assessment, or progress history</li>
+            <li>Schedulers and unattended generation</li>
+            <li>Child-facing online sessions</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="picked" aria-labelledby="picked-title">
+      <h2 id="picked-title">Operator-picked choices — locked</h2>
+      <p>These came directly from the planning conversation. They are context, not approval requests.</p>
+      <div class="grid">
+        <article class="card" id="p1"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P1</span> — Public code, local app</h3><p>Publish the code and original assets openly, but do not host a service that receives child data.</p></article>
+        <article class="card" id="p2"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P2</span> — Set-once profiles</h3><p>Edit reusable profiles in the setup UI and persist them in a gitignored local JSON file.</p></article>
+        <article class="card" id="p3"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P3</span> — Three personalization toggles</h3><p>Control child name, interests, and simple black-and-white graphics independently.</p></article>
+        <article class="card" id="p4"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P4</span> — React is frontend-only</h3><p>Use React 19 for the browser UI, with Node and Fastify for local file and HTTP duties.</p></article>
+        <article class="card" id="p5"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P5</span> — AI after V1</h3><p>A later opt-in experiment may use runtime AI; deterministic local generation remains the default and fallback.</p></article>
+        <article class="card" id="p6"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P6</span> — No background work</h3><p>V1 performs work only after a parent action. A request-scoped save mutex is the only concurrency mechanism.</p></article>
+        <article class="card" id="p7"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P7</span> — Small local security boundary</h3><p>No login, PIN, encryption layer, or secrets. Filesystem permissions protect the stopped file and loopback blocks network peers; while the app runs, other local processes/users can reach its API, so the plan requires stop-after-use guidance for shared or untrusted machines.</p></article>
+        <article class="card" id="p8"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P8</span> — Four worksheet families</h3><p>Ship the four agreed worksheet types in V1 and move Mini Mission to a later feature plan.</p></article>
+        <article class="card" id="p9"><span class="tag picked">Operator-picked · locked</span><h3><span class="decision-id">P9</span> — Observatory-owned ports</h3><p>Use dev-observatory as the source of truth for collision-free workspace ports.</p></article>
+      </div>
+    </section>
+
+    <section id="defaults" aria-labelledby="defaults-title">
+      <h2 id="defaults-title">Agent-defaulted choices — confirmed</h2>
+      <p>The operator confirmed all ten defaults on 2026-08-22, with D2, D3, and D9 revised first. Each stable card retains its rationale and a future amendment example.</p>
+      <div class="grid">
+        <article class="card" id="d1"><span class="tag defaulted">Agent-defaulted · confirmed</span><h3><span class="decision-id">D1</span> — Loopback and fixed ports</h3><p>Bind <code>127.0.0.1:4310</code>; use <code>127.0.0.1:4311</code> for Vite; allow no v1 runtime override.</p><p class="why"><strong>Why:</strong> loopback prevents access from network peers by default, while observatory-reserved fixed ports make launchers, tests, and documentation reproducible. It is deliberately not presented as an OS-account boundary.</p><p><strong>Change later:</strong> <code>D1 -&gt; allow a documented runtime port override in v2</code></p></article>
+        <article class="card" id="d2"><span class="tag defaulted">Agent-defaulted · changed &amp; confirmed</span><h3><span class="decision-id">D2</span> — Capability-first profiles</h3><p>Store age, explicit math capabilities, writing mode, review date, and interests. V1 has no avoid-topics field.</p><p class="why"><strong>Why:</strong> one “math level” cannot safely choose counting representation, equality, operation, number range, and writing support; the removed field is not required for the first release.</p><p><strong>Change later:</strong> <code>D2 -&gt; add a separately reviewed topic-exclusion feature</code></p></article>
+        <article class="card" id="d3"><span class="tag defaulted">Agent-defaulted · changed &amp; confirmed</span><h3><span class="decision-id">D3</span> — Narrow validated age band</h3><p>Support the complete U.S.-English setup-to-print path for ages four through eight. Retain ages nine through eighteen, but disable generation until reviewed packs exist.</p><p class="why"><strong>Why:</strong> the age-eight boundary now has Grade 2 source coverage and its own acceptance fixture, while growth-ready data still must not imply untested placement or curriculum coverage.</p><p><strong>Change later:</strong> <code>D3 -&gt; add a sourced and accepted age-nine pack</code></p></article>
+        <article class="card" id="d4"><span class="tag defaulted">Agent-defaulted · confirmed</span><h3><span class="decision-id">D4</span> — Deterministic generation contract</h3><p>Use a specified seeded PRNG, generator versions, finite-capacity checks, immutable worksheet documents, and typed answers.</p><p class="why"><strong>Why:</strong> the same request must reproduce the same content, while impossible requests must fail rather than quietly lower quality.</p><p><strong>Change later:</strong> <code>D4 -&gt; retain only the seed, not a generator version</code></p></article>
+        <article class="card" id="d5"><span class="tag defaulted">Agent-defaulted · confirmed</span><h3><span class="decision-id">D5</span> — Defensive local storage</h3><p>Use strict validation, bounded regular-file reads, ETag preconditions, a save mutex, atomic replacement, and explicit recovery backups.</p><p class="why"><strong>Why:</strong> a local tool still needs to protect hand-edited data, stale tabs, interrupted writes, and unsafe file targets.</p><p><strong>Change later:</strong> <code>D5 -&gt; omit the recovery flow from a future simplified edition</code></p></article>
+        <article class="card" id="d6"><span class="tag defaulted">Agent-defaulted · confirmed</span><h3><span class="decision-id">D6</span> — Exact worksheet behavior</h3><p>Lock capability gates, variants, answer semantics, decoration boundaries, and neutral interest fallbacks for all four families.</p><p class="why"><strong>Why:</strong> generators and acceptance tests need concrete educational invariants rather than broad prompts.</p><p><strong>Change later:</strong> <code>D6 -&gt; move Count, Compare &amp; Make to a later release</code></p></article>
+        <article class="card" id="d7"><span class="tag defaulted">Agent-defaulted · confirmed</span><h3><span class="decision-id">D7</span> — Progressive worksheet controls</h3><p>Show simple defaults first, with advanced difficulty, length, answer-key, paper, and scale controls; confirm stretch changes.</p><p class="why"><strong>Why:</strong> fast routine use and deliberate customization should coexist without surprise difficulty jumps.</p><p><strong>Change later:</strong> <code>D7 -&gt; expose paper size only in print preview</code></p></article>
+        <article class="card" id="d8"><span class="tag defaulted">Agent-defaulted · confirmed</span><h3><span class="decision-id">D8</span> — HTML-first printable output</h3><p>Use semantic HTML/CSS for Letter and A4, with accessibility, cross-platform DOM/PDF geometry, page-count, and scoped physical-print checks.</p><p class="why"><strong>Why:</strong> one renderer keeps browser preview and paper aligned while preserving selectable, accessible text; geometry gates avoid untrustworthy cross-OS pixel baselines.</p><p><strong>Change later:</strong> <code>D8 -&gt; support Letter only in a reduced edition</code></p></article>
+        <article class="card" id="d9"><span class="tag defaulted">Agent-defaulted · changed &amp; confirmed</span><h3><span class="decision-id">D9</span> — Pinned stack and one original-work license</h3><p>Use Node 24, React 19, Fastify 5, Vite 8, strict TypeScript, and Vitest/Playwright. One root MIT license covers all project-original code, templates, documentation, and line art.</p><p class="why"><strong>Why:</strong> the verified versions form one reproducible local/CI toolchain, while one original-work license keeps public reuse and contribution terms simple. Future third-party materials retain their own recorded terms.</p><p><strong>Change later:</strong> <code>D9 -&gt; revisit the original-work license before a future major version</code></p></article>
+        <article class="card" id="d10"><span class="tag defaulted">Agent-defaulted · confirmed</span><h3><span class="decision-id">D10</span> — Gated delivery</h3><p>Build through thirteen automated vertical steps, then perform physical-print, real-family, and live-CI gates.</p><p class="why"><strong>Why:</strong> correctness, privacy, print quality, and actual usability need distinct evidence before a public release.</p><p><strong>Change later:</strong> <code>D10 -&gt; combine automated Steps 10 and 11</code></p></article>
+      </div>
+    </section>
+
+    <section id="roadmap" aria-labelledby="roadmap-title">
+      <h2 id="roadmap-title">Build roadmap</h2>
+      <ol class="roadmap">
+        <li><strong>Foundation</strong><br>Runnable React/Fastify shell, pinned toolchain, CI, licenses, and privacy-safe ignores.</li>
+        <li><strong>Profiles</strong><br>Secure local config contract and accessible parent setup.</li>
+        <li><strong>Worksheet core</strong><br>Deterministic generation and the four worksheet vertical slices.</li>
+        <li><strong>Personalization</strong><br>Reviewed line art, interests, names, options, and answer keys.</li>
+        <li><strong>Quality</strong><br>Print/pagination matrix, accessibility, and compiled real-pipeline smoke.</li>
+        <li><strong>Release</strong><br>Public docs, physical prints, family pilot, push, and exact-commit CI smoke.</li>
+      </ol>
+      <p>The canonical <code>plan.md</code> expands this roadmap into thirteen independently gated automated steps plus M1–M3 manual acceptance gates.</p>
+    </section>
+
+    <section id="feedback" aria-labelledby="feedback-title">
+      <h2 id="feedback-title">Future amendments</h2>
+      <div class="feedback">
+        <p>All D decisions are confirmed. A future revision can amend an individual choice by using its stable ID:</p>
+        <p><code>D4 -&gt; use a different deterministic seed algorithm</code></p>
+        <p>The canonical plan and this review surface must be updated together whenever a decision changes.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Extra Credit proposal revision 2, republished 2026-08-22 after operator confirmation. Canonical implementation detail remains in <code>plan.md</code>.</p>
+  </footer>
+</body>
+</html>

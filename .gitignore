@@ -1,0 +1,20 @@
+# Private family data and recovery files
+/config/children.local.json
+/config/children.local.json.*
+/extra-credit-profile-backup.json
+/Extra Credit Worksheet*.pdf
+/Extra Credit Worksheet*.png
+/extra-credit-worksheet*.pdf
+/extra-credit-worksheet*.png
+
+# Node dependencies and generated output
+/frontend/node_modules/
+/frontend/dist/
+/frontend/coverage/
+/frontend/test-results/
+/frontend/playwright-report/
+
+# Local planning and task-handoff state
+/.plan-expedite-state
+/.plan-expedite-state.*
+/.claude/task-state/
