@@ -17,6 +17,7 @@ import {
   type AppConfigV1,
   type ChildProfileV1,
 } from "../shared/config/schema";
+import { getWorksheetRegistration } from "../shared/worksheet/registry";
 import {
   ConfigApiError,
   ConfigAuthorityChangedError,
@@ -770,8 +771,19 @@ export function App() {
         selection: currentSelection,
         session: generated.session,
       });
+      const unit = getWorksheetRegistration(
+        currentSelection.worksheetType,
+      ).controls.getEffectiveUnit({
+        profile: currentProfile,
+        difficulty: currentSelection.preferences.difficulty,
+        length: currentSelection.preferences.length,
+        printScale: currentSelection.preferences.printScale,
+      });
+      const readyCount = generated.session.document.items.length;
       setGenerationMessage(
-        `Worksheet ready with ${generated.session.document.items.length} unique problems.`,
+        `Worksheet ready with ${readyCount} unique ${
+          readyCount === 1 ? unit.singularLabel : unit.pluralLabel
+        }.`,
       );
       setMakeAnotherExhausted(false);
     } finally {
