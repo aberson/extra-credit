@@ -113,7 +113,15 @@ export default defineConfig((configEnvironment) => {
         deny: viteSensitiveFileDeny,
       },
       proxy: {
-        "/api": {
+        "^/api/health(?:\\?.*)?$": {
+          target: API_ORIGIN,
+          changeOrigin: true,
+        },
+        "^/api/session(?:\\?.*)?$": {
+          target: API_ORIGIN,
+          changeOrigin: true,
+        },
+        "^/api/config(?:\\?.*)?$": {
           target: API_ORIGIN,
           changeOrigin: true,
         },
