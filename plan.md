@@ -561,7 +561,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Bootstrap the runnable Extra Credit application on its observatory-approved loopback ports.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #1
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -575,7 +575,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Make one validated child-profile configuration round-trip through the loopback API without exposing an arbitrary filesystem path.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #2
 - **Flags:** --reviewers deep --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -589,7 +589,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Let a parent manage reusable child profiles through the browser setup flow.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #3
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -603,7 +603,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Ship the first complete Dry Math worksheet from profile selection through paper output.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #4
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -617,7 +617,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Generate a deterministic Math — Two Whats and a Wow sheet with exactly one valid statement per group.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #5
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -631,7 +631,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Generate a capability- and writing-mode-aligned Sentence Builder sheet from the profile's confirmed settings.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #6
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -645,7 +645,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Add optional black-and-white decoration without changing required child work or introducing unclear asset rights.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #7
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -659,7 +659,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Generate an age-four-friendly Count, Compare & Make sheet without requiring symbolic arithmetic.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #8
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -673,7 +673,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Apply the approved worksheet-option contract consistently through the generator UI.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #9
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -687,7 +687,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Make every worksheet and answer key fit its selected paper and print-scale contract in the supported browsers.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #10
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -701,7 +701,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Make setup, generation, preview, recovery, and error flows usable through the declared browser-accessibility contract.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #11
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -715,7 +715,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Prove the built application completes one real profile-to-print cycle across all four worksheet generators without mocks or external requests.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #12
 - **Flags:** --reviewers deep --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -729,7 +729,7 @@ These run unattended through `/build-phase`.
 - **Problem:** Prove the current working tree is a privacy-safe, license-complete, reproducible public release candidate through one clean-room gate.
 - **Type:** code
 - **Status:** PENDING
-- **Issue:** #
+- **Issue:** #13
 - **Flags:** --reviewers deep --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
@@ -748,7 +748,7 @@ Run them in this order: M1 physical print, then M2 family pilot. A failed manual
 
 - **Source step:** Step 10
 - **Type:** operator
-- **Issue:** #
+- **Issue:** #10
 - **Commands:**
 
 ```shell
@@ -775,7 +775,7 @@ Stop the server with `Ctrl+C` after the checks. Record printer model, both brows
 
 - **Source step:** Step 13
 - **Type:** operator
-- **Issue:** #
+- **Issue:** #13
 - **Commands:**
 
 ```shell
@@ -803,7 +803,7 @@ Stop the server with `Ctrl+C` after the second session.
 
 - **Source step:** Step 13
 - **Type:** operator
-- **Issue:** #
+- **Issue:** #13
 - **Commands:**
 
 After the completed phase is committed and pushed with `/repo-update`:
