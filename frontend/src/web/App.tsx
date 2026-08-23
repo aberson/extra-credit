@@ -28,6 +28,14 @@ import {
 import { ProfileEditor } from "./profiles/ProfileEditor";
 import { ProfileList } from "./profiles/ProfileList";
 import { RecoveryPanel } from "./profiles/RecoveryPanel";
+import {
+  createInitialWorksheetSession,
+  makeAnotherWorksheetSession,
+  type GenerationSelection,
+  type WorksheetSession,
+} from "./generator/create-session";
+import { GeneratorControls } from "./generator/GeneratorControls";
+import { PrintView } from "./print/PrintView";
 
 const DOCUMENT_TITLE = "Extra Credit Worksheet";
 const HEALTH_REQUEST_TIMEOUT_MS = 500;
@@ -107,6 +115,12 @@ interface ProfileControllerState {
   readonly recoveryConfirmed: boolean;
   readonly recoveryDraft: AppConfigV1 | undefined;
   readonly successMessage: string | null;
+}
+
+interface ActiveGeneration {
+  readonly authority: number;
+  readonly selection: GenerationSelection;
+  readonly session: WorksheetSession;
 }
 
 type ProfileControllerAction =
@@ -416,6 +430,16 @@ export function App() {
   );
   const operationRef = useRef<ProfileOperation | null>(null);
   const nextOperationGenerationRef = useRef(0);
+  const generationAuthorityRef = useRef(0);
+  const [generationAuthority, setGenerationAuthority] = useState(0);
+  const generationActionRef = useRef(false);
+  const [activeGeneration, setActiveGeneration] =
+    useState<ActiveGeneration | null>(null);
+  const [generationMessage, setGenerationMessage] = useState<string | null>(
+    null,
+  );
+  const [makeAnotherExhausted, setMakeAnotherExhausted] = useState(false);
+  const [generationBusy, setGenerationBusy] = useState(false);
   const {
     editorSession,
     operation,
@@ -427,6 +451,16 @@ export function App() {
   const operationPending = operation !== null;
   const readPending = operation?.kind === "read";
 
+  const invalidateGenerationAuthority = useCallback((): void => {
+    generationAuthorityRef.current += 1;
+    setGenerationAuthority(generationAuthorityRef.current);
+    setActiveGeneration(null);
+    setGenerationMessage(null);
+    setMakeAnotherExhausted(false);
+    generationActionRef.current = false;
+    setGenerationBusy(false);
+  }, []);
+
   const beginProfileOperation = useCallback(
     (kind: ProfileOperation["kind"]): ProfileOperation | undefined => {
       if (operationRef.current !== null) {
@@ -437,10 +471,11 @@ export function App() {
         kind,
       } satisfies ProfileOperation;
       operationRef.current = nextOperation;
+      invalidateGenerationAuthority();
       dispatchProfile({ type: "begin-operation", operation: nextOperation });
       return nextOperation;
     },
-    [],
+    [invalidateGenerationAuthority],
   );
 
   const finishFailedOperation = useCallback(
@@ -688,16 +723,131 @@ export function App() {
     }
   }
 
+  function clearGeneration(): void {
+    if (generationActionRef.current) {
+      return;
+    }
+    setActiveGeneration(null);
+    setGenerationMessage(null);
+    setMakeAnotherExhausted(false);
+  }
+
+  function generateWorksheet(
+    selection: GenerationSelection,
+    renderedAuthority: number,
+  ): void {
+    if (
+      generationActionRef.current ||
+      renderedAuthority !== generationAuthorityRef.current ||
+      profileState.kind !== "ready" ||
+      operationRef.current !== null
+    ) {
+      return;
+    }
+    const currentProfile = profileState.config.profiles.find(
+      (profile) => profile.id === selection.profile.id,
+    );
+    if (currentProfile === undefined) {
+      setGenerationMessage(
+        "That profile changed before generation began. Reload the saved profiles and try again.",
+      );
+      return;
+    }
+
+    generationActionRef.current = true;
+    setGenerationBusy(true);
+    try {
+      const currentSelection = { ...selection, profile: currentProfile };
+      const generated = createInitialWorksheetSession(currentSelection);
+      if (!generated.ok) {
+        setActiveGeneration(null);
+        setGenerationMessage(generated.message);
+        setMakeAnotherExhausted(false);
+        return;
+      }
+      setActiveGeneration({
+        authority: renderedAuthority,
+        selection: currentSelection,
+        session: generated.session,
+      });
+      setGenerationMessage(
+        `Worksheet ready with ${generated.session.document.items.length} unique problems.`,
+      );
+      setMakeAnotherExhausted(false);
+    } finally {
+      generationActionRef.current = false;
+      setGenerationBusy(false);
+    }
+  }
+
+  function makeAnotherWorksheet(): void {
+    if (
+      generationActionRef.current ||
+      activeGeneration === null ||
+      makeAnotherExhausted ||
+      profileState.kind !== "ready" ||
+      operationRef.current !== null ||
+      activeGeneration.authority !== generationAuthorityRef.current
+    ) {
+      return;
+    }
+    const currentProfile = profileState.config.profiles.find(
+      (profile) => profile.id === activeGeneration.selection.profile.id,
+    );
+    if (currentProfile === undefined) {
+      clearGeneration();
+      setGenerationMessage(
+        "That profile is no longer available. Choose a saved profile again.",
+      );
+      return;
+    }
+
+    generationActionRef.current = true;
+    setGenerationBusy(true);
+    try {
+      const currentSelection = {
+        ...activeGeneration.selection,
+        profile: currentProfile,
+      };
+      const alternative = makeAnotherWorksheetSession(
+        activeGeneration.session,
+        currentSelection,
+      );
+      if (alternative.status === "changed") {
+        setActiveGeneration({
+          authority: activeGeneration.authority,
+          selection: currentSelection,
+          session: alternative.session,
+        });
+        setGenerationMessage("A different worksheet is ready.");
+        setMakeAnotherExhausted(false);
+      } else {
+        setGenerationMessage(alternative.message);
+        setMakeAnotherExhausted(alternative.status === "exhausted");
+      }
+    } finally {
+      generationActionRef.current = false;
+      setGenerationBusy(false);
+    }
+  }
+
   const showEditor = editorSession !== undefined;
   const profileConfig =
     profileState.kind === "ready" || profileState.kind === "recovery"
       ? profileState.config
       : undefined;
+  const renderedGenerationAuthority = generationAuthority;
+  const visibleActiveGeneration =
+    activeGeneration !== null &&
+    profileState.kind === "ready" &&
+    activeGeneration.authority === renderedGenerationAuthority
+      ? activeGeneration
+      : null;
 
   return (
     <main className="app-shell" style={shellStyle}>
       <section aria-labelledby="welcome-title" className="welcome-card" style={cardStyle}>
-        <header style={{ display: "grid", gap: "0.8rem", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))", marginBottom: "1rem" }}>
+        <header className="print-controls" style={{ display: "grid", gap: "0.8rem", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))", marginBottom: "1rem" }}>
           <div>
             <p style={{ color: "#a14d2c", fontSize: "0.78rem", fontWeight: 750, letterSpacing: "0.12em", margin: "0 0 0.4rem", textTransform: "uppercase" }}>
               Parent setup · local worksheet maker
@@ -782,7 +932,11 @@ export function App() {
 
         {health.kind === "ready" && profileConfig !== undefined && (
           <>
-            {successMessage !== null && <p role="status">{successMessage}</p>}
+            {successMessage !== null && (
+              <p className="print-controls" role="status">
+                {successMessage}
+              </p>
+            )}
             {showEditor ? (
               <ProfileEditor
                 key={editorSession?.profile?.id ?? "new-profile"}
@@ -809,59 +963,106 @@ export function App() {
               />
             ) : (
               <>
-                <ProfileList
-                  key={`profiles-${
-                    profileState.kind === "ready" || profileState.kind === "recovery"
-                      ? profileState.revision
-                      : "unavailable"
-                  }`}
-                  disabled={operationPending}
-                  onAdd={() => {
-                    if (operationRef.current !== null || profileState.kind !== "ready") {
-                      return;
-                    }
-                    dispatchProfile({
-                      type: "open-editor",
-                      session: {
-                        ...(profileState.etag === undefined ? {} : { etag: profileState.etag }),
-                        profile: null,
-                        revision: profileState.revision,
-                      },
-                    });
-                  }}
-                  onDelete={deleteProfile}
-                  onEdit={(profile) => {
-                    if (operationRef.current !== null || profileState.kind !== "ready") {
-                      return;
-                    }
-                    dispatchProfile({
-                      type: "open-editor",
-                      session: {
-                        ...(profileState.etag === undefined ? {} : { etag: profileState.etag }),
-                        profile,
-                        revision: profileState.revision,
-                      },
-                    });
-                  }}
-                  profiles={profileConfig.profiles}
-                />
-                <div style={{ borderTop: "1px solid #dbe1e8", marginTop: "1rem", paddingTop: "0.8rem" }}>
-                  <button
+                <div className="profile-workspace">
+                  <ProfileList
+                    key={`profiles-${
+                      profileState.kind === "ready" || profileState.kind === "recovery"
+                        ? profileState.revision
+                        : "unavailable"
+                    }`}
                     disabled={operationPending}
-                    onClick={() => {
-                      if (operationRef.current === null) {
-                        void reloadProfiles();
+                    onAdd={() => {
+                      if (operationRef.current !== null || profileState.kind !== "ready") {
+                        return;
                       }
+                      invalidateGenerationAuthority();
+                      dispatchProfile({
+                        type: "open-editor",
+                        session: {
+                          ...(profileState.etag === undefined ? {} : { etag: profileState.etag }),
+                          profile: null,
+                          revision: profileState.revision,
+                        },
+                      });
                     }}
-                    type="button"
-                  >
-                    {readPending
-                      ? "Reloading saved profiles…"
-                      : operationPending
-                        ? "Saving profile changes…"
-                        : "Reload saved profiles"}
-                  </button>
+                    onDelete={deleteProfile}
+                    onEdit={(profile) => {
+                      if (operationRef.current !== null || profileState.kind !== "ready") {
+                        return;
+                      }
+                      invalidateGenerationAuthority();
+                      dispatchProfile({
+                        type: "open-editor",
+                        session: {
+                          ...(profileState.etag === undefined ? {} : { etag: profileState.etag }),
+                          profile,
+                          revision: profileState.revision,
+                        },
+                      });
+                    }}
+                    profiles={profileConfig.profiles}
+                  />
+                  <div style={{ borderTop: "1px solid #dbe1e8", marginTop: "1rem", paddingTop: "0.8rem" }}>
+                    <button
+                      disabled={operationPending}
+                      onClick={() => {
+                        if (operationRef.current === null) {
+                          void reloadProfiles();
+                        }
+                      }}
+                      type="button"
+                    >
+                      {readPending
+                        ? "Reloading saved profiles…"
+                        : operationPending
+                          ? "Saving profile changes…"
+                          : "Reload saved profiles"}
+                    </button>
+                  </div>
+                  {profileState.kind === "ready" && (
+                    <GeneratorControls
+                      key={`generator-${profileState.revision}`}
+                      defaults={profileState.config.defaults}
+                      disabled={operationPending || generationBusy}
+                      onGenerate={(selection) =>
+                        generateWorksheet(selection, renderedGenerationAuthority)
+                      }
+                      onInputsChanged={clearGeneration}
+                      profiles={profileState.config.profiles}
+                    />
+                  )}
+                  {generationMessage !== null && (
+                    <p
+                      aria-live="polite"
+                      id={makeAnotherExhausted ? "make-another-status" : undefined}
+                      role="status"
+                    >
+                      {generationMessage}
+                    </p>
+                  )}
+                  {visibleActiveGeneration !== null && (
+                    <button
+                      aria-describedby={
+                        makeAnotherExhausted ? "make-another-status" : undefined
+                      }
+                      disabled={
+                        generationBusy ||
+                        operationPending ||
+                        makeAnotherExhausted
+                      }
+                      onClick={makeAnotherWorksheet}
+                      type="button"
+                    >
+                      Make another
+                    </button>
+                  )}
                 </div>
+                {visibleActiveGeneration !== null && (
+                  <PrintView
+                    key={visibleActiveGeneration.session.document.worksheetId}
+                    document={visibleActiveGeneration.session.document}
+                  />
+                )}
               </>
             )}
           </>
