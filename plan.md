@@ -528,7 +528,7 @@ npm --prefix frontend run security
 |---|---|
 | `dev` | Run `dev:web` and `dev:server` together with fail-fast process cleanup. |
 | `dev:web` | Start Vite on `127.0.0.1:4311` with strict port and `/api` proxy to 4310. |
-| `dev:server` | Run `tsx watch src/server/index.ts` on `127.0.0.1:4310`. |
+| `dev:server` | Run `tsx watch src/server/dev.ts` on `127.0.0.1:4310`. |
 | `build` | Clean `dist` once with `rimraf`, typecheck all three targets, run Vite with repository-resolved absolute root `frontend/src/web`, repository-resolved absolute outDir `frontend/dist/web` (computed from `vite.config.ts` via `fileURLToPath`/`path.resolve`), and `emptyOutDir: false`, then compile TypeScript with `rootDir: src` and `outDir: dist` so entries are `dist/server/app.js` and `dist/server/index.js`. |
 | `start` | Run compiled `dist/server/index.js`; no `vite preview` production shortcut. |
 | `lint` | Run `eslint . --max-warnings 0`. |
