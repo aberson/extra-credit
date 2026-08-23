@@ -6,9 +6,14 @@ import type {
   GenerationDefaultsV1,
 } from "../../shared/config/schema";
 import {
-  getDryMathCapabilitySupport,
-  getDryMathItemCount,
-} from "../../worksheets/dry-math/definition";
+  REGISTERED_WORKSHEET_IDS,
+  getWorksheetRegistration,
+  type RegisteredWorksheetType,
+  type WorksheetApplicableControlsV1,
+  type WorksheetCapabilitySupportV1,
+  type WorksheetControlContextV1,
+  type WorksheetRegistrationV1,
+} from "../../shared/worksheet/registry";
 import type { GenerationSelection } from "./create-session";
 
 interface GeneratorControlsProps {
@@ -19,15 +24,37 @@ interface GeneratorControlsProps {
   readonly profiles: readonly ChildProfileV1[];
 }
 
+interface RelevantLimit {
+  readonly label: string;
+  readonly value: number;
+}
+
+const NO_APPLICABLE_CONTROLS: WorksheetApplicableControlsV1 = {
+  useDisplayName: false,
+  useInterests: false,
+  includeDecorativeGraphics: false,
+  difficulty: false,
+  length: false,
+  includeAnswerKey: false,
+  paperSize: false,
+  printScale: false,
+};
+
+const WORKSHEET_OPTIONS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
+  id: worksheetId,
+  label: getWorksheetRegistration(worksheetId).displayName,
+}));
+
 function profileLabel(profile: ChildProfileV1, index: number): string {
   return `Profile ${index + 1} · ${profile.displayName ?? "No nickname"} · age ${profile.ageYears}`;
 }
 
-function dryMathAvailability(profile: ChildProfileV1 | undefined): {
-  readonly available: boolean;
-  readonly message?: string;
-} {
-  if (profile === undefined) {
+function worksheetAvailability(
+  profile: ChildProfileV1 | undefined,
+  registration: WorksheetRegistrationV1,
+  context: WorksheetControlContextV1 | undefined,
+): WorksheetCapabilitySupportV1 {
+  if (profile === undefined || context === undefined) {
     return {
       available: false,
       message: "Add and save a profile before creating a worksheet.",
@@ -41,18 +68,32 @@ function dryMathAvailability(profile: ChildProfileV1 | undefined): {
         "Version 1 worksheets support ages 4–8. This profile remains saved for a future skill pack.",
     };
   }
-  const capability = getDryMathCapabilitySupport(profile.mathSkills);
-  return capability.available
-    ? capability
-    : { available: false, message: capability.reason };
+  return registration.controls.getCapabilitySupport(context);
 }
 
-function limitsAlreadyAtV1Maximum(profile: ChildProfileV1 | undefined): boolean {
-  return (
-    profile !== undefined &&
-    profile.mathSkills.operandMax >= 20 &&
-    profile.mathSkills.resultMax >= 20
-  );
+function relevantLimits(
+  registration: WorksheetRegistrationV1,
+  context: WorksheetControlContextV1 | undefined,
+): readonly RelevantLimit[] {
+  if (context === undefined) {
+    return [];
+  }
+  return registration.controls
+    .getRelevantMaximums(context)
+    .map(({ key, label }) => ({
+      label,
+      value: context.profile.mathSkills[key],
+    }))
+    .filter(({ value }) => value > 0);
+}
+
+/**
+ * Mirrors the projection boundary's own stretch downgrade: an empty
+ * relevant-limit list and an all-at-20 list both fall back to practice, so the
+ * parent is never asked to confirm a stretch that cannot change the sheet.
+ */
+function stretchCannotApply(limits: readonly RelevantLimit[]): boolean {
+  return limits.length === 0 || limits.every(({ value }) => value >= 20);
 }
 
 function stretchLimit(value: number): readonly [number, number] {
@@ -68,7 +109,13 @@ export function GeneratorControls({
   profiles,
 }: GeneratorControlsProps) {
   const [profileId, setProfileId] = useState(profiles[0]?.id ?? "");
+  const [worksheetType, setWorksheetType] =
+    useState<RegisteredWorksheetType>("dry-math");
   const [useDisplayName, setUseDisplayName] = useState(defaults.useDisplayName);
+  const [useInterests, setUseInterests] = useState(defaults.useInterests);
+  const [includeDecorativeGraphics, setIncludeDecorativeGraphics] = useState(
+    defaults.includeDecorativeGraphics,
+  );
   const [difficulty, setDifficulty] = useState(defaults.difficulty);
   const [length, setLength] = useState(defaults.length);
   const [includeAnswerKey, setIncludeAnswerKey] = useState(
@@ -82,34 +129,95 @@ export function GeneratorControls({
     () => profiles.find((profile) => profile.id === profileId),
     [profileId, profiles],
   );
-  const availability = dryMathAvailability(selectedProfile);
-  const alreadyAtMaximum = limitsAlreadyAtV1Maximum(selectedProfile);
+  const selectedRegistration = getWorksheetRegistration(worksheetType);
+  // The requested difficulty is used here on purpose: only "confidence" can
+  // change which maxima a family reads, and the stretch downgrade below never
+  // produces "confidence", so this stays free of a circular dependency.
+  const requestedContext: WorksheetControlContextV1 | undefined =
+    selectedProfile === undefined
+      ? undefined
+      : { profile: selectedProfile, difficulty, length, printScale };
+  const limits = relevantLimits(selectedRegistration, requestedContext);
+  const stretchUnavailable = stretchCannotApply(limits);
   const effectiveDifficulty =
-    difficulty === "stretch" && alreadyAtMaximum ? "practice" : difficulty;
+    difficulty === "stretch" && stretchUnavailable ? "practice" : difficulty;
+  const controlContext: WorksheetControlContextV1 | undefined =
+    selectedProfile === undefined
+      ? undefined
+      : {
+          profile: selectedProfile,
+          difficulty: effectiveDifficulty,
+          length,
+          printScale,
+        };
+  const availability = worksheetAvailability(
+    selectedProfile,
+    selectedRegistration,
+    controlContext,
+  );
+  const applicableControls =
+    controlContext === undefined
+      ? NO_APPLICABLE_CONTROLS
+      : selectedRegistration.controls.getApplicableControls(controlContext);
+  const effectiveUnit =
+    controlContext === undefined
+      ? undefined
+      : selectedRegistration.controls.getEffectiveUnit(controlContext);
+  const unitLabel =
+    effectiveUnit?.count === 1
+      ? effectiveUnit.singularLabel
+      : effectiveUnit?.pluralLabel;
+  const limitsAboveV1 = limits.filter(({ value }) => value > 20);
+  const hasMoreOptions =
+    applicableControls.difficulty ||
+    applicableControls.length ||
+    applicableControls.includeAnswerKey ||
+    applicableControls.paperSize ||
+    applicableControls.printScale;
 
   function changed(change: () => void): void {
     change();
     onInputsChanged();
   }
 
+  function effectiveUnitForLength(
+    nextLength: GenerationDefaultsV1["length"],
+  ): number | undefined {
+    return controlContext === undefined
+      ? undefined
+      : selectedRegistration.controls.getEffectiveUnit({
+          ...controlContext,
+          length: nextLength,
+        }).count;
+  }
+
   function submit(): void {
-    if (selectedProfile === undefined || !availability.available || disabled) {
+    if (
+      selectedProfile === undefined ||
+      controlContext === undefined ||
+      !availability.available ||
+      disabled
+    ) {
       return;
     }
-    onGenerate({
-      profile: selectedProfile,
-      worksheetType: "dry-math",
-      stretchConfirmed,
-      preferences: {
+    const preferences = selectedRegistration.controls.projectPreferences(
+      controlContext,
+      {
         useDisplayName,
-        useInterests: false,
-        includeDecorativeGraphics: false,
+        useInterests,
+        includeDecorativeGraphics,
         difficulty: effectiveDifficulty,
         length,
         includeAnswerKey,
         paperSize,
         printScale,
       },
+    );
+    onGenerate({
+      profile: selectedProfile,
+      worksheetType,
+      stretchConfirmed: applicableControls.difficulty && stretchConfirmed,
+      preferences,
     });
   }
 
@@ -145,178 +253,268 @@ export function GeneratorControls({
 
         <label>
           Worksheet type
-          <select aria-label="Worksheet type" disabled value="dry-math">
-            <option value="dry-math">Dry Math</option>
+          <select
+            aria-label="Worksheet type"
+            disabled={disabled}
+            onChange={(event) =>
+              changed(() => {
+                setWorksheetType(
+                  event.currentTarget.value as RegisteredWorksheetType,
+                );
+                setStretchConfirmed(false);
+              })
+            }
+            value={worksheetType}
+          >
+            {WORKSHEET_OPTIONS.map(({ id, label }) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
           </select>
         </label>
 
-        {!availability.available && availability.message !== undefined && (
+        {!availability.available && (
           <p aria-live="polite" style={{ background: "#fff5e8", padding: "0.75rem" }}>
             {availability.message}
           </p>
         )}
 
-        {selectedProfile?.displayName !== undefined && (
-          <label>
-            <input
-              checked={useDisplayName}
-              disabled={disabled}
-              onChange={(event) =>
-                changed(() => setUseDisplayName(event.currentTarget.checked))
-              }
-              type="checkbox"
-            />{" "}
-            Put the nickname in the worksheet header
-          </label>
+        {availability.available && availability.statusMessage !== undefined && (
+          <p aria-live="polite">{availability.statusMessage}</p>
         )}
 
-        {selectedProfile !== undefined &&
-          (selectedProfile.mathSkills.operandMax > 20 ||
-            selectedProfile.mathSkills.resultMax > 20) && (
-            <p>
-              Stored operation limits reach {selectedProfile.mathSkills.operandMax}
-              /{selectedProfile.mathSkills.resultMax}; Version 1 uses at most 20.
-            </p>
-          )}
-
-        <details>
-          <summary>More options</summary>
-          <div style={{ display: "grid", gap: "0.75rem", padding: "0.75rem 0" }}>
-            <label>
-              Difficulty
-              <select
-                aria-label="Difficulty"
-                disabled={disabled}
-                onChange={(event) =>
-                  changed(() => {
-                    setDifficulty(
-                      event.currentTarget.value as GenerationDefaultsV1["difficulty"],
-                    );
-                    setStretchConfirmed(false);
-                  })
-                }
-                value={difficulty}
-              >
-                <option value="confidence">Confidence</option>
-                <option value="practice">Practice</option>
-                <option disabled={alreadyAtMaximum} value="stretch">
-                  Stretch
-                </option>
-              </select>
-            </label>
-            {difficulty === "stretch" && alreadyAtMaximum && (
-              <p role="status">Already at the V1 maximum; practice limits will be used.</p>
-            )}
-            {difficulty === "stretch" && !alreadyAtMaximum && (
-              <>
-                {selectedProfile !== undefined && (
-                  <p>
-                    One-time stretch preview: operands{" "}
-                    {stretchLimit(selectedProfile.mathSkills.operandMax).join(" → ")};
-                    results{" "}
-                    {stretchLimit(selectedProfile.mathSkills.resultMax).join(" → ")}.
-                  </p>
-                )}
-                <label>
-                  <input
-                    checked={stretchConfirmed}
-                    disabled={disabled}
-                    onChange={(event) =>
-                      changed(() => setStretchConfirmed(event.currentTarget.checked))
-                    }
-                    type="checkbox"
-                  />{" "}
-                  Confirm these one-time stretch limits
-                </label>
-              </>
-            )}
-            <label>
-              Length
-              <select
-                aria-label="Length"
-                disabled={disabled}
-                onChange={(event) =>
-                  changed(() =>
-                    setLength(
-                      event.currentTarget.value as GenerationDefaultsV1["length"],
-                    ),
-                  )
-                }
-                value={length}
-              >
-                <option value="short">
-                  Short · {getDryMathItemCount("short", printScale)} problems
-                </option>
-                <option value="standard">
-                  Standard · {getDryMathItemCount("standard", printScale)} problems
-                </option>
-                <option value="long">
-                  Long · {getDryMathItemCount("long", printScale)} problems
-                </option>
-              </select>
-            </label>
+        {applicableControls.useDisplayName &&
+          selectedProfile?.displayName !== undefined && (
             <label>
               <input
-                checked={includeAnswerKey}
+                checked={useDisplayName}
                 disabled={disabled}
                 onChange={(event) =>
-                  changed(() => setIncludeAnswerKey(event.currentTarget.checked))
+                  changed(() => setUseDisplayName(event.currentTarget.checked))
                 }
                 type="checkbox"
               />{" "}
-              Include a parent answer key
+              Put the nickname in the worksheet header
             </label>
-            <label>
-              Paper size
-              <select
-                aria-label="Paper size"
-                disabled={disabled}
-                onChange={(event) =>
-                  changed(() =>
-                    setPaperSize(
-                      event.currentTarget.value as GenerationDefaultsV1["paperSize"],
-                    ),
-                  )
-                }
-                value={paperSize}
-              >
-                <option value="letter">US Letter</option>
-                <option value="a4">A4</option>
-              </select>
-            </label>
-            <label>
-              Print scale
-              <select
-                aria-label="Print scale"
-                disabled={disabled}
-                onChange={(event) =>
-                  changed(() =>
-                    setPrintScale(
-                      event.currentTarget.value as GenerationDefaultsV1["printScale"],
-                    ),
-                  )
-                }
-                value={printScale}
-              >
-                <option value="standard">Standard</option>
-                <option value="large">Large</option>
-              </select>
-            </label>
-          </div>
-        </details>
+          )}
 
-        {availability.available && (
-          <p aria-live="polite">
-            This selection creates {getDryMathItemCount(length, printScale)} unique
-            problems on one practice page.
+        {applicableControls.useInterests && (
+          <label>
+            <input
+              checked={useInterests}
+              disabled={disabled}
+              onChange={(event) =>
+                changed(() => setUseInterests(event.currentTarget.checked))
+              }
+              type="checkbox"
+            />{" "}
+            Use reviewed interests in worksheet content
+          </label>
+        )}
+
+        {applicableControls.includeDecorativeGraphics && (
+          <label>
+            <input
+              checked={includeDecorativeGraphics}
+              disabled={disabled}
+              onChange={(event) =>
+                changed(() =>
+                  setIncludeDecorativeGraphics(event.currentTarget.checked),
+                )
+              }
+              type="checkbox"
+            />{" "}
+            Include decorative graphics
+          </label>
+        )}
+
+        {limitsAboveV1.length > 0 && (
+          <p>
+            Stored limits reach{" "}
+            {limitsAboveV1
+              .map(({ label, value }) => `${label} ${value}`)
+              .join(", ")}
+            ; Version 1 uses at most 20.
           </p>
         )}
+
+        {hasMoreOptions && (
+          <details>
+            <summary>More options</summary>
+            <div style={{ display: "grid", gap: "0.75rem", padding: "0.75rem 0" }}>
+              {applicableControls.difficulty && (
+                <>
+                  <label>
+                    Difficulty
+                    <select
+                      aria-label="Difficulty"
+                      disabled={disabled}
+                      onChange={(event) =>
+                        changed(() => {
+                          setDifficulty(
+                            event.currentTarget
+                              .value as GenerationDefaultsV1["difficulty"],
+                          );
+                          setStretchConfirmed(false);
+                        })
+                      }
+                      value={difficulty}
+                    >
+                      <option value="confidence">Confidence</option>
+                      <option value="practice">Practice</option>
+                      <option disabled={stretchUnavailable} value="stretch">
+                        Stretch
+                      </option>
+                    </select>
+                  </label>
+                  {difficulty === "stretch" && stretchUnavailable && (
+                    <p role="status">
+                      {limits.length === 0
+                        ? "This worksheet has no stretchable limits for this profile; practice limits will be used."
+                        : "Already at the V1 maximum; practice limits will be used."}
+                    </p>
+                  )}
+                  {difficulty === "stretch" && !stretchUnavailable && (
+                    <>
+                      {limits.length > 0 && (
+                        <p>
+                          One-time stretch preview:{" "}
+                          {limits
+                            .map(
+                              ({ label, value }) =>
+                                `${label} ${stretchLimit(value).join(" → ")}`,
+                            )
+                            .join("; ")}
+                          .
+                        </p>
+                      )}
+                      <label>
+                        <input
+                          checked={stretchConfirmed}
+                          disabled={disabled}
+                          onChange={(event) =>
+                            changed(() =>
+                              setStretchConfirmed(event.currentTarget.checked),
+                            )
+                          }
+                          type="checkbox"
+                        />{" "}
+                        Confirm these one-time stretch limits
+                      </label>
+                    </>
+                  )}
+                </>
+              )}
+
+              {applicableControls.length && (
+                <label>
+                  Length
+                  <select
+                    aria-label="Length"
+                    disabled={disabled}
+                    onChange={(event) =>
+                      changed(() =>
+                        setLength(
+                          event.currentTarget.value as GenerationDefaultsV1["length"],
+                        ),
+                      )
+                    }
+                    value={length}
+                  >
+                    <option value="short">
+                      Short · {effectiveUnitForLength("short")} {unitLabel}
+                    </option>
+                    <option value="standard">
+                      Standard · {effectiveUnitForLength("standard")} {unitLabel}
+                    </option>
+                    <option value="long">
+                      Long · {effectiveUnitForLength("long")} {unitLabel}
+                    </option>
+                  </select>
+                </label>
+              )}
+
+              {applicableControls.includeAnswerKey && (
+                <label>
+                  <input
+                    checked={includeAnswerKey}
+                    disabled={disabled}
+                    onChange={(event) =>
+                      changed(() =>
+                        setIncludeAnswerKey(event.currentTarget.checked),
+                      )
+                    }
+                    type="checkbox"
+                  />{" "}
+                  Include a parent answer key
+                </label>
+              )}
+
+              {applicableControls.paperSize && (
+                <label>
+                  Paper size
+                  <select
+                    aria-label="Paper size"
+                    disabled={disabled}
+                    onChange={(event) =>
+                      changed(() =>
+                        setPaperSize(
+                          event.currentTarget
+                            .value as GenerationDefaultsV1["paperSize"],
+                        ),
+                      )
+                    }
+                    value={paperSize}
+                  >
+                    <option value="letter">US Letter</option>
+                    <option value="a4">A4</option>
+                  </select>
+                </label>
+              )}
+
+              {applicableControls.printScale && (
+                <label>
+                  Print scale
+                  <select
+                    aria-label="Print scale"
+                    disabled={disabled}
+                    onChange={(event) =>
+                      changed(() =>
+                        setPrintScale(
+                          event.currentTarget
+                            .value as GenerationDefaultsV1["printScale"],
+                        ),
+                      )
+                    }
+                    value={printScale}
+                  >
+                    <option value="standard">Standard</option>
+                    <option value="large">Large</option>
+                  </select>
+                </label>
+              )}
+            </div>
+          </details>
+        )}
+
+        {availability.available &&
+          effectiveUnit !== undefined &&
+          unitLabel !== undefined && (
+            <p aria-live="polite">
+              This selection creates {effectiveUnit.count} unique {unitLabel} on
+              one practice page.
+            </p>
+          )}
 
         <button
           disabled={
             disabled ||
             !availability.available ||
-            (difficulty === "stretch" && !alreadyAtMaximum && !stretchConfirmed)
+            (applicableControls.difficulty &&
+              difficulty === "stretch" &&
+              !stretchUnavailable &&
+              !stretchConfirmed)
           }
           onClick={submit}
           type="button"
