@@ -68,7 +68,7 @@ V1 activity IDs are `dry-math`, `find-the-wow`, `sentence-builder`, and `count-c
 
 ## Current state
 
-The plan decisions are operator-confirmed; no application code or nested Git repository exists yet. `plan.md` remains the canonical implementation plan, `documentation/extra-credit-proposal.html` is its confirmed revision-2 review surface, and the privacy-critical root `.gitignore` plus canonical MIT `LICENSE` are pre-created. The public repository name `extra-credit` is selected; confirm the target GitHub account immediately before `/repo-init`. Then follow Section 11 exactly: bootstrap the project-local task-handoff helper/schema, run `/repo-init` once, backfill every issue field, and run `/plan-expedite` before implementation.
+The plan decisions are operator-confirmed and no application code exists yet. The independent nested repository is public at `https://github.com/aberson/extra-credit`; its README and thirteen build issues are published, every plan issue field is mapped, and the project-local task-handoff helper/schema are tracked. `plan.md` remains the canonical implementation plan, `documentation/extra-credit-proposal.html` is its confirmed revision-2 review surface, and the privacy-critical root `.gitignore` plus canonical MIT `LICENSE` are in place. Run `/plan-expedite --plan plan.md` next, then begin implementation only after that preparation gate succeeds.
 
 ## Environment requirements
 
