@@ -588,7 +588,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Let a parent manage reusable child profiles through the browser setup flow.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** DONE (2026-08-23)
 - **Issue:** #3
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
