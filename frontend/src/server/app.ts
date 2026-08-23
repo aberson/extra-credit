@@ -6,7 +6,21 @@ import fastifyHelmet from "@fastify/helmet";
 import fastifyStatic from "@fastify/static";
 import Fastify, { type FastifyInstance } from "fastify";
 
+import {
+  ConfigStore,
+  type ConfigStoreDependencies,
+} from "./config-store.js";
+import { configRoutes } from "./routes/config.js";
 import { healthRoutes } from "./routes/health.js";
+import { sessionRoutes } from "./routes/session.js";
+import {
+  registerSecurityBoundary,
+  type SecurityMode,
+} from "./security.js";
+import {
+  ajvFieldErrors,
+  apiError,
+} from "./transport-schemas.js";
 
 export interface BuildAppOptions {
   /** Retained for the fixed-path config store introduced in Step 2. */
@@ -15,9 +29,13 @@ export interface BuildAppOptions {
   securityMode: SecurityMode;
   /** Omit only when Vite owns the web UI during source development. */
   staticRoot?: string;
+  /** Fault adapters are accepted only by direct in-repository tests. */
+  configStoreDependencies?: ConfigStoreDependencies;
+  /** Direct test seam; production always uses cryptographic randomness. */
+  sessionRandomBytes?: (size: number) => Buffer;
 }
 
-export type SecurityMode = "ephemeral-test" | "fixed";
+export type { SecurityMode } from "./security.js";
 
 export const BOOTSTRAP_CONTEXT_ERROR_CODE =
   "EXTRA_CREDIT_BOOTSTRAP_CONTEXT_ERROR";
@@ -118,9 +136,32 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
   });
   bootstrapContexts.set(app, bootstrapContext);
 
+  const security = registerSecurityBoundary(app, {
+    allowDevelopmentOrigin: options.staticRoot === undefined,
+    mode: bootstrapContext.securityMode,
+    ...(options.sessionRandomBytes === undefined
+      ? {}
+      : { randomBytes: options.sessionRandomBytes }),
+  });
+  const configStore = new ConfigStore(
+    bootstrapContext.configPath,
+    options.configStoreDependencies,
+  );
+
   app.addHook("onSend", async (request, reply, payload) => {
     if (request.url.startsWith("/api/")) {
       reply.header("Cache-Control", "no-store");
+      reply.header(
+        "Content-Security-Policy",
+        "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+      );
+      reply.header("Cross-Origin-Opener-Policy", "same-origin");
+      reply.header("Cross-Origin-Resource-Policy", "same-origin");
+      reply.header("Origin-Agent-Cluster", "?1");
+      reply.header("Referrer-Policy", "no-referrer");
+      reply.header("X-Content-Type-Options", "nosniff");
+      reply.header("X-Frame-Options", "DENY");
+      reply.removeHeader("Strict-Transport-Security");
     }
 
     return payload;
@@ -142,7 +183,57 @@ export function buildApp(options: BuildAppOptions): FastifyInstance {
     referrerPolicy: { policy: "no-referrer" },
   });
 
+  app.setErrorHandler(async (error, request, reply) => {
+    if (!request.url.startsWith("/api/")) {
+      await reply.code(500).send("Internal Server Error");
+      return;
+    }
+
+    const errorRecord =
+      typeof error === "object" && error !== null
+        ? (error as {
+            readonly code?: unknown;
+            readonly validation?: unknown;
+          })
+        : {};
+
+    if (Array.isArray(errorRecord.validation)) {
+      await reply
+        .code(422)
+        .send(
+          apiError(
+            "VALIDATION_FAILED",
+            ajvFieldErrors(errorRecord.validation),
+          ),
+        );
+      return;
+    }
+
+    if (errorRecord.code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+      await reply.code(413).send(apiError("BODY_TOO_LARGE"));
+      return;
+    }
+    if (
+      errorRecord.code === "FST_ERR_CTP_INVALID_JSON_BODY" ||
+      errorRecord.code === "FST_ERR_CTP_EMPTY_JSON_BODY"
+    ) {
+      await reply.code(400).send(apiError("INVALID_JSON"));
+      return;
+    }
+    if (errorRecord.code === "FST_ERR_CTP_INVALID_MEDIA_TYPE") {
+      await reply.code(415).send(apiError("CONTENT_TYPE_REQUIRED"));
+      return;
+    }
+
+    await reply.code(503).send(apiError("CONFIG_IO_ERROR"));
+  });
+
   void app.register(healthRoutes, { version: readPackageVersion() });
+  void app.register(sessionRoutes, { token: security.sessionToken });
+  void app.register(configRoutes, {
+    requireSessionToken: security.requireSessionToken,
+    store: configStore,
+  });
 
   if (options.staticRoot !== undefined) {
     void app.register(fastifyStatic, {

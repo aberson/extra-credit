@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible problem using fictional, child-data-free details.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Extra Credit.
+
+        **Privacy warning:** Do not post child data, a real profile or recovery backup, a named worksheet, screenshots containing names, session tokens, secrets, credentials, or private filesystem paths. Reproduce the issue with fictional data and generic filenames. Report security vulnerabilities privately through the link in SECURITY.md, not here.
+  - type: checkboxes
+    id: privacy_check
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed child data, profiles, named sheets, secrets, tokens, and private paths from this report and its attachments.
+          required: true
+        - label: This is not a security vulnerability that should be reported privately.
+          required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem with fictional values only.
+      placeholder: A fictional profile produced...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: List the smallest safe sequence that reproduces the problem.
+      placeholder: |
+        1. Start the app with the documented command.
+        2. Use a fictional profile.
+        3. Observe the safe error code or behavior.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Node version, and browser version. Do not include usernames or paths.
+      placeholder: Windows 11, Node 24.14.0, Edge current
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true

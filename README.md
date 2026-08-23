@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Project status:** Runnable application foundation. The local Fastify server, React health shell, build pipeline, and automated foundation gates are available; profile setup and worksheet generation remain on the confirmed roadmap in [plan.md](plan.md).
+> **Project status:** Secure profile-config round trip. The local API now validates, creates, reads, updates, and explicitly recovers the fixed profile file with strong ETags; the parent-facing profile editor and worksheet generation remain on the confirmed roadmap in [plan.md](plan.md).
 
 ## Planned V1 worksheets
 
@@ -21,14 +21,28 @@ Profiles may be stored for ages 4–18. Worksheet generation is enabled only for
 
 The code is public, but family data stays local:
 
-- The only durable user-data file is the gitignored `config/children.local.json`.
+- The only live durable user-data store is the gitignored `config/children.local.json`; explicit recovery can also leave residual backup copies described below.
 - The browser will not store child data in local storage, session storage, IndexedDB, the Cache API, or service workers.
 - V1 has no login, cloud sync, analytics, advertising, API keys, or runtime AI.
 - The application binds only to `127.0.0.1`: port `4310` for the built app/API and port `4311` for Vite development.
 - Loopback prevents access from network peers, but it is **not** an operating-system account boundary. While the server is running, another local process or user able to reach port `4310` can use its unauthenticated API. Never forward these ports, and stop the server after use on shared or untrusted computers.
 - Deleting a live profile does not remove earlier backups, browser downloads, saved PDFs, screenshots, or printed copies; those must be cleaned up separately.
 
-Use nicknames rather than legal names, and do not enter school, teacher, location, health, diagnosis, or behavioral information.
+When the server is stopped, normal filesystem permissions protect the plaintext file: new files request owner-only mode `0600` on POSIX systems, while Windows relies on the current account's access-control list. Those permissions do not protect the running API from another local process or OS user that can reach its loopback port. Use Extra Credit only in a trusted machine session, never forward ports `4310` or `4311`, and stop it after use—especially on a shared or untrusted computer.
+
+Use nicknames rather than legal names. Extra Credit does not ask for surnames, exact birthdates, schools, teachers, email addresses, locations, photos, voices, diagnoses, scores, or behavioral history. Nicknames and interest tags are still free text, so do not put any of those details there. The project makes no claim of legal compliance for child-facing online use; the browser experience is for a parent or other grown-up.
+
+The application runtime sends no profile or worksheet data to a cloud service. Dependency installation and the explicit `npm --prefix frontend run security` maintenance command can contact the npm registry; those are development operations, not profile-data transmission.
+
+## Profile file safety and recovery
+
+The server owns one fixed path, `config/children.local.json`; the HTTP API never accepts a filesystem path. It reads at most 64 KiB, rejects symbolic links and other non-regular targets, validates UTF-8/JSON/the complete versioned schema, and requires ETag preconditions so a stale browser tab cannot silently overwrite a newer save. Writes use flushed atomic replacement and normalized two-space JSON with a final newline.
+
+Extra Credit never automatically overwrites an invalid, newer-version, oversized, or unsafe target. A parent may explicitly choose **Back up invalid file and replace** only for a bounded regular file with invalid UTF-8, malformed JSON, or an invalid v1 schema. The server first creates a byte-identical exclusive sibling such as `children.local.json.invalid-YYYYMMDDTHHMMSSZ-1234abcd.bak`, flushes it, and only then replaces the live file. A newer schema version needs a future migration or manual intervention; oversized, symbolic-link, and non-regular targets must be moved or repaired manually. The unreadable raw file is never automatically downloaded into the browser.
+
+Real config files, temporary siblings, and recovery backups are ignored by git, but they remain local files. Deleting a profile rewrites only the live JSON file. It does not delete `.bak` siblings under `config/`, a manually downloaded `extra-credit-profile-backup.json`, saved worksheet PDFs/screenshots, or paper copies. Review and remove those separately from the repository's `config/` directory and from whatever download/PDF folders or physical storage you chose. Automatic backup discovery and deletion are outside v1.
+
+Keep any manual profile backup and browser-saved worksheet under the generic filenames offered by the app and save them outside this public repository. Those copies remain the parent's responsibility.
 
 ## Stack
 
@@ -87,9 +101,7 @@ Docker, a database, an account, an API key, and a cloud service are not required
 
 6. Stop both development processes with `Ctrl+C` when finished.
 
-The current foundation displays a live health check. A later profile step writes the sole
-durable family-data file at the canonical repository-relative path
-`config/children.local.json`; the foundation itself does not create it.
+The current browser shell displays a live health check. The secure config API creates the sole durable family-data file at `config/children.local.json` after a valid, preconditioned save; the parent-facing setup screen arrives in the next build step.
 
 For a production-style local run:
 
