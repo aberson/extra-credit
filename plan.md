@@ -602,7 +602,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Ship the first complete Dry Math worksheet from profile selection through paper output.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** DONE (2026-08-23)
 - **Issue:** #4
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
