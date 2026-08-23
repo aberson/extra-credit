@@ -18,3 +18,5 @@
 /.plan-expedite-state
 /.plan-expedite-state.*
 /.claude/task-state/
+/.ui-review-evidence/
+/.build-step/

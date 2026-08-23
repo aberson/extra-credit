@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.shared.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "allowImportingTsExtensions": true
+  },
+  "include": [
+    "scripts/**/*.ts",
+    "src/server/**/*.ts",
+    "src/shared/**/*.ts",
+    "src/worksheets/**/*.ts",
+    "tests/**/*.ts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ]
+}

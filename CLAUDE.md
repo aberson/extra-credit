@@ -31,11 +31,11 @@ npm --prefix frontend test
 npm --prefix frontend run lint
 npm --prefix frontend run typecheck
 npm --prefix frontend run test:e2e
-npm --prefix frontend run manual:print
 npm --prefix frontend run check
-npm --prefix frontend run release:verify
 npm --prefix frontend run security
 ```
+
+The `manual:print` command is planned for Step 10, and `release:verify` is planned for Step 13. Neither command is runnable until its owning step lands.
 
 Development uses `http://127.0.0.1:4311`; the built application uses `http://127.0.0.1:4310`. Dev-observatory reserves both ports for this project. Host and ports are fixed in v1—there are no production environment overrides. Tests derive one exact same-origin Host/Origin pair from the injected app's real ephemeral socket and temporary config path; no wildcard loopback port is accepted. A fixed-port conflict must exit nonzero. Inspect the live owner with `Get-NetTCPConnection` on Windows or `lsof` on macOS/Linux; workspace maintainers may separately check reservations from this repository with `uv run --project ..\dev-observatory observatory ports` when that sibling exists.
 
@@ -68,7 +68,7 @@ V1 activity IDs are `dry-math`, `find-the-wow`, `sentence-builder`, and `count-c
 
 ## Current state
 
-The plan decisions are operator-confirmed and no application code exists yet. The independent nested repository is public at `https://github.com/aberson/extra-credit`; its README and thirteen build issues are published, every plan issue field is mapped, and the project-local task-handoff helper/schema are tracked. `plan.md` remains the canonical implementation plan, `documentation/extra-credit-proposal.html` is its confirmed revision-2 review surface, and the privacy-critical root `.gitignore` plus canonical MIT `LICENSE` are in place. Run `/plan-expedite --plan plan.md` next, then begin implementation only after that preparation gate succeeds.
+The runnable application foundation is implemented: the single frontend package builds the Fastify server and React health shell, fixed development listeners are guarded, and the foundation CI/browser gates are available. The independent nested repository is public at `https://github.com/aberson/extra-credit`; its README and thirteen build issues are published, every plan issue field is mapped, and the project-local task-handoff helper/schema are tracked. `plan.md` remains the canonical implementation plan, `documentation/extra-credit-proposal.html` is its confirmed revision-2 review surface, and the privacy-critical root `.gitignore` plus canonical MIT `LICENSE` are in place. Continue implementation from the next pending plan step and its corresponding GitHub issue.
 
 ## Environment requirements
 

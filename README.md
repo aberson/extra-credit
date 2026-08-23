@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Project status:** Planning scaffold. The implementation, npm package, and runnable application have not been created yet. The confirmed build contract is in [plan.md](plan.md).
+> **Project status:** Runnable application foundation. The local Fastify server, React health shell, build pipeline, and automated foundation gates are available; profile setup and worksheet generation remain on the confirmed roadmap in [plan.md](plan.md).
 
 ## Planned V1 worksheets
 
@@ -30,7 +30,7 @@ The code is public, but family data stays local:
 
 Use nicknames rather than legal names, and do not enter school, teacher, location, health, diagnosis, or behavioral information.
 
-## Planned stack
+## Stack
 
 | Tool | Why |
 |---|---|
@@ -43,11 +43,11 @@ Use nicknames rather than legal names, and do not enter school, teacher, locatio
 | Semantic HTML and print CSS | One accessible source for preview, Letter/A4 output, and browser printing. |
 | Vitest and Playwright | Unit, integration, accessibility, browser-flow, and print-geometry coverage. |
 
-The project will use one npm package under `frontend/`. React and all React worksheet renderers stay under `frontend/src/web/`.
+The project uses one npm package under `frontend/`. React and all React worksheet renderers stay under `frontend/src/web/`.
 
 ## Prerequisites
 
-Once the application foundation is implemented, local development will require:
+Local development requires:
 
 - Git
 - Node.js `>=24.0 <25` and npm `>=11 <12`
@@ -56,9 +56,7 @@ Once the application foundation is implemented, local development will require:
 
 Docker, a database, an account, an API key, and a cloud service are not required.
 
-## Planned setup and development run
-
-These commands become available when the application-foundation build step lands:
+## Setup and development run
 
 1. Clone the repository and enter it:
 
@@ -89,7 +87,11 @@ These commands become available when the application-foundation build step lands
 
 6. Stop both development processes with `Ctrl+C` when finished.
 
-For the planned production-style local run:
+The current foundation displays a live health check. A later profile step writes the sole
+durable family-data file at the canonical repository-relative path
+`config/children.local.json`; the foundation itself does not create it.
+
+For a production-style local run:
 
 ```shell
 npm --prefix frontend run build
@@ -98,7 +100,7 @@ npm --prefix frontend start
 
 Then open `http://127.0.0.1:4310`.
 
-## Planned quality commands
+## Quality commands
 
 ```shell
 npm --prefix frontend run lint
@@ -107,10 +109,10 @@ npm --prefix frontend test
 npm --prefix frontend run test:e2e
 npm --prefix frontend run check
 npm --prefix frontend run security
-npm --prefix frontend run release:verify
 ```
 
 Tests will use fictional profiles and temporary config paths; they must never read or write a real family profile.
+The clean-room `release:verify` command arrives with the public-release step.
 
 ## Data and project structure
 
@@ -158,7 +160,7 @@ Later feature plans may add Mini Missions, shapes, measurement, language and sci
 
 ## Contributing
 
-The repository is currently at the planning stage. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
+The repository is in active implementation on top of its runnable application foundation. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
 
 Contributions must:
 
