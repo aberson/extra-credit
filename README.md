@@ -2,18 +2,18 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Project status:** Secure profile-config round trip. The local API now validates, creates, reads, updates, and explicitly recovers the fixed profile file with strong ETags; the parent-facing profile editor and worksheet generation remain on the confirmed roadmap in [plan.md](plan.md).
+> **Steps 1-7 complete** — issues #1-#7 closed. Parents can create local child profiles and generate, preview, and print three of the four V1 worksheet families with answer keys and reviewed decorative line art. 327 tests passing, 0 type errors, 0 lint violations. Step 8 (Count, Compare & Make) is next; see [plan.md](plan.md).
 
-## Planned V1 worksheets
+## V1 worksheets
 
-| Worksheet | What it provides |
-|---|---|
-| **Dry Math** | Numbers and symbols only, using parent-confirmed operations and limits. |
-| **Two Whats and a Wow** | Three distinct statements per group: exactly two false “whats” and one true “wow,” using equations or quantities as appropriate. |
-| **Sentence Builder** | Drawing, labeling, copying, sentence-frame, and independent-writing modes with reviewed word banks. |
-| **Count, Compare & Make** | An age-four-friendly mix of matching, comparing, completing, and drawing quantities. |
+| Worksheet | Status | What it provides |
+|---|---|---|
+| **Dry Math** | Shipped (Step 4) | Numbers and symbols only, using parent-confirmed operations and limits. |
+| **Two Whats and a Wow** | Shipped (Step 5) | Three distinct statements per group: exactly two false “whats” and one true “wow,” using equations or quantities as appropriate. |
+| **Sentence Builder** | Shipped (Step 6) | Drawing, labeling, copying, sentence-frame, and independent-writing modes with reviewed word banks. |
+| **Count, Compare & Make** | Planned (Step 8) | An age-four-friendly mix of matching, comparing, completing, and drawing quantities. |
 
-V1 will support Letter and A4 printing, black-and-white graphics, answer keys where applicable, and independent toggles for nickname, interests, and decorative graphics. Personalization may change headings, reviewed vocabulary, topics, or decoration; it never changes the learning target or mathematical answer.
+Answer keys, black-and-white line art, Letter and A4 selection, and independent toggles for nickname, interests, and decorative graphics all ship today; print and pagination hardening lands in Step 10. Personalization may change headings, reviewed vocabulary, topics, or decoration; it never changes the learning target or mathematical answer.
 
 Profiles may be stored for ages 4–18. Worksheet generation is enabled only for ages 4–8 in V1; profiles for ages 9–18 remain editable while later content packs are reviewed.
 
@@ -101,7 +101,7 @@ Docker, a database, an account, an API key, and a cloud service are not required
 
 6. Stop both development processes with `Ctrl+C` when finished.
 
-The current browser shell displays a live health check. The secure config API creates the sole durable family-data file at `config/children.local.json` after a valid, preconditioned save; the parent-facing setup screen arrives in the next build step.
+The browser shell carries the parent profile setup screen, the generator controls, the worksheet preview, and the print and answer-key views. The secure config API creates the sole durable family-data file at `config/children.local.json` after a valid, preconditioned save.
 
 For a production-style local run:
 
@@ -123,7 +123,7 @@ npm --prefix frontend run check
 npm --prefix frontend run security
 ```
 
-Tests will use fictional profiles and temporary config paths; they must never read or write a real family profile.
+Tests use fictional profiles and temporary config paths; they must never read or write a real family profile.
 The clean-room `release:verify` command arrives with the public-release step.
 
 ## Data and project structure
@@ -132,18 +132,24 @@ The clean-room `release:verify` command arrives with the public-release step.
 config/
   children.example.json       # committed fictional examples
   children.local.json         # real profiles; always gitignored
-documentation/                # educational basis and print protocol
+documentation/                # confirmed proposal and plan-review record
 frontend/
   src/server/                 # loopback API and static server
   src/shared/                 # schemas and worksheet contracts
   src/web/                    # React parent UI and print views
+  src/web/assets/line-art/    # reviewed monochrome SVGs and provenance manifest
   src/worksheets/             # platform-neutral generators
   tests/                      # integration and browser tests
+.github/                      # public issue guidance and CI
 plan.md                       # canonical implementation plan
+CONTRIBUTING.md               # contribution, asset, privacy, and quality rules
+ASSET_PROVENANCE.md           # ledger of every committed non-code asset
+PRIVACY.md                    # what stays local and what leaves the machine
+SECURITY.md                   # loopback boundary and reporting
 LICENSE                       # project MIT license
 ```
 
-A profile will contain an optional nickname, age, parent-confirmed presentation band, review date, explicit math capabilities, writing mode, and up to five broad interests. Age provides setup suggestions only; it does not determine grade, placement, readiness, or mastery. V1 stores no scores, completed worksheets, or inferred performance history.
+A profile contains an optional nickname, age, parent-confirmed presentation band, review date, explicit math capabilities, writing mode, and up to five broad interests. Age provides setup suggestions only; it does not determine grade, placement, readiness, or mastery. V1 stores no scores, completed worksheets, or inferred performance history.
 
 ## Key design decisions
 
@@ -158,12 +164,12 @@ A profile will contain an optional nickname, age, parent-confirmed presentation 
 
 ## Roadmap
 
-The confirmed V1 plan contains thirteen gated implementation steps covering:
+The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-7 are complete; Steps 8-13 remain.
 
-1. Application and continuous-integration foundation
-2. Secure local-profile storage and setup
-3. Four worksheet vertical slices
-4. Reviewed line art, personalization, and generation controls
+1. Application and continuous-integration foundation — complete
+2. Secure local-profile storage and setup — complete
+3. Four worksheet vertical slices — three complete; Count, Compare & Make remains
+4. Reviewed line art — complete; personalization and worksheet options remain
 5. Printing, pagination, and accessibility
 6. Release verification and public-project documentation
 7. Physical-print, family-pilot, and live-CI acceptance checks
@@ -172,16 +178,10 @@ Later feature plans may add Mini Missions, shapes, measurement, language and sci
 
 ## Contributing
 
-The repository is in active implementation on top of its runnable application foundation. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
+Steps 1-7 are merged and Step 8 (Count, Compare & Make) is the current frontier. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
 
-Contributions must:
-
-- Use only fictional test profiles and outputs.
-- Preserve the local-data and deterministic-generation boundaries.
-- Include appropriate tests and documentation.
-- Avoid unreviewed third-party or trademark-dependent artwork.
-- Record complete provenance and upstream terms for any approved third-party material.
+[CONTRIBUTING.md](CONTRIBUTING.md) is the single source of truth for contribution rules: licensing, third-party material, asset rules, privacy rules, and the quality gates every pull request must pass. Read it before opening a pull request.
 
 ## License
 
-All project-original code, worksheet templates, documentation, and line art are licensed under the [MIT License](LICENSE). Third-party material, if approved later, retains its upstream terms, is recorded separately, and is excluded from the project's MIT grant.
+All project-original code, worksheet templates, documentation, and line art are licensed under the [MIT License](LICENSE). Every committed non-code asset and its rights are recorded in [ASSET_PROVENANCE.md](ASSET_PROVENANCE.md), mirrored from `frontend/src/web/assets/line-art/manifest.json`. Third-party material, if approved later, retains its upstream terms, is recorded there separately, and is excluded from the project's MIT grant.

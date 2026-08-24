@@ -24,7 +24,7 @@ The API accepts no path. The server reads only the fixed config target, rejects 
 
 For a bounded regular file with invalid UTF-8, malformed JSON, or an invalid v1 schema, the explicit **Back up invalid file and replace** action first creates a byte-identical, exclusive sibling named like `children.local.json.invalid-YYYYMMDDTHHMMSSZ-1234abcd.bak`. Only after that backup is flushed does the server replace the live target. Newer schema versions are preserved for a future migration or manual action. Oversized, symbolic-link, and other non-regular targets are not read, hashed, backed up, or recoverable through the app. The app never automatically downloads an unreadable raw file.
 
-A future setup screen may let a parent download only their current unsaved, valid form state after a privacy warning, using the generic name `extra-credit-profile-backup.json`. Save that file outside the public repository.
+The setup screen lets a parent download only their current unsaved, valid form state, after they accept a privacy warning, using the generic name `extra-credit-profile-backup.json`. Save that file outside the public repository.
 
 ## Deletion and manual cleanup
 

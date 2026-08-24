@@ -43,17 +43,24 @@ Development uses `http://127.0.0.1:4311`; the built application uses `http://127
 
 ```text
 config/                         # example profile plus ignored children.local.json
-documentation/                  # educational basis and physical-print protocol
+documentation/                  # confirmed proposal and plan-review record
 frontend/                       # single npm package
+  scripts/                      # dev-preflight port guard
   src/server/                   # loopback API and production static server
   src/shared/                   # platform-neutral schemas and worksheet domain
   src/web/                      # React parent UI, preview, print views, and renderers
-    worksheets/                 # four React-only worksheet renderers
-  src/worksheets/               # four generator definitions
+    assets/line-art/            # reviewed monochrome SVGs plus provenance manifest
+    worksheets/                 # three React-only worksheet renderers (four at Step 8)
+  src/worksheets/               # three generator definitions (four at Step 8)
   tests/integration/            # real Fastify plus temporary-file tests
   tests/e2e/                    # built-app Playwright and print tests
 .github/                        # public issue guidance and CI
 plan.md                         # canonical project plan and build steps
+CONTRIBUTING.md                 # contribution, asset, privacy, and quality rules
+ASSET_PROVENANCE.md             # ledger of every committed non-code asset
+PRIVACY.md                      # what stays local and what leaves the machine
+SECURITY.md                     # loopback boundary and reporting
+LICENSE                         # root MIT license covering all project-original work
 ```
 
 ## Architecture summary
@@ -62,13 +69,13 @@ The React UI is parent-facing only. It obtains an in-memory session token, loads
 
 The Fastify server binds only `127.0.0.1`, serves only `dist/web`, and owns the exact `config/children.local.json` path. It validates Host, Origin, Fetch Metadata, token, request size, transform-free transport schema, strict Zod schema, ETag precondition, and file state before serialized atomic replacement. Invalid-file recovery is explicit and backup-first; future versions are preserved. It never accepts a filesystem path or logs child data, and every API response is `no-store`. In-repository E2E/manual harnesses alone may select `securityMode: "ephemeral-test"`; it derives one exact authority from the real socket port and never permits wildcard loopback origins or a production override. Loopback blocks network peers, not other local processes or OS users: while the unauthenticated server runs, any local process that reaches port 4310 can use its API. Never forward the ports, and stop the server after use on shared or untrusted machines.
 
-The worksheet layer is deterministic: normalized request plus nonzero eight-hex seed plus generator version yields the same educational content. It calculates finite candidate capacity before generation and fails closed rather than widening or duplicating work. V1 clamps every generated number, operand, and result to 20 and emits no negative results or carrying/borrowing; higher stored maxima/permissions are retained only for later sourced packs. Objective answers and open `answer: null` items live beside their sources in one immutable document; worksheet and answer-key renderers consume that same document. Instructional visuals and required work survive the decorative-graphics toggle.
+The worksheet layer is deterministic: normalized request plus nonzero eight-hex seed plus generator version yields the same educational content. It calculates finite candidate capacity before generation and fails closed rather than widening or duplicating work. V1 clamps every generated number, operand, and result to 20 and emits no negative results or carrying/borrowing; higher stored maxima/permissions are retained only for later sourced packs. Objective answers and open `answer: null` items live beside their sources in one immutable document; worksheet and answer-key renderers consume that same document. Instructional visuals and required work survive the decorative-graphics toggle. Decoration is a separate bundled layer: `src/web/assets/line-art/` holds the project-original monochrome SVGs plus `manifest.json`, the machine-readable provenance source that `manifest.ts` validates and `ASSET_PROVENANCE.md` mirrors; `selectDecorativeAsset` picks a topic match by seed, and one fixed-size panel falls back to the doodle box whenever the toggle is off, no topic matches, or a bundled asset fails to load.
 
 V1 activity IDs are `dry-math`, `find-the-wow`, `sentence-builder`, and `count-compare-make`. Age supplies setup suggestions only; explicit math skills and writing mode control generated work. Runtime AI and Mini Mission are later feature plans, not dormant v1 code. All project-original code, worksheet templates, documentation, and line art use the one root MIT `LICENSE`; do not add a second project license. Record any approved third-party material and its complete upstream terms in `ASSET_PROVENANCE.md` without relicensing it.
 
 ## Current state
 
-The runnable application foundation is implemented: the single frontend package builds the Fastify server and React health shell, fixed development listeners are guarded, and the foundation CI/browser gates are available. The independent nested repository is public at `https://github.com/aberson/extra-credit`; its README and thirteen build issues are published, every plan issue field is mapped, and the project-local task-handoff helper/schema are tracked. `plan.md` remains the canonical implementation plan, `documentation/extra-credit-proposal.html` is its confirmed revision-2 review surface, and the privacy-critical root `.gitignore` plus canonical MIT `LICENSE` are in place. Continue implementation from the next pending plan step and its corresponding GitHub issue.
+Steps 1-7 are merged and issues #1-#7 are closed: the runnable application foundation and its CI/browser gates, the secure profile-config round trip, the parent profile setup flow, three of the four v1 worksheet families (`dry-math`, `find-the-wow`, `sentence-builder`) with their preview, print, and answer-key surfaces, and the reviewed decorative line-art system whose `frontend/src/web/assets/line-art/manifest.json` is mirrored by `ASSET_PROVENANCE.md` and governed by `CONTRIBUTING.md`. Local gates on `main` are 327 Vitest tests across 14 files, `eslint . --max-warnings 0` clean, and all three `tsc --noEmit` projects clean. The independent nested repository is public at `https://github.com/aberson/extra-credit`; `plan.md` remains the canonical implementation plan, `documentation/extra-credit-proposal.html` is its confirmed revision-2 review surface, and the privacy-critical root `.gitignore` plus canonical MIT `LICENSE` are in place. Next is Step 8, Count, Compare & Make (issue #8); open issues #14, #15, #16, #18, and #19 carry review findings that later steps absorb.
 
 ## Environment requirements
 
