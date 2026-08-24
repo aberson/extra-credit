@@ -9,6 +9,7 @@ import {
   SENTENCE_BUILDER_MODE_LABELS,
   getSentenceBuilderEffectiveLength,
 } from "../../../worksheets/sentence-builder/definition";
+import { DecorativeGraphic } from "../../preview/DecorativeGraphic";
 import type { WorksheetRendererProps } from "../registry";
 
 interface ResponseLineCountsV1 {
@@ -23,7 +24,7 @@ interface ResponseLineCountsV1 {
  * each surface prints. Decorative graphics never reach this renderer, so the
  * prompt, bank, item count, and required response cannot change with them.
  *
- * Keyed by effective length because plan.md:236 makes the length control
+ * Keyed by effective length because plan.md:238 makes the length control
  * change response space as well as word-bank breadth. The two no-bank modes
  * always normalize to `standard`, so only their print scale can move them.
  */
@@ -70,7 +71,7 @@ const LARGE_PRINT_DRAWING_EXTRA_REM = 4;
 /**
  * Every child-facing string this renderer owns, per writing mode, in one
  * place. The page must not contradict the prompt it is printing: the bank
- * heading has to be the name the prompts use for that bank (plan.md:196 calls
+ * heading has to be the name the prompts use for that bank (plan.md:198 calls
  * the `independent` pool an idea word bank), the writing caption has to match
  * how many sentences that mode's prompts ask for, and the dictation note must
  * complement its prompt rather than repeat the prompt's own closing sentence.
@@ -187,15 +188,40 @@ export function SentenceBuilderRenderer({ document }: WorksheetRendererProps) {
 
   return (
     <article aria-labelledby={`worksheet-${document.worksheetId}-title`}>
-      <header style={{ borderBottom: "2px solid #24324a", marginBottom: "1rem" }}>
-        <h2 id={`worksheet-${document.worksheetId}-title`}>
-          {displayName === undefined
-            ? familyTitle
-            : `${displayName}’s ${familyTitle}`}
-        </h2>
-        <p data-mode-instruction={SENTENCE_BUILDER_MODE_LABELS[item.writingMode]}>
-          {copy.instruction}
-        </p>
+      {/*
+        The reserved decorative panel lives here, in the header slot, and
+        never inside `[data-response-panel]` (plan.md:195, :202). It reserves
+        the same box in every graphics state, so the instructional surface
+        below it cannot move when decoration changes.
+      */}
+      <header
+        style={{
+          alignItems: "flex-start",
+          borderBottom: "2px solid #24324a",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "1rem",
+          justifyContent: "space-between",
+          marginBottom: "1rem",
+        }}
+      >
+        <div style={{ flex: "1 1 14rem", minWidth: 0 }}>
+          <h2 id={`worksheet-${document.worksheetId}-title`}>
+            {displayName === undefined
+              ? familyTitle
+              : `${displayName}’s ${familyTitle}`}
+          </h2>
+          <p data-mode-instruction={SENTENCE_BUILDER_MODE_LABELS[item.writingMode]}>
+            {copy.instruction}
+          </p>
+        </div>
+        <DecorativeGraphic
+          includeDecorativeGraphics={
+            document.request.options.includeDecorativeGraphics
+          }
+          seed={document.seed}
+          topicId={item.topicId}
+        />
       </header>
       <ol
         aria-label="Sentence Builder prompt"
