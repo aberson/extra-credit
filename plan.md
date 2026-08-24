@@ -630,7 +630,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Generate a capability- and writing-mode-aligned Sentence Builder sheet from the profile's confirmed settings.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** DONE
 - **Issue:** #6
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
