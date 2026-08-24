@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "assets": {
+    "frontend/src/web/assets/line-art/animals-cat.svg": {
+      "id": "animals-cat",
+      "topics": ["animals"],
+      "description": "A seated cat drawn in outline, with pointed ears, whiskers, a curled tail, and two solid eyes above a solid triangular nose.",
+      "creator": "Extra Credit contributors",
+      "source": "This repository (frontend/src/web/assets/line-art/)",
+      "reviewedOn": "2026-08-24",
+      "aiAssistance": "AI-assisted: the SVG path data was drafted with Claude (Anthropic) from a generic-archetype brief during development, then reviewed and committed in this repository under the root MIT license before runtime. No third-party artwork, franchise character, celebrity likeness, or living artist's identifiable style was copied or imitated.",
+      "origin": "original",
+      "license": "MIT",
+      "licenseFile": "LICENSE"
+    },
+    "frontend/src/web/assets/line-art/nature-tree.svg": {
+      "id": "nature-tree",
+      "topics": ["nature"],
+      "description": "A broad-canopy tree drawn in plain outline, standing on a short ground line.",
+      "creator": "Extra Credit contributors",
+      "source": "This repository (frontend/src/web/assets/line-art/)",
+      "reviewedOn": "2026-08-24",
+      "aiAssistance": "AI-assisted: the SVG path data was drafted with Claude (Anthropic) from a generic-archetype brief during development, then reviewed and committed in this repository under the root MIT license before runtime. No third-party artwork, franchise character, celebrity likeness, or living artist's identifiable style was copied or imitated.",
+      "origin": "original",
+      "license": "MIT",
+      "licenseFile": "LICENSE"
+    },
+    "frontend/src/web/assets/line-art/neutral-star.svg": {
+      "id": "neutral-star",
+      "topics": ["neutral"],
+      "description": "A five-pointed star drawn as a single plain outline.",
+      "creator": "Extra Credit contributors",
+      "source": "This repository (frontend/src/web/assets/line-art/)",
+      "reviewedOn": "2026-08-24",
+      "aiAssistance": "AI-assisted: the SVG path data was drafted with Claude (Anthropic) from a generic-archetype brief during development, then reviewed and committed in this repository under the root MIT license before runtime. No third-party artwork, franchise character, celebrity likeness, or living artist's identifiable style was copied or imitated.",
+      "origin": "original",
+      "license": "MIT",
+      "licenseFile": "LICENSE"
+    },
+    "frontend/src/web/assets/line-art/space-rocket.svg": {
+      "id": "space-rocket",
+      "topics": ["space"],
+      "description": "A generic rocket drawn in plain outline, with one round window, two fins and a flame.",
+      "creator": "Extra Credit contributors",
+      "source": "This repository (frontend/src/web/assets/line-art/)",
+      "reviewedOn": "2026-08-24",
+      "aiAssistance": "AI-assisted: the SVG path data was drafted with Claude (Anthropic) from a generic-archetype brief during development, then reviewed and committed in this repository under the root MIT license before runtime. No third-party artwork, franchise character, celebrity likeness, or living artist's identifiable style was copied or imitated.",
+      "origin": "original",
+      "license": "MIT",
+      "licenseFile": "LICENSE"
+    },
+    "frontend/src/web/assets/line-art/sports-ball.svg": {
+      "id": "sports-ball",
+      "topics": ["sports"],
+      "description": "A round ball drawn in plain outline, with two curved seams.",
+      "creator": "Extra Credit contributors",
+      "source": "This repository (frontend/src/web/assets/line-art/)",
+      "reviewedOn": "2026-08-24",
+      "aiAssistance": "AI-assisted: the SVG path data was drafted with Claude (Anthropic) from a generic-archetype brief during development, then reviewed and committed in this repository under the root MIT license before runtime. No third-party artwork, franchise character, celebrity likeness, or living artist's identifiable style was copied or imitated.",
+      "origin": "original",
+      "license": "MIT",
+      "licenseFile": "LICENSE"
+    },
+    "frontend/src/web/assets/line-art/vehicles-car.svg": {
+      "id": "vehicles-car",
+      "topics": ["vehicles"],
+      "description": "A side view of a generic car drawn in plain outline, with two wheels, two windows and a ground line running the full width of the drawing beneath it.",
+      "creator": "Extra Credit contributors",
+      "source": "This repository (frontend/src/web/assets/line-art/)",
+      "reviewedOn": "2026-08-24",
+      "aiAssistance": "AI-assisted: the SVG path data was drafted with Claude (Anthropic) from a generic-archetype brief during development, then reviewed and committed in this repository under the root MIT license before runtime. No third-party artwork, franchise character, celebrity likeness, or living artist's identifiable style was copied or imitated.",
+      "origin": "original",
+      "license": "MIT",
+      "licenseFile": "LICENSE"
+    }
+  }
+}
