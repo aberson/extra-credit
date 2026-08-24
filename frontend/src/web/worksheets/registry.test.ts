@@ -1278,7 +1278,7 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
   });
 
   test("length changes response space as well as word-bank breadth", () => {
-    // plan.md:236 - "its length setting changes word-bank breadth and
+    // plan.md:238 - "its length setting changes word-bank breadth and
     // response space rather than adding prompts".
     for (const writingMode of BANK_WRITING_MODES) {
       const byLength = WORKSHEET_LENGTHS.map((length) =>

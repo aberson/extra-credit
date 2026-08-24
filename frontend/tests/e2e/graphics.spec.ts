@@ -880,7 +880,7 @@ test("the doodle caption is never cut off, at any text size", async ({
  * that is the state a parent's browser is actually in, so the scan is of the
  * shipped page rather than of a test-shaped one. (An earlier revision claimed
  * an axe run never returns on a context that has had routing enabled. It was
- * not reproducible: measured against the built app, axe returned in ~450 ms
+ * not reproducible: measured against the built app, axe returned
  * with an aborting `**\/*.svg` route still active, after a pattern-scoped
  * `unroute`, and after `unrouteAll`. The claim is gone rather than restated.)
  */
