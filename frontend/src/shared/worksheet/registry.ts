@@ -14,6 +14,16 @@ import {
   getFindTheWowGroupCount,
 } from "../../worksheets/find-the-wow/definition.js";
 import { generateFindTheWow } from "../../worksheets/find-the-wow/generator.js";
+import {
+  SENTENCE_BUILDER_DEFINITION,
+  SENTENCE_BUILDER_ITEM_COUNT,
+  SENTENCE_BUILDER_MODE_LABELS,
+  getSentenceBuilderBankSize,
+  getSentenceBuilderCanonicalLength,
+  getSentenceBuilderCapabilitySupport,
+} from "../../worksheets/sentence-builder/definition.js";
+import { generateSentenceBuilder } from "../../worksheets/sentence-builder/generator.js";
+import { isBankWritingMode } from "../../worksheets/sentence-builder/vocabulary.js";
 import type {
   Difficulty,
   WorksheetGeneratorV1,
@@ -41,6 +51,27 @@ export type WorksheetCapabilitySupportV1 =
   | { readonly available: true; readonly statusMessage?: string }
   | { readonly available: false; readonly message: string };
 
+/**
+ * How much work this selection will produce, plus the noun its two consumers
+ * print. `GeneratorControls` writes "creates {count} unique {label}" and
+ * `App` writes "ready with {items.length} unique {label}", each choosing
+ * `singularLabel` when its number is 1 and `pluralLabel` otherwise.
+ *
+ * INVARIANT: whichever label a count can actually select must read true for
+ * that count. A registration may therefore name two different nouns (as
+ * `sentence-builder` does below: one page always holds one prompt, while the
+ * count it previews is bank breadth) ONLY while the other branch stays
+ * unreachable. Two numeric preconditions keep it unreachable here, and both
+ * are asserted in `web/worksheets/registry.test.ts` so a future edit that
+ * makes the dead branch reachable fails CI instead of printing "creates 1
+ * unique writing prompt" over a one-word bank: every
+ * `SENTENCE_BUILDER_BANK_BUDGETS` entry is at least 2, and a Sentence Builder
+ * document always holds exactly `SENTENCE_BUILDER_ITEM_COUNT` (1) item.
+ *
+ * Splitting this into a document unit and a budget unit is the clean fix, but
+ * it is a shared-contract change that also rewrites `App.tsx`, which Step 6
+ * does not own.
+ */
 export interface WorksheetEffectiveUnitV1 {
   readonly count: number;
   readonly singularLabel: string;
@@ -98,6 +129,8 @@ const COUNTING_NUMERAL_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] =
     { key: "countingMax", label: "counting" },
     { key: "numeralMax", label: "numerals" },
   ]);
+
+const NO_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] = Object.freeze([]);
 
 export interface WorksheetRegistrationV1 {
   readonly id: WorksheetType;
@@ -190,6 +223,78 @@ export const WORKSHEET_REGISTRY = {
         ...preferences,
         useInterests: false,
         includeDecorativeGraphics: false,
+      }),
+    },
+  },
+  "sentence-builder": {
+    ...SENTENCE_BUILDER_DEFINITION,
+    generate: generateSentenceBuilder,
+    controls: {
+      getCapabilitySupport: ({ length, printScale, profile }) => {
+        const support = getSentenceBuilderCapabilitySupport(
+          profile.writingMode,
+          profile.presentationBand,
+          length,
+          printScale,
+        );
+        return support.available
+          ? {
+              available: true,
+              statusMessage: `This profile will use ${SENTENCE_BUILDER_MODE_LABELS[profile.writingMode]} mode for Sentence Builder.`,
+            }
+          : { available: false, message: support.reason };
+      },
+      // Sentence Builder reads no stored numeric maximum, exactly as the sole
+      // projection boundary scales none for it.
+      getRelevantMaximums: () => NO_MAXIMUMS,
+      getEffectiveUnit: ({ length, printScale, profile }) => {
+        const bankSize = getSentenceBuilderBankSize(
+          profile.writingMode,
+          length,
+          printScale,
+        );
+        // A Sentence Builder page always holds exactly one prompt, so the
+        // per-document singular names that prompt. Length scales bank breadth
+        // instead of prompt count, so the plural — the only form a bank-bearing
+        // count of 4 or more can select — names the word-bank entries the
+        // preview must state before generation (plan.md:238).
+        return bankSize === 0
+          ? {
+              count: SENTENCE_BUILDER_ITEM_COUNT,
+              singularLabel: "writing prompt",
+              pluralLabel: "writing prompts",
+            }
+          : {
+              count: bankSize,
+              singularLabel: "writing prompt",
+              pluralLabel: "word-bank words",
+            };
+      },
+      getApplicableControls: ({ profile }) => ({
+        useDisplayName: true,
+        useInterests: true,
+        // Sentence Builder is the one family whose parent-chosen decorative
+        // value reaches `GenerationRequestV1` (plan.md:200, :217); the sole
+        // projection boundary forces `false` for the two math families and
+        // passes this one through. Step 7 owns the reserved panel and the
+        // same-size doodle-box fallback that make the toggle visible, and it
+        // must re-run the graphics-independence assertions against that
+        // non-vacuous baseline rather than inheriting this step's equality.
+        includeDecorativeGraphics: true,
+        difficulty: false,
+        length: isBankWritingMode(profile.writingMode),
+        includeAnswerKey: false,
+        paperSize: true,
+        printScale: true,
+      }),
+      projectPreferences: ({ profile }, preferences) => ({
+        ...preferences,
+        difficulty: "practice",
+        includeAnswerKey: false,
+        length: getSentenceBuilderCanonicalLength(
+          profile.writingMode,
+          preferences.length,
+        ),
       }),
     },
   },
