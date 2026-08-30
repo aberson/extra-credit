@@ -691,7 +691,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Apply the approved worksheet-option contract consistently through the generator UI.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** BLOCKED (2026-08-30) - stop-and-audit; see issue #9
 - **Issue:** #9
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
