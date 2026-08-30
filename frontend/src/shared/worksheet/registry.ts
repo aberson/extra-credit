@@ -3,6 +3,12 @@ import type {
   GenerationDefaultsV1,
 } from "../config/schema.js";
 import {
+  COUNT_COMPARE_MAKE_DEFINITION,
+  getCountCompareMakeCapabilitySupport,
+  getCountCompareMakeItemCount,
+} from "../../worksheets/count-compare-make/definition.js";
+import { generateCountCompareMake } from "../../worksheets/count-compare-make/generator.js";
+import {
   DRY_MATH_DEFINITION,
   getDryMathCapabilitySupport,
   getDryMathItemCount,
@@ -52,10 +58,17 @@ export type WorksheetCapabilitySupportV1 =
   | { readonly available: false; readonly message: string };
 
 /**
- * How much work this selection will produce, plus the noun its two consumers
- * print. `GeneratorControls` writes "creates {count} unique {label}" and
- * `App` writes "ready with {items.length} unique {label}", each choosing
- * `singularLabel` when its number is 1 and `pluralLabel` otherwise.
+ * How much work this selection will produce, plus the noun its consumers
+ * print. `App` writes "ready with {items.length} unique {label}" and
+ * `GeneratorControls` writes "creates {count} unique {label}", each choosing
+ * `singularLabel` when ITS OWN number is 1 and `pluralLabel` otherwise.
+ *
+ * `GeneratorControls` also prints the noun beside each length option ("Short -
+ * {that length's count} {label}"). There the noun comes from the
+ * CURRENTLY selected length's count rather than the number printed beside it,
+ * which is correct only while no length can yield a count of 1. The
+ * `getEffectiveUnit` sweep in `web/worksheets/registry.test.ts` exercises the
+ * same-call shape only, so those three rows are not covered by it.
  *
  * INVARIANT: whichever label a count can actually select must read true for
  * that count. A registration may therefore name two different nouns (as
@@ -69,8 +82,8 @@ export type WorksheetCapabilitySupportV1 =
  * document always holds exactly `SENTENCE_BUILDER_ITEM_COUNT` (1) item.
  *
  * Splitting this into a document unit and a budget unit is the clean fix, but
- * it is a shared-contract change that also rewrites `App.tsx`, which Step 6
- * does not own.
+ * it is a shared-contract change that also rewrites `App.tsx` and the length
+ * rows in `GeneratorControls.tsx`. No step through Step 8 has owned it.
  */
 export interface WorksheetEffectiveUnitV1 {
   readonly count: number;
@@ -91,8 +104,13 @@ export interface WorksheetApplicableControlsV1 {
 
 /**
  * Complete parent-control behavior for one registered worksheet family.
- * Keeping this required on every registration makes later worksheet IDs fail
- * compilation until their capability, budget, and option behavior is explicit.
+ * Keeping every member required makes an INCOMPLETE registration fail
+ * compilation until its capability, budget, and option behavior is explicit.
+ *
+ * Declaring a new `WORKSHEET_TYPE_IDS` entry without registering it does NOT
+ * fail here: `WORKSHEET_REGISTRY` is `satisfies Record<string, ...>`, which
+ * allows missing keys. The exhaustive `relevantMaximumKeys` switch in
+ * `project-request.ts` is what then fails to compile.
  */
 export interface WorksheetControlContractV1 {
   readonly getCapabilitySupport: (
@@ -128,6 +146,13 @@ const COUNTING_NUMERAL_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] =
   Object.freeze([
     { key: "countingMax", label: "counting" },
     { key: "numeralMax", label: "numerals" },
+  ]);
+
+const COUNTING_NUMERAL_COMPARE_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] =
+  Object.freeze([
+    { key: "countingMax", label: "counting" },
+    { key: "numeralMax", label: "numerals" },
+    { key: "compareMax", label: "comparisons" },
   ]);
 
 const NO_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] = Object.freeze([]);
@@ -273,13 +298,14 @@ export const WORKSHEET_REGISTRY = {
       getApplicableControls: ({ profile }) => ({
         useDisplayName: true,
         useInterests: true,
-        // Sentence Builder is the one family whose parent-chosen decorative
-        // value reaches `GenerationRequestV1` (plan.md:200, :217); the sole
-        // projection boundary forces `false` for the two math families and
-        // passes this one through. Step 7 owns the reserved panel and the
-        // same-size doodle-box fallback that make the toggle visible, and it
-        // must re-run the graphics-independence assertions against that
-        // non-vacuous baseline rather than inheriting this step's equality.
+        // Sentence Builder and Count, Compare & Make are the two families
+        // whose parent-chosen decorative value reaches `GenerationRequestV1`
+        // (plan.md:202 for the reserved panel, plan.md:217 for the control);
+        // the sole projection boundary forces `false` for Dry Math and Two
+        // Whats and a Wow and passes these two through. The reserved panel
+        // and its same-size doodle-box fallback landed in Step 7, so the
+        // graphics-independence assertions run against a non-vacuous baseline
+        // rather than a toggle nothing renders from.
         includeDecorativeGraphics: true,
         difficulty: false,
         length: isBankWritingMode(profile.writingMode),
@@ -296,6 +322,43 @@ export const WORKSHEET_REGISTRY = {
           preferences.length,
         ),
       }),
+    },
+  },
+  "count-compare-make": {
+    ...COUNT_COMPARE_MAKE_DEFINITION,
+    generate: generateCountCompareMake,
+    controls: {
+      getCapabilitySupport: ({ profile }) => {
+        const support = getCountCompareMakeCapabilitySupport(profile.mathSkills);
+        return support.available
+          ? { available: true }
+          : { available: false, message: support.reason };
+      },
+      // The three maxima the sole projection boundary scales for this family:
+      // counting and numerals bound match/complete/draw work, comparisons
+      // bound the two compared groups (plan.md:207).
+      getRelevantMaximums: () => COUNTING_NUMERAL_COMPARE_MAXIMUMS,
+      getEffectiveUnit: ({ length, printScale }) => ({
+        count: getCountCompareMakeItemCount(length, printScale),
+        singularLabel: "item",
+        pluralLabel: "items",
+      }),
+      getApplicableControls: () => ({
+        useDisplayName: true,
+        useInterests: true,
+        includeDecorativeGraphics: true,
+        difficulty: true,
+        length: true,
+        includeAnswerKey: true,
+        paperSize: true,
+        printScale: true,
+      }),
+      // Every control this family exposes is honored as chosen, so this
+      // registration itself normalizes nothing away. The sole projection
+      // boundary still applies its family-independent rules - most visibly
+      // the stretch-to-practice downgrade when every relevant maximum is
+      // already 20 (plan.md:227).
+      projectPreferences: (_context, preferences) => preferences,
     },
   },
 } as const satisfies Record<string, WorksheetRegistrationV1>;

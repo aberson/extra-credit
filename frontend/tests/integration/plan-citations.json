@@ -1,0 +1,437 @@
+{
+  "schemaVersion": 1,
+  "planFile": "plan.md",
+  "citations": [
+    {
+      "file": "documentation/plan-review.md",
+      "planLine": 44,
+      "anchors": [
+        "The sole durable user-data store is"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "documentation/plan-review.md",
+      "planLine": 159,
+      "anchors": [
+        "children.local.json.invalid-YYYYMMDDTHHMMSSZ-<8hex>.bak"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "documentation/plan-review.md",
+      "planLine": 493,
+      "anchors": [
+        "From the completed clone's repository root"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/shared/worksheet/registry.ts",
+      "planLine": 202,
+      "anchors": [
+        "becomes an optional doodle box"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/shared/worksheet/registry.ts",
+      "planLine": 207,
+      "anchors": [
+        "Numeral/make items use at most"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/shared/worksheet/registry.ts",
+      "planLine": 217,
+      "anchors": [
+        "three requested personalization controls"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/shared/worksheet/registry.ts",
+      "planLine": 227,
+      "anchors": [
+        "a stored stretch default normalizes to"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/shared/worksheet/registry.ts",
+      "planLine": 238,
+      "anchors": [
+        "Sentence Builder always has one prompt"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.test.ts",
+      "planLine": 195,
+      "anchors": [
+        "stays outside this instructional response area"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.test.ts",
+      "planLine": 212,
+      "anchors": [
+        "writing guides are instructional visuals, not decoration"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.test.ts",
+      "planLine": 244,
+      "anchors": [
+        "AI may assist asset creation during development"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.test.ts",
+      "planLine": 740,
+      "anchors": [
+        "every file under `frontend/src/web/assets/line-art/**/*.svg`"
+      ],
+      "siteCount": 2
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.ts",
+      "planLine": 30,
+      "anchors": [
+        "One root MIT license for all project-original"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.ts",
+      "planLine": 202,
+      "anchors": [
+        "same-size decorative panel becomes an optional doodle box"
+      ],
+      "siteCount": 3
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.ts",
+      "planLine": 244,
+      "anchors": [
+        "Each manifest entry records creator, source, review date",
+        "and exact license provenance: an original uses",
+        "remote image URLs, and live image generation are excluded"
+      ],
+      "siteCount": 3
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.ts",
+      "planLine": 246,
+      "anchors": [
+        "The graphics toggle controls decoration only"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.ts",
+      "planLine": 311,
+      "anchors": [
+        "the dependency-free provenance source",
+        "All selections go through exact allowlisted topic tags"
+      ],
+      "siteCount": 2
+    },
+    {
+      "file": "frontend/src/web/assets/line-art/manifest.ts",
+      "planLine": 740,
+      "anchors": [
+        "every file under `frontend/src/web/assets/line-art/**/*.svg`",
+        "The export manifest proves `.git`, dependencies/build output"
+      ],
+      "siteCount": 2
+    },
+    {
+      "file": "frontend/src/web/preview/DecorativeGraphic.tsx",
+      "planLine": 195,
+      "anchors": [
+        "stays outside this instructional response area"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/preview/DecorativeGraphic.tsx",
+      "planLine": 202,
+      "anchors": [
+        "a reserved header/side panel"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/preview/DecorativeGraphic.tsx",
+      "planLine": 246,
+      "anchors": [
+        "Every decorative image has an empty alt attribute"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/preview/InstructionalVisual.tsx",
+      "planLine": 212,
+      "anchors": [
+        "writing guides are instructional visuals, not decoration"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/count-compare-make/Renderer.tsx",
+      "planLine": 202,
+      "anchors": [
+        "a reserved header/side panel"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/count-compare-make/Renderer.tsx",
+      "planLine": 208,
+      "anchors": [
+        "The fixed subtype mix is match/compare/complete/draw",
+        "= `2/2/1/1` for short, `2/2/2/2` for standard, and `3/3/2/2` for long"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/count-compare-make/Renderer.tsx",
+      "planLine": 212,
+      "anchors": [
+        "writing guides are instructional visuals, not decoration"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/registry.test.ts",
+      "planLine": 238,
+      "anchors": [
+        "length setting changes word-bank breadth and response space"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/registry.test.ts",
+      "planLine": 240,
+      "anchors": [
+        "calls an injected seed source at most 16 times"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/sentence-builder/Renderer.tsx",
+      "planLine": 195,
+      "anchors": [
+        "stays outside this instructional response area"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/sentence-builder/Renderer.tsx",
+      "planLine": 198,
+      "anchors": [
+        "always-present curated idea word bank"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/sentence-builder/Renderer.tsx",
+      "planLine": 202,
+      "anchors": [
+        "a reserved header/side panel"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/web/worksheets/sentence-builder/Renderer.tsx",
+      "planLine": 238,
+      "anchors": [
+        "length setting changes word-bank breadth and response space"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/definition.ts",
+      "planLine": 206,
+      "anchors": [
+        "numeric maxima do not independently authorize"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/definition.ts",
+      "planLine": 207,
+      "anchors": [
+        "Numeral/make items use at most",
+        "comparison items use at most"
+      ],
+      "siteCount": 2
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/definition.ts",
+      "planLine": 208,
+      "anchors": [
+        "The fixed subtype mix is match/compare/complete/draw",
+        "= `2/2/1/1` for short, `2/2/2/2` for standard, and `3/3/2/2` for long"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/definition.ts",
+      "planLine": 211,
+      "anchors": [
+        "Caps rendered quantities at 20 in v1"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/definition.ts",
+      "planLine": 236,
+      "anchors": [
+        "| Count, Compare & Make | 6 items | 8 items | 10 items |"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/definition.ts",
+      "planLine": 238,
+      "anchors": [
+        "Large print may reduce an item/bank-bearing activity"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/generator.test.ts",
+      "planLine": 209,
+      "anchors": [
+        "pre-shuffle candidate capacities are",
+        "match `L` distinct target numerals when `L >= 3` and zero otherwise",
+        "compare `L²` ordered group pairs, complete `L(L-1)/2` target/partial pairs for targets 2 through `L`, and draw `L` targets"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/generator.ts",
+      "planLine": 208,
+      "anchors": [
+        "a seeded shuffle interleaves them",
+        "= `2/2/1/1` for short, `2/2/2/2` for standard, and `3/3/2/2` for long"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/count-compare-make/generator.ts",
+      "planLine": 209,
+      "anchors": [
+        "pre-shuffle candidate capacities are",
+        "each receives two distinct in-range distractors",
+        "match `L` distinct target numerals when `L >= 3` and zero otherwise",
+        "compare `L²` ordered group pairs, complete `L(L-1)/2` target/partial pairs for targets 2 through `L`, and draw `L` targets"
+      ],
+      "siteCount": 3
+    },
+    {
+      "file": "frontend/src/worksheets/sentence-builder/definition.ts",
+      "planLine": 131,
+      "anchors": [
+        "additionally have `length: \"standard\"`"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/sentence-builder/definition.ts",
+      "planLine": 199,
+      "anchors": [
+        "contains exactly one open `sentence` item"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/sentence-builder/definition.ts",
+      "planLine": 235,
+      "anchors": [
+        "Sentence Builder (`label`/`sentence-frame`; `independent`)"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/sentence-builder/definition.ts",
+      "planLine": 238,
+      "anchors": [
+        "no-bank writing modes it changes response geometry"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/sentence-builder/generator.test.ts",
+      "planLine": 240,
+      "anchors": [
+        "If no attempt differs, the control is disabled"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/src/worksheets/sentence-builder/generator.ts",
+      "planLine": 131,
+      "anchors": [
+        "Hidden controls still have one canonical normalized"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/tests/e2e/count-compare-make.spec.ts",
+      "planLine": 208,
+      "anchors": [
+        "The fixed subtype mix is match/compare/complete/draw",
+        "= `2/2/1/1` for short, `2/2/2/2` for standard, and `3/3/2/2` for long"
+      ],
+      "siteCount": 2
+    },
+    {
+      "file": "frontend/tests/e2e/find-the-wow.spec.ts",
+      "planLine": 255,
+      "anchors": [
+        "200% text resize, and 320 CSS-pixel reflow"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/tests/e2e/graphics.spec.ts",
+      "planLine": 255,
+      "anchors": [
+        "200% text resize, and 320 CSS-pixel reflow"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/tests/e2e/graphics.spec.ts",
+      "planLine": 739,
+      "anchors": [
+        "audits its public/privacy/license contract"
+      ],
+      "siteCount": 1
+    },
+    {
+      "file": "frontend/tests/e2e/graphics.spec.ts",
+      "planLine": 740,
+      "anchors": [
+        "frontend/src/web/assets/line-art/**/*.svg",
+        "`audit-release.mjs` walks that export"
+      ],
+      "siteCount": 3
+    },
+    {
+      "file": "frontend/tests/e2e/sentence-builder.spec.ts",
+      "planLine": 238,
+      "anchors": [
+        "changes word-bank breadth and response space"
+      ],
+      "siteCount": 1
+    }
+  ]
+}

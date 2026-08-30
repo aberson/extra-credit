@@ -43,7 +43,7 @@ import manifestSourceText from "./manifest.ts?raw";
  * An independent directory scan, resolved by the bundler over the real
  * working tree, so it sees a committed SVG whether or not any module already
  * references it. RECURSIVE, matching the module's own discovery glob and the
- * `**\/*.svg` walk plan.md:738 gives the release audit.
+ * `**\/*.svg` walk plan.md:740 gives the release audit.
  *
  * Repository-root files (`ASSET_PROVENANCE.md`, `CONTRIBUTING.md`, `LICENSE`)
  * are deliberately NOT read here. This file cannot IMPORT one: it runs under
@@ -1000,7 +1000,7 @@ describe("a broken catalog degrades decoration instead of taking a page down", (
 
 describe("committed-SVG discovery", () => {
   test("is recursive, matching the release audit's nested-asset walk", () => {
-    // plan.md:738 has Step 13 walk every `.svg` under the line-art directory
+    // plan.md:740 has Step 13 walk every `.svg` under the line-art directory
     // at ANY depth. A flat glob here would let a nested asset pass this
     // step's unmanifested-file guard and be met for the first time at
     // release, so the discovery pattern itself is pinned.

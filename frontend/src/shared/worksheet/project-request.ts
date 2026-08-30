@@ -8,6 +8,7 @@ import type {
 import { parseSeedHex } from "./seeded-random.js";
 import {
   GENERATION_CONSTRAINT_CONFLICT,
+  REVIEWED_TOPIC_IDS,
   type EffectiveMathSkillsV1,
   type GenerationRequestV1,
   type GenerationResult,
@@ -18,13 +19,19 @@ import {
 } from "./types.js";
 
 const V1_NUMERIC_MAXIMUM = 20;
-const REVIEWED_TOPIC_IDS = new Set<TopicId>([
-  "animals",
-  "space",
-  "nature",
-  "sports",
-  "vehicles",
-]);
+
+/**
+ * The allowlist this boundary consults, re-exported so its own test can assert
+ * with `toBe` that it is the SAME object as the leaf constant in `types.ts`
+ * rather than a second copy that merely looks equal. Nothing should import
+ * this instead of `types.ts`; it exists to be checked.
+ */
+export const PROJECTED_TOPIC_ALLOWLIST: readonly TopicId[] = REVIEWED_TOPIC_IDS;
+
+/** Membership view of that one allowlist; never a second list. */
+const REVIEWED_TOPIC_ID_SET: ReadonlySet<TopicId> = new Set(
+  PROJECTED_TOPIC_ALLOWLIST,
+);
 
 export interface ProjectGenerationRequestInput {
   readonly profile: ChildProfileV1;
@@ -144,7 +151,7 @@ function projectTopics(profile: ChildProfileV1): readonly TopicId[] {
   const topics: TopicId[] = [];
   for (const interest of profile.interests) {
     const normalized = normalizedInterestKey(interest) as TopicId;
-    if (REVIEWED_TOPIC_IDS.has(normalized) && !topics.includes(normalized)) {
+    if (REVIEWED_TOPIC_ID_SET.has(normalized) && !topics.includes(normalized)) {
       topics.push(normalized);
     }
   }

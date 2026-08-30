@@ -413,7 +413,7 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
   const longSheet = await readSheet(preview);
   expect(longSheet.items).toBe(1);
   expect(longSheet.bankWords).toHaveLength(10);
-  // plan.md:236 - length changes word-bank breadth AND response space.
+  // plan.md:238 - length changes word-bank breadth AND response space.
   expect(longSheet.writingLines).toBeGreaterThan(withGraphics.writingLines);
 
   // Large print steps a bank-bearing page down one budget on the same one page.

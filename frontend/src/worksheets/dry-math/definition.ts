@@ -44,7 +44,7 @@ export function getDryMathCapabilitySupport(
     return {
       available: false,
       reason:
-        "Dry Math needs equations and an enabled operation. Choose another supported profile with those confirmed capabilities, or edit this profile to confirm them. Count, Compare & Make will add quantity practice in a future release.",
+        "Dry Math needs equations and an enabled operation. Choose another supported profile with those confirmed capabilities, or edit this profile to confirm them. Count, Compare & Make offers quantity practice for a profile that confirms quantities.",
     };
   }
   if (
@@ -55,7 +55,7 @@ export function getDryMathCapabilitySupport(
     return {
       available: false,
       reason:
-        "Dry Math needs at least one confirmed symbolic operation. Choose another supported profile with an enabled operation, or edit this profile to confirm one. Count, Compare & Make will add quantity practice in a future release.",
+        "Dry Math needs at least one confirmed symbolic operation. Choose another supported profile with an enabled operation, or edit this profile to confirm one. Count, Compare & Make offers quantity practice for a profile that confirms quantities.",
     };
   }
   return { available: true };

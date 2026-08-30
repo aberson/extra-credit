@@ -25,11 +25,11 @@ export const SENTENCE_BUILDER_DEFINITION = {
   hasAnswerKey: false,
 } as const;
 
-/** Every Sentence Builder page carries exactly one open prompt (plan.md:198). */
+/** Every Sentence Builder page carries exactly one open prompt (plan.md:199). */
 export const SENTENCE_BUILDER_ITEM_COUNT = 1;
 
 /**
- * Unique word-bank entries per bank-bearing mode and length (plan.md:234).
+ * Unique word-bank entries per bank-bearing mode and length (plan.md:235).
  * `label`/`sentence-frame` take 4/6/8; `independent` takes 6/8/10.
  */
 export const SENTENCE_BUILDER_BANK_BUDGETS = {

@@ -24,8 +24,10 @@ import {
   type WorksheetRelevantMaximumKey,
 } from "../../shared/worksheet/registry";
 import type {
+  CountCompareItemV1,
   GenerationRequestV1,
   SentenceItemV1,
+  WorksheetDocumentV1,
   WorksheetGeneratorV1,
 } from "../../shared/worksheet/types";
 import {
@@ -157,6 +159,36 @@ const equationsAtMaximumProfile: ChildProfileV1 = {
     operandMax: 20,
     resultMax: 20,
   },
+};
+
+/** The mirror image: counting limits at the ceiling, equation limits below. */
+const countingAtMaximumProfile: ChildProfileV1 = {
+  ...profile,
+  id: "d1b2c3d4-4444-4444-8444-444444444444",
+  mathSkills: {
+    ...profile.mathSkills,
+    countingMax: 20,
+    numeralMax: 20,
+    compareMax: 20,
+    operandMax: 10,
+    resultMax: 10,
+  },
+};
+
+/**
+ * A profile whose limits for THAT family are all at the V1 ceiling while its
+ * other limits are not. Using one profile for every family would prove only
+ * that an all-20 profile disables stretch; pairing each family with the
+ * profile that maxes exactly its own maxima is what proves the gate reads the
+ * active mode's limits and no others.
+ */
+const AT_V1_MAXIMUM_PROFILES: Readonly<
+  Record<RegisteredWorksheetType, ChildProfileV1>
+> = {
+  "dry-math": equationsAtMaximumProfile,
+  "find-the-wow": equationsAtMaximumProfile,
+  "sentence-builder": equationsAtMaximumProfile,
+  "count-compare-make": countingAtMaximumProfile,
 };
 
 const BANK_MODES: readonly ChildProfileV1["writingMode"][] =
@@ -304,6 +336,7 @@ describe("worksheet renderer registry", () => {
       "dry-math",
       "find-the-wow",
       "sentence-builder",
+      "count-compare-make",
     ]);
   });
 
@@ -324,6 +357,12 @@ describe("worksheet renderer registry", () => {
     expect(
       registryMaximumKeys("find-the-wow", controlContextFor(quantityProfile)),
     ).toEqual(["countingMax", "numeralMax"]);
+    expect(
+      registryMaximumKeys(
+        "count-compare-make",
+        controlContextFor(quantityProfile),
+      ),
+    ).toEqual(["countingMax", "numeralMax", "compareMax"]);
   });
 
   test("every declared relevant maximum is one the projector really stretches", () => {
@@ -355,7 +394,13 @@ describe("worksheet renderer registry", () => {
       }
     }
     expect(new Set(observed)).toEqual(
-      new Set(["countingMax", "numeralMax", "operandMax", "resultMax"]),
+      new Set([
+        "countingMax",
+        "numeralMax",
+        "compareMax",
+        "operandMax",
+        "resultMax",
+      ]),
     );
   });
 
@@ -632,14 +677,15 @@ describe("worksheet renderer registry", () => {
 describe("stretch controls", () => {
   test("never offers a stretch the active mode's limits cannot change", () => {
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
+      const atMaximumProfile = AT_V1_MAXIMUM_PROFILES[worksheetType];
       if (
         !getWorksheetRegistration(worksheetType).controls.getApplicableControls(
-          controlContextFor(equationsAtMaximumProfile),
+          controlContextFor(atMaximumProfile),
         ).difficulty
       ) {
         continue;
       }
-      renderControls(equationsAtMaximumProfile, worksheetType, {
+      renderControls(atMaximumProfile, worksheetType, {
         difficulty: "stretch",
       });
       expect(screen.getByRole("option", { name: "Stretch" })).toBeDisabled();
@@ -842,12 +888,22 @@ const CONTRACT_PROFILES: Readonly<
   "sentence-builder": WRITING_MODES.map((writingMode) =>
     contractProfile({ writingMode }),
   ),
+  "count-compare-make": [
+    contractProfile(),
+    contractProfile({ ...quantityProfile, interests: ["Space"] }),
+  ],
 };
 
 /**
- * Mirrors exactly what `GeneratorControls.submit` does: run the registration's
- * own `projectPreferences`, then hand the result to the sole projection
- * boundary. Any disagreement between the two shows up here.
+ * Mirrors the ORDER `GeneratorControls.submit` uses - the registration's own
+ * `projectPreferences` first, then the sole projection boundary - so a
+ * disagreement between those two shows up here.
+ *
+ * It deliberately skips submit's stretch handling: submit downgrades a
+ * requested `stretch` that cannot apply to `practice` before it builds its
+ * control context, and passes `applicableControls.difficulty &&
+ * stretchConfirmed`, while this uses the raw merged difficulty and a hardcoded
+ * `stretchConfirmed: true`. Other tests in this file cover that handling.
  */
 function contractRequest(
   worksheetType: RegisteredWorksheetType,
@@ -1139,10 +1195,14 @@ interface InstructionalSurfaceV1 {
 }
 
 /**
- * Everything the Step 6 Done-when clause calls a prompt or a response
- * requirement, read off the rendered child page. Decorative markup is
- * deliberately excluded: Step 7's panel and its doodle-box fallback are
- * allowed to differ between graphics states, while every value here is not.
+ * The prompt, bank, and response geometry this suite holds stable across
+ * graphics states, per Step 6's "graphics-independent prompts and response
+ * requirements are stable". That clause enumerates no fields, so this list is
+ * that phrase read out rather than a quotation of it.
+ *
+ * Decorative markup is deliberately excluded: Step 7's panel and its
+ * doodle-box fallback are allowed to differ between graphics states, while
+ * every value here is not.
  */
 function instructionalSurfaceOf(
   worksheetDocument: Parameters<typeof WorksheetPreview>[0]["document"],
@@ -1332,7 +1392,8 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
     );
     expect(labelPrompts.length).toBeGreaterThan(0);
     for (const record of labelPrompts) {
-      // The only writable surface is the ruled label lines, so a prompt may
+      // The only surface for WRITTEN WORDS is the ruled label lines - the
+      // drawing box beside them is where the picture goes - so a prompt may
       // not send the child to write on the drawing instead.
       expect(/\bon the lines\b/iu.test(record.prompt), record.id).toBe(true);
       expect(/next to|on(?:to)? (?:the|your) (?:picture|drawing)/iu.test(record.prompt), record.id).toBe(false);
@@ -1588,5 +1649,729 @@ describe("registration metadata cannot drift from the control contract", () => {
         { difficulty: "stretch" },
       ).options.difficulty,
     ).toBe("practice");
+  });
+});
+
+/**
+ * Count, Compare & Make through its PRODUCTION callers.
+ *
+ * Every document here starts at `createWorksheetSessionForSeed` (what `App`
+ * calls) and renders through `WorksheetPreview`/`AnswerKeyView` (what
+ * `PrintView` mounts), so a renderer that is written but never registered, or
+ * a registration whose generator is never reached, fails here rather than
+ * silently printing nothing.
+ *
+ * The two "pinned" tests are the one exception, and a deliberate one: each
+ * takes a GENERATED item from such a session as its template, substitutes the
+ * two or three fields that name a worst case, and re-renders the session
+ * document with that single item. That is how a case no seed is guaranteed to
+ * reach still gets covered. Nothing is fabricated from scratch, and for each
+ * of those cases a seed sweep in this file proves real pages reach it: the
+ * worst-case complete items by the `fullFrameItems` assertion in "a complete
+ * item always prints room for every mark it asks for", and the one-mark draw
+ * target by the `singleMarkItems` assertion in the narrow-profile draw sweep.
+ */
+const countCompareProfile: ChildProfileV1 = {
+  ...quantityProfile,
+  id: "e1b2c3d4-5555-4555-8555-555555555555",
+  interests: ["Space"],
+  mathSkills: {
+    ...quantityProfile.mathSkills,
+    compareMax: 10,
+    countingMax: 10,
+    numeralMax: 10,
+  },
+};
+
+function countCompareSessionFor(
+  seed: number,
+  overrides: Partial<GenerationDefaultsV1> = {},
+  sourceProfile: ChildProfileV1 = countCompareProfile,
+) {
+  const result = createWorksheetSessionForSeed(
+    {
+      profile: sourceProfile,
+      preferences: { ...preferences, useInterests: true, ...overrides },
+      stretchConfirmed: false,
+      worksheetType: "count-compare-make",
+    },
+    seed,
+    { worksheetIdSource: () => "66666666-6666-4666-8666-666666666666" },
+  );
+  if (!result.ok) {
+    throw new Error(result.message);
+  }
+  return result.session;
+}
+
+/** Narrows a generated page to the family's own item union, or fails loudly. */
+function countCompareItems(
+  document: WorksheetDocumentV1,
+): readonly CountCompareItemV1[] {
+  const items = document.items.filter(
+    (item): item is CountCompareItemV1 => item.itemType === "count-compare",
+  );
+  if (items.length !== document.items.length) {
+    throw new Error(
+      "A Count, Compare & Make page contained a foreign item type.",
+    );
+  }
+  return items;
+}
+
+function instructionalQuantities(node: Element): readonly number[] {
+  return [...node.querySelectorAll("[data-instructional-visual]")].map((visual) =>
+    Number(visual.getAttribute("data-instructional-quantity")),
+  );
+}
+
+/**
+ * Every ITEM's text, visual counts, and guide cells, read straight off the
+ * DOM. The page header and the decorative panel sit outside `[data-item-id]`
+ * and are deliberately excluded: the point of the toggle assertion is that
+ * this reading is identical in both graphics states.
+ */
+function readInstructionalDom(): string {
+  return [...document.querySelectorAll("[data-item-id]")]
+    .map((item) =>
+      [
+        item.getAttribute("data-item-id"),
+        item.getAttribute("data-activity"),
+        item.getAttribute("data-response-mode"),
+        item.textContent?.replace(/\s+/gu, " ").trim() ?? "",
+        [...item.querySelectorAll("[data-instructional-visual]")]
+          .map((visual) =>
+            [
+              visual.getAttribute("data-instructional-visual"),
+              visual.getAttribute("data-instructional-quantity"),
+              visual.getAttribute("aria-label"),
+              visual.querySelectorAll('[data-instructional-mark="filled"]').length,
+              visual.querySelectorAll('[data-instructional-mark="empty"]').length,
+            ].join(":"),
+          )
+          .join("|"),
+        [...item.querySelectorAll("[data-instructional-guide-cells]")]
+          .map((guide) => guide.getAttribute("data-instructional-guide-cells"))
+          .join("|"),
+      ].join("~"),
+    )
+    .join("\n");
+}
+
+describe("Count, Compare & Make reaches paper through the registered renderer", () => {
+  test("WorksheetPreview reaches the registered Count, Compare & Make renderer", () => {
+    const session = countCompareSessionFor(1, { length: "long" });
+    render(createElement(WorksheetPreview, { document: session.document }));
+    expect(screen.getByLabelText("Worksheet preview")).toHaveAttribute(
+      "data-worksheet-type",
+      "count-compare-make",
+    );
+    expect(
+      screen.getByRole("heading", { name: "Count, Compare & Make practice" }),
+    ).toBeVisible();
+    expect(session.document.items).toHaveLength(10);
+    expect(document.querySelectorAll("[data-activity]")).toHaveLength(
+      session.document.items.length,
+    );
+    expect(document.body).not.toHaveTextContent("Private Riley");
+    expect(document.body).not.toHaveTextContent("Private Visual Topic");
+  });
+
+  test("every subtype prints its own instructional surface", () => {
+    const session = countCompareSessionFor(0x0004_2021, { length: "long" });
+    render(createElement(WorksheetPreview, { document: session.document }));
+    for (const item of countCompareItems(session.document)) {
+      const node = document.querySelector(`[data-item-id="${item.id}"]`);
+      if (node === null) {
+        throw new Error(`${item.id} never reached the page.`);
+      }
+      expect(node.getAttribute("data-activity"), item.id).toBe(item.activity);
+      switch (item.activity) {
+        case "match":
+          expect(
+            node.querySelectorAll("[data-match-choice]"),
+            item.id,
+          ).toHaveLength(3);
+          expect(instructionalQuantities(node), item.id).toEqual([
+            ...item.choices,
+          ]);
+          break;
+        case "compare":
+          expect(instructionalQuantities(node), item.id).toEqual([
+            item.leftQuantity,
+            item.rightQuantity,
+          ]);
+          expect(
+            node.querySelectorAll("[data-relation-word]"),
+            item.id,
+          ).toHaveLength(3);
+          break;
+        case "complete": {
+          const frame = node.querySelector(
+            '[data-instructional-visual="ten-frame"]',
+          );
+          expect(
+            frame?.getAttribute("data-instructional-quantity"),
+            item.id,
+          ).toBe(String(item.partial));
+          expect(
+            frame?.querySelectorAll('[data-instructional-mark="filled"]').length,
+            item.id,
+          ).toBe(item.partial);
+          // The empty cells ARE the missing count made visible - which is a
+          // claim about the EMPTY cells, and used to be asserted only about
+          // the filled ones. The child must have somewhere to put every mark
+          // this item asks for.
+          expect(
+            frame?.querySelectorAll('[data-instructional-mark="empty"]').length,
+            item.id,
+          ).toBeGreaterThanOrEqual(item.target - item.partial);
+          break;
+        }
+        case "draw":
+          expect(
+            node.querySelector("[data-instructional-guide]"),
+            item.id,
+          ).not.toBeNull();
+          expect(
+            node.querySelector("[data-visible-numeral]")?.textContent,
+            item.id,
+          ).toBe(String(item.target));
+          break;
+      }
+    }
+  });
+
+  test("visible work recomputes to exactly the parent key", () => {
+    const session = countCompareSessionFor(0x0408_0601, { length: "long" });
+    const { unmount } = render(
+      createElement(WorksheetPreview, { document: session.document }),
+    );
+    const worksheetIds = [...document.querySelectorAll("[data-item-id]")].map(
+      (item) => item.getAttribute("data-item-id"),
+    );
+    // Independently recompute each answer from what the CHILD sees, then hold
+    // the parent key to it.
+    const recomputed = new Map<string, string>();
+    for (const node of document.querySelectorAll("[data-item-id]")) {
+      const id = node.getAttribute("data-item-id") ?? "";
+      const activity = node.getAttribute("data-activity");
+      const quantities = instructionalQuantities(node);
+      const numeral = Number(
+        node.querySelector("[data-visible-numeral]")?.textContent,
+      );
+      if (activity === "match") {
+        recomputed.set(id, `Choice ${quantities.indexOf(numeral) + 1}`);
+      } else if (activity === "compare") {
+        const left = quantities[0] ?? 0;
+        const right = quantities[1] ?? 0;
+        // A deliberately independent restatement of the phrases the child
+        // circles: the key must print the same words the page does, so this
+        // oracle names them rather than importing the constant under test.
+        recomputed.set(
+          id,
+          left < right
+            ? "fewer than"
+            : left > right
+              ? "more than"
+              : "the same as",
+        );
+      } else if (activity === "complete") {
+        recomputed.set(id, String(numeral - (quantities[0] ?? 0)));
+      } else {
+        recomputed.set(id, String(numeral));
+      }
+    }
+    unmount();
+
+    render(createElement(AnswerKeyView, { document: session.document }));
+    const keyItems = screen.getAllByRole("listitem");
+    expect(keyItems.map((item) => item.getAttribute("data-item-id"))).toEqual(
+      worksheetIds,
+    );
+    expect(new Set(recomputed.values()).size).toBeGreaterThan(1);
+    for (const [index, keyItem] of keyItems.entries()) {
+      const id = keyItem.getAttribute("data-item-id") ?? "";
+      expect(
+        keyItem
+          .querySelector("[data-answer-value]")
+          ?.getAttribute("data-answer-value"),
+        id,
+      ).toBe(recomputed.get(id));
+      expect(
+        keyItem
+          .querySelector("[data-problem-number]")
+          ?.getAttribute("data-problem-number"),
+      ).toBe(String(index + 1));
+      expect(keyItem).not.toHaveTextContent(id);
+    }
+  });
+
+  test("turning decorative graphics off leaves every instructional visual intact", () => {
+    const withGraphics = countCompareSessionFor(0x9dcc_a8c5, {
+      includeDecorativeGraphics: true,
+      length: "long",
+    });
+    const first = render(
+      createElement(WorksheetPreview, { document: withGraphics.document }),
+    );
+    const decorated = readInstructionalDom();
+    expect(document.querySelectorAll("[data-decorative-panel]")).toHaveLength(1);
+    expect(
+      document.querySelectorAll("[data-instructional-visual]").length,
+    ).toBeGreaterThan(0);
+    expect(
+      document.querySelectorAll("[data-instructional-guide]").length,
+    ).toBeGreaterThan(0);
+    first.unmount();
+
+    const withoutGraphics = countCompareSessionFor(0x9dcc_a8c5, {
+      includeDecorativeGraphics: false,
+      length: "long",
+    });
+    render(
+      createElement(WorksheetPreview, { document: withoutGraphics.document }),
+    );
+    // The reserved panel keeps its box and falls back to the doodle box; every
+    // learning-essential visual and required response is untouched.
+    expect(
+      document
+        .querySelector("[data-decorative-panel]")
+        ?.getAttribute("data-decoration"),
+    ).toBe("doodle");
+    expect(readInstructionalDom()).toBe(decorated);
+    expect(withoutGraphics.document.items).toEqual(withGraphics.document.items);
+  });
+
+  test("the activity is unavailable to a profile without quantities", () => {
+    const equationsOnly: ChildProfileV1 = {
+      ...profile,
+      mathSkills: { ...profile.mathSkills, representations: ["equations"] },
+    };
+    const support = getWorksheetRegistration(
+      "count-compare-make",
+    ).controls.getCapabilitySupport(controlContextFor(equationsOnly));
+    expect(support.available).toBe(false);
+
+    renderControls(equationsOnly, "count-compare-make");
+    expect(
+      screen.getByText(/Count, Compare & Make needs confirmed quantities/u),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Create worksheet" }),
+    ).toBeDisabled();
+  });
+
+  test("the control states the exact item count each length would print", () => {
+    renderControls(countCompareProfile, "count-compare-make");
+    expect(
+      screen.getByText(
+        "This selection creates 8 unique items on one practice page.",
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("option", { name: "Short · 6 items" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Long · 10 items" }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Include decorative graphics")).toBeVisible();
+    expect(
+      screen.getByLabelText("Use reviewed interests in worksheet content"),
+    ).toBeVisible();
+    expect(screen.getByLabelText("Include a parent answer key")).toBeVisible();
+  });
+});
+
+/**
+ * Every COUNTING ceiling this family reads, at the v1 maximum of 20, so a
+ * complete target can reach 20 over a small group.
+ */
+const countCompareWideProfile: ChildProfileV1 = {
+  ...countCompareProfile,
+  id: "f1b2c3d4-6666-4666-8666-666666666666",
+  mathSkills: {
+    ...countCompareProfile.mathSkills,
+    compareMax: 20,
+    countingMax: 20,
+    numeralMax: 20,
+  },
+};
+
+/** Narrow enough that a one-mark draw item is reachable. */
+const countCompareNarrowProfile: ChildProfileV1 = {
+  ...countCompareProfile,
+  id: "a2b2c3d4-7777-4777-8777-777777777777",
+  mathSkills: {
+    ...countCompareProfile.mathSkills,
+    compareMax: 3,
+    countingMax: 3,
+    numeralMax: 3,
+  },
+};
+
+function markCounts(visual: Element): {
+  readonly empty: number;
+  readonly filled: number;
+} {
+  return {
+    empty: visual.querySelectorAll('[data-instructional-mark="empty"]').length,
+    filled: visual.querySelectorAll('[data-instructional-mark="filled"]').length,
+  };
+}
+
+describe("Count, Compare & Make prints a performable page", () => {
+  /**
+   * The required response has to be physically possible.
+   *
+   * The ten-frame used to be sized from the marks ALREADY drawn, so a "make
+   * this group 20" item over a group of 8 printed two empty boxes for twelve
+   * missing marks, and a partial group of exactly 10 printed none at all. The
+   * whole suite missed it because every complete-item fixture pinned the
+   * limits at 10, where `ceil(partial/10)*10 >= target` happens to hold.
+   * This sweeps the ceiling, where it does not.
+   */
+  test("a complete item always prints room for every mark it asks for", () => {
+    let completeItems = 0;
+    let widestGap = 0;
+    let fullFrameItems = 0;
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const session = countCompareSessionFor(
+        seed,
+        { length: "long" },
+        countCompareWideProfile,
+      );
+      const { unmount } = render(
+        createElement(WorksheetPreview, { document: session.document }),
+      );
+      for (const item of countCompareItems(session.document)) {
+        if (item.activity !== "complete") {
+          continue;
+        }
+        completeItems += 1;
+        const missing = item.target - item.partial;
+        widestGap = Math.max(widestGap, missing);
+        if (item.partial % 10 === 0) {
+          fullFrameItems += 1;
+        }
+        const frame = document.querySelector(
+          `[data-item-id="${item.id}"] [data-instructional-visual="ten-frame"]`,
+        );
+        if (frame === null) {
+          throw new Error(`${item.id} printed no ten-frame.`);
+        }
+        const marks = markCounts(frame);
+        const where = `seed ${seed} ${item.id}: ${item.partial} drawn, needs ${missing} more`;
+        expect(marks.filled, where).toBe(item.partial);
+        expect(marks.empty, where).toBeGreaterThanOrEqual(missing);
+      }
+      unmount();
+    }
+    expect(completeItems).toBeGreaterThan(50);
+    // The regression only appears when the gap outgrows the partial group's
+    // own frame, so the sweep has to have reached such a case.
+    expect(widestGap).toBeGreaterThan(10);
+    // ...and specifically the worst variant, a partial group that exactly
+    // fills its frame with more still to draw, which is where the child used
+    // to get NO boxes at all.
+    expect(fullFrameItems).toBeGreaterThan(0);
+  });
+
+  /**
+   * The same worst cases, pinned rather than sampled.
+   *
+   * The sweep above proves real pages reach them, but which pairs it reaches
+   * depends on the seeds. These four are named outright, so the case this
+   * family's worst defect lived in is covered by construction: a partial group
+   * that exactly fills one frame (10 of 11, 10 of 20) is where the old sizing
+   * printed zero empty boxes.
+   */
+  test("the named worst-case complete items each print room for the answer", () => {
+    const session = countCompareSessionFor(
+      1,
+      { length: "long" },
+      countCompareWideProfile,
+    );
+    const template = countCompareItems(session.document).find(
+      (item) => item.activity === "complete",
+    );
+    if (template?.activity !== "complete") {
+      throw new Error("The fixture page held no complete item.");
+    }
+
+    for (const [partial, target] of [
+      [10, 11],
+      [10, 20],
+      [1, 20],
+      [9, 10],
+    ] as const) {
+      const item = {
+        ...template,
+        answer: { kind: "number", value: target - partial },
+        partial,
+        target,
+      } as const;
+      const { unmount } = render(
+        createElement(WorksheetPreview, {
+          document: { ...session.document, items: [item] },
+        }),
+      );
+      const frame = document.querySelector(
+        '[data-instructional-visual="ten-frame"]',
+      );
+      if (frame === null) {
+        throw new Error(`${partial} of ${target} printed no ten-frame.`);
+      }
+      const marks = markCounts(frame);
+      const where = `${partial} of ${target}`;
+      expect(marks.filled, where).toBe(partial);
+      expect(marks.empty, where).toBeGreaterThanOrEqual(target - partial);
+      unmount();
+    }
+  });
+
+  /**
+   * LOW-4: the singular prompt, pinned rather than sampled. The narrow-profile
+   * draw sweep further below - the one whose `singleMarkItems` count must
+   * exceed zero - is what proves generated pages reach a one-mark target; this
+   * pins the wording without depending on any seed.
+   */
+  test("a pinned one-mark draw item prints the singular noun", () => {
+    const session = countCompareSessionFor(
+      1,
+      { length: "long" },
+      countCompareWideProfile,
+    );
+    const template = countCompareItems(session.document).find(
+      (item) => item.activity === "draw",
+    );
+    if (template?.activity !== "draw") {
+      throw new Error("The fixture page held no draw item.");
+    }
+
+    for (const target of [1, 2] as const) {
+      const item = {
+        ...template,
+        answer: { kind: "number", value: target },
+        target,
+      } as const;
+      const { unmount } = render(
+        createElement(WorksheetPreview, {
+          document: { ...session.document, items: [item] },
+        }),
+      );
+      expect(
+        document
+          .querySelector("[data-item-prompt]")
+          ?.textContent?.replace(/\s+/gu, " ")
+          .trim(),
+        `target ${target}`,
+      ).toBe(`Draw ${target} ${target === 1 ? "mark" : "marks"} in the boxes.`);
+      expect(
+        Number(
+          document
+            .querySelector("[data-instructional-guide-cells]")
+            ?.getAttribute("data-instructional-guide-cells"),
+        ),
+        `target ${target}`,
+      ).toBeGreaterThanOrEqual(target);
+      unmount();
+    }
+  });
+
+  test("a draw item always prints room for its whole target", () => {
+    for (let seed = 1; seed <= 20; seed += 1) {
+      const session = countCompareSessionFor(
+        seed,
+        { length: "long" },
+        countCompareWideProfile,
+      );
+      const { unmount } = render(
+        createElement(WorksheetPreview, { document: session.document }),
+      );
+      for (const item of countCompareItems(session.document)) {
+        if (item.activity !== "draw") {
+          continue;
+        }
+        const cells = Number(
+          document
+            .querySelector(
+              `[data-item-id="${item.id}"] [data-instructional-guide-cells]`,
+            )
+            ?.getAttribute("data-instructional-guide-cells"),
+        );
+        expect(cells, `seed ${seed} ${item.id}`).toBeGreaterThanOrEqual(
+          item.target,
+        );
+      }
+      unmount();
+    }
+  });
+
+  /**
+   * The marks are `aria-hidden`, so this label is the ENTIRE content a screen
+   * reader receives for a visual. A label that states the wrong number is not
+   * a cosmetic defect - it is the only number that reader hears for THAT
+   * VISUAL. The previous assertion checked the label's SHAPE, so returning
+   * `quantity + 1` left the suite green.
+   */
+  test("every visual's spoken label states the quantity really drawn", () => {
+    const spokenNumber = (visual: Element): number =>
+      Number(/^(\d+)\b/u.exec(visual.getAttribute("aria-label") ?? "")?.[1]);
+    let visualsChecked = 0;
+    let singulars = 0;
+
+    // Both a page at the v1 ceiling and narrow pages, so the singular branch
+    // is genuinely reached rather than left to one seed's luck.
+    const cases: readonly (readonly [ChildProfileV1, number])[] = [
+      [countCompareWideProfile, 0x0004_2021],
+      ...Array.from(
+        { length: 12 },
+        (_, index) => [countCompareNarrowProfile, index + 1] as const,
+      ),
+    ];
+
+    for (const [sourceProfile, seed] of cases) {
+      const session = countCompareSessionFor(
+        seed,
+        {
+          length:
+            sourceProfile === countCompareWideProfile ? "long" : "short",
+        },
+        sourceProfile,
+      );
+      const { unmount } = render(
+        createElement(WorksheetPreview, { document: session.document }),
+      );
+
+      for (const visual of document.querySelectorAll(
+        "[data-instructional-visual]",
+      )) {
+        const label = visual.getAttribute("aria-label") ?? "";
+        const spoken = spokenNumber(visual);
+        const marks = markCounts(visual);
+        visualsChecked += 1;
+        expect(spoken, label).toBe(marks.filled);
+        expect(spoken, label).toBe(
+          Number(visual.getAttribute("data-instructional-quantity")),
+        );
+        expect(label, label).toMatch(
+          spoken === 1 ? /^1 mark\b/u : /^\d+ marks\b/u,
+        );
+        if (spoken === 1) {
+          singulars += 1;
+        }
+      }
+
+      // Bind the spoken numbers to the ITEM MODEL too, not only to each other.
+      for (const item of countCompareItems(session.document)) {
+        const spokenHere = [
+          ...(document
+            .querySelector(`[data-item-id="${item.id}"]`)
+            ?.querySelectorAll("[data-instructional-visual]") ?? []),
+        ].map(spokenNumber);
+        if (item.activity === "match") {
+          expect(spokenHere, item.id).toEqual([...item.choices]);
+        } else if (item.activity === "compare") {
+          expect(spokenHere, item.id).toEqual([
+            item.leftQuantity,
+            item.rightQuantity,
+          ]);
+        } else if (item.activity === "complete") {
+          expect(spokenHere, item.id).toEqual([item.partial]);
+        }
+      }
+      unmount();
+    }
+
+    expect(visualsChecked).toBeGreaterThan(50);
+    // A run that never spoke "1 mark" could not prove the singular branch.
+    expect(singulars).toBeGreaterThan(0);
+  });
+
+  test("a one-mark draw item reads “1 mark”, never “1 marks”", () => {
+    let singleMarkItems = 0;
+    for (let seed = 1; seed <= 30; seed += 1) {
+      const session = countCompareSessionFor(
+        seed,
+        { length: "short" },
+        countCompareNarrowProfile,
+      );
+      const { unmount } = render(
+        createElement(WorksheetPreview, { document: session.document }),
+      );
+      for (const item of countCompareItems(session.document)) {
+        if (item.activity !== "draw") {
+          continue;
+        }
+        const prompt = document
+          .querySelector(`[data-item-id="${item.id}"] [data-item-prompt]`)
+          ?.textContent?.replace(/\s+/gu, " ")
+          .trim();
+        expect(prompt, `seed ${seed} ${item.id}`).toBe(
+          `Draw ${item.target} ${item.target === 1 ? "mark" : "marks"} in the boxes.`,
+        );
+        if (item.target === 1) {
+          singleMarkItems += 1;
+        }
+      }
+      unmount();
+    }
+    expect(singleMarkItems).toBeGreaterThan(0);
+  });
+
+  test("the parent key prints the very words the child circles", () => {
+    const session = countCompareSessionFor(
+      0x0408_0601,
+      { length: "long" },
+      countCompareWideProfile,
+    );
+    const { unmount } = render(
+      createElement(WorksheetPreview, { document: session.document }),
+    );
+    const pageWords = new Set(
+      [...document.querySelectorAll("[data-relation-word]")].map(
+        (word) => word.textContent?.trim() ?? "",
+      ),
+    );
+    expect(pageWords).toEqual(
+      new Set(["fewer than", "the same as", "more than"]),
+    );
+    unmount();
+
+    render(createElement(AnswerKeyView, { document: session.document }));
+    const comparisons = countCompareItems(session.document).filter(
+      (item) => item.activity === "compare",
+    );
+    expect(comparisons.length).toBeGreaterThan(0);
+    for (const item of comparisons) {
+      const printed =
+        document
+          .querySelector(`[data-item-id="${item.id}"] [data-answer-value]`)
+          ?.getAttribute("data-answer-value") ?? "";
+      // One document, one vocabulary: the key may not leak the stored enum.
+      expect(pageWords.has(printed), `${item.id}: ${printed}`).toBe(true);
+      expect(printed, item.id).not.toBe(item.answer.value);
+    }
+  });
+
+  test("the response-mode attribute is this family's own, not Sentence Builder's", () => {
+    const session = countCompareSessionFor(
+      1,
+      { length: "long" },
+      countCompareWideProfile,
+    );
+    render(createElement(WorksheetPreview, { document: session.document }));
+    for (const item of countCompareItems(session.document)) {
+      const node = document.querySelector(`[data-item-id="${item.id}"]`);
+      expect(node?.getAttribute("data-response-mode"), item.id).toBe(
+        item.activity === "complete" || item.activity === "draw"
+          ? "draw"
+          : "circle",
+      );
+      // `RequiredResponseV1` has no circling form, so this family must not
+      // reuse the attribute that carries those field names.
+      expect(node?.getAttribute("data-required-response"), item.id).toBeNull();
+    }
   });
 });

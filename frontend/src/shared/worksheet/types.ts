@@ -21,6 +21,46 @@ export const TOPIC_IDS = [
   "neutral",
 ] as const;
 
+/**
+ * The topics an interest may actually MATCH, and therefore the only topic IDs
+ * a `GenerationRequestV1` may carry. `neutral` is the unmatched fallback a
+ * generator falls back TO; it is never the result of matching an interest, so
+ * it is deliberately absent here.
+ *
+ * This lives in the leaf module both sides import because the producer
+ * (`project-request.ts`, which decides what enters a request) and the only
+ * consumer that VALIDATES against it (`count-compare-make/generator.ts`,
+ * which refuses a request carrying anything else) must never hold two copies
+ * of it. `sentence-builder/generator.ts` also reads `topicIds` but validates
+ * nothing: it keeps the IDs its own vocabulary knows and otherwise falls back
+ * to `neutral`.
+ *
+ * Two guards keep that true, and they are deliberately different shapes
+ * because a re-duplication can drift in either direction:
+ *
+ * - `project-request.test.ts` asserts `PROJECTED_TOPIC_ALLOWLIST` is `toBe`
+ *   this exact object, so replacing it with a second literal fails CI even if
+ *   the copy happens to be equal today.
+ * - The same file then drives the real boundary with EVERY declared topic ID
+ *   and asserts it emits one exactly when the ID is in this list. That closes
+ *   the additive direction for every ID `TOPIC_IDS` declares - `neutral`
+ *   above all: a copy that bypasses the exported binding and adds one makes
+ *   the projector emit a topic `count-compare-make/generator.ts` refuses. It
+ *   cannot see an ID `TOPIC_IDS` never declares; the `TopicId` type on the
+ *   projector's membership set is what catches that.
+ *
+ * `count-compare-make/generator.test.ts` closes the consumer side the same
+ * way, requiring the validator to accept every ID in this list and refuse
+ * every declared ID outside it.
+ */
+export const REVIEWED_TOPIC_IDS = [
+  "animals",
+  "space",
+  "nature",
+  "sports",
+  "vehicles",
+] as const satisfies readonly (typeof TOPIC_IDS)[number][];
+
 export const GENERATION_CONSTRAINT_CONFLICT =
   "GENERATION_CONSTRAINT_CONFLICT" as const;
 export const GENERATION_INVARIANT_FAILED =

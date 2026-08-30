@@ -5,10 +5,18 @@ import type {
   GenerationDefaultsV1,
 } from "../config/schema.js";
 import {
+  PROJECTED_TOPIC_ALLOWLIST,
   projectAndGenerateWorksheet,
   projectGenerationRequest,
 } from "./project-request.js";
-import type { WorksheetGeneratorV1 } from "./types.js";
+import {
+  REVIEWED_TOPIC_IDS,
+  TOPIC_IDS,
+  WORKSHEET_TYPE_IDS,
+  type TopicId,
+  type WorksheetGeneratorV1,
+  type WorksheetType,
+} from "./types.js";
 
 const preferences: GenerationDefaultsV1 = {
   useDisplayName: true,
@@ -220,5 +228,112 @@ describe("projectGenerationRequest", () => {
       });
       expect(result.request.topicIds).toEqual(["space"]);
     }
+  });
+});
+
+/**
+ * The reviewed-topic allowlist has exactly ONE declaration, and these tests
+ * prove it in both directions for every ID `TOPIC_IDS` declares: identity
+ * closes the substitution direction, the sweep closes the additive one. The
+ * third test below records exactly what stays outside their reach, and which
+ * guard covers that instead.
+ *
+ * `code-quality.md` requires identity rather than equality, because two lists
+ * that are equal today drift tomorrow. Identity alone is not sufficient here
+ * though: it cannot see a copy that bypasses the shared binding altogether. A
+ * dropped topic is caught by the sweep's first branch (the projector stops
+ * emitting one it must emit) and an ADDED topic by its second (the projector
+ * emits one `count-compare-make/generator.ts` refuses, turning a worksheet
+ * into a hard GENERATION_INVARIANT_FAILED).
+ */
+describe("reviewed-topic allowlist", () => {
+  function topicsFor(
+    interest: string,
+    worksheetType: WorksheetType = "count-compare-make",
+  ): readonly TopicId[] {
+    const projection = projectGenerationRequest({
+      ...input(equationProfile(6)),
+      profile: { ...equationProfile(6), interests: [interest] },
+      worksheetType,
+    });
+    if (!projection.ok) {
+      throw new Error(projection.message);
+    }
+    return projection.request.topicIds ?? [];
+  }
+
+  test("the projector consults the leaf constant itself, not a copy of it", () => {
+    expect(PROJECTED_TOPIC_ALLOWLIST).toBe(REVIEWED_TOPIC_IDS);
+  });
+
+  test("every declared topic is emitted exactly when it is reviewed", () => {
+    // Both directions in one sweep: a dropped topic fails the first branch, an
+    // added one fails the second. `TOPIC_IDS` is the full declared set, so
+    // `neutral` - the unmatched fallback, deliberately not reviewed - is the
+    // case that would go quietly wrong.
+    for (const topicId of TOPIC_IDS) {
+      const reviewed = (REVIEWED_TOPIC_IDS as readonly string[]).includes(
+        topicId,
+      );
+      expect(topicsFor(topicId), topicId).toEqual(reviewed ? [topicId] : []);
+    }
+  });
+
+  test("no interest string can produce a topic outside the allowlist", () => {
+    // Whatever the projector emits, for any interest, must be a member of the
+    // one allowlist. What this genuinely closes is a DECLARED id sneaking in -
+    // `neutral` above all, which the `TopicId` type permits and which the
+    // projector would emit for the interest "neutral".
+    //
+    // It does NOT close an id `TOPIC_IDS` never declared. The probes can only
+    // reach the normalized images of their own strings, so an unreachable
+    // extra member of the projector's membership set changes nothing this
+    // block can observe: injecting `"dinosaurs" as TopicId` there leaves this
+    // block - and the whole suite - green. The guard is the `TopicId` type on
+    // that set: without the cast the same injection is a typecheck error,
+    // which is where it is actually caught.
+    const probes = [
+      ...TOPIC_IDS,
+      ...TOPIC_IDS.map((topicId) => topicId.toUpperCase()),
+      "  Space  ",
+      "Unreviewed Distinctive Topic",
+      "",
+      "neutral-ish",
+    ];
+    for (const probe of probes) {
+      for (const topicId of topicsFor(probe)) {
+        expect(
+          (REVIEWED_TOPIC_IDS as readonly string[]).includes(topicId),
+          `${JSON.stringify(probe)} produced ${topicId}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  test("the allowlist stays a strict subset of the declared topics", () => {
+    for (const topicId of REVIEWED_TOPIC_IDS) {
+      expect(TOPIC_IDS, topicId).toContain(topicId);
+    }
+    expect(REVIEWED_TOPIC_IDS as readonly string[]).not.toContain("neutral");
+  });
+
+  test("the boundary carries topics for exactly the interest-using families", () => {
+    // The sweeps above drive one family. This is what lets them speak for all
+    // four: it runs the SAME boundary once per declared worksheet type with a
+    // reviewed interest and pins, per family, whether topics travel at all.
+    // Adding a family to `worksheetUsesInterests` or dropping one out of it
+    // fails here, and so does declaring a fifth family without deciding.
+    const carriesTopics = Object.fromEntries(
+      WORKSHEET_TYPE_IDS.map((worksheetType) => [
+        worksheetType,
+        topicsFor("space", worksheetType),
+      ]),
+    );
+    expect(carriesTopics).toEqual({
+      "dry-math": [],
+      "find-the-wow": [],
+      "sentence-builder": ["space"],
+      "count-compare-make": ["space"],
+    });
   });
 });

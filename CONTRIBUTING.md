@@ -79,3 +79,34 @@ npm --prefix frontend run test:e2e
 `npm --prefix frontend run check` runs all four in order. Add tests with every
 behavior change, and keep worksheet generation deterministic for a given
 normalized request and seed.
+
+## Comment claims
+
+### `plan.md` line citations are checked mechanically
+
+A comment naming a line of `plan.md` is a claim about a living document: every
+line inserted above it silently rots the claim. The guard is
+`frontend/tests/integration/plan-citations.test.ts`, with the manifest
+`frontend/tests/integration/plan-citations.json`, and it runs as part of
+`npm --prefix frontend test`. Each manifest entry registers one citing file and
+one cited plan line, the `anchors` that must sit on that line, and the
+`siteCount` of citations that file makes of it.
+
+- **The guard went red after you edited `plan.md`.** Update the citing files and
+  the matching manifest entry as the failure directs; it distinguishes an anchor
+  that moved to a new line from one that is gone from `plan.md` entirely.
+- **You added a citation.** Add its manifest entry, or raise `siteCount` if that
+  file already cites that line. Quote the anchor from the cited line, long
+  enough to appear on that line and no other. If the citation depends on a
+  number in that line, keep the number inside the anchor — an anchor that omits
+  it stays green while the number changes.
+- **You cited the plan from a new place.** The scanned roots and file extensions
+  are constants at the top of the guard. A citation outside them is unguarded,
+  so widen those constants instead.
+
+### A claim about where code lives needs an executable check
+
+A comment asserting that something is the only, the one, or the sole place — or
+that nothing, everything, or no other module does X — must name the test or
+grep that proves it, or not be written. Prefer deleting such a claim over
+rewording it: a deleted comment cannot be wrong, and a reworded one can.

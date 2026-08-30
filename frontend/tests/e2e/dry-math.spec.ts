@@ -200,7 +200,9 @@ test("creates, keys, varies, and prints Dry Math through the real local UI", asy
     page.getByText(/Dry Math needs equations and an enabled operation/),
   ).toBeVisible();
   await expect(page.getByText(/Choose another supported profile/)).toBeVisible();
-  await expect(page.getByText(/in a future release/)).toBeVisible();
+  await expect(
+    page.getByText(/Count, Compare & Make offers quantity practice/),
+  ).toBeVisible();
   await expect(page.getByText(/This selection creates/)).toHaveCount(0);
   await expect(createButton).toBeDisabled();
 

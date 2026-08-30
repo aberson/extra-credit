@@ -34,7 +34,7 @@ import { expect, test } from "./fixtures/app-server.ts";
  *    single root `LICENSE` live above `frontend/`, so the repository-root
  *    contract is checked here, from Node, with `readFileSync`. These are the
  *    same contracts Step 13's release audit re-checks over an exported source
- *    tree (plan.md:738), which also re-runs this suite in its clean room. That
+ *    tree (plan.md:739), which also re-runs this suite in its clean room. That
  *    includes being the ledger/manifest drift gate the ledger names.
  */
 
@@ -49,7 +49,7 @@ function repositoryText(relativePath: string): string {
 /**
  * Every committed `.svg` under a directory, at ANY depth.
  *
- * plan.md:738 gives Step 13's release audit a `**\/*.svg` walk of the line-art
+ * plan.md:740 gives Step 13's release audit a `**\/*.svg` walk of the line-art
  * directory. This step's unmanifested-file guard has to be at least that wide
  * or a nested asset would ship unseen until release, so the scan recurses and
  * a fixture test below proves it really does.
@@ -1157,7 +1157,7 @@ test("every committed line-art file has one original manifest row", () => {
 });
 
 test("the committed-asset scan reaches nested files, as Step 13 will", () => {
-  // The guard above is only as wide as this scan. plan.md:738 audits
+  // The guard above is only as wide as this scan. plan.md:740 audits
   // `**\/*.svg`, so a flat scan would let a nested asset through here and
   // meet it for the first time at release.
   const root = mkdtempSync(`${tmpdir()}/extra-credit-line-art-scan-`);
@@ -1204,7 +1204,7 @@ test("the build emits each reviewed asset as its own byte-identical file", () =>
   // bundle - percent-encoded, not base64, and not the committed bytes - which
   // is the payload prefix the last assertion here rejects. Step 13's
   // release audit walks an exported SOURCE tree with build output absent
-  // (plan.md:738), so this test, re-run in its clean room, is what inspects
+  // (plan.md:740), so this test, re-run in its clean room, is what inspects
   // what actually shipped.
   const builtDirectory = `${REPOSITORY_ROOT}${BUILT_ASSET_DIRECTORY}`;
   const builtAssets = readdirSync(builtDirectory);

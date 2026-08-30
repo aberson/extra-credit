@@ -414,7 +414,7 @@ export function buildLineArtCatalog(
  * {@link LINE_ART_CATALOG_DEFECTS}, which `manifest.test.ts` requires to be
  * empty and Step 13 release audit re-checks on the exported tree.
  *
- * The glob is RECURSIVE on purpose. plan.md:738 makes the release audit walk
+ * The glob is RECURSIVE on purpose. plan.md:740 makes the release audit walk
  * every `.svg` under this directory at any depth, so this step's own
  * unmanifested-file guard has to be at least that wide; a flat glob would let
  * an asset in a subdirectory ship unseen until release. A nested file can
@@ -449,7 +449,7 @@ const bundledMarkup = import.meta.glob<string>("./**/*.svg", {
  * committed bytes the `?raw` copy above was safety-checked against, and
  * `graphics.spec.ts` compares them file by file.
  *
- * Step 13 does NOT inspect those built files: plan.md:738 audits an EXPORTED
+ * Step 13 does NOT inspect those built files: plan.md:740 audits an EXPORTED
  * WORKING TREE whose manifest proves build output absent, so its asset clause
  * walks committed `line-art/**\/*.svg` sources. It re-runs this suite in the
  * clean room, which is how the built-file check travels to release. The

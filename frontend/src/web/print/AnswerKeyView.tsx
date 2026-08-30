@@ -3,6 +3,7 @@ import type {
   WorksheetDocumentV1,
   WorksheetItemV1,
 } from "../../shared/worksheet/types";
+import { COUNT_COMPARE_RELATION_WORDS } from "../../worksheets/count-compare-make/definition";
 
 interface AnswerKeyViewProps {
   readonly document: WorksheetDocumentV1;
@@ -21,7 +22,16 @@ function answerText(answer: ObjectiveAnswerV1): string {
     case "choice":
       return `Choice ${answer.value + 1}`;
     case "comparison":
-      return answer.value;
+      // The key prints the exact phrase the child circles, from the same
+      // constant the worksheet renderer prints. Returning `answer.value` here
+      // leaked the stored enum, so one document showed the parent "greater"
+      // beside a page that said "more than".
+      //
+      // The constant covers the whole relation union - its `satisfies` clause
+      // is what enforces that - so the lookup is total today. The fallback is
+      // here because this is a PRINT sink: an unmapped relation must still put
+      // something a parent can read on the page rather than "undefined".
+      return COUNT_COMPARE_RELATION_WORDS[answer.value] ?? answer.value;
   }
 }
 
