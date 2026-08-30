@@ -20,7 +20,7 @@
     },
     {
       "file": "documentation/plan-review.md",
-      "planLine": 493,
+      "planLine": 510,
       "anchors": [
         "From the completed clone's repository root"
       ],
@@ -92,7 +92,7 @@
     },
     {
       "file": "frontend/src/web/assets/line-art/manifest.test.ts",
-      "planLine": 740,
+      "planLine": 757,
       "anchors": [
         "every file under `frontend/src/web/assets/line-art/**/*.svg`"
       ],
@@ -134,7 +134,7 @@
     },
     {
       "file": "frontend/src/web/assets/line-art/manifest.ts",
-      "planLine": 311,
+      "planLine": 318,
       "anchors": [
         "the dependency-free provenance source",
         "All selections go through exact allowlisted topic tags"
@@ -143,7 +143,7 @@
     },
     {
       "file": "frontend/src/web/assets/line-art/manifest.ts",
-      "planLine": 740,
+      "planLine": 757,
       "anchors": [
         "every file under `frontend/src/web/assets/line-art/**/*.svg`",
         "The export manifest proves `.git`, dependencies/build output"
@@ -410,7 +410,7 @@
     },
     {
       "file": "frontend/tests/e2e/graphics.spec.ts",
-      "planLine": 739,
+      "planLine": 756,
       "anchors": [
         "audits its public/privacy/license contract"
       ],
@@ -418,7 +418,7 @@
     },
     {
       "file": "frontend/tests/e2e/graphics.spec.ts",
-      "planLine": 740,
+      "planLine": 757,
       "anchors": [
         "frontend/src/web/assets/line-art/**/*.svg",
         "`audit-release.mjs` walks that export"

@@ -266,6 +266,7 @@ Runtime AI is a v2-or-later parent toggle, absent from the v1 UI. Its future fea
 
 ### `frontend/src/shared/`
 
+- `api/health.ts`: the shared `HEALTH_ROUTE` constant, `HealthResponse` type, and response type guard imported by both the Fastify health route and the React shell.
 - `config/schema.ts`: strict `AppConfigV1` and `ChildProfileV1` Zod schemas, inferred types, limits, and error mapping.
 - `config/math-presets.ts`: parent-friendly preset definitions expanded into the one canonical `mathSkills` shape.
 - `config/normalize.ts`: whitespace, interest-tag, ordering, and duplicate normalization shared by form and server.
@@ -283,6 +284,8 @@ Runtime AI is a v2-or-later parent toggle, absent from the v1 UI. Its future fea
 
 - `app.ts`: constructs Fastify with injected config path, fixed production defaults, strict Ajv options, routes, static production root, and test-friendly lifecycle. Tests may inject port `0`; the production entry point cannot accept a port override.
 - `index.ts`: validates environment, resolves repository-relative paths from `import.meta.url`, binds only `127.0.0.1`, and reports startup errors without sensitive paths.
+- `startup.ts`: the canonical config and built-web paths, fail-loud pre-listen checks, stable startup error codes, and the shared listen/validate/close lifecycle both entry points call; it refuses a non-loopback host and any socket that did not bind the required authority.
+- `dev.ts`: the watch-mode development entry point run by the `dev:server` script in Section 10; it serves the API with no static root and propagates a fatal startup failure to its watch supervisor instead of idling.
 - `security.ts`: allowed Host and Origin checks, Fetch Metadata checks, in-memory 256-bit session token, headers, redaction, and stable security errors.
 - `transport-schemas.ts`: transform-free Draft 7 route schemas; Fastify Ajv runs with `coerceTypes: false`, `useDefaults: false`, and `removeAdditional: false`, after which authoritative strict Zod `safeParse` performs normalization and cross-field validation. Parity tests prove both layers reject unknown fields.
 - `config-store.ts`: size-limited fatal UTF-8 reads, symlink rejection, ETag/precondition checks inside the save mutex, Zod validation, serialized atomic writes, explicit invalid-file backup/recovery, and config error classification.
@@ -294,9 +297,13 @@ Runtime AI is a v2-or-later parent toggle, absent from the v1 UI. Its future fea
 - `api/client.ts`: same-origin typed client, session-token refresh for reads, and explicit non-replay behavior for stale pre-restart mutation tokens.
 - `profiles/ProfileEditor.tsx`: create, edit, validate, delete, review-reminder, stale-tab conflict, and explicit invalid-file recovery UI.
 - `profiles/MathSkillsEditor.tsx`: preset-first math capability editor with advanced fields.
+- `profiles/ProfileList.tsx`: profile selection, per-profile support summary, and the confirmed delete dialog that names what deletion does not erase.
+- `profiles/RecoveryPanel.tsx`: the explicit invalid-file backup-and-replace confirmation plus the opt-in unsaved-form download; it never shows or downloads the unreadable raw file.
 - `generator/create-session.ts`: uses browser cryptographic randomness to create the UUID v4 and nonzero eight-hex seed before calling platform-neutral generators.
 - `generator/GeneratorControls.tsx`: profile, activity, personalization, difficulty, length, answer-key, paper, and print-size controls.
 - `preview/WorksheetPreview.tsx`: accessible screen preview and invariant-error boundary.
+- `preview/DecorativeGraphic.tsx`: the single reserved decorative panel, identically sized in every state, holding a seeded empty-`alt` line-art match or the fallback doodle box.
+- `preview/InstructionalVisual.tsx`: dot groups, ten-frames, and ruled writing guides with accessible text alternatives; it takes no graphics flag, so decoration cannot remove required work.
 - `worksheets/registry.ts` and `registry.test.ts`: typed web-only worksheet-ID-to-React-renderer map whose keys must exactly match the shared generator registry.
 - `worksheets/{dry-math,find-the-wow,sentence-builder,count-compare-make}/Renderer.tsx`: React-only worksheet renderers that consume immutable domain documents and never invent or recompute answers.
 - `print/PrintView.tsx`, `print/AnswerKeyView.tsx`, `print/print-letter.css`, and `print/print-a4.css`: printable worksheet and parent-key surfaces.
@@ -310,9 +317,15 @@ Each worksheet directory owns platform-neutral `definition.ts`, `generator.ts`, 
 
 Contains committed monochrome SVGs, the dependency-free provenance source `manifest.json`, and its typed runtime wrapper `manifest.ts`. All selections go through exact allowlisted topic tags; missing matches use the documented neutral fallback.
 
+### `frontend/scripts/`
+
+- `dev-preflight.ts`: probes both fixed development ports before the development servers start and exits nonzero with a stable code when either is unavailable.
+- `audit-release.mjs` and `release-clean-room.mjs` (Step 13): the export, privacy/license audit, and locked clean-room rerun behind `release:verify`.
+
 ### `frontend/tests/`
 
 - `integration/`: real Fastify injection plus temporary-file tests, including security, malformed data, concurrent saves, and built-app smoke coverage.
+- `integration/plan-citations.test.ts` and its `plan-citations.json` manifest: the repository-wide guard that registers every `plan.md:NNN` citation in committed source, fails when a cited line no longer carries its registered anchor or when a citation is unregistered, and reports the line an anchor moved to; editing this plan therefore requires regenerating that manifest in the same change.
 - `e2e/`: Playwright profile-to-print flows, print-media/PDF geometry assertions, personalization removal, and network request allow-listing.
 - `e2e/server-harness.mjs`: imports compiled `dist/server/app.js`, calls `buildApp` with an injected temporary config path and direct-only `securityMode: "ephemeral-test"`, then initially listens on `{ host: "127.0.0.1", port: 0 }`. It reports the resolved URL and owns close/cleanup. Its process-side controller retains that internally allocated port and may close/rebind Fastify on the same authority with the same temporary config but a fresh token for the explicit restart test, preserving browser origin and in-memory form state; that control is never an HTTP route. It never launches production `dist/server/index.js`, never accepts an external caller-selected authority, and exposes no production path/port environment override.
 - `fixtures/`: synthetic profiles and deterministic seeds only.
@@ -379,6 +392,7 @@ extra-credit/
 ├── documentation/
 │   ├── educational-basis.md        # sourced design rationale and limits
 │   ├── extra-credit-proposal.html  # confirmed operator decision review surface
+│   ├── plan-review.md              # recorded plan-review findings and decisions
 │   └── testing-print.md             # repeatable physical-print protocol
 ├── frontend/                        # the repository's single npm package
 │   ├── package.json
@@ -391,15 +405,18 @@ extra-credit/
 │   ├── tsconfig.web.json
 │   ├── tsconfig.server.json
 │   ├── tsconfig.server.build.json
+│   ├── scripts/                    # development port preflight and release tooling
 │   ├── src/
 │   │   ├── server/                 # loopback API and production static server
 │   │   ├── shared/                 # platform-neutral schemas and worksheet domain
 │   │   ├── web/                    # React parent UI and print views
+│   │   │   ├── assets/line-art/    # reviewed SVGs plus the provenance manifest
 │   │   │   └── worksheets/         # React renderers for the four domain generators
 │   │   └── worksheets/             # four independent generator definitions
 │   ├── tests/
 │   │   ├── integration/
 │   │   ├── e2e/                     # includes server-harness.mjs
+│   │   ├── manual/                  # print-harness.mjs for the manual print step
 │   │   └── fixtures/
 │   └── dist/                       # ignored build output
 ├── .gitignore
@@ -544,13 +561,13 @@ npm --prefix frontend run security
 
 `extra-credit/` is now an independent Git repository nested inside the broader `dev` checkout and published publicly at `https://github.com/aberson/extra-credit`. Repository initialization completed on 2026-08-22; the remaining planning-to-build transition follows this exact order:
 
-1. **Completed 2026-08-22:** copied the verified workspace standards `C:\Users\abero\dev\.claude\hooks\lib\task-state-derive.ps1` and `C:\Users\abero\dev\.claude\references\task-state-schema.md` byte-for-byte to the matching project-local paths shown in Section 7. The pre-created root `.gitignore` and canonical root MIT `LICENSE` were verified before the first Git add; the ignore file covers the profile/export patterns in Section 3.1 plus `/frontend/node_modules/`, `/frontend/dist/`, `/frontend/test-results/`, `/frontend/playwright-report/`, `/frontend/coverage/`, `/.plan-expedite-state`, `/.plan-expedite-state.*`, and `/.claude/task-state/`. The helper, schema, and license are tracked; generated task state and expedite resume state remain local-only.
+1. **Completed 2026-08-22:** copied the verified workspace standards `C:\Users\abero\dev\.claude\hooks\lib\task-state-derive.ps1` and `C:\Users\abero\dev\.claude\references\task-state-schema.md` byte-for-byte to the matching project-local paths shown in Section 7. The pre-created root `.gitignore` and canonical root MIT `LICENSE` were verified before the first Git add; the ignore file covers the profile/export patterns in Section 3.1 plus `/frontend/node_modules/`, `/frontend/dist/`, `/frontend/test-results/`, `/frontend/playwright-report/`, `/frontend/coverage/`, `/.plan-expedite-state`, `/.plan-expedite-state.*`, `/.claude/task-state/`, `/.ui-review-evidence/`, and `/.build-step/`. The helper, schema, and license are tracked; generated task state and expedite resume state remain local-only.
 2. **Completed 2026-08-22:** ran `/repo-init` in `C:\Users\abero\dev\extra-credit`, confirmed public visibility, repository name `extra-credit`, and owner `aberson`, then initialized and pushed the nested repository with its README and one issue per automated step.
 3. **Completed 2026-08-22:** mapped automated Steps 1–13 to issues #1–#13, M1 to #10, and M2/M3 to #13; verified no blank `**Issue:** #` field remains; and committed the mapping.
 4. **Completed 2026-08-23:** ran `/plan-expedite --plan plan.md` from this repository. Its fresh `/plan-review` and `/plan-wrap` saw populated issue fields, `/repo-sync` reconciled and verified all thirteen issue bodies, and `task-handoff` loaded the tracked project-local helper and wrote only ignored task state; `/.plan-expedite-state*` remained ignored throughout.
 5. **Completed 2026-08-23:** `/build-phase --plan plan.md` began only after plan-expedite returned success. `/repo-sync` was not substituted for either required stage.
 
-**Next:** Steps 1–7 are merged and issues #1–#7 are closed. Resume `/build-phase --plan plan.md` at Step 8 (Count, Compare & Make, issue #8); the planning-to-build transition above is finished and must not be re-run.
+**Next:** Steps 1–8 are merged and issues #1–#8 are closed. Resume `/build-phase --plan plan.md` at Step 9 (Personalization and worksheet options, issue #9); the planning-to-build transition above is finished and must not be re-run.
 
 Implementation then uses `/build-phase`, which dispatches each automated step through `/build-step` in an isolated git worktree. Profile-file security receives deep review; visible full-stack slices receive code plus live-browser review; code and documentation slices receive independent code review. Each step runs the complete quality suite available at that point before it may be marked done. The package intentionally remains under `frontend/`: the build producer detects that nested `package.json` and installs there in every worktree.
 

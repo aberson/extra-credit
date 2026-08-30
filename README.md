@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Steps 1-7 complete** — issues #1-#7 closed. Parents can create local child profiles and generate, preview, and print three of the four V1 worksheet families with answer keys and reviewed decorative line art. 327 tests passing, 0 type errors, 0 lint violations. Step 8 (Count, Compare & Make) is next; see [plan.md](plan.md).
+> **Steps 1-8 complete** — issues #1-#8 closed. Parents can create local child profiles and generate, preview, and print all four V1 worksheet families with answer keys and reviewed decorative line art. 403 tests passing, 0 type errors, 0 lint violations. Step 9 (personalization and worksheet options) is next; see [plan.md](plan.md).
 
 ## V1 worksheets
 
@@ -11,7 +11,7 @@ Extra Credit is an open-source, local web application for creating personalized,
 | **Dry Math** | Shipped (Step 4) | Numbers and symbols only, using parent-confirmed operations and limits. |
 | **Two Whats and a Wow** | Shipped (Step 5) | Three distinct statements per group: exactly two false “whats” and one true “wow,” using equations or quantities as appropriate. |
 | **Sentence Builder** | Shipped (Step 6) | Drawing, labeling, copying, sentence-frame, and independent-writing modes with reviewed word banks. |
-| **Count, Compare & Make** | Planned (Step 8) | An age-four-friendly mix of matching, comparing, completing, and drawing quantities. |
+| **Count, Compare & Make** | Shipped (Step 8) | An age-four-friendly mix of matching, comparing, completing, and drawing quantities. |
 
 Answer keys, black-and-white line art, Letter and A4 selection, and independent toggles for nickname, interests, and decorative graphics all ship today; print and pagination hardening lands in Step 10. Personalization may change headings, reviewed vocabulary, topics, or decoration; it never changes the learning target or mathematical answer.
 
@@ -164,11 +164,11 @@ A profile contains an optional nickname, age, parent-confirmed presentation band
 
 ## Roadmap
 
-The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-7 are complete; Steps 8-13 remain.
+The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-8 are complete; Steps 9-13 remain.
 
 1. Application and continuous-integration foundation — complete
 2. Secure local-profile storage and setup — complete
-3. Four worksheet vertical slices — three complete; Count, Compare & Make remains
+3. Four worksheet vertical slices — complete
 4. Reviewed line art — complete; personalization and worksheet options remain
 5. Printing, pagination, and accessibility
 6. Release verification and public-project documentation
@@ -178,7 +178,7 @@ Later feature plans may add Mini Missions, shapes, measurement, language and sci
 
 ## Contributing
 
-Steps 1-7 are merged and Step 8 (Count, Compare & Make) is the current frontier. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
+Steps 1-8 are merged and Step 9 (personalization and worksheet options) is the current frontier. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) is the single source of truth for contribution rules: licensing, third-party material, asset rules, privacy rules, and the quality gates every pull request must pass. Read it before opening a pull request.
 

@@ -13,7 +13,7 @@ None.
 
 ## Missing items
 
-- The first-run path is inconsistent: the canonical store is repository-relative `config/children.local.json` (`plan.md:44` and `CLAUDE.md`), while the quickstart says `../config/children.local.json` even though it runs from the repository root (`plan.md:493–501`). Use the canonical repository-relative path.
+- The first-run path is inconsistent: the canonical store is repository-relative `config/children.local.json` (`plan.md:44` and `CLAUDE.md`), while the quickstart says `../config/children.local.json` even though it runs from the repository root (`plan.md:510–518`). Use the canonical repository-relative path.
 
 ## Nice-to-haves
 

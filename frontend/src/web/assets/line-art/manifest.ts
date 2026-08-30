@@ -9,7 +9,7 @@ import rawManifestJson from "./manifest.json?raw";
  * The reviewed decorative line-art pack.
  *
  * `manifest.json` beside this file is the SINGLE machine-readable source of
- * asset provenance (plan.md:244, :311). This module never re-declares a row:
+ * asset provenance (plan.md:244, :318). This module never re-declares a row:
  * it imports that exact JSON text, validates it, and joins each row to the
  * bundled SVG it names. `ASSET_PROVENANCE.md` is the human ledger of the same
  * rows and `frontend/tests/e2e/graphics.spec.ts` proves the two never drift.
@@ -414,7 +414,7 @@ export function buildLineArtCatalog(
  * {@link LINE_ART_CATALOG_DEFECTS}, which `manifest.test.ts` requires to be
  * empty and Step 13 release audit re-checks on the exported tree.
  *
- * The glob is RECURSIVE on purpose. plan.md:740 makes the release audit walk
+ * The glob is RECURSIVE on purpose. plan.md:757 makes the release audit walk
  * every `.svg` under this directory at any depth, so this step's own
  * unmanifested-file guard has to be at least that wide; a flat glob would let
  * an asset in a subdirectory ship unseen until release. A nested file can
@@ -449,7 +449,7 @@ const bundledMarkup = import.meta.glob<string>("./**/*.svg", {
  * committed bytes the `?raw` copy above was safety-checked against, and
  * `graphics.spec.ts` compares them file by file.
  *
- * Step 13 does NOT inspect those built files: plan.md:740 audits an EXPORTED
+ * Step 13 does NOT inspect those built files: plan.md:757 audits an EXPORTED
  * WORKING TREE whose manifest proves build output absent, so its asset clause
  * walks committed `line-art/**\/*.svg` sources. It re-runs this suite in the
  * clean room, which is how the built-file check travels to release. The
@@ -490,7 +490,7 @@ if (import.meta.env.DEV && LINE_ART_CATALOG_DEFECTS.length > 0) {
 /** Reviewed assets that may be rendered, in stable asset-ID order. */
 export const LINE_ART_ASSETS: readonly LineArtAssetV1[] = catalog.assets;
 
-/** The exact topic allowlist decoration may be selected by (plan.md:311). */
+/** The exact topic allowlist decoration may be selected by (plan.md:318). */
 export const LINE_ART_TOPIC_IDS = TOPIC_IDS;
 
 /**
