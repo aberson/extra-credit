@@ -21,6 +21,7 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   FIND_THE_WOW_DEFINITION,
+  findTheWowCapacityShortfall,
   getFindTheWowCapabilitySupport,
   getFindTheWowGroupCount,
   type FindTheWowMode,
@@ -521,11 +522,17 @@ export function generateFindTheWow(
   let items: readonly WowGroupItemV1[] | undefined;
   if (support.mode === "equation") {
     const stems = enumerateEquationWowStems(request);
-    if (stems.length < groupCount) {
+    const shortfall = findTheWowCapacityShortfall(
+      "equation",
+      stems.length,
+      request.options.length,
+      request.options.printScale,
+    );
+    if (shortfall !== undefined) {
       return {
         ok: false,
         code: GENERATION_CONSTRAINT_CONFLICT,
-        message: `The confirmed limits provide ${stems.length} unique equation groups, but this length needs ${groupCount}. Choose a shorter worksheet or review the profile limits.`,
+        message: shortfall,
       };
     }
     items = constructItems(
@@ -536,11 +543,17 @@ export function generateFindTheWow(
     );
   } else {
     const stems = enumerateQuantityWowStems(request);
-    if (stems.length < groupCount) {
+    const shortfall = findTheWowCapacityShortfall(
+      "quantity",
+      stems.length,
+      request.options.length,
+      request.options.printScale,
+    );
+    if (shortfall !== undefined) {
       return {
         ok: false,
         code: GENERATION_CONSTRAINT_CONFLICT,
-        message: `The confirmed limits provide ${stems.length} unique quantity groups, but this length needs ${groupCount}. Choose a shorter worksheet or review the profile limits.`,
+        message: shortfall,
       };
     }
     items = constructItems(
@@ -568,4 +581,49 @@ export function generateFindTheWow(
   return invariantFailureResult === undefined
     ? { ok: true, document }
     : invariantFailureResult;
+}
+
+/**
+ * The distinct stems these confirmed limits provide in one mode, counted by
+ * enumerating the very stem list `generateFindTheWow` shuffles.
+ *
+ * The count is the number of DISTINCT EXERCISES, not of candidates: one stem
+ * carries every distractor pair it could print, and the page may show it only
+ * once. That is the unit the length budget is measured in, so it is the unit
+ * the pre-click capacity verdict has to be measured in too (issue #14).
+ */
+export function measureFindTheWowStemCapacity(
+  request: GenerationRequestV1,
+  mode: FindTheWowMode,
+): number {
+  return mode === "equation"
+    ? enumerateEquationWowStems(request).length
+    : enumerateQuantityWowStems(request).length;
+}
+
+/**
+ * The whole capacity answer for one request, mode included.
+ *
+ * The mode is re-resolved from the request's OWN effective capabilities,
+ * exactly as `generateFindTheWow` does above, rather than from the stored
+ * profile: the confidence downgrade can move a profile between modes, and
+ * measuring one mode's stems against the other mode's page is how issue #14
+ * would come back.
+ */
+export function findTheWowCapacityVerdict(
+  request: GenerationRequestV1,
+): string | undefined {
+  const support = getFindTheWowCapabilitySupport(
+    request.capabilities.mathSkills,
+    request.options.difficulty,
+  );
+  if (!support.available) {
+    return support.reason;
+  }
+  return findTheWowCapacityShortfall(
+    support.mode,
+    measureFindTheWowStemCapacity(request, support.mode),
+    request.options.length,
+    request.options.printScale,
+  );
 }

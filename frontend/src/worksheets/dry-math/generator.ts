@@ -18,6 +18,7 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   DRY_MATH_DEFINITION,
+  dryMathCapacityShortfall,
   getDryMathItemCount,
   getDryMathCapabilitySupport,
 } from "./definition.js";
@@ -129,11 +130,16 @@ export function generateDryMath(
 
   const itemCount = effectiveDryMathItemCount(request);
   const candidates = enumerateDryMathCandidates(request);
-  if (candidates.length < itemCount) {
+  const shortfall = dryMathCapacityShortfall(
+    candidates.length,
+    request.options.length,
+    request.options.printScale,
+  );
+  if (shortfall !== undefined) {
     return {
       ok: false,
       code: GENERATION_CONSTRAINT_CONFLICT,
-      message: `The confirmed limits provide ${candidates.length} unique facts, but this length needs ${itemCount}. Choose a shorter worksheet or review the profile limits.`,
+      message: shortfall,
     };
   }
 
@@ -173,4 +179,31 @@ export function generateDryMath(
     }
   }
   return { ok: true, document };
+}
+
+/**
+ * The distinct facts these confirmed limits provide, counted by enumerating
+ * the very collection `generateDryMath` shuffles. Sharing one enumeration is
+ * what keeps the control's pre-click capacity verdict from drifting away from
+ * the generator's own fail-closed branch (issue #14).
+ */
+export function measureDryMathCapacity(request: GenerationRequestV1): number {
+  return enumerateDryMathCandidates(request).length;
+}
+
+/**
+ * The whole capacity answer for one request: measured and judged by the same
+ * pair of functions `generateDryMath` uses above. The registration calls this
+ * rather than re-composing the measurement with a separately-derived budget,
+ * so a second constraint added inside this file cannot be missed by the
+ * pre-click gate (issue #14).
+ */
+export function dryMathCapacityVerdict(
+  request: GenerationRequestV1,
+): string | undefined {
+  return dryMathCapacityShortfall(
+    measureDryMathCapacity(request),
+    request.options.length,
+    request.options.printScale,
+  );
 }

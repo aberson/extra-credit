@@ -16,6 +16,7 @@ import {
   AppConfigV1Schema,
   type AppConfigV1,
   type ChildProfileV1,
+  type GenerationDefaultsV1,
 } from "../shared/config/schema";
 import { getWorksheetRegistration } from "../shared/worksheet/registry";
 import {
@@ -103,9 +104,19 @@ type ProfileReadOutcome =
       readonly error: ConfigApiError;
     };
 
+/**
+ * One exclusive claim on the local configuration file.
+ *
+ * `defaults` is a THIRD kind rather than a `mutation` because a worksheet-
+ * defaults write changes no child profile: it must not discard the generated
+ * page the parent is looking at, and it must not renumber the profile
+ * revision that every profile-bound control is keyed on. Reusing `mutation`
+ * for it is what made pressing Save wipe the preview and silently reselect the
+ * first child.
+ */
 interface ProfileOperation {
   readonly generation: number;
-  readonly kind: "mutation" | "read";
+  readonly kind: "defaults" | "mutation" | "read";
 }
 
 interface ProfileControllerState {
@@ -137,6 +148,18 @@ type ProfileControllerAction =
       readonly message: string;
       readonly operation: ProfileOperation;
       readonly saved: LoadedConfig;
+    }
+  | {
+      readonly type: "adopt-defaults-write";
+      readonly message: string;
+      readonly operation: ProfileOperation;
+      readonly saved: LoadedConfig;
+    }
+  | {
+      readonly type: "refresh-authority";
+      readonly config: AppConfigV1;
+      readonly etag: string | undefined;
+      readonly operation: ProfileOperation;
     }
   | { readonly type: "operation-failed"; readonly operation: ProfileOperation }
   | { readonly type: "open-editor"; readonly session: EditorSession }
@@ -278,6 +301,66 @@ function profileControllerReducer(
         recoveryConfirmed: false,
         recoveryDraft: undefined,
         successMessage: action.message,
+      };
+    }
+    /**
+     * A worksheet-defaults write: same file, same ETag round trip, but the
+     * profile revision does NOT move. Everything keyed on that revision - the
+     * generator panel and the open profile editor - stays mounted with the
+     * parent's selections intact, because nothing about a child profile
+     * changed. The open editor is re-stamped with the new ETag so its own save
+     * is not stranded behind a precondition this write just superseded.
+     */
+    case "adopt-defaults-write": {
+      if (!operationMatches(state.operation, action.operation)) {
+        return state;
+      }
+      const revision = state.latestRevision;
+      return {
+        ...state,
+        editorSession:
+          state.editorSession === undefined
+            ? undefined
+            : editorAtRevision(
+                state.editorSession,
+                revision,
+                action.saved.etag,
+              ),
+        operation: null,
+        profileState: {
+          kind: "ready",
+          config: action.saved.config,
+          etag: action.saved.etag,
+          revision,
+        },
+        successMessage: action.message,
+      };
+    }
+    /**
+     * Adopts a re-read after a superseded defaults write. The stale ETag is
+     * what failed, so the fix is to carry the current one - not to renumber
+     * the revision, which would unmount the control holding the parent's
+     * selections and the message telling them what happened.
+     */
+    case "refresh-authority": {
+      if (!operationMatches(state.operation, action.operation)) {
+        return state;
+      }
+      const revision = state.latestRevision;
+      return {
+        ...state,
+        editorSession:
+          state.editorSession === undefined
+            ? undefined
+            : editorAtRevision(state.editorSession, revision, action.etag),
+        operation: null,
+        profileState: {
+          kind: "ready",
+          config: action.config,
+          ...(action.etag === undefined ? {} : { etag: action.etag }),
+          revision,
+        },
+        successMessage: null,
       };
     }
     case "open-editor":
@@ -472,7 +555,13 @@ export function App() {
         kind,
       } satisfies ProfileOperation;
       operationRef.current = nextOperation;
-      invalidateGenerationAuthority();
+      // A defaults write cannot change any input the active document was
+      // generated from, so it must not invalidate it: the seed came from
+      // `crypto.getRandomValues` and the exact page on screen is not
+      // reproducible once it is dropped.
+      if (kind !== "defaults") {
+        invalidateGenerationAuthority();
+      }
       dispatchProfile({ type: "begin-operation", operation: nextOperation });
       return nextOperation;
     },
@@ -524,6 +613,28 @@ export function App() {
       nextOperationGenerationRef.current += 1;
       dispatchProfile({
         type: "adopt-write",
+        message,
+        operation: completedOperation,
+        saved,
+      });
+      return true;
+    },
+    [],
+  );
+
+  const adoptDefaultsWriteOutcome = useCallback(
+    (
+      completedOperation: ProfileOperation,
+      saved: LoadedConfig,
+      message: string,
+    ): boolean => {
+      if (!operationMatches(operationRef.current, completedOperation)) {
+        return false;
+      }
+      operationRef.current = null;
+      nextOperationGenerationRef.current += 1;
+      dispatchProfile({
+        type: "adopt-defaults-write",
         message,
         operation: completedOperation,
         saved,
@@ -646,6 +757,103 @@ export function App() {
         (error.code === "CONFIG_CONFLICT" ||
           error.code === "CONFIG_RECOVERY_NOT_ALLOWED")
       ) {
+        throw new ConfigAuthorityChangedError(error);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Re-reads the local file after a superseded worksheet-defaults write.
+   *
+   * Without this the control is stuck: the precondition that just failed is
+   * the one the next click would send, forever. The re-read adopts the CONFIG
+   * as well as the ETag - carrying only the ETag forward would let the next
+   * save overwrite whatever the other writer stored.
+   */
+  async function refreshDefaultsAuthority(): Promise<void> {
+    const refresh = beginProfileOperation("defaults");
+    if (refresh === undefined) {
+      return;
+    }
+    let outcome: ProfileReadOutcome;
+    try {
+      outcome = await readProfileOutcome();
+    } catch {
+      finishFailedOperation(refresh);
+      return;
+    }
+    if (outcome.kind !== "ready") {
+      // A missing, invalid or unreadable file is not a stale-ETag story; it is
+      // the reload path the whole app already has, revision bump included.
+      adoptReadOutcome(refresh, outcome, "replace");
+      return;
+    }
+    if (!operationMatches(operationRef.current, refresh)) {
+      return;
+    }
+    operationRef.current = null;
+    dispatchProfile({
+      type: "refresh-authority",
+      config: outcome.config,
+      etag: outcome.etag,
+      operation: refresh,
+    });
+  }
+
+  /**
+   * Writes the generator's option choices back as the stored defaults.
+   *
+   * Defaults live beside the profiles in the one local file, so this walks the
+   * same ETag-guarded round trip a profile write does and passes the existing
+   * `profiles` array through untouched: saving defaults must never edit, drop
+   * or reorder a child profile. It claims the file under the `defaults`
+   * operation kind, which is what keeps the generated preview and the parent's
+   * child/family selection alive across the write.
+   */
+  async function saveGenerationDefaults(
+    defaults: GenerationDefaultsV1,
+  ): Promise<void> {
+    if (profileState.kind !== "ready" || operationRef.current !== null) {
+      throw new ConfigApiError(
+        "CONFIG_IO_ERROR",
+        "Profiles are not ready to change.",
+        503,
+      );
+    }
+    const nextConfig = AppConfigV1Schema.parse({
+      ...profileState.config,
+      defaults,
+    });
+    const write = beginProfileOperation("defaults");
+    if (write === undefined) {
+      throw new ConfigApiError(
+        "CONFIG_IO_ERROR",
+        "Another profile operation is pending.",
+        409,
+      );
+    }
+    try {
+      const saved = await saveConfig(nextConfig, {
+        ...(profileState.etag === undefined ? {} : { etag: profileState.etag }),
+      });
+      if (
+        !adoptDefaultsWriteOutcome(
+          write,
+          saved,
+          "Worksheet defaults saved locally.",
+        )
+      ) {
+        throw new ConfigApiError(
+          "CONFIG_CONFLICT",
+          "A newer profile operation superseded this save.",
+          409,
+        );
+      }
+    } catch (error) {
+      finishFailedOperation(write);
+      if (error instanceof ConfigApiError && error.code === "CONFIG_CONFLICT") {
+        await refreshDefaultsAuthority();
         throw new ConfigAuthorityChangedError(error);
       }
       throw error;
@@ -1040,6 +1248,7 @@ export function App() {
                         generateWorksheet(selection, renderedGenerationAuthority)
                       }
                       onInputsChanged={clearGeneration}
+                      onSaveDefaults={saveGenerationDefaults}
                       profiles={profileState.config.profiles}
                     />
                   )}

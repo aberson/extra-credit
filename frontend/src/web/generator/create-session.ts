@@ -65,6 +65,27 @@ export function productionSeedSource(): number {
   return value[0] ?? 0;
 }
 
+/**
+ * The selected family's own explanation of what bounds its variety.
+ *
+ * This message used to end "Review the profile limits" for every family. That
+ * is right for the three math families and wrong for Sentence Builder, whose
+ * limiting resource is the breadth of the reviewed vocabulary for a writing
+ * mode: a parent following the old advice would edit stored numbers that
+ * cannot change the outcome (issue #16). Asking the registration is the same
+ * move `getEffectiveUnit` already makes for unit labels.
+ */
+function limitingResourceAdvice(selection: GenerationSelection): string {
+  return getWorksheetRegistration(
+    selection.worksheetType,
+  ).controls.getLimitingResourceAdvice({
+    profile: selection.profile,
+    difficulty: selection.preferences.difficulty,
+    length: selection.preferences.length,
+    printScale: selection.preferences.printScale,
+  });
+}
+
 function resultToSession(result: ProjectAndGenerateResult): SessionCreationResult {
   if (!result.ok) {
     return { ok: false, code: result.code, message: result.message };
@@ -166,7 +187,6 @@ export function makeAnotherWorksheetSession(
   }
   return {
     status: "exhausted",
-    message:
-      "No different worksheet was found in 16 attempts. Review the profile limits or create a new worksheet later.",
+    message: `No different worksheet was found in 16 attempts. ${limitingResourceAdvice(selection)}`,
   };
 }

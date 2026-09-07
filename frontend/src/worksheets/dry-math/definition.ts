@@ -1,3 +1,8 @@
+import {
+  OPERAND_RESULT_MAXIMUM_KEYS,
+  capacityRemedySentence,
+  shorterLengthLowersRequirement,
+} from "../../shared/worksheet/limit-labels.js";
 import type {
   EffectiveMathSkillsV1,
   PrintScale,
@@ -59,4 +64,33 @@ export function getDryMathCapabilitySupport(
     };
   }
   return { available: true };
+}
+
+/**
+ * The one shortage sentence Dry Math prints, whoever asks.
+ *
+ * Both the pre-click control (through the registration's capacity verdict) and
+ * the generator's own fail-closed branch call this. Issue #14 was exactly the
+ * gap between those two moments; keeping one owner for the wording means they
+ * cannot drift into two different explanations of the same shortage. The
+ * required count is derived HERE from the length and print scale rather than
+ * passed in, so a caller cannot measure capacity against a budget the
+ * generator never uses.
+ */
+export function dryMathCapacityShortfall(
+  capacity: number,
+  length: WorksheetLength,
+  printScale: PrintScale,
+): string | undefined {
+  const required = getDryMathItemCount(length, printScale);
+  if (capacity >= required) {
+    return undefined;
+  }
+  const remedy = capacityRemedySentence(
+    shorterLengthLowersRequirement(length, required, (shorter) =>
+      getDryMathItemCount(shorter, printScale),
+    ),
+    OPERAND_RESULT_MAXIMUM_KEYS,
+  );
+  return `The confirmed limits provide ${capacity} unique facts, but this length needs ${required}. ${remedy}`;
 }

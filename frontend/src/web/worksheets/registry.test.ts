@@ -283,6 +283,7 @@ function renderControls(
       defaults: { ...preferences, ...overrides },
       onGenerate: vi.fn(),
       onInputsChanged: vi.fn(),
+      onSaveDefaults: vi.fn(async () => {}),
       profiles: [sourceProfile],
     }),
   );
