@@ -83,7 +83,8 @@ import {
  *    `sentence-builder/generator.test.ts`, not to this registry-facing sweep.
  *    Beside the arm set the sweep also collects the DIGIT-NORMALISED parent
  *    sentences, so a new branch or a reworded remedy that reuses an existing
- *    arm id still fails here as an undeclared shape.
+ *    arm id fails here as an undeclared shape whenever the sentence it renders
+ *    differs from every declared shape.
  * 3. Two bounded cubes - the three quantity maxima, and the operand/result
  *    pair by operation set - that re-derive the structurally dead Count,
  *    Compare & Make and Two Whats and a Wow arms mechanically, instead of
@@ -766,8 +767,17 @@ const bothCapabilitiesProfile: ChildProfileV1 = {
  * the clamp term can only ever tie. Here the projection clamp is the only
  * thing standing between a stored 100 and a limit arithmetic that would name
  * `v1clamp` the strict winner, which is what the deadness rows claim.
+ *
+ * It is exercised OFF the sweep cube, in its own loop at the end of the sweep.
+ * `projectGenerationRequest` clamps all five maxima and `probeCapacity` always
+ * projects before it measures, so this profile's EFFECTIVE skills are the ones
+ * `bothCapabilitiesProfile` already produces: every cell it could add to the
+ * cube would recompute that profile's enumerations, and all-at-the-ceiling
+ * maxima are the most expensive shape in the set. What it alone can reach is
+ * the three limit minima with a stored maximum above the ceiling behind them,
+ * which is what the loop feeds through the same `observedMinimumArm`.
  */
-const aboveCeilingProfile: ChildProfileV1 = {
+const aboveCeilingProfile: ChildProfileV1 = ChildProfileV1Schema.parse({
   ...bothCapabilitiesProfile,
   id: "0c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
   mathSkills: {
@@ -778,7 +788,7 @@ const aboveCeilingProfile: ChildProfileV1 = {
     operandMax: 5 * V1_NUMERIC_MAXIMUM,
     resultMax: 5 * V1_NUMERIC_MAXIMUM,
   },
-};
+});
 
 /** Version 1 supports ages 4-8; a stored 9 is the projection's own refusal. */
 const beyondV1AgeProfile: ChildProfileV1 = {
@@ -847,7 +857,6 @@ const PROBE_PROFILES: readonly ChildProfileV1[] = [
   // Equations confirmed with nothing usable behind them.
   equationProfile("c5d6e7f8-a9b0-42b9-84cd-f4a5b6c7d8e9", 0, 0, []),
   bothCapabilitiesProfile,
-  aboveCeilingProfile,
   beyondV1AgeProfile,
 ].map((profile) => ChildProfileV1Schema.parse(profile));
 
@@ -931,7 +940,8 @@ describe("every declared arm of the capacity and advice surface", () => {
     const observed = new Set<string>();
     // The second closed set. Arm ids are produced by branch logic written in
     // THIS file, so a new production branch that reuses an existing id changes
-    // no arm - it changes the sentence. Digits are normalised away so the set
+    // no arm - it changes the sentence, and fails here whenever that sentence
+    // differs from every declared shape. Digits are normalised away so the set
     // is the shape of the parent-facing prose and not its arithmetic.
     const shapes = new Set<string>();
     // Every parent-facing capacity sentence this sweep renders, with the
@@ -1240,6 +1250,83 @@ describe("every declared arm of the capacity and advice surface", () => {
       );
     }
 
+    // The above-ceiling profile, off the cube on purpose (its fixture docblock
+    // says why). Projected once per family and read through the same
+    // `observedMinimumArm` and the same `observe`, so the three `*-v1clamp`
+    // rows keep the only input under which their term could win outright: a
+    // STORED maximum above the ceiling, with nothing but the projection clamp
+    // holding it down. Confidence is the difficulty because it is what puts Two
+    // Whats and a Wow in quantity mode for a profile that also confirms
+    // equations, and quantity mode is where that family's clamp term is read.
+    for (const worksheetType of [
+      "find-the-wow",
+      "count-compare-make",
+    ] as const) {
+      const registration = getWorksheetRegistration(worksheetType);
+      const where = `${worksheetType} above-ceiling`;
+      const projection = projectGenerationRequest({
+        profile: aboveCeilingProfile,
+        worksheetType,
+        generatorVersion: registration.generatorVersion,
+        seed: CAPACITY_PROBE_SEED,
+        preferences: {
+          ...CAPACITY_PROBE_PREFERENCES,
+          difficulty: "confidence",
+          length: "long",
+          printScale: "standard",
+        },
+        stretchConfirmed: true,
+      });
+      expect(`${where}: ${projection.ok}`).toBe(`${where}: true`);
+      if (!projection.ok) {
+        continue;
+      }
+      const skills = projection.request.capabilities.mathSkills;
+      if (worksheetType === "find-the-wow") {
+        const mode = getFindTheWowCapabilitySupport(skills, "confidence");
+        expect(`${where}: ${mode.available ? mode.mode : "unavailable"}`).toBe(
+          `${where}: quantity`,
+        );
+        observe(
+          observedMinimumArm(
+            "QL",
+            [
+              ["counting", skills.countingMax],
+              ["numerals", skills.numeralMax],
+              ["v1clamp", FIND_THE_WOW_V1_MAXIMUM],
+            ],
+            getQuantityWowLimit(skills),
+            where,
+          ),
+        );
+      } else {
+        observe(
+          observedMinimumArm(
+            "NL",
+            [
+              ["counting", skills.countingMax],
+              ["numerals", skills.numeralMax],
+              ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
+            ],
+            getCountCompareMakeNumeralLimit(skills),
+            where,
+          ),
+        );
+        observe(
+          observedMinimumArm(
+            "CL",
+            [
+              ["counting", skills.countingMax],
+              ["comparisons", skills.compareMax],
+              ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
+            ],
+            getCountCompareMakeComparisonLimit(skills),
+            where,
+          ),
+        );
+      }
+    }
+
     // Before the set equality, so a dead arm that went live names itself
     // instead of arriving as one row of a 60-element set diff.
     for (const dead of DEAD_ARM_IDS) {
@@ -1447,14 +1534,16 @@ describe("the equation families' binding-maximum arms", () => {
     // makes the arm live and the set above changes; lowering it moves the
     // margin and this line changes.
     expect(smallestBothBindingPool).toBe(FIND_THE_WOW_GROUP_BUDGETS.long);
-    // A min model reproduces the DRY-MATH arm set above, so the dry-math row
-    // below is what distinguishes the two models there: the recorded swap of
-    // that family's probe for a `Math.min` left every other assertion in this
-    // test standing and failed only at this row. The find-the-wow row is a
-    // second net over an arm-set assertion that already fails - the same swap
-    // for that family went red at the find-the-wow arm set, because a min
-    // model makes both maxima bind there. The dry-math pair is the trap the
-    // handoff names: the lower maximum is not the one holding the pool down.
+    // A min model reproduces the DRY-MATH arm set above, so for that family the
+    // set assertion cannot tell the two models apart and this row is what does.
+    // Each row names a cube cell where the counterfactual probe and a `Math.min`
+    // over the same two maxima disagree, and the dry-math cell is the trap the
+    // handoff names: at subtraction 3/1 the probe finds BOTH maxima binding
+    // where a min names results alone, so the lower maximum is not the one
+    // holding the pool down. The find-the-wow row records the mirror case and is
+    // a second net rather than the only one - its cell has the min model naming
+    // "both", an arm the declared find-the-wow set above does not contain, so a
+    // min-model rewrite of that family moves that set as well.
     const disagreements = [...minModelDisagreements].sort();
     expect(disagreements).toContain(
       "dry-math subtraction 3/1: probe both, min results",

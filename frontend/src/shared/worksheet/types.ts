@@ -18,11 +18,22 @@ export const WORKSHEET_TYPE_IDS = [
  *
  * Defined in this leaf module because the projection boundary that clamps to
  * it, the invariant checker that re-verifies the clamp, the families whose own
- * limit arithmetic repeats it, and the parent-facing controls that disclose it
- * all import from here. `tests/integration/envelope-single-source.test.ts`
- * asserts each family alias is `toBe` this constant and, because `toBe` on a
- * number cannot tell a re-export from a fresh literal, also refuses a second
- * literal definition anywhere in the shipped tree.
+ * limit arithmetic repeats it, the ten-frame ceiling in the preview, and the
+ * parent-facing controls that disclose it all import from here.
+ *
+ * `tests/integration/envelope-single-source.test.ts` asserts each EXPORTED
+ * alias of this constant is `toBe` it and, because `toBe` on a number cannot
+ * tell a re-export from a fresh literal, scans the shipped tree (`src`, `.ts`
+ * and `.tsx`, `*.test.*` excluded) for the source of a second one. Three things
+ * fail there: a further single-line `const` named `V1_NUMERIC_MAXIMUM` or
+ * ending `_V1_MAXIMUM`, an alias in that file's declared table defined as a
+ * number rather than as this constant, and a standalone `20` written anywhere
+ * in shipped code off its reviewed-site list - which is what covers a literal
+ * under a name the first two filters never look at.
+ *
+ * A declaration split across TWO LINES is what none of that sees when its value
+ * is this constant's name; the same declaration written with the number is
+ * still caught, because the last scan reads lines and not declarations.
  */
 export const V1_NUMERIC_MAXIMUM = 20;
 

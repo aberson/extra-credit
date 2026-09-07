@@ -202,6 +202,9 @@ test("saved worksheet defaults reload without changing a child profile", async (
   ).toEqual({ top: true, left: true, bottom: true, right: true });
   const gap = confirmationBox.y - (buttonBox.y + buttonBox.height);
   expect(gap, "the confirmation must sit below the button").toBeGreaterThanOrEqual(0);
+  // Twice the slack, because this compares two independently laid-out boxes
+  // rather than a box against the container it sits in: each of the two left
+  // edges carries its own sub-pixel rounding.
   expect(
     Math.abs(confirmationBox.x - buttonBox.x),
     "the confirmation must share the button's left edge",
