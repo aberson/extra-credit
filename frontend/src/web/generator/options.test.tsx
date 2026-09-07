@@ -27,6 +27,7 @@ import {
   getSentenceBuilderBankSize,
   getSentenceBuilderCapabilitySupport,
 } from "../../worksheets/sentence-builder/definition";
+import { BANK_WRITING_MODES } from "../../worksheets/sentence-builder/vocabulary";
 import {
   createWorksheetSessionForSeed,
   makeAnotherWorksheetSession,
@@ -81,20 +82,20 @@ const basePreferences: GenerationDefaultsV1 = {
  * no derived profile can drive that selector to a strict winner, so a selector
  * that named the wrong maximum would look right here.
  */
-interface QuantityMaximumsV1 {
+interface QuantityMaximums {
   readonly countingMax: number;
   readonly numeralMax: number;
   readonly compareMax: number;
 }
 
-function tiedQuantityMaximums(limit: number): QuantityMaximumsV1 {
+function tiedQuantityMaximums(limit: number): QuantityMaximums {
   return { countingMax: limit, numeralMax: limit, compareMax: limit };
 }
 
 /** Quantities only, exactly the shape the issue-#14 report names. */
 function quantityProfile(
   id: string,
-  maximums: QuantityMaximumsV1,
+  maximums: QuantityMaximums,
 ): ChildProfileV1 {
   return {
     id,
@@ -1024,11 +1025,17 @@ describe("Sentence Builder word banks against the shipped vocabulary", () => {
     }
     // Counting AVAILABLE cells alone was vacuous: the two modes that print no
     // bank are available too, so a bank size stuck at zero still satisfied a
-    // "greater than zero" tally over all 60 cells. Three of the five reviewed
-    // writing modes print a bank, over 2 presentation bands x 3 lengths x 2
-    // print scales, so the bank-bearing subset is exactly 36 cells - and a bank
-    // size that stopped being positive fails here instead of passing silently.
-    expect(bankCells).toBe(36);
+    // "greater than zero" tally over all 60 cells. The bank-bearing subset is
+    // every (bank mode, band, length, print scale) cell - derived from the four
+    // code-owned lists rather than multiplied out here, so a sixth writing mode
+    // passes for the right reason while a bank size that stopped being positive
+    // still fails.
+    expect(bankCells).toBe(
+      BANK_WRITING_MODES.length *
+        PRESENTATION_BANDS.length *
+        WORKSHEET_LENGTHS.length *
+        PRINT_SCALES.length,
+    );
   });
 });
 
@@ -1047,11 +1054,33 @@ describe("stored capabilities Version 1 keeps but never uses", () => {
     ).toBeInTheDocument();
   });
 
-  test("the arithmetic permissions are not announced on a page with no arithmetic", () => {
-    // Carrying and negative results are symbolic-arithmetic concepts, so on a
-    // counted-groups page they would describe work that page cannot contain.
-    renderControls(beyondV1Profile, "count-compare-make");
-    expect(screen.queryByText(/carrying and borrowing/u)).toBeNull();
+  test("the stored permissions are announced on selections that print no arithmetic", () => {
+    // They used to be announced only where the selection's own maxima were
+    // operands or results, which silenced them for the two families a parent
+    // is most likely to pick for a young child. The disclosure is about what
+    // the PROFILE stores and what Version 1 will not do with it, so it belongs
+    // on every selection that profile can produce.
+    for (const worksheetType of [
+      "count-compare-make",
+      "sentence-builder",
+    ] as const) {
+      renderControls(beyondV1Profile, worksheetType);
+      expect(
+        screen.getByText(
+          /This profile also allows carrying and borrowing, and negative results; Version 1 never uses them\./u,
+        ),
+        worksheetType,
+      ).toBeInTheDocument();
+      cleanup();
+    }
+  });
+
+  test("a profile that stores neither permission is told nothing", () => {
+    // The other half of the contract: the notice reports the stored flags, so
+    // a profile with both false must produce no sentence at all. Without this
+    // an always-rendered notice would satisfy the two tests above.
+    renderControls(independentProfile, "count-compare-make");
+    expect(screen.queryByText(/Version 1 never uses/u)).toBeNull();
   });
 });
 
@@ -1102,9 +1131,20 @@ describe("stored generation defaults", () => {
     const confirmation = await screen.findByText(
       "Worksheet defaults saved locally.",
     );
-    expect(
-      confirmation.closest('section[aria-labelledby="generator-title"]'),
-    ).not.toBeNull();
+    // The panel's own <section> is the whole component, so `closest` on it is
+    // satisfied by anything this component renders - including the top of the
+    // panel, ~900px above the button, which is the defect being fixed. The
+    // slot holding the button is the smallest node that means "beside it".
+    const saveButton = screen.getByRole("button", {
+      name: "Save these as worksheet defaults",
+    });
+    const slot = saveButton.closest("[data-defaults-slot]");
+    expect(slot).not.toBeNull();
+    expect(confirmation.parentElement).toBe(slot);
+    const slotChildren = [...(slot?.children ?? [])];
+    expect(slotChildren.indexOf(confirmation)).toBeGreaterThan(
+      slotChildren.indexOf(saveButton),
+    );
 
     fireEvent.change(screen.getByRole("combobox", { name: "Length" }), {
       target: { value: "long" },

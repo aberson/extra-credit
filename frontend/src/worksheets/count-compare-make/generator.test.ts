@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
+  ChildProfileV1Schema,
   type ChildProfileV1,
   type GenerationDefaultsV1,
 } from "../../shared/config/schema.js";
@@ -60,7 +61,15 @@ interface ProfileShape {
   readonly representations?: ChildProfileV1["mathSkills"]["representations"];
 }
 
-function quantityProfile({
+/**
+ * The profile shape, built but NOT parsed.
+ *
+ * `MathSkillsV1Schema` floors the three quantity maxima at 1, so only the two
+ * enumeration cubes below use this directly: they deliberately probe a 0 the
+ * schema refuses, which is a claim about the enumeration staying total rather
+ * than about a profile a parent could store.
+ */
+function buildQuantityProfile({
   compareMax,
   countingMax = 10,
   numeralMax,
@@ -87,6 +96,17 @@ function quantityProfile({
     writingMode: "draw-and-tell",
     interests: ["Distinctive Private Space"],
   };
+}
+
+/**
+ * A profile a parent can really store.
+ *
+ * Parsed, not merely typed: a fixture the schema would reject describes a
+ * profile that can never reach production, so a property drawing them proves
+ * its invariant partly over shapes no parent can produce.
+ */
+function quantityProfile(shape: ProfileShape = {}): ChildProfileV1 {
+  return ChildProfileV1Schema.parse(buildQuantityProfile(shape));
 }
 
 function request(
@@ -267,7 +287,7 @@ describe("Count, Compare & Make candidate capacity", () => {
       for (let numeralMax = 0; numeralMax <= 20; numeralMax += 1) {
         for (let compareMax = 0; compareMax <= 20; compareMax += 1) {
           const requestValue = request(
-            quantityProfile({ compareMax, countingMax, numeralMax }),
+            buildQuantityProfile({ compareMax, countingMax, numeralMax }),
           );
           const skills = requestValue.capabilities.mathSkills;
           const numeralLimit = getCountCompareMakeNumeralLimit(skills);
@@ -295,7 +315,7 @@ describe("Count, Compare & Make candidate capacity", () => {
   test("match capacity is L targets at L>=3 and zero below it", () => {
     for (let limit = 0; limit <= 6; limit += 1) {
       const pools = enumerateCountCompareCandidates(
-        request(quantityProfile({ countingMax: limit })),
+        request(buildQuantityProfile({ countingMax: limit })),
       );
       expect(pools.match.length, `L=${limit}`).toBe(limit >= 3 ? limit : 0);
       expect(new Set(pools.match.map(({ target }) => target)).size).toBe(
@@ -403,11 +423,14 @@ describe("capacity is counted in the collection selection draws from", () => {
     1, 2, 3, 7, 13, 42, 97, 255, 1024, 65_535, 999_983, 0xdead_beef,
   ] as const;
 
+  // 1, not 0: `MathSkillsV1Schema` floors all three quantity maxima at 1, so a
+  // 0 draw describes a profile a parent can never store. 24 stays above the
+  // Version 1 ceiling of 20, so the clamped half of the range is still drawn.
   const requestShape = fc.record({
-    compareMax: fc.integer({ min: 0, max: 24 }),
-    countingMax: fc.integer({ min: 0, max: 24 }),
+    compareMax: fc.integer({ min: 1, max: 24 }),
+    countingMax: fc.integer({ min: 1, max: 24 }),
     length: fc.constantFrom(...WORKSHEET_LENGTHS),
-    numeralMax: fc.integer({ min: 0, max: 24 }),
+    numeralMax: fc.integer({ min: 1, max: 24 }),
     printScale: fc.constantFrom(...PRINT_SCALES),
   });
 

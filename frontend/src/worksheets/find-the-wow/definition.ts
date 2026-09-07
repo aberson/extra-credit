@@ -27,6 +27,35 @@ export const FIND_THE_WOW_GROUP_BUDGETS = {
   long: 8,
 } as const satisfies Record<WorksheetLength, number>;
 
+/**
+ * The Version 1 source envelope this family enumerates within.
+ *
+ * The sole projection boundary already clamps every stored maximum to it; the
+ * family repeats the clamp so its own limit arithmetic cannot widen past the
+ * envelope, and names it once so the enumeration and the tests that assert
+ * which maximum bound a pool read the same number.
+ */
+export const FIND_THE_WOW_V1_MAXIMUM = 20;
+
+/**
+ * `min(countingMax, numeralMax, 20)`: the distinct quantity stems this family
+ * can draw from.
+ *
+ * Exported because the quantity pool IS a `Math.min` over those two stored
+ * maxima, so which one is binding can be read off this value - and reading it
+ * off a second copy of the formula is how a limit change stops being visible
+ * to the surface that explains it to a parent.
+ */
+export function getQuantityWowLimit(
+  mathSkills: Pick<EffectiveMathSkillsV1, "countingMax" | "numeralMax">,
+): number {
+  return Math.min(
+    mathSkills.countingMax,
+    mathSkills.numeralMax,
+    FIND_THE_WOW_V1_MAXIMUM,
+  );
+}
+
 export function getFindTheWowGroupCount(
   length: WorksheetLength,
   printScale: PrintScale,

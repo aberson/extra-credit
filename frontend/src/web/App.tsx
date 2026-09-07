@@ -559,6 +559,8 @@ export function App() {
         kind,
       } satisfies ProfileOperation;
       operationRef.current = nextOperation;
+      // Why "defaults" is the exception: see `saveGenerationDefaults` and
+      // `refreshDefaultsAuthority` below.
       if (kind !== "defaults") {
         invalidateGenerationAuthority();
       }
@@ -768,10 +770,7 @@ export function App() {
    *
    * It claims the file as a `read`, not as a `defaults` write. The 409 withdrew
    * the proof that the profiles behind a rendered worksheet are unchanged, so
-   * the generation authority is invalidated at claim time and the stale page is
-   * dropped on every exit of this function. The revision still does not move,
-   * so the panel is not remounted and the parent's selections and the retry
-   * message survive.
+   * the generation authority is invalidated at claim time.
    */
   async function refreshDefaultsAuthority(): Promise<void> {
     const refresh = beginProfileOperation("read");

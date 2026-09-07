@@ -106,9 +106,9 @@ export function enumerateDryMathCandidates(
 
 /**
  * The shortage sentence for one already-measured request, wired to the same
- * enumeration the shortfall's binding-maximum probe re-runs. Every caller in
- * this file goes through here so the probe cannot be wired one way for the
- * generator's fail-closed branch and another way for the pre-click verdict.
+ * enumeration the shortfall's binding-maximum probe re-runs, so the
+ * generator's fail-closed branch and the pre-click verdict cannot be wired to
+ * two different enumerations.
  */
 function dryMathShortfallFor(
   request: GenerationRequestV1,

@@ -28,6 +28,10 @@ import { expect, test } from "./fixtures/app-server.ts";
  * 3. Stored-but-unused capabilities. A profile may record a maximum above 20
  *    and both future permissions; the compiled page must show them and must
  *    still print only within-20 work.
+ *
+ * The defaults claim carries a geometry assertion for the same reason: where a
+ * confirmation lands is a layout fact, and layout is the one thing the jsdom
+ * suite cannot see.
  */
 
 const defaults: GenerationDefaultsV1 = {
@@ -152,10 +156,30 @@ test("saved worksheet defaults reload without changing a child profile", async (
   await page.getByRole("combobox", { name: "Paper size" }).selectOption("a4");
   await page.getByLabel("Include a parent answer key").uncheck();
 
-  await page
-    .getByRole("button", { name: "Save these as worksheet defaults" })
-    .click();
-  await expect(page.getByText("Worksheet defaults saved locally.")).toBeVisible();
+  const saveButton = page.getByRole("button", {
+    name: "Save these as worksheet defaults",
+  });
+  await saveButton.click();
+  const confirmation = page.getByText("Worksheet defaults saved locally.");
+  await expect(confirmation).toBeVisible();
+
+  // Placement, not just presence. The confirmation used to render in the global
+  // profiles status line near the top of the page, so the click produced no
+  // visible change anywhere near the pointer; "somewhere in the panel" is
+  // satisfied by that position too, and jsdom has no layout to tell them apart.
+  // This is the only suite that can read where the browser really put it.
+  const buttonBox = await saveButton.boundingBox();
+  const confirmationBox = await confirmation.boundingBox();
+  if (buttonBox === null || confirmationBox === null) {
+    throw new Error("the save button and its confirmation must both be laid out");
+  }
+  const gap = confirmationBox.y - (buttonBox.y + buttonBox.height);
+  expect(gap, "the confirmation must sit below the button").toBeGreaterThanOrEqual(0);
+  expect(gap, "the confirmation must sit beside the button").toBeLessThan(160);
+  expect(
+    Math.abs(confirmationBox.x - buttonBox.x),
+    "the confirmation must share the button's left edge",
+  ).toBeLessThanOrEqual(2);
 
   const saved = await appServer.readConfig();
   expect(saved.defaults).toEqual({

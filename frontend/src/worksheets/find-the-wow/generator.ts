@@ -21,9 +21,11 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   FIND_THE_WOW_DEFINITION,
+  FIND_THE_WOW_V1_MAXIMUM,
   findTheWowCapacityShortfall,
   getFindTheWowCapabilitySupport,
   getFindTheWowGroupCount,
+  getQuantityWowLimit,
   type FindTheWowMode,
 } from "./definition.js";
 
@@ -100,7 +102,7 @@ export function enumerateQuantityWowCandidates(
   request: GenerationRequestV1,
 ): readonly QuantityWowCandidate[] {
   const skills = request.capabilities.mathSkills;
-  const limit = Math.min(skills.countingMax, skills.numeralMax, 20);
+  const limit = getQuantityWowLimit(skills);
   if (limit < 3) {
     return [];
   }
@@ -126,8 +128,8 @@ export function enumerateEquationWowCandidates(
   request: GenerationRequestV1,
 ): readonly EquationWowCandidate[] {
   const skills = request.capabilities.mathSkills;
-  const operandLimit = Math.min(skills.operandMax, 20);
-  const resultLimit = Math.min(skills.resultMax, 20);
+  const operandLimit = Math.min(skills.operandMax, FIND_THE_WOW_V1_MAXIMUM);
+  const resultLimit = Math.min(skills.resultMax, FIND_THE_WOW_V1_MAXIMUM);
   const candidates: EquationWowCandidate[] = [];
 
   for (const operation of skills.operations) {
@@ -368,16 +370,16 @@ function validateWowDocument(
       skills.compareMax,
       skills.operandMax,
       skills.resultMax,
-    ].some((maximum) => maximum < 0 || maximum > 20)
+    ].some((maximum) => maximum < 0 || maximum > FIND_THE_WOW_V1_MAXIMUM)
   ) {
     return invariantFailure(
       "Two Whats and a Wow included unsupported content or effective limits.",
     );
   }
 
-  const quantityLimit = Math.min(skills.countingMax, skills.numeralMax, 20);
-  const operandLimit = Math.min(skills.operandMax, 20);
-  const resultLimit = Math.min(skills.resultMax, 20);
+  const quantityLimit = getQuantityWowLimit(skills);
+  const operandLimit = Math.min(skills.operandMax, FIND_THE_WOW_V1_MAXIMUM);
+  const resultLimit = Math.min(skills.resultMax, FIND_THE_WOW_V1_MAXIMUM);
   const groupKeys = new Set<string>();
   const positionCounts = [0, 0, 0];
 
@@ -493,9 +495,8 @@ function validateWowDocument(
 /**
  * The shortage sentence for one already-measured request, wired to the same
  * stem enumeration the shortfall's binding-maximum probe re-runs in equation
- * mode. Every caller in this file goes through here so the probe cannot be
- * wired one way for the generator's fail-closed branch and another way for the
- * pre-click verdict.
+ * mode, so the generator's fail-closed branch and the pre-click verdict cannot
+ * be wired to two different enumerations.
  */
 function findTheWowShortfallFor(
   request: GenerationRequestV1,

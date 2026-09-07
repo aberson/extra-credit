@@ -158,10 +158,12 @@ export type WorksheetMaximumValues = Readonly<
 /**
  * The value a probe substitutes for the maximum it lifts out of the way.
  *
- * Every family clamps its own limits to the Version 1 envelope before it
- * enumerates, so a maximum above that envelope is measured at the family's own
- * ceiling. Asking for "no bound at all" therefore needs no second copy of the
- * envelope number here.
+ * Dry Math and Two Whats and a Wow - the two families this probe measures -
+ * clamp operands and results to their own Version 1 envelope before they
+ * enumerate (`dry-math/generator.ts`, `find-the-wow/generator.ts`), so a
+ * maximum above that envelope is measured at the family's own ceiling. Asking
+ * for "no bound at all" therefore needs no second copy of the envelope number
+ * here.
  */
 export const UNBOUNDED_MAXIMUM = Number.MAX_SAFE_INTEGER;
 

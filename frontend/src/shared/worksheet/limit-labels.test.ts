@@ -11,7 +11,9 @@ import {
 import {
   COUNT_COMPARE_MAKE_LABELS,
   COUNT_COMPARE_MAKE_SUBTYPES,
+  COUNT_COMPARE_MAKE_V1_MAXIMUM,
   countCompareCapacityShortfall,
+  getCountCompareMakeCapabilitySupport,
   getCountCompareMakeComparisonLimit,
   getCountCompareMakeNumeralLimit,
   type CountCompareSubtypeV1,
@@ -19,10 +21,22 @@ import {
 import { countCompareCapacityFormula } from "../../worksheets/count-compare-make/generator.js";
 import { getDryMathCapabilitySupport } from "../../worksheets/dry-math/definition.js";
 import { dryMathCapacityVerdict } from "../../worksheets/dry-math/generator.js";
-import { getFindTheWowCapabilitySupport } from "../../worksheets/find-the-wow/definition.js";
-import { findTheWowCapacityVerdict } from "../../worksheets/find-the-wow/generator.js";
-import { getSentenceBuilderBankSize } from "../../worksheets/sentence-builder/definition.js";
 import {
+  FIND_THE_WOW_GROUP_BUDGETS,
+  FIND_THE_WOW_V1_MAXIMUM,
+  getFindTheWowCapabilitySupport,
+  getQuantityWowLimit,
+} from "../../worksheets/find-the-wow/definition.js";
+import {
+  findTheWowCapacityVerdict,
+  measureFindTheWowStemCapacity,
+} from "../../worksheets/find-the-wow/generator.js";
+import {
+  SENTENCE_BUILDER_ITEM_COUNT,
+  getSentenceBuilderBankSize,
+} from "../../worksheets/sentence-builder/definition.js";
+import {
+  OPERAND_RESULT_MAXIMUM_KEYS,
   UNBOUNDED_MAXIMUM,
   WORKSHEET_MAXIMUM_LABELS,
   bindingMaximumKeys,
@@ -35,6 +49,9 @@ import {
 } from "./limit-labels.js";
 import { projectGenerationRequest } from "./project-request.js";
 import {
+  CAPACITY_PROBE_PREFERENCES,
+  CAPACITY_PROBE_SEED,
+  DIFFICULTY_REMEDY,
   REGISTERED_WORKSHEET_IDS,
   getWorksheetRegistration,
   type RegisteredWorksheetType,
@@ -55,13 +72,20 @@ import {
  * 1. Direct table tests for every exported discriminator in `limit-labels.ts`,
  *    where the inputs are literals rather than the output of a fixture builder
  *    that might tie them.
- * 2. A declared-arm catalogue for the whole surface, an observation sweep that
- *    records which arm every dispatch really took, and an assertion that the
- *    OBSERVED set equals the DECLARED reachable set exactly. Equality, not
- *    containment: an arm that is provably unreachable must be declared dead,
- *    and an arm that stops being reachable fails here.
- * 3. A bounded cube over the three quantity maxima that re-derives the four
- *    structurally-dead Count, Compare & Make arms mechanically, instead of
+ * 2. A declared-arm catalogue, an observation sweep that records which arm
+ *    every dispatch really took, and an assertion that the OBSERVED set equals
+ *    the DECLARED reachable set exactly. Equality, not containment: an arm that
+ *    is provably unreachable must be declared dead, and an arm that stops being
+ *    reachable fails here. Scope: the arms reachable through the registry's
+ *    control surface. Sentence Builder's leaf availability arms are reachable
+ *    only through vocabulary injection and belong to
+ *    `sentence-builder/generator.test.ts`, not to this registry-facing sweep.
+ *    Beside the arm set the sweep also collects the DIGIT-NORMALISED parent
+ *    sentences, so a new branch or a reworded remedy that reuses an existing
+ *    arm id still fails here as an undeclared shape.
+ * 3. Two bounded cubes - the three quantity maxima, and the operand/result
+ *    pair by operation set - that re-derive the structurally dead Count,
+ *    Compare & Make and Two Whats and a Wow arms mechanically, instead of
  *    trusting anyone's arithmetic about why they cannot fire.
  */
 
@@ -264,10 +288,6 @@ const PROBING_WORKSHEET_TYPES: readonly RegisteredWorksheetType[] = [
   "count-compare-make",
 ];
 
-/** Pinned in `registry.ts`; asserted here so the arm labels stay anchored. */
-const DIFFICULTY_REMEDY =
-  "Setting Difficulty to Practice also fills this selection, without changing the profile.";
-
 const registrationArms: readonly DeclaredArm[] = REGISTERED_WORKSHEET_IDS.flatMap(
   (worksheetType): DeclaredArm[] => [
     {
@@ -359,7 +379,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "RM-empty",
     status: "dead",
-    note: "no schema-valid profile makes both binding selectors return an empty list; the arm is covered by the direct table above",
+    note: "no schema-valid profile in the sweep leaves a shortage sentence naming no maximum; the sweep emits this id the moment one does, and `capacityRemedySentence`'s own empty-list branch is covered by the direct table above",
   },
   {
     id: "SL-short-false",
@@ -463,7 +483,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "FSF-equation-both",
     status: "dead",
-    note: "a Two Whats and a Wow group needs two distinct false results, so a pool small enough to fall short of any length budget is always bounded by exactly one of the two maxima; the equation cube below re-derives this over the whole clamped range",
+    note: "structurally dead against today's budgets, by one unit: the smallest stem pool in which both maxima independently bind is 8 stems, and `FIND_THE_WOW_GROUP_BUDGETS.long` is 8 with a strict `<` shortage test, so the arm misses by exactly one stem. The equation cube below re-derives that margin against the exported budget rather than against a literal, and turns red if either side moves",
   },
   {
     id: "FSF-equation-none",
@@ -530,7 +550,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "NL-v1clamp",
     status: "dead",
-    note: "the sole projection boundary clamps every maximum to 20 first, so the family's own clamp term can only tie, never win outright",
+    note: "the sole projection boundary clamps every maximum to `COUNT_COMPARE_MAKE_V1_MAXIMUM` before the family sees it, so the family's own clamp term can only tie, never win outright",
   },
   {
     id: "CL-counting",
@@ -568,6 +588,11 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     note: "counting and numerals tie in the quantity stem minimum",
   },
   {
+    id: "QL-v1clamp",
+    status: "dead",
+    note: "same pre-clamp argument as NL-v1clamp, against `FIND_THE_WOW_V1_MAXIMUM`: `getQuantityWowLimit` carries the family's own clamp term, which the projection has already applied",
+  },
+  {
     id: "SBU-no-bank",
     status: "reachable",
     note: "a writing mode that prints no bank previews one writing prompt",
@@ -577,6 +602,51 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     status: "reachable",
     note: "a bank-bearing mode previews its word-bank width",
   },
+];
+
+/**
+ * Every capacity sentence the sweep below can put in front of a parent, with
+ * the digits normalised to `N`.
+ *
+ * The arm catalogue answers "did a declared branch stop being reachable"; this
+ * answers the other direction. A fifth remedy clause, a reworded sentence, or a
+ * new branch that reuses an existing arm id leaves the arm set untouched and
+ * fails here instead. Regenerate it by reading the failure diff, never by
+ * pasting the observed set back in without deciding the new prose is right.
+ */
+const DECLARED_SENTENCE_SHAPES: readonly string[] = [
+  "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's operands limits.",
+  "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's operands limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's results limits.",
+  "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's results limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique equation groups, but this length needs N. Review the profile's operands limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique equation groups, but this length needs N. Review the profile's results limits.",
+  "The confirmed limits provide N unique equation groups, but this length needs N. Review the profile's results limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique facts, but this length needs N. Choose a shorter worksheet or review the profile's operands and results limits.",
+  "The confirmed limits provide N unique facts, but this length needs N. Choose a shorter worksheet or review the profile's operands limits.",
+  "The confirmed limits provide N unique facts, but this length needs N. Choose a shorter worksheet or review the profile's results limits.",
+  "The confirmed limits provide N unique facts, but this length needs N. Review the profile's operands and results limits.",
+  "The confirmed limits provide N unique facts, but this length needs N. Review the profile's operands limits.",
+  "The confirmed limits provide N unique facts, but this length needs N. Review the profile's results limits.",
+  "The confirmed limits provide N unique group-comparison exercises, but this length needs N. Choose a shorter worksheet or review the profile's comparisons limits.",
+  "The confirmed limits provide N unique group-comparison exercises, but this length needs N. Review the profile's comparisons limits.",
+  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Choose a shorter worksheet or review the profile's counting and numerals limits.",
+  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Choose a shorter worksheet or review the profile's counting limits.",
+  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Choose a shorter worksheet or review the profile's counting limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Choose a shorter worksheet or review the profile's numerals limits.",
+  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Review the profile's counting and numerals limits.",
+  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Review the profile's counting limits.",
+  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Review the profile's counting limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Review the profile's numerals limits.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's counting and numerals limits.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's counting and numerals limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's counting limits.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's counting limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's numerals limits.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's numerals limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's counting and numerals limits.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's counting limits.",
+  "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's numerals limits.",
 ];
 
 const DECLARED_ARM_IDS = new Set(DECLARED_ARMS.map(({ id }) => id));
@@ -593,7 +663,7 @@ const DEAD_ARM_IDS = DECLARED_ARMS.filter(({ status }) => status === "dead")
 
 // --- fixtures --------------------------------------------------------------
 
-interface QuantityMaximumsV1 {
+interface QuantityMaximums {
   readonly countingMax: number;
   readonly numeralMax: number;
   readonly compareMax: number;
@@ -601,7 +671,7 @@ interface QuantityMaximumsV1 {
 
 function quantityProfile(
   id: string,
-  maximums: QuantityMaximumsV1,
+  maximums: QuantityMaximums,
   writingMode: ChildProfileV1["writingMode"] = "label",
 ): ChildProfileV1 {
   return {
@@ -749,19 +819,6 @@ const PROBE_PROFILES: readonly ChildProfileV1[] = [
 
 // --- observation -----------------------------------------------------------
 
-const PROBE_SEED = "00000001";
-
-const PROBE_PREFERENCES = {
-  useDisplayName: false,
-  useInterests: false,
-  includeDecorativeGraphics: false,
-  includeAnswerKey: false,
-  paperSize: "letter",
-} as const satisfies Omit<
-  GenerationDefaultsV1,
-  "difficulty" | "length" | "printScale"
->;
-
 const LABELLED_KEYS = Object.entries(WORKSHEET_MAXIMUM_LABELS) as readonly [
   WorksheetRelevantMaximumKey,
   string,
@@ -803,8 +860,30 @@ function lowestTerms(
   return candidates.filter(([, value]) => value === lowest).map(([name]) => name);
 }
 
-function minimumArm(prefix: string, candidates: readonly (readonly [string, number])[]): string {
-  const winners = lowestTerms(candidates);
+/**
+ * The arm a production `Math.min` limit really selected.
+ *
+ * The winners are read off the value the production function RETURNED, never
+ * off a minimum recomputed here: a test-local mirror records the same arm
+ * whatever production does, which is the unfalsifiable-coverage shape this file
+ * exists to end. `terms` names the stored maxima the limit is documented to be
+ * the minimum of, and the assertion is what fails when production starts
+ * reading a different one.
+ */
+function observedMinimumArm(
+  prefix: string,
+  terms: readonly (readonly [string, number])[],
+  limit: number,
+  where: string,
+): string {
+  expect(`${where} ${prefix} of ${JSON.stringify(terms)}: ${limit}`).toBe(
+    `${where} ${prefix} of ${JSON.stringify(terms)}: ${Math.min(
+      ...terms.map(([, value]) => value),
+    )}`,
+  );
+  const winners = terms
+    .filter(([, value]) => value === limit)
+    .map(([name]) => name);
   return `${prefix}-${winners.length === 1 ? (winners[0] ?? "none") : "tie"}`;
 }
 
@@ -817,6 +896,11 @@ function shortageSubtype(message: string): CountCompareSubtypeV1 | undefined {
 describe("every declared arm of the capacity and advice surface", () => {
   test("the observed arm set equals the declared reachable set exactly", () => {
     const observed = new Set<string>();
+    // The second closed set. Arm ids are produced by branch logic written in
+    // THIS file, so a new production branch that reuses an existing id changes
+    // no arm - it changes the sentence. Digits are normalised away so the set
+    // is the shape of the parent-facing prose and not its arithmetic.
+    const shapes = new Set<string>();
     const observe = (arm: string): void => {
       if (!DECLARED_ARM_IDS.has(arm)) {
         // An arm nobody declared is the same defect as an arm nobody reached:
@@ -845,16 +929,25 @@ describe("every declared arm of the capacity and advice surface", () => {
                 `REG-${worksheetType}-${support.available ? "AVAIL" : "UNAVAIL"}`,
               );
 
-              // The effective-unit noun arms, which follow the writing mode.
+              // The effective-unit noun arms, read off the unit the
+              // registration really returned rather than off a threshold
+              // recomputed here.
               if (worksheetType === "sentence-builder") {
-                observe(
-                  getSentenceBuilderBankSize(
-                    profile.writingMode,
-                    length,
-                    printScale,
-                  ) === 0
-                    ? "SBU-no-bank"
-                    : "SBU-bank",
+                const unit = registration.controls.getEffectiveUnit(context);
+                const bankArm = unit.pluralLabel === "word-bank words";
+                observe(bankArm ? "SBU-bank" : "SBU-no-bank");
+                // The noun has to describe the number printed beside it: a
+                // bank-bearing page counts bank words, and a page with no bank
+                // counts its one writing prompt.
+                const bankSize = getSentenceBuilderBankSize(
+                  profile.writingMode,
+                  length,
+                  printScale,
+                );
+                expect(`${where}: bank ${bankArm} count ${unit.count}`).toBe(
+                  `${where}: bank ${bankSize > 0} count ${
+                    bankSize > 0 ? bankSize : SENTENCE_BUILDER_ITEM_COUNT
+                  }`,
                 );
               }
 
@@ -890,9 +983,9 @@ describe("every declared arm of the capacity and advice surface", () => {
                 profile,
                 worksheetType,
                 generatorVersion: registration.generatorVersion,
-                seed: PROBE_SEED,
+                seed: CAPACITY_PROBE_SEED,
                 preferences: {
-                  ...PROBE_PREFERENCES,
+                  ...CAPACITY_PROBE_PREFERENCES,
                   difficulty,
                   length,
                   printScale,
@@ -934,15 +1027,21 @@ describe("every declared arm of the capacity and advice surface", () => {
 
               const labels = namedLimitLabels(message);
               if (message !== "") {
+                shapes.add(message.replace(/\d+/gu, "N"));
+                // The empty arm is emitted from the same site as the other
+                // two, so "no remedy named a maximum" is a declared arm the
+                // equality assertion owns rather than a claim about a branch
+                // nothing in this sweep could ever report.
                 observe(
-                  message.includes("Choose a shorter worksheet")
-                    ? "RM-shorter"
-                    : "RM-noshorter",
+                  labels.length === 0
+                    ? "RM-empty"
+                    : message.includes("Choose a shorter worksheet")
+                      ? "RM-shorter"
+                      : "RM-noshorter",
                 );
                 observe(
                   `SL-${length}-${message.includes("Choose a shorter worksheet")}`,
                 );
-                expect(`${where}: ${labels.length > 0}`).toBe(`${where}: true`);
               }
 
               if (worksheetType === "dry-math") {
@@ -958,10 +1057,16 @@ describe("every declared arm of the capacity and advice surface", () => {
                 expect(`${where}: ${mode.available}`).toBe(`${where}: true`);
                 if (mode.available && mode.mode === "quantity") {
                   observe(
-                    minimumArm("QL", [
-                      ["counting", skills.countingMax],
-                      ["numerals", skills.numeralMax],
-                    ]),
+                    observedMinimumArm(
+                      "QL",
+                      [
+                        ["counting", skills.countingMax],
+                        ["numerals", skills.numeralMax],
+                        ["v1clamp", FIND_THE_WOW_V1_MAXIMUM],
+                      ],
+                      getQuantityWowLimit(skills),
+                      where,
+                    ),
                   );
                 }
                 if (support.capacity.sufficient) {
@@ -975,18 +1080,28 @@ describe("every declared arm of the capacity and advice surface", () => {
 
               if (worksheetType === "count-compare-make") {
                 observe(
-                  minimumArm("NL", [
-                    ["counting", skills.countingMax],
-                    ["numerals", skills.numeralMax],
-                    ["v1clamp", 20],
-                  ]),
+                  observedMinimumArm(
+                    "NL",
+                    [
+                      ["counting", skills.countingMax],
+                      ["numerals", skills.numeralMax],
+                      ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
+                    ],
+                    getCountCompareMakeNumeralLimit(skills),
+                    where,
+                  ),
                 );
                 observe(
-                  minimumArm("CL", [
-                    ["counting", skills.countingMax],
-                    ["comparisons", skills.compareMax],
-                    ["v1clamp", 20],
-                  ]),
+                  observedMinimumArm(
+                    "CL",
+                    [
+                      ["counting", skills.countingMax],
+                      ["comparisons", skills.compareMax],
+                      ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
+                    ],
+                    getCountCompareMakeComparisonLimit(skills),
+                    where,
+                  ),
                 );
                 const subtype = shortageSubtype(message);
                 observe(subtype === undefined ? "CS-none" : `CS-${subtype}`);
@@ -1057,20 +1172,29 @@ describe("every declared arm of the capacity and advice surface", () => {
       }
       observe(dryArm);
 
-      observe(hasQuantities ? "CCS-available" : "CCS-no-quantities");
+      const countCompare = getCountCompareMakeCapabilitySupport(skills);
+      expect(`${profile.id}: CCS -> ${countCompare.available}`).toBe(
+        `${profile.id}: CCS -> ${hasQuantities}`,
+      );
+      observe(
+        countCompare.available ? "CCS-available" : "CCS-no-quantities",
+      );
     }
 
-    expect([...observed].sort()).toEqual(REACHABLE_ARM_IDS);
+    // Before the set equality, so a dead arm that went live names itself
+    // instead of arriving as one row of a 60-element set diff.
     for (const dead of DEAD_ARM_IDS) {
       expect(`${dead} observed ${observed.has(dead)}`).toBe(
         `${dead} observed false`,
       );
     }
+    expect([...observed].sort()).toEqual(REACHABLE_ARM_IDS);
+    expect([...shapes].sort()).toEqual(DECLARED_SENTENCE_SHAPES);
   });
 });
 
 // ---------------------------------------------------------------------------
-// 3. The bounded cube behind the four dead Count, Compare & Make arms
+// 3. The bounded cubes behind the dead arms
 // ---------------------------------------------------------------------------
 
 describe("the structurally dead Count, Compare & Make arms", () => {
@@ -1140,6 +1264,18 @@ describe("the equation families' binding-maximum arms", () => {
     ] as const satisfies readonly ChildProfileV1["mathSkills"]["operations"][];
     const dryMathArms = new Set<string>();
     const findTheWowArms = new Set<string>();
+    // Tuples where a `Math.min` over the same two maxima would have named a
+    // DIFFERENT set than the counterfactual probe did. The set assertions at
+    // the end of this test cannot tell those two models apart - a min yields
+    // the same three-arm set over this cube - so without these rows a min-based
+    // rewrite of either family would pass here, and the trap the probe exists
+    // to close would be guarded by fixture luck elsewhere.
+    const minModelDisagreements = new Set<string>();
+    // The smallest equation pool in which BOTH maxima independently bind, which
+    // is what makes `FSF-equation-both` dead: a pool at or above the largest
+    // group budget cannot be short whatever binds it, so only the window at or
+    // below that budget is scanned.
+    let smallestBothBindingPool = Number.POSITIVE_INFINITY;
     let shortages = 0;
 
     for (const operations of OPERATION_SETS) {
@@ -1160,9 +1296,9 @@ describe("the equation families' binding-maximum arms", () => {
               profile,
               worksheetType,
               generatorVersion: registration.generatorVersion,
-              seed: PROBE_SEED,
+              seed: CAPACITY_PROBE_SEED,
               preferences: {
-                ...PROBE_PREFERENCES,
+                ...CAPACITY_PROBE_PREFERENCES,
                 difficulty: "practice",
                 length: "long",
                 printScale: "standard",
@@ -1172,6 +1308,37 @@ describe("the equation families' binding-maximum arms", () => {
             expect(`${where}: ${projection.ok}`).toBe(`${where}: true`);
             if (!projection.ok) {
               continue;
+            }
+            const skills = projection.request.capabilities.mathSkills;
+            if (worksheetType === "find-the-wow") {
+              const capacity = measureFindTheWowStemCapacity(
+                projection.request,
+                "equation",
+              );
+              if (capacity <= FIND_THE_WOW_GROUP_BUDGETS.long) {
+                const binding = bindingMaximumKeysByProbe(
+                  skills,
+                  OPERAND_RESULT_MAXIMUM_KEYS,
+                  capacity,
+                  (maximums) =>
+                    measureFindTheWowStemCapacity(
+                      {
+                        ...projection.request,
+                        capabilities: {
+                          ...projection.request.capabilities,
+                          mathSkills: { ...skills, ...maximums },
+                        },
+                      },
+                      "equation",
+                    ),
+                );
+                if (binding.length === OPERAND_RESULT_MAXIMUM_KEYS.length) {
+                  smallestBothBindingPool = Math.min(
+                    smallestBothBindingPool,
+                    capacity,
+                  );
+                }
+              }
             }
             const message =
               worksheetType === "dry-math"
@@ -1183,6 +1350,17 @@ describe("the equation families' binding-maximum arms", () => {
             shortages += 1;
             const arm = probeSuffix(namedLimitLabels(message));
             expect(`${where} ${worksheetType}: ${arm}`).not.toContain("none");
+            const minModelArm = probeSuffix(
+              lowestTerms([
+                ["operands", skills.operandMax],
+                ["results", skills.resultMax],
+              ]),
+            );
+            if (minModelArm !== arm) {
+              minModelDisagreements.add(
+                `${worksheetType} ${where}: probe ${arm}, min ${minModelArm}`,
+              );
+            }
             if (worksheetType === "dry-math") {
               dryMathArms.add(arm);
             } else {
@@ -1196,8 +1374,27 @@ describe("the equation families' binding-maximum arms", () => {
     expect(shortages).toBeGreaterThan(0);
     expect([...dryMathArms].sort()).toEqual(["both", "operands", "results"]);
     // No "both": this is the mechanical form of the FSF-equation-both deadness
-    // note in the catalogue above, and it flips the moment the group budget or
-    // the distractor rule changes.
+    // note in the catalogue above.
     expect([...findTheWowArms].sort()).toEqual(["operands", "results"]);
+    // ... and this is WHY it is dead, measured rather than argued: the smallest
+    // pool in which both maxima independently bind sits exactly ON the largest
+    // group budget, which a strict `<` shortage test then misses by one stem.
+    // A budget move fails on one of two lines, both checked by hand: raising it
+    // makes the arm live and the set above changes; lowering it moves the
+    // margin and this line changes.
+    expect(smallestBothBindingPool).toBe(FIND_THE_WOW_GROUP_BUDGETS.long);
+    // A min model reproduces both arm SETS above, so these rows are the only
+    // thing here that distinguishes it from the per-key probe. One named row
+    // per family: a family whose probe was replaced by a `Math.min` loses its
+    // row and fails here even though nothing else in this test moves. The
+    // dry-math row is the pair the handoff names as the trap - the lower
+    // maximum is not the one holding the pool down.
+    const disagreements = [...minModelDisagreements].sort();
+    expect(disagreements).toContain(
+      "dry-math subtraction 3/1: probe both, min results",
+    );
+    expect(disagreements).toContain(
+      "find-the-wow subtraction 2/2: probe operands, min both",
+    );
   });
 });

@@ -244,15 +244,13 @@ export function GeneratorControls({
       ? effectiveUnit.singularLabel
       : effectiveUnit?.pluralLabel;
   const limitsAboveV1 = limits.filter(({ value }) => value > 20);
-  // Both future permissions are symbolic-arithmetic concepts, so they are
-  // announced only where this selection really would print arithmetic: a
-  // quantity page explained in terms of carrying is advice about work that
-  // page cannot contain.
-  const printsArithmetic = maximums.some(
-    ({ key }) => key === "operandMax" || key === "resultMax",
-  );
+  // A disclosure about what the PROFILE stores, not about what this selection
+  // prints: the sole projection boundary pins both flags false in the request
+  // every family receives, which `shared/worksheet/project-request.test.ts`
+  // asserts directly, so a parent choosing a counted-groups page still needs
+  // to be told the two permissions are stored and dormant.
   const futurePermissions =
-    selectedProfile === undefined || !printsArithmetic
+    selectedProfile === undefined
       ? []
       : FUTURE_PERMISSION_KEYS.filter(
           (key) => selectedProfile.mathSkills[key],
@@ -667,7 +665,15 @@ export function GeneratorControls({
           Create worksheet
         </button>
 
-        <div>
+        {/*
+          The save button, its explanation, its confirmation and its failure
+          message are ONE slot. The confirmation used to render in the global
+          profiles status line far above the button, so the click produced no
+          visible change near the pointer; `data-defaults-slot` is the hook the
+          unit test and `tests/e2e/options.spec.ts` assert that placement with,
+          because "somewhere in this panel" is satisfied by the top of the page.
+        */}
+        <div data-defaults-slot="">
           <button
             disabled={disabled || savingDefaults}
             onClick={() => void saveDefaults()}

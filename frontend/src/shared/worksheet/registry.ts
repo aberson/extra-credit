@@ -197,7 +197,7 @@ const SUFFICIENT_CAPACITY: WorksheetCapacityVerdictV1 = Object.freeze({
  * A fixed nonzero seed therefore measures the same capacity the parent's real
  * draw will meet, and keeps the control free of a random source.
  */
-const CAPACITY_PROBE_SEED = "00000001";
+export const CAPACITY_PROBE_SEED = "00000001";
 
 /**
  * The preferences that cannot move any family's capacity, pinned so the probe
@@ -209,7 +209,7 @@ const CAPACITY_PROBE_SEED = "00000001";
  * interests, and it does not use this probe: its own gate measures the leanest
  * reviewed topic, which bounds every interest set the parent could enable.
  */
-const CAPACITY_PROBE_PREFERENCES = {
+export const CAPACITY_PROBE_PREFERENCES = {
   useDisplayName: false,
   useInterests: false,
   includeDecorativeGraphics: false,
@@ -231,7 +231,7 @@ const CAPACITY_PROBE_PREFERENCES = {
  * producible at practice, because a remedy that cannot change the outcome is
  * the defect issue #16 is about.
  */
-const DIFFICULTY_REMEDY =
+export const DIFFICULTY_REMEDY =
   "Setting Difficulty to Practice also fills this selection, without changing the profile.";
 
 /**
