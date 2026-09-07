@@ -305,3 +305,88 @@ test("shows stored capabilities Version 1 keeps but never prints", async ({
     expect(result).toBeGreaterThanOrEqual(0);
   }
 });
+
+test("a superseded defaults save takes the stale worksheet down with it", async ({
+  appServer,
+  page,
+}) => {
+  // The existing conflict test above never creates a worksheet, and the
+  // keep-the-page test above has no second writer, so the cell where a rendered
+  // sheet meets a superseded save is covered by neither. That cell is where a
+  // page built against limits the file no longer holds stayed on screen - and
+  // stayed printable - with nothing marking it stale.
+  await appServer.seedConfig({ schemaVersion: 1, profiles: [...profiles], defaults });
+  await page.goto(appServer.origin);
+  await expect(
+    page.getByRole("heading", { name: "Distinctive Private Riley" }),
+  ).toBeVisible();
+
+  const childSelect = page.getByRole("combobox", { name: "Child profile" });
+  const familySelect = page.getByRole("combobox", { name: "Worksheet type" });
+  await childSelect.selectOption(profiles[1].id);
+  await familySelect.selectOption("count-compare-make");
+  await page.getByText("More options").click();
+  await page.getByRole("combobox", { name: "Print scale" }).selectOption("large");
+
+  await page.getByRole("button", { name: "Create worksheet" }).click();
+  const preview = page.getByLabel("Worksheet preview");
+  // NON-VACUITY: the sheet must really be on screen before the save, or the
+  // absence asserted below proves nothing.
+  await expect(preview).toHaveAttribute(
+    "data-worksheet-type",
+    "count-compare-make",
+  );
+
+  // Another writer renames Riley AND drops her numeral limit below what any
+  // length can fill. Untied on purpose: every other quantity fixture in this
+  // file is 25/25/25 or 10/10/10, so a tied triple here could not tell a
+  // numeral-bounded refusal from a counting-bounded one.
+  const superseded = [
+    profiles[0],
+    {
+      ...profiles[1],
+      displayName: "Distinctive Private Renamed Riley",
+      mathSkills: {
+        ...profiles[1].mathSkills,
+        countingMax: 20,
+        numeralMax: 2,
+        compareMax: 20,
+      },
+    },
+  ];
+  await appServer.seedConfig({ schemaVersion: 1, profiles: superseded, defaults });
+
+  const save = page.getByRole("button", {
+    name: "Save these as worksheet defaults",
+  });
+  await save.click();
+  await expect(
+    page.getByText(
+      "Saved profiles changed on this computer, so no worksheet defaults were changed. The latest file has been reloaded - press save again to keep these choices.",
+    ),
+  ).toBeVisible();
+
+  // The other writer's config was adopted, and the sheet built from the
+  // profiles it replaced is gone rather than left printable.
+  await expect(
+    page.getByRole("heading", { name: "Distinctive Private Renamed Riley" }),
+  ).toBeVisible();
+  await expect(preview).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Make another" })).toHaveCount(0);
+
+  // The panel is not remounted: the selections and the retry survive the drop.
+  await expect(childSelect).toHaveValue(profiles[1].id);
+  await expect(familySelect).toHaveValue("count-compare-make");
+  await expect(page.getByRole("combobox", { name: "Print scale" })).toHaveValue(
+    "large",
+  );
+  await expect(page.locator("[data-capacity-conflict]")).toHaveText(
+    "The confirmed limits provide 0 unique numeral-matching exercises, but this length needs 2. Review the profile's numerals limits.",
+  );
+
+  await save.click();
+  await expect(page.getByText("Worksheet defaults saved locally.")).toBeVisible();
+  const saved = await appServer.readConfig();
+  expect(saved.defaults).toEqual({ ...defaults, printScale: "large" });
+  expect(saved.profiles).toEqual(superseded);
+});

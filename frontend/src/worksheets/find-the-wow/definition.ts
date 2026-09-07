@@ -1,8 +1,10 @@
 import {
-  COUNTING_NUMERAL_MAXIMUM_KEYS,
   OPERAND_RESULT_MAXIMUM_KEYS,
+  bindingMaximumKeys,
+  bindingMaximumKeysByProbe,
   capacityRemedySentence,
   shorterLengthLowersRequirement,
+  type WorksheetMaximumValues,
 } from "../../shared/worksheet/limit-labels.js";
 import type {
   Difficulty,
@@ -82,12 +84,24 @@ export function getFindTheWowCapabilitySupport(
  * needs 8 distinct stems. The registration now asks for a capacity verdict
  * beside the mode and both sides render this sentence.
  *
- * The remedy names the maxima THIS MODE reads: a quantity page explained in
- * terms of operands would be advice the parent cannot act on.
+ * The remedy names the maxima THIS MODE reads, and within the mode only the
+ * ones that are really binding: a quantity page explained in terms of operands
+ * would be advice the parent cannot act on, and so is a quantity page whose
+ * counting limit already sits at the Version 1 ceiling while its numeral limit
+ * is what the pool ran out of.
+ *
+ * The two modes need two different discriminators. A quantity pool is
+ * `Math.min(countingMax, numeralMax, 20)` (`generator.ts`), so the lowest
+ * candidate IS the bound and a tie must name both. An equation pool bounds
+ * operands and results independently through a filter, so its binding maxima
+ * are found by re-measuring with each one lifted; `measureCapacity` re-runs the
+ * caller's own enumeration for that.
  */
 export function findTheWowCapacityShortfall(
   mode: FindTheWowMode,
   capacity: number,
+  maximums: WorksheetMaximumValues,
+  measureCapacity: (maximums: WorksheetMaximumValues) => number,
   length: WorksheetLength,
   printScale: PrintScale,
 ): string | undefined {
@@ -100,8 +114,16 @@ export function findTheWowCapacityShortfall(
       getFindTheWowGroupCount(shorter, printScale),
     ),
     mode === "equation"
-      ? OPERAND_RESULT_MAXIMUM_KEYS
-      : COUNTING_NUMERAL_MAXIMUM_KEYS,
+      ? bindingMaximumKeysByProbe(
+          maximums,
+          OPERAND_RESULT_MAXIMUM_KEYS,
+          capacity,
+          measureCapacity,
+        )
+      : bindingMaximumKeys([
+          ["countingMax", maximums.countingMax],
+          ["numeralMax", maximums.numeralMax],
+        ]),
   );
   return `The confirmed limits provide ${capacity} unique ${mode} groups, but this length needs ${required}. ${remedy}`;
 }

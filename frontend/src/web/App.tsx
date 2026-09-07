@@ -555,10 +555,6 @@ export function App() {
         kind,
       } satisfies ProfileOperation;
       operationRef.current = nextOperation;
-      // A defaults write cannot change any input the active document was
-      // generated from, so it must not invalidate it: the seed came from
-      // `crypto.getRandomValues` and the exact page on screen is not
-      // reproducible once it is dropped.
       if (kind !== "defaults") {
         invalidateGenerationAuthority();
       }
@@ -770,9 +766,16 @@ export function App() {
    * the one the next click would send, forever. The re-read adopts the CONFIG
    * as well as the ETag - carrying only the ETag forward would let the next
    * save overwrite whatever the other writer stored.
+   *
+   * It claims the file as a `read`, not as a `defaults` write. The 409 withdrew
+   * the proof that the profiles behind a rendered worksheet are unchanged, so
+   * the generation authority is invalidated at claim time and the stale page is
+   * dropped on every exit of this function. The revision still does not move,
+   * so the panel is not remounted and the parent's selections and the retry
+   * message survive.
    */
   async function refreshDefaultsAuthority(): Promise<void> {
-    const refresh = beginProfileOperation("defaults");
+    const refresh = beginProfileOperation("read");
     if (refresh === undefined) {
       return;
     }

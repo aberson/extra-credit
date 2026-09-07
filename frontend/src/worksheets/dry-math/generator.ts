@@ -104,6 +104,32 @@ export function enumerateDryMathCandidates(
   return candidates;
 }
 
+/**
+ * The shortage sentence for one already-measured request, wired to the same
+ * enumeration the shortfall's binding-maximum probe re-runs. Every caller in
+ * this file goes through here so the probe cannot be wired one way for the
+ * generator's fail-closed branch and another way for the pre-click verdict.
+ */
+function dryMathShortfallFor(
+  request: GenerationRequestV1,
+  capacity: number,
+): string | undefined {
+  return dryMathCapacityShortfall(
+    capacity,
+    request.capabilities.mathSkills,
+    (maximums) =>
+      enumerateDryMathCandidates({
+        ...request,
+        capabilities: {
+          ...request.capabilities,
+          mathSkills: { ...request.capabilities.mathSkills, ...maximums },
+        },
+      }).length,
+    request.options.length,
+    request.options.printScale,
+  );
+}
+
 export function generateDryMath(
   request: GenerationRequestV1,
   context: GeneratorContextV1,
@@ -130,11 +156,7 @@ export function generateDryMath(
 
   const itemCount = effectiveDryMathItemCount(request);
   const candidates = enumerateDryMathCandidates(request);
-  const shortfall = dryMathCapacityShortfall(
-    candidates.length,
-    request.options.length,
-    request.options.printScale,
-  );
+  const shortfall = dryMathShortfallFor(request, candidates.length);
   if (shortfall !== undefined) {
     return {
       ok: false,
@@ -201,9 +223,5 @@ export function measureDryMathCapacity(request: GenerationRequestV1): number {
 export function dryMathCapacityVerdict(
   request: GenerationRequestV1,
 ): string | undefined {
-  return dryMathCapacityShortfall(
-    measureDryMathCapacity(request),
-    request.options.length,
-    request.options.printScale,
-  );
+  return dryMathShortfallFor(request, measureDryMathCapacity(request));
 }

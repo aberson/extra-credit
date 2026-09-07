@@ -121,6 +121,14 @@ export function capacityRemedySentence(
   shorterLengthHelps: boolean,
   limitKeys: readonly WorksheetRelevantMaximumKey[],
 ): string {
+  if (limitKeys.length === 0) {
+    // No stored maximum can move this shortage, so naming one would be the
+    // issue #16 failure mode again - and an empty list would otherwise print
+    // "review the profile's  limits" with no noun at all.
+    return shorterLengthHelps
+      ? "Choose a shorter worksheet."
+      : "No profile limit can widen this selection.";
+  }
   const limits = joinLabels(
     limitKeys.map((key) => WORKSHEET_MAXIMUM_LABELS[key]),
   );
@@ -141,4 +149,47 @@ export function bindingMaximumKeys(
   return candidates
     .filter(([, value]) => value === lowest)
     .map(([key]) => key);
+}
+
+/** The five stored maxima a counterfactual probe reads and rewrites. */
+export type WorksheetMaximumValues = Readonly<
+  Record<WorksheetRelevantMaximumKey, number>
+>;
+
+/**
+ * The value a probe substitutes for the maximum it lifts out of the way.
+ *
+ * Every family clamps its own limits to the Version 1 envelope before it
+ * enumerates, so a maximum above that envelope is measured at the family's own
+ * ceiling. Asking for "no bound at all" therefore needs no second copy of the
+ * envelope number here.
+ */
+export const UNBOUNDED_MAXIMUM = Number.MAX_SAFE_INTEGER;
+
+/**
+ * The subset of `keys` a parent could really move, decided by re-measuring
+ * capacity with each one lifted.
+ *
+ * `bindingMaximumKeys` above models a `Math.min`, where the lowest candidate IS
+ * the bound. Operands and results do not compose that way: they bound a
+ * candidate collection INDEPENDENTLY through a filter, so the lower of the two
+ * is not necessarily the one that is holding the count down - at operands 20
+ * and results 2 an addition pool is bounded by the results alone, and at
+ * operands 2 and results 20 a subtraction pool is bounded by the operands
+ * alone. A `Math.min` would name a number already at the ceiling `clampPositive`
+ * enforces, which is issue #16's failure mode: advice the parent cannot act on.
+ * This asks the family's own enumeration instead, and names a maximum only when
+ * lifting it really does enlarge the collection.
+ */
+export function bindingMaximumKeysByProbe(
+  maximums: WorksheetMaximumValues,
+  keys: readonly WorksheetRelevantMaximumKey[],
+  capacity: number,
+  measureCapacity: (maximums: WorksheetMaximumValues) => number,
+): readonly WorksheetRelevantMaximumKey[] {
+  return keys.filter((key) => {
+    const lifted: Record<WorksheetRelevantMaximumKey, number> = { ...maximums };
+    lifted[key] = UNBOUNDED_MAXIMUM;
+    return measureCapacity(lifted) > capacity;
+  });
 }

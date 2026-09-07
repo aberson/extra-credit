@@ -1262,3 +1262,179 @@ describe("App profile authority behavior", () => {
     expect(screen.getByRole("heading", { name: "Set up a profile" })).toBeVisible();
   });
 });
+
+/**
+ * The two halves of ONE discriminator, kept in one block on purpose.
+ *
+ * A defaults WRITE claims the config file under the `defaults` operation kind,
+ * which is the one kind that does not invalidate the rendered worksheet: the
+ * write passes the `profiles` array through untouched under `If-Match`, so a
+ * 200 proves the document's inputs are unchanged and the page - whose seed came
+ * from `crypto.getRandomValues` and is not reproducible - must survive.
+ *
+ * A 409 withdraws exactly that proof, and the re-read that follows adopts
+ * ANOTHER writer's whole config. So the re-read claims the file as a `read`,
+ * which invalidates, and the stale page goes down with it.
+ *
+ * Proving one arm alone is not proving the discriminator: "always invalidate"
+ * satisfies the drop arm and re-breaks the seed loss, "never invalidate"
+ * satisfies the keep arm and is the stale-page defect. Deleting either test
+ * below should be visible as deleting half of a pair.
+ */
+describe("App worksheet authority across a defaults save", () => {
+  /** Enough operand and result room to fill any Dry Math length. */
+  const generatableProfile: ChildProfileV1 = {
+    ...canonicalSixYearOld,
+    mathSkills: {
+      ...canonicalSixYearOld.mathSkills,
+      operandMax: 20,
+      resultMax: 20,
+    },
+  };
+
+  /**
+   * The same profile id, a withdrawn nickname and operand/result limits far too
+   * low for any Dry Math page: a worksheet built against the first config is
+   * not merely stale here, it is a page the current file could not produce.
+   */
+  const supersededProfile: ChildProfileV1 = {
+    id: generatableProfile.id,
+    ageYears: generatableProfile.ageYears,
+    presentationBand: generatableProfile.presentationBand,
+    reviewedOn: generatableProfile.reviewedOn,
+    mathSkills: {
+      ...generatableProfile.mathSkills,
+      operandMax: 1,
+      resultMax: 1,
+    },
+    writingMode: generatableProfile.writingMode,
+    interests: [...generatableProfile.interests],
+  };
+
+  function stubDefaultsSave(putStatus: "saved" | "conflict"): {
+    readonly configReads: () => number;
+  } {
+    let configReads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        if (url.endsWith("/api/health")) {
+          return new Response(
+            JSON.stringify({ status: "ok", version: "0.1.0" }),
+            { headers: { "Content-Type": "application/json" }, status: 200 },
+          );
+        }
+        if (url.endsWith("/api/session")) {
+          return new Response(JSON.stringify({ token: "fixture-token" }), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/config") && method === "GET") {
+          configReads += 1;
+          return configReads === 1
+            ? configResponse(
+                configWithProfiles([generatableProfile]),
+                '"etag-initial"',
+              )
+            : configResponse(
+                configWithProfiles([supersededProfile]),
+                '"etag-other-writer"',
+              );
+        }
+        if (url.endsWith("/api/config") && method === "PUT") {
+          const config = JSON.parse(String(init?.body)) as AppConfigV1;
+          return putStatus === "saved"
+            ? configResponse(config, '"etag-saved"')
+            : new Response(
+                JSON.stringify({
+                  error: {
+                    code: "CONFIG_CONFLICT",
+                    message: "The profile file changed after it was loaded.",
+                  },
+                }),
+                {
+                  headers: { "Content-Type": "application/json" },
+                  status: 409,
+                },
+              );
+        }
+        throw new Error("Unexpected request in the defaults-save test.");
+      }),
+    );
+    return { configReads: () => configReads };
+  }
+
+  async function renderWithWorksheet(): Promise<void> {
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+    for (const details of window.document.querySelectorAll("details")) {
+      details.open = true;
+    }
+    // A value the panel does NOT initialise to, so a remount is visible.
+    fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
+      target: { value: "large" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create worksheet" }));
+    // NON-VACUITY: without this the drop assertion below could pass on a test
+    // that never rendered a worksheet at all - the exact shape the stop-and-
+    // audit was called for.
+    expect(screen.getByLabelText("Worksheet preview")).toHaveAttribute(
+      "data-worksheet-type",
+      "dry-math",
+    );
+  }
+
+  test("a defaults save that changes no profile keeps the rendered worksheet", async () => {
+    stubDefaultsSave("saved");
+    await renderWithWorksheet();
+    const printedBefore = screen.getByLabelText("Worksheet preview").textContent;
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save these as worksheet defaults" }),
+    );
+    expect(
+      await screen.findByText("Worksheet defaults saved locally."),
+    ).toBeVisible();
+
+    expect(screen.getByLabelText("Worksheet preview").textContent).toBe(
+      printedBefore,
+    );
+    expect(screen.getByRole("button", { name: "Make another" })).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toHaveValue(
+      "large",
+    );
+  });
+
+  test("a superseded defaults save drops the worksheet built from the superseded profiles", async () => {
+    const { configReads } = stubDefaultsSave("conflict");
+    await renderWithWorksheet();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save these as worksheet defaults" }),
+    );
+    expect(
+      await screen.findByText(
+        "Saved profiles changed on this computer, so no worksheet defaults were changed. The latest file has been reloaded - press save again to keep these choices.",
+      ),
+    ).toBeVisible();
+
+    // The re-read really happened, and it adopted the other writer's config.
+    expect(configReads()).toBe(2);
+    expect(screen.queryByRole("heading", { name: "Morgan" })).toBeNull();
+    // The document is gone: it was built from profiles the 409 proved are no
+    // longer on disk, and nothing on the page marks it stale.
+    expect(screen.queryByLabelText("Worksheet preview")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make another" })).toBeNull();
+    // The PANEL is not remounted, which is the other half of the fix: the
+    // parent's selection and the retry message survive the drop.
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toHaveValue(
+      "large",
+    );
+    expect(
+      screen.getByRole("button", { name: "Save these as worksheet defaults" }),
+    ).toBeEnabled();
+  });
+});

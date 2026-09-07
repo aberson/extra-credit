@@ -19,6 +19,7 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   COUNT_COMPARE_MAKE_ALLOCATIONS,
+  COUNT_COMPARE_MAKE_LABELS,
   COUNT_COMPARE_MAKE_SUBTYPES,
   getCountCompareMakeAllocation,
   getCountCompareMakeCapabilitySupport,
@@ -519,7 +520,12 @@ describe("capacity is counted in the collection selection draws from", () => {
       ok: false,
       code: "GENERATION_CONSTRAINT_CONFLICT",
     });
-    expect(short.ok ? "" : short.message).toMatch(/numeral-matching/u);
+    // The WHOLE sentence, not a fragment: counting and numerals are tied at 2
+    // here, so both really do bound the pool and a selector that named one of
+    // them would be telling the parent that raising it alone is enough.
+    expect(short.ok ? "" : short.message).toBe(
+      "The confirmed limits provide 0 unique numeral-matching exercises, but this length needs 2. Review the profile's counting and numerals limits.",
+    );
     expect(short).not.toHaveProperty("document");
   });
 
@@ -536,7 +542,83 @@ describe("capacity is counted in the collection selection draws from", () => {
       ok: false,
       code: "GENERATION_CONSTRAINT_CONFLICT",
     });
-    expect(result.ok ? "" : result.message).toMatch(/group-comparison/u);
+    expect(result.ok ? "" : result.message).toBe(
+      "The confirmed limits provide 1 unique group-comparison exercises, but this length needs 2. Review the profile's comparisons limits.",
+    );
+  });
+
+  test("a shortage sentence names the maxima that really bound that subtype", () => {
+    // The verdict tests above vary the three maxima independently and read only
+    // ok/conflict; the sentence tests one directory over pin sentences but tie
+    // the maxima. This is the missing cell: untied values AND the parent-facing
+    // string. A selector that named a constant pair, or the wrong member of the
+    // pair, survives either half alone.
+    const observed = new Set<string>();
+    fc.assert(
+      fc.property(requestShape, (shape) => {
+        const profile = quantityProfile({
+          compareMax: shape.compareMax,
+          countingMax: shape.countingMax,
+          numeralMax: shape.numeralMax,
+        });
+        const seeded = request(profile, {
+          length: shape.length,
+          printScale: shape.printScale,
+        });
+        const result = generateCountCompareMake(seeded, {
+          worksheetId: WORKSHEET_ID,
+        });
+        if (result.ok) {
+          return true;
+        }
+        const skills = seeded.capabilities.mathSkills;
+        const subtype = COUNT_COMPARE_MAKE_SUBTYPES.find((candidate) =>
+          result.message.includes(
+            `unique ${COUNT_COMPARE_MAKE_LABELS[candidate]} exercises`,
+          ),
+        );
+        expect(subtype, result.message).toBeDefined();
+        // The pair this subtype is really drawn from, and the strictly lowest
+        // member(s) of it - recomputed here from the effective skills rather
+        // than read back out of the code under test.
+        const pair: readonly (readonly [string, number])[] =
+          subtype === "compare"
+            ? [
+                ["counting", skills.countingMax],
+                ["comparisons", skills.compareMax],
+              ]
+            : [
+                ["counting", skills.countingMax],
+                ["numerals", skills.numeralMax],
+              ];
+        const lowest = Math.min(...pair.map(([, value]) => value));
+        const expectedLabels = pair
+          .filter(([, value]) => value === lowest)
+          .map(([label]) => label);
+        const expectedClause =
+          expectedLabels.length === 1
+            ? `${expectedLabels[0]} limits.`
+            : `${expectedLabels[0]} and ${expectedLabels[1]} limits.`;
+        // Lowercased so one assertion covers both remedy openings ("Review
+        // the profile's ..." and "Choose a shorter worksheet or review the
+        // profile's ..."); the labels themselves are already lowercase.
+        expect(
+          `${result.message.toLowerCase()} | pair ${JSON.stringify(pair)}`,
+        ).toContain(`review the profile's ${expectedClause}`);
+        observed.add(`${subtype}:${expectedLabels.join("+")}`);
+        return true;
+      }),
+      { numRuns: 120, seed: 20_260_907 },
+    );
+    // Non-vacuity, and the shape of the arm set this family can actually
+    // produce: a run that only ever saw one subtype would prove nothing about
+    // the selector's other branch.
+    expect([...observed].sort()).toEqual([
+      "compare:comparisons",
+      "match:counting",
+      "match:counting+numerals",
+      "match:numerals",
+    ]);
   });
 });
 

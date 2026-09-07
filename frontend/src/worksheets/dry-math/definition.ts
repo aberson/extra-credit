@@ -1,7 +1,9 @@
 import {
   OPERAND_RESULT_MAXIMUM_KEYS,
+  bindingMaximumKeysByProbe,
   capacityRemedySentence,
   shorterLengthLowersRequirement,
+  type WorksheetMaximumValues,
 } from "../../shared/worksheet/limit-labels.js";
 import type {
   EffectiveMathSkillsV1,
@@ -76,9 +78,19 @@ export function getDryMathCapabilitySupport(
  * required count is derived HERE from the length and print scale rather than
  * passed in, so a caller cannot measure capacity against a budget the
  * generator never uses.
+ *
+ * The remedy names only the maxima that are really binding. The candidate
+ * enumeration filters on operands AND on the result, so the smaller of the two
+ * numbers is not necessarily the one holding the count down: at operands 20 and
+ * results 2 an addition pool grows only when the RESULT limit rises, while
+ * operands 20 is already at the ceiling `clampPositive` enforces. Naming it
+ * would send the parent to a knob that cannot move, so `measureCapacity`
+ * re-runs the caller's own enumeration with each maximum lifted instead.
  */
 export function dryMathCapacityShortfall(
   capacity: number,
+  maximums: WorksheetMaximumValues,
+  measureCapacity: (maximums: WorksheetMaximumValues) => number,
   length: WorksheetLength,
   printScale: PrintScale,
 ): string | undefined {
@@ -90,7 +102,12 @@ export function dryMathCapacityShortfall(
     shorterLengthLowersRequirement(length, required, (shorter) =>
       getDryMathItemCount(shorter, printScale),
     ),
-    OPERAND_RESULT_MAXIMUM_KEYS,
+    bindingMaximumKeysByProbe(
+      maximums,
+      OPERAND_RESULT_MAXIMUM_KEYS,
+      capacity,
+      measureCapacity,
+    ),
   );
   return `The confirmed limits provide ${capacity} unique facts, but this length needs ${required}. ${remedy}`;
 }

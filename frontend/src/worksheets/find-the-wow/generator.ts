@@ -490,6 +490,38 @@ function validateWowDocument(
   return undefined;
 }
 
+/**
+ * The shortage sentence for one already-measured request, wired to the same
+ * stem enumeration the shortfall's binding-maximum probe re-runs in equation
+ * mode. Every caller in this file goes through here so the probe cannot be
+ * wired one way for the generator's fail-closed branch and another way for the
+ * pre-click verdict.
+ */
+function findTheWowShortfallFor(
+  request: GenerationRequestV1,
+  mode: FindTheWowMode,
+  capacity: number,
+): string | undefined {
+  return findTheWowCapacityShortfall(
+    mode,
+    capacity,
+    request.capabilities.mathSkills,
+    (maximums) =>
+      measureFindTheWowStemCapacity(
+        {
+          ...request,
+          capabilities: {
+            ...request.capabilities,
+            mathSkills: { ...request.capabilities.mathSkills, ...maximums },
+          },
+        },
+        mode,
+      ),
+    request.options.length,
+    request.options.printScale,
+  );
+}
+
 export function generateFindTheWow(
   request: GenerationRequestV1,
   context: GeneratorContextV1,
@@ -522,12 +554,7 @@ export function generateFindTheWow(
   let items: readonly WowGroupItemV1[] | undefined;
   if (support.mode === "equation") {
     const stems = enumerateEquationWowStems(request);
-    const shortfall = findTheWowCapacityShortfall(
-      "equation",
-      stems.length,
-      request.options.length,
-      request.options.printScale,
-    );
+    const shortfall = findTheWowShortfallFor(request, "equation", stems.length);
     if (shortfall !== undefined) {
       return {
         ok: false,
@@ -543,12 +570,7 @@ export function generateFindTheWow(
     );
   } else {
     const stems = enumerateQuantityWowStems(request);
-    const shortfall = findTheWowCapacityShortfall(
-      "quantity",
-      stems.length,
-      request.options.length,
-      request.options.printScale,
-    );
+    const shortfall = findTheWowShortfallFor(request, "quantity", stems.length);
     if (shortfall !== undefined) {
       return {
         ok: false,
@@ -620,10 +642,9 @@ export function findTheWowCapacityVerdict(
   if (!support.available) {
     return support.reason;
   }
-  return findTheWowCapacityShortfall(
+  return findTheWowShortfallFor(
+    request,
     support.mode,
     measureFindTheWowStemCapacity(request, support.mode),
-    request.options.length,
-    request.options.printScale,
   );
 }

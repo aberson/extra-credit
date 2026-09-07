@@ -12,6 +12,7 @@ import {
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
   WRITING_MODES,
+  ChildProfileV1Schema,
   type ChildProfileV1,
   type GenerationDefaultsV1,
 } from "../../shared/config/schema";
@@ -22,7 +23,10 @@ import {
   type WorksheetControlContextV1,
 } from "../../shared/worksheet/registry";
 import type { WorksheetGeneratorV1 } from "../../shared/worksheet/types";
-import { getSentenceBuilderCapabilitySupport } from "../../worksheets/sentence-builder/definition";
+import {
+  getSentenceBuilderBankSize,
+  getSentenceBuilderCapabilitySupport,
+} from "../../worksheets/sentence-builder/definition";
 import {
   createWorksheetSessionForSeed,
   makeAnotherWorksheetSession,
@@ -68,8 +72,30 @@ const basePreferences: GenerationDefaultsV1 = {
   printScale: "standard",
 };
 
+/**
+ * The three quantity maxima, independently settable.
+ *
+ * Tying them is what kept three of Count, Compare & Make's four subtype arms
+ * and the `[countingMax, numeralMax]` branch of its binding-key selector
+ * unreached while this suite stayed green: with counting == numeral == compare
+ * no derived profile can drive that selector to a strict winner, so a selector
+ * that named the wrong maximum would look right here.
+ */
+interface QuantityMaximumsV1 {
+  readonly countingMax: number;
+  readonly numeralMax: number;
+  readonly compareMax: number;
+}
+
+function tiedQuantityMaximums(limit: number): QuantityMaximumsV1 {
+  return { countingMax: limit, numeralMax: limit, compareMax: limit };
+}
+
 /** Quantities only, exactly the shape the issue-#14 report names. */
-function quantityProfileWithLimit(limit: number, id: string): ChildProfileV1 {
+function quantityProfile(
+  id: string,
+  maximums: QuantityMaximumsV1,
+): ChildProfileV1 {
   return {
     id,
     displayName: "Private Quantity Child",
@@ -77,9 +103,7 @@ function quantityProfileWithLimit(limit: number, id: string): ChildProfileV1 {
     presentationBand: "preschool",
     reviewedOn: "2026-08-22",
     mathSkills: {
-      countingMax: limit,
-      numeralMax: limit,
-      compareMax: limit,
+      ...maximums,
       representations: ["quantities"],
       understandsEquality: false,
       operations: [],
@@ -91,6 +115,11 @@ function quantityProfileWithLimit(limit: number, id: string): ChildProfileV1 {
     writingMode: "label",
     interests: ["animals"],
   };
+}
+
+/** The tied shorthand the length-edge tables want; one number, three maxima. */
+function quantityProfileWithLimit(limit: number, id: string): ChildProfileV1 {
+  return quantityProfile(id, tiedQuantityMaximums(limit));
 }
 
 /** Equations only, so both math families resolve to symbolic work. */
@@ -107,9 +136,13 @@ function equationProfile(
     presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
     mathSkills: {
-      countingMax: 0,
-      numeralMax: 0,
-      compareMax: 0,
+      // 1, not 0: `MathSkillsV1Schema` floors the three quantity maxima at 1,
+      // so a 0 here would describe a profile a parent can never store. Both
+      // symbolic families read only `operandMax`/`resultMax`, so the floor
+      // changes no verdict in this file.
+      countingMax: 1,
+      numeralMax: 1,
+      compareMax: 1,
       representations: ["equations"],
       understandsEquality: true,
       operations,
@@ -203,13 +236,73 @@ const starvedComparisonProfile: ChildProfileV1 = {
   },
 };
 
+/**
+ * The two UNTIED numeral-matching shapes, one per binding maximum.
+ *
+ * `match` is drawn from min(countingMax, numeralMax) and needs three numerals,
+ * so each of these starves it through a different stored maximum while the
+ * OTHER one sits at the Version 1 ceiling of 20 - where "review the counting
+ * limits" would be advice about a number that cannot move (issue #16), and
+ * where a selector that named both, or always named the same one, still reads
+ * as correct against a tied fixture.
+ */
+const starvedCountingMatchProfile = quantityProfile(
+  "3a2b1c0d-9e8f-4a7b-8c6d-5e4f3a2b1c0d",
+  { countingMax: 2, numeralMax: 20, compareMax: 20 },
+);
+
+const starvedNumeralMatchProfile = quantityProfile(
+  "4b3c2d1e-0f9a-4b8c-9d7e-6f5a4b3c2d1e",
+  { countingMax: 20, numeralMax: 2, compareMax: 20 },
+);
+
+/**
+ * Confirms equations without the equality understanding or the operation that
+ * would make them usable: the one shape that makes BOTH symbolic families
+ * unavailable through their REGISTRATIONS rather than through a capacity
+ * shortage, and the only fixture here whose Two Whats and a Wow relevant-maximum
+ * list is empty. Schema-valid: `MathSkillsV1Schema` requires operand and result
+ * maxima of exactly 0 when `operations` is empty, and floors the three quantity
+ * maxima at 1.
+ */
+const unusableEquationProfile: ChildProfileV1 = {
+  id: "5c4d3e2f-1a0b-4c9d-8e7f-6a5b4c3d2e1f",
+  displayName: "Private Unusable Child",
+  ageYears: 6,
+  presentationBand: "early-primary",
+  reviewedOn: "2026-08-22",
+  mathSkills: {
+    countingMax: 1,
+    numeralMax: 1,
+    compareMax: 1,
+    representations: ["equations"],
+    understandsEquality: false,
+    operations: [],
+    operandMax: 0,
+    resultMax: 0,
+    allowRegrouping: false,
+    allowNegativeResults: false,
+  },
+  writingMode: "label",
+  interests: ["animals"],
+};
+
+/**
+ * Parsed through the production schema on the way in. A fixture a parent could
+ * never store proves a contract over profiles that do not exist, and five of
+ * these previously set the three quantity maxima to 0 against
+ * `MathSkillsV1Schema`'s floor of 1.
+ */
 const SWEEP_PROFILES: readonly ChildProfileV1[] = [
   preschoolQuantityProfile,
   independentProfile,
   beyondV1Profile,
   starvedEquationProfile,
   starvedComparisonProfile,
-];
+  starvedCountingMatchProfile,
+  starvedNumeralMatchProfile,
+  unusableEquationProfile,
+].map((profile) => ChildProfileV1Schema.parse(profile));
 
 interface SweepCell {
   readonly worksheetType: RegisteredWorksheetType;
@@ -404,6 +497,21 @@ describe("capacity-aware availability (issue #14)", () => {
       length: "short",
       printScale: "standard",
     });
+    // The two untied numeral-matching regimes, one per binding maximum.
+    expect(refusals).toContainEqual({
+      worksheetType: "count-compare-make",
+      profileId: starvedCountingMatchProfile.id,
+      difficulty: "practice",
+      length: "short",
+      printScale: "standard",
+    });
+    expect(refusals).toContainEqual({
+      worksheetType: "count-compare-make",
+      profileId: starvedNumeralMatchProfile.id,
+      difficulty: "practice",
+      length: "short",
+      printScale: "standard",
+    });
   });
 
   test("a confidence long Wow on a counting-10 profile is refused before the click", () => {
@@ -556,8 +664,11 @@ describe("capacity-aware availability (issue #14)", () => {
         "subtraction",
       ]), { length: "long" }),
     );
+    // Only OPERANDS are named: at operands 1 / results 2 the addition and
+    // subtraction pools are held down by the operand limit, and lifting the
+    // result limit alone adds no stem at all.
     expect(message).toBe(
-      "The confirmed limits provide 7 unique equation groups, but this length needs 8. Choose a shorter worksheet or review the profile's operands and results limits.",
+      "The confirmed limits provide 7 unique equation groups, but this length needs 8. Choose a shorter worksheet or review the profile's operands limits.",
     );
   });
 
@@ -601,7 +712,7 @@ describe("capacity-aware availability (issue #14)", () => {
         worksheetType: "dry-math",
         overrides: { difficulty: "practice", length: "long" },
         message:
-          "The confirmed limits provide 6 unique facts, but this length needs 18. Choose a shorter worksheet or review the profile's operands and results limits.",
+          "The confirmed limits provide 6 unique facts, but this length needs 18. Choose a shorter worksheet or review the profile's results limits.",
       },
       {
         profile: starvedComparisonProfile,
@@ -616,6 +727,23 @@ describe("capacity-aware availability (issue #14)", () => {
         overrides: { difficulty: "confidence", length: "long" },
         message:
           "The confirmed limits provide 7 unique quantity groups, but this length needs 8. Choose a shorter worksheet or review the profile's counting and numerals limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+      },
+      // The same family, the same subtype, two different binding maxima. A
+      // selector that named both, or always named counting, passes the tied
+      // fixture above and fails exactly one of these two.
+      {
+        profile: starvedCountingMatchProfile,
+        worksheetType: "count-compare-make",
+        overrides: { difficulty: "practice", length: "short" },
+        message:
+          "The confirmed limits provide 0 unique numeral-matching exercises, but this length needs 2. Review the profile's counting limits.",
+      },
+      {
+        profile: starvedNumeralMatchProfile,
+        worksheetType: "count-compare-make",
+        overrides: { difficulty: "practice", length: "short" },
+        message:
+          "The confirmed limits provide 0 unique numeral-matching exercises, but this length needs 2. Review the profile's numerals limits.",
       },
     ];
     for (const { profile, worksheetType, overrides, message } of cases) {
@@ -664,13 +792,54 @@ describe("shortage remedies a parent can actually take (issue #16)", () => {
     );
   });
 
+  test("a maximum already at the Version 1 ceiling is never the remedy", () => {
+    // The two parent-facing cases the stop-and-audit named. In each of them one
+    // of the two maxima the family reads is already at 20 - the ceiling
+    // `clampPositive` enforces at the sole projection boundary - so naming it
+    // sends the parent to a knob that cannot move. Before the shortfall
+    // functions accepted the skills there was no arm to reach here: they named
+    // both maxima unconditionally, whatever the numbers were.
+    const quantitiesAtCeiling = quantityProfile(
+      "9a8b7c6d-5e4f-4302-8110-fedcba987654",
+      { countingMax: 20, numeralMax: 6, compareMax: 20 },
+    );
+    expect(
+      capacityMessage(
+        "find-the-wow",
+        contextFor(quantitiesAtCeiling, { length: "long" }),
+      ),
+    ).toBe(
+      "The confirmed limits provide 6 unique quantity groups, but this length needs 8. Choose a shorter worksheet or review the profile's numerals limits.",
+    );
+
+    // Dry Math's twin: 20 operands can never widen an addition pool a result
+    // limit of 2 already caps at six facts.
+    const operandsAtCeiling = equationProfile(
+      "8b7c6d5e-4f30-4211-8fed-cba987654321",
+      20,
+      2,
+      ["addition"],
+    );
+    expect(
+      capacityMessage(
+        "dry-math",
+        contextFor(operandsAtCeiling, { length: "standard" }),
+      ),
+    ).toBe(
+      "The confirmed limits provide 6 unique facts, but this length needs 12. Choose a shorter worksheet or review the profile's results limits.",
+    );
+  });
+
   test("a shortage at the shortest page never offers a shorter page", () => {
     const message = capacityMessage(
       "dry-math",
       contextFor(starvedEquationProfile, { length: "short" }),
     );
+    // Operands are NOT named: at operands 2 / results 2 an addition pool is
+    // bounded by the result limit alone, so lifting the operand limit adds no
+    // fact and sending the parent there is advice that cannot work.
     expect(message).toBe(
-      "The confirmed limits provide 6 unique facts, but this length needs 8. Review the profile's operands and results limits.",
+      "The confirmed limits provide 6 unique facts, but this length needs 8. Review the profile's results limits.",
     );
 
     // Large print already pulls standard down to the short budget, so the
@@ -869,7 +1038,7 @@ describe("Sentence Builder word banks against the shipped vocabulary", () => {
     // fail if a later step adds a thinner reviewed topic: a bank shortfall
     // would then reach a parent as a plain unavailable message with no
     // capacity explanation behind it.
-    let bankModes = 0;
+    let bankCells = 0;
     for (const writingMode of WRITING_MODES) {
       for (const presentationBand of PRESENTATION_BANDS) {
         for (const length of WORKSHEET_LENGTHS) {
@@ -883,14 +1052,23 @@ describe("Sentence Builder word banks against the shipped vocabulary", () => {
             const where = `${writingMode}/${presentationBand}/${length}/${printScale}`;
             const reason = support.available ? "" : support.reason;
             expect(`${where}: ${reason}`).not.toContain("word-bank words");
-            if (support.available) {
-              bankModes += 1;
+            if (
+              support.available &&
+              getSentenceBuilderBankSize(writingMode, length, printScale) > 0
+            ) {
+              bankCells += 1;
             }
           }
         }
       }
     }
-    expect(bankModes).toBeGreaterThan(0);
+    // Counting AVAILABLE cells alone was vacuous: the two modes that print no
+    // bank are available too, so a bank size stuck at zero still satisfied a
+    // "greater than zero" tally over all 60 cells. Three of the five reviewed
+    // writing modes print a bank, over 2 presentation bands x 3 lengths x 2
+    // print scales, so the bank-bearing subset is exactly 36 cells - and a bank
+    // size that stopped being positive fails here instead of passing silently.
+    expect(bankCells).toBe(36);
   });
 });
 
