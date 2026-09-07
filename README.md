@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Steps 1-8 complete** — issues #1-#8 closed. Parents can create local child profiles and generate, preview, and print all four V1 worksheet families with answer keys and reviewed decorative line art. 403 tests passing, 0 type errors, 0 lint violations. Step 9 (personalization and worksheet options) is next; see [plan.md](plan.md).
+> **Steps 1-8 complete** — issues #1-#8 closed. Parents can create local child profiles and generate, preview, and print all four V1 worksheet families with answer keys and reviewed decorative line art. 403 tests passing, 0 type errors, 0 lint violations. Step 9 (personalization and worksheet options) is in progress on a branch and is not yet merged; see [plan.md](plan.md).
 
 ## V1 worksheets
 
@@ -178,7 +178,7 @@ Later feature plans may add Mini Missions, shapes, measurement, language and sci
 
 ## Contributing
 
-Steps 1-8 are merged and Step 9 (personalization and worksheet options) is the current frontier. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
+Steps 1-8 are merged. Step 9 (personalization and worksheet options) is the current frontier: it is built and green on the `build-step-1788124568` branch but is held out of `main` pending one structural test-coverage fix, tracked on issue #9. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) is the single source of truth for contribution rules: licensing, third-party material, asset rules, privacy rules, and the quality gates every pull request must pass. Read it before opening a pull request.
 
