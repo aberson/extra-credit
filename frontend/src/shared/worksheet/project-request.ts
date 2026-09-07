@@ -9,6 +9,7 @@ import { parseSeedHex } from "./seeded-random.js";
 import {
   GENERATION_CONSTRAINT_CONFLICT,
   REVIEWED_TOPIC_IDS,
+  V1_NUMERIC_MAXIMUM,
   type EffectiveMathSkillsV1,
   type GenerationRequestV1,
   type GenerationResult,
@@ -17,8 +18,6 @@ import {
   type WorksheetGeneratorV1,
   type WorksheetType,
 } from "./types.js";
-
-const V1_NUMERIC_MAXIMUM = 20;
 
 /**
  * The allowlist this boundary consults, re-exported so its own test can assert

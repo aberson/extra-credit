@@ -1,5 +1,7 @@
 import type { CSSProperties } from "react";
 
+import { V1_NUMERIC_MAXIMUM } from "../../shared/worksheet/types";
+
 /**
  * Instructional visuals: dots, ten-frames, shapes, and writing guides.
  *
@@ -36,8 +38,12 @@ export type InstructionalVisualVariantV1 = "group" | "ten-frame";
 const TEN_FRAME_COLUMNS = 5;
 const TEN_FRAME_CELLS = 10;
 
-/** V1 clamps every quantity to 20, so a ten-frame never needs a third frame. */
-const MAXIMUM_TEN_FRAME_CELLS = 20;
+/**
+ * V1 clamps every quantity to the numeric envelope, so a ten-frame never needs
+ * a third frame. Read from the one envelope constant rather than retyped, so a
+ * widened envelope cannot leave a two-frame ceiling behind here.
+ */
+const MAXIMUM_TEN_FRAME_CELLS = V1_NUMERIC_MAXIMUM;
 
 const MARK_GLYPHS = {
   circle: "●",

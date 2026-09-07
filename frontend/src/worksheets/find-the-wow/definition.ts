@@ -6,11 +6,12 @@ import {
   shorterLengthLowersRequirement,
   type WorksheetMaximumValues,
 } from "../../shared/worksheet/limit-labels.js";
-import type {
-  Difficulty,
-  EffectiveMathSkillsV1,
-  PrintScale,
-  WorksheetLength,
+import {
+  V1_NUMERIC_MAXIMUM,
+  type Difficulty,
+  type EffectiveMathSkillsV1,
+  type PrintScale,
+  type WorksheetLength,
 } from "../../shared/worksheet/types.js";
 
 export const FIND_THE_WOW_DEFINITION = {
@@ -34,12 +35,15 @@ export const FIND_THE_WOW_GROUP_BUDGETS = {
  * family repeats the clamp so its own limit arithmetic cannot widen past the
  * envelope, and names it once so the enumeration and the tests that assert
  * which maximum bound a pool read the same number.
+ *
+ * A re-export of the one envelope constant, never a second literal: the two
+ * are the same number by construction rather than by agreement.
  */
-export const FIND_THE_WOW_V1_MAXIMUM = 20;
+export const FIND_THE_WOW_V1_MAXIMUM = V1_NUMERIC_MAXIMUM;
 
 /**
- * `min(countingMax, numeralMax, 20)`: the distinct quantity stems this family
- * can draw from.
+ * `min(countingMax, numeralMax, FIND_THE_WOW_V1_MAXIMUM)`: the distinct
+ * quantity stems this family can draw from.
  *
  * Exported because the quantity pool IS a `Math.min` over those two stored
  * maxima, so which one is binding can be read off this value - and reading it
@@ -120,8 +124,8 @@ export function getFindTheWowCapabilitySupport(
  * is what the pool ran out of.
  *
  * The two modes need two different discriminators. A quantity pool is
- * `Math.min(countingMax, numeralMax, 20)` (`generator.ts`), so the lowest
- * candidate IS the bound and a tie must name both. An equation pool bounds
+ * `getQuantityWowLimit` above, so the lowest candidate IS the bound and a tie
+ * must name both. An equation pool bounds
  * operands and results independently through a filter, so its binding maxima
  * are found by re-measuring with each one lifted; `measureCapacity` re-runs the
  * caller's own enumeration for that.

@@ -635,7 +635,11 @@ describe("capacity is counted in the collection selection draws from", () => {
     );
     // Non-vacuity, and the shape of the arm set this family can actually
     // produce: a run that only ever saw one subtype would prove nothing about
-    // the selector's other branch.
+    // the selector's other branch. The same four ids are asserted from an
+    // independent derivation in `shared/worksheet/limit-labels.test.ts` - the
+    // exhaustive maxima cube rather than this property run. The two lists are
+    // kept separate on purpose: sharing one expectation would make two
+    // independent nets one net. Edit either and check its twin.
     expect([...observed].sort()).toEqual([
       "compare:comparisons",
       "match:counting",

@@ -9,6 +9,7 @@ import {
 import {
   GENERATION_CONSTRAINT_CONFLICT,
   GENERATION_INVARIANT_FAILED,
+  V1_NUMERIC_MAXIMUM,
   type DryMathItemV1,
   type GenerationRequestV1,
   type GenerationResult,
@@ -70,8 +71,8 @@ export function enumerateDryMathCandidates(
   request: GenerationRequestV1,
 ): readonly ArithmeticCandidate[] {
   const skills = request.capabilities.mathSkills;
-  const operandLimit = Math.min(skills.operandMax, 20);
-  const resultLimit = Math.min(skills.resultMax, 20);
+  const operandLimit = Math.min(skills.operandMax, V1_NUMERIC_MAXIMUM);
+  const resultLimit = Math.min(skills.resultMax, V1_NUMERIC_MAXIMUM);
   const candidates: ArithmeticCandidate[] = [];
 
   for (const operation of skills.operations) {

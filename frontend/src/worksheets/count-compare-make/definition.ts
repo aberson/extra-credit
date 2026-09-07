@@ -4,11 +4,12 @@ import {
   shorterLengthLowersRequirement,
   type WorksheetRelevantMaximumKey,
 } from "../../shared/worksheet/limit-labels.js";
-import type {
-  EffectiveMathSkillsV1,
-  ObjectiveAnswerV1,
-  PrintScale,
-  WorksheetLength,
+import {
+  V1_NUMERIC_MAXIMUM,
+  type EffectiveMathSkillsV1,
+  type ObjectiveAnswerV1,
+  type PrintScale,
+  type WorksheetLength,
 } from "../../shared/worksheet/types.js";
 
 export const COUNT_COMPARE_MAKE_DEFINITION = {
@@ -22,10 +23,13 @@ export const COUNT_COMPARE_MAKE_DEFINITION = {
 /**
  * Every rendered quantity is clamped to the v1 source envelope even when the
  * stored profile records a higher capability (plan.md:211). The sole
- * projection boundary already clamps the request; this constant keeps the
- * family's own limit arithmetic from being able to widen past it.
+ * projection boundary already clamps the request; repeating the clamp here
+ * keeps the family's own limit arithmetic from being able to widen past it.
+ *
+ * A re-export of the one envelope constant, never a second literal: the two
+ * are the same number by construction rather than by agreement.
  */
-export const COUNT_COMPARE_MAKE_V1_MAXIMUM = 20;
+export const COUNT_COMPARE_MAKE_V1_MAXIMUM = V1_NUMERIC_MAXIMUM;
 
 /** Three group choices per match item, one of them the exact match. */
 export const COUNT_COMPARE_MAKE_MATCH_CHOICE_COUNT = 3;
@@ -123,7 +127,10 @@ type CountCompareRelevantSkills = Pick<
   "countingMax" | "numeralMax" | "compareMax"
 >;
 
-/** `min(countingMax, numeralMax, 20)`: numeral, complete, and make work (plan.md:207). */
+/**
+ * `min(countingMax, numeralMax, COUNT_COMPARE_MAKE_V1_MAXIMUM)`: numeral,
+ * complete, and make work (plan.md:207).
+ */
 export function getCountCompareMakeNumeralLimit(
   mathSkills: CountCompareRelevantSkills,
 ): number {
@@ -134,7 +141,10 @@ export function getCountCompareMakeNumeralLimit(
   );
 }
 
-/** `min(countingMax, compareMax, 20)`: comparison work only (plan.md:207). */
+/**
+ * `min(countingMax, compareMax, COUNT_COMPARE_MAKE_V1_MAXIMUM)`: comparison
+ * work only (plan.md:207).
+ */
 export function getCountCompareMakeComparisonLimit(
   mathSkills: CountCompareRelevantSkills,
 ): number {

@@ -209,7 +209,7 @@ export const CAPACITY_PROBE_SEED = "00000001";
  * interests, and it does not use this probe: its own gate measures the leanest
  * reviewed topic, which bounds every interest set the parent could enable.
  */
-export const CAPACITY_PROBE_PREFERENCES = {
+export const CAPACITY_PROBE_PREFERENCES = Object.freeze({
   useDisplayName: false,
   useInterests: false,
   includeDecorativeGraphics: false,
@@ -218,7 +218,7 @@ export const CAPACITY_PROBE_PREFERENCES = {
 } as const satisfies Omit<
   GenerationDefaultsV1,
   "difficulty" | "length" | "printScale"
->;
+>);
 
 /**
  * The one remedy the parent can take without touching the child's profile.

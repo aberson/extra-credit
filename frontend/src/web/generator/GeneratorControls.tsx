@@ -5,6 +5,7 @@ import type {
   ChildProfileV1,
   GenerationDefaultsV1,
 } from "../../shared/config/schema";
+import { WORKSHEET_MAXIMUM_LABELS } from "../../shared/worksheet/limit-labels";
 import {
   REGISTERED_WORKSHEET_IDS,
   getWorksheetRegistration,
@@ -13,8 +14,10 @@ import {
   type WorksheetCapabilitySupportV1,
   type WorksheetControlContextV1,
   type WorksheetRegistrationV1,
+  type WorksheetRelevantMaximumKey,
   type WorksheetRelevantMaximumV1,
 } from "../../shared/worksheet/registry";
+import { V1_NUMERIC_MAXIMUM } from "../../shared/worksheet/types";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
 import type { GenerationSelection } from "./create-session";
 
@@ -77,6 +80,19 @@ const FUTURE_PERMISSION_KEYS = Object.freeze(
   Object.keys(FUTURE_PERMISSION_LABELS) as (keyof typeof FUTURE_PERMISSION_LABELS)[],
 );
 
+/**
+ * Every stored numeric maximum, in the order the disclosure below lists them.
+ *
+ * Read off the label table rather than off the selection's own relevant
+ * maxima: like the permission notice beside it, this reports what the PROFILE
+ * stores, so a family that reads none of these maxima must still disclose a
+ * stored value Version 1 will not use. Keying off the label table makes a new
+ * maximum a compile-time addition here rather than a silent omission.
+ */
+const STORED_MAXIMUM_KEYS = Object.freeze(
+  Object.keys(WORKSHEET_MAXIMUM_LABELS) as WorksheetRelevantMaximumKey[],
+);
+
 const WORKSHEET_OPTIONS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
   id: worksheetId,
   label: getWorksheetRegistration(worksheetId).displayName,
@@ -135,12 +151,18 @@ function relevantLimits(
  * parent is never asked to confirm a stretch that cannot change the sheet.
  */
 function stretchCannotApply(limits: readonly RelevantLimit[]): boolean {
-  return limits.length === 0 || limits.every(({ value }) => value >= 20);
+  return (
+    limits.length === 0 ||
+    limits.every(({ value }) => value >= V1_NUMERIC_MAXIMUM)
+  );
 }
 
 function stretchLimit(value: number): readonly [number, number] {
-  const base = Math.min(value, 20);
-  return [base, Math.min(20, base + Math.max(1, Math.ceil(base * 0.25)))];
+  const base = Math.min(value, V1_NUMERIC_MAXIMUM);
+  return [
+    base,
+    Math.min(V1_NUMERIC_MAXIMUM, base + Math.max(1, Math.ceil(base * 0.25))),
+  ];
 }
 
 export function GeneratorControls({
@@ -243,12 +265,23 @@ export function GeneratorControls({
     effectiveUnit?.count === 1
       ? effectiveUnit.singularLabel
       : effectiveUnit?.pluralLabel;
-  const limitsAboveV1 = limits.filter(({ value }) => value > 20);
-  // A disclosure about what the PROFILE stores, not about what this selection
-  // prints: the sole projection boundary pins both flags false in the request
-  // every family receives, which `shared/worksheet/project-request.test.ts`
-  // asserts directly, so a parent choosing a counted-groups page still needs
-  // to be told the two permissions are stored and dormant.
+  // Both disclosures below are about what the PROFILE stores, not about what
+  // this selection prints. The sole projection boundary clamps every stored
+  // maximum to the envelope and pins both flags false in the request every
+  // family receives, which `shared/worksheet/project-request.test.ts` asserts
+  // directly, so a parent choosing a counted-groups page still needs to be
+  // told which stored values are kept and dormant. Scoping either list to the
+  // selection's own maxima hides the disclosure on exactly the families a
+  // parent of a young child is most likely to pick.
+  const limitsAboveV1: readonly RelevantLimit[] =
+    selectedProfile === undefined
+      ? []
+      : STORED_MAXIMUM_KEYS.filter(
+          (key) => selectedProfile.mathSkills[key] > V1_NUMERIC_MAXIMUM,
+        ).map((key) => ({
+          label: WORKSHEET_MAXIMUM_LABELS[key],
+          value: selectedProfile.mathSkills[key],
+        }));
   const futurePermissions =
     selectedProfile === undefined
       ? []
@@ -480,7 +513,7 @@ export function GeneratorControls({
             {limitsAboveV1
               .map(({ label, value }) => `${label} ${value}`)
               .join(", ")}
-            ; Version 1 uses at most 20.
+            {`; Version 1 uses at most ${V1_NUMERIC_MAXIMUM}.`}
           </p>
         )}
 
@@ -673,7 +706,7 @@ export function GeneratorControls({
           unit test and `tests/e2e/options.spec.ts` assert that placement with,
           because "somewhere in this panel" is satisfied by the top of the page.
         */}
-        <div data-defaults-slot="">
+        <div data-defaults-slot="true">
           <button
             disabled={disabled || savingDefaults}
             onClick={() => void saveDefaults()}

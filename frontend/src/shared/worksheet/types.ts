@@ -12,6 +12,20 @@ export const WORKSHEET_TYPE_IDS = [
   "count-compare-make",
 ] as const;
 
+/**
+ * The Version 1 numeric envelope: the largest number any generated quantity,
+ * operand or result may reach.
+ *
+ * Defined in this leaf module because the projection boundary that clamps to
+ * it, the invariant checker that re-verifies the clamp, the families whose own
+ * limit arithmetic repeats it, and the parent-facing controls that disclose it
+ * all import from here. `tests/integration/envelope-single-source.test.ts`
+ * asserts each family alias is `toBe` this constant and, because `toBe` on a
+ * number cannot tell a re-export from a fresh literal, also refuses a second
+ * literal definition anywhere in the shipped tree.
+ */
+export const V1_NUMERIC_MAXIMUM = 20;
+
 export const TOPIC_IDS = [
   "animals",
   "space",

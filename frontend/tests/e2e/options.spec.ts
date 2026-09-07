@@ -30,8 +30,7 @@ import { expect, test } from "./fixtures/app-server.ts";
  *    still print only within-20 work.
  *
  * The defaults claim carries a geometry assertion for the same reason: where a
- * confirmation lands is a layout fact, and layout is the one thing the jsdom
- * suite cannot see.
+ * confirmation lands is a layout fact, and jsdom has no layout.
  */
 
 const defaults: GenerationDefaultsV1 = {
@@ -167,19 +166,46 @@ test("saved worksheet defaults reload without changing a child profile", async (
   // profiles status line near the top of the page, so the click produced no
   // visible change anywhere near the pointer; "somewhere in the panel" is
   // satisfied by that position too, and jsdom has no layout to tell them apart.
-  // This is the only suite that can read where the browser really put it.
+  const slot = page.locator("[data-defaults-slot]");
   const buttonBox = await saveButton.boundingBox();
   const confirmationBox = await confirmation.boundingBox();
-  if (buttonBox === null || confirmationBox === null) {
-    throw new Error("the save button and its confirmation must both be laid out");
+  const slotBox = await slot.boundingBox();
+  if (buttonBox === null || confirmationBox === null || slotBox === null) {
+    throw new Error(
+      "The defaults slot, the save button and its confirmation must all be laid out.",
+    );
   }
+  // Containment in the component's own slot rather than a pixel budget: the
+  // slot is the hook the component names for this placement, so "inside it" is
+  // the claim, and a rendered-distance ceiling would only be a proxy for it
+  // that a copy change or a font swap can trip.
+  //
+  // The slack is for sub-pixel layout only. Chromium reports fractional CSS
+  // pixels, so an exactly-contained box can report an edge a hair outside its
+  // container's; one pixel cannot hide a confirmation that left the slot,
+  // because leaving it moves the box by at least the slot's own padding.
+  const SUBPIXEL_SLACK = 1;
+  expect(
+    {
+      top: confirmationBox.y >= slotBox.y - SUBPIXEL_SLACK,
+      left: confirmationBox.x >= slotBox.x - SUBPIXEL_SLACK,
+      bottom:
+        confirmationBox.y + confirmationBox.height <=
+        slotBox.y + slotBox.height + SUBPIXEL_SLACK,
+      right:
+        confirmationBox.x + confirmationBox.width <=
+        slotBox.x + slotBox.width + SUBPIXEL_SLACK,
+    },
+    `the confirmation must be laid out inside [data-defaults-slot]: confirmation ${JSON.stringify(
+      confirmationBox,
+    )} slot ${JSON.stringify(slotBox)}`,
+  ).toEqual({ top: true, left: true, bottom: true, right: true });
   const gap = confirmationBox.y - (buttonBox.y + buttonBox.height);
   expect(gap, "the confirmation must sit below the button").toBeGreaterThanOrEqual(0);
-  expect(gap, "the confirmation must sit beside the button").toBeLessThan(160);
   expect(
     Math.abs(confirmationBox.x - buttonBox.x),
     "the confirmation must share the button's left edge",
-  ).toBeLessThanOrEqual(2);
+  ).toBeLessThanOrEqual(SUBPIXEL_SLACK * 2);
 
   const saved = await appServer.readConfig();
   expect(saved.defaults).toEqual({
@@ -304,7 +330,9 @@ test("shows stored capabilities Version 1 keeps but never prints", async ({
   ).toBeVisible();
 
   await expect(
-    page.getByText("Stored limits reach operands 25, results 25; Version 1 uses at most 20."),
+    page.getByText(
+      "Stored limits reach counting 25, numerals 25, comparisons 25, operands 25, results 25; Version 1 uses at most 20.",
+    ),
   ).toBeVisible();
   await expect(
     page.getByText(

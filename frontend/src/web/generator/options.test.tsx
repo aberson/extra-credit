@@ -1040,47 +1040,53 @@ describe("Sentence Builder word banks against the shipped vocabulary", () => {
 });
 
 describe("stored capabilities Version 1 keeps but never uses", () => {
+  // Every stored maximum this profile holds above the envelope, in the order
+  // the label table declares them. Written out rather than derived so a
+  // reordered or renamed label is a visible diff here.
+  const STORED_MAXIMA_SENTENCE =
+    /Stored limits reach counting 25, numerals 25, comparisons 25, operands 25, results 25; Version 1 uses at most 20\./u;
+  const STORED_PERMISSIONS_SENTENCE =
+    /This profile also allows carrying and borrowing, and negative results; Version 1 never uses them\./u;
+
   test("a maximum above 20 and both future permissions are shown", () => {
     renderControls(beyondV1Profile, "dry-math");
-    expect(
-      screen.getByText(
-        /Stored limits reach operands 25, results 25; Version 1 uses at most 20\./u,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /This profile also allows carrying and borrowing, and negative results; Version 1 never uses them\./u,
-      ),
-    ).toBeInTheDocument();
+    expect(screen.getByText(STORED_MAXIMA_SENTENCE)).toBeInTheDocument();
+    expect(screen.getByText(STORED_PERMISSIONS_SENTENCE)).toBeInTheDocument();
   });
 
-  test("the stored permissions are announced on selections that print no arithmetic", () => {
+  test("both stored disclosures are announced on selections that print no arithmetic", () => {
     // They used to be announced only where the selection's own maxima were
     // operands or results, which silenced them for the two families a parent
-    // is most likely to pick for a young child. The disclosure is about what
-    // the PROFILE stores and what Version 1 will not do with it, so it belongs
-    // on every selection that profile can produce.
+    // is most likely to pick for a young child. Both disclosures are about
+    // what the PROFILE stores and what Version 1 will not do with it, so both
+    // belong on every selection that profile can produce - and the maximum
+    // sentence must name every stored maximum above the envelope, not only
+    // the ones this family happens to read.
     for (const worksheetType of [
       "count-compare-make",
       "sentence-builder",
     ] as const) {
       renderControls(beyondV1Profile, worksheetType);
       expect(
-        screen.getByText(
-          /This profile also allows carrying and borrowing, and negative results; Version 1 never uses them\./u,
-        ),
+        screen.getByText(STORED_MAXIMA_SENTENCE),
+        worksheetType,
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(STORED_PERMISSIONS_SENTENCE),
         worksheetType,
       ).toBeInTheDocument();
       cleanup();
     }
   });
 
-  test("a profile that stores neither permission is told nothing", () => {
-    // The other half of the contract: the notice reports the stored flags, so
-    // a profile with both false must produce no sentence at all. Without this
-    // an always-rendered notice would satisfy the two tests above.
+  test("a profile storing nothing above the envelope and neither permission is told nothing", () => {
+    // The other half of both contracts: the notices report what is stored, so
+    // a profile at the ceiling with both flags false must produce no sentence
+    // at all. Without this an always-rendered notice would satisfy the two
+    // tests above.
     renderControls(independentProfile, "count-compare-make");
     expect(screen.queryByText(/Version 1 never uses/u)).toBeNull();
+    expect(screen.queryByText(/Stored limits reach/u)).toBeNull();
   });
 });
 

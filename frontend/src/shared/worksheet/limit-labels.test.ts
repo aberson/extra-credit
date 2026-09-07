@@ -48,6 +48,7 @@ import {
   type WorksheetRelevantMaximumKey,
 } from "./limit-labels.js";
 import { projectGenerationRequest } from "./project-request.js";
+import { V1_NUMERIC_MAXIMUM } from "./types.js";
 import {
   CAPACITY_PROBE_PREFERENCES,
   CAPACITY_PROBE_SEED,
@@ -605,16 +606,22 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
 ];
 
 /**
- * Every capacity sentence the sweep below can put in front of a parent, with
- * the digits normalised to `N`.
+ * Every parent-facing capacity sentence the sweep below renders, with the
+ * digits normalised to `N`: the availability refusals, the projection
+ * refusals, and the capacity shortfalls, over the probe profiles and the
+ * (difficulty x length x print scale) cube the sweep walks.
  *
  * The arm catalogue answers "did a declared branch stop being reachable"; this
  * answers the other direction. A fifth remedy clause, a reworded sentence, or a
- * new branch that reuses an existing arm id leaves the arm set untouched and
- * fails here instead. Regenerate it by reading the failure diff, never by
+ * new branch that reuses an existing arm id leaves the arm set untouched, and
+ * fails here instead whenever the sentence it renders differs from every shape
+ * declared below. Regenerate it by reading the failure diff, never by
  * pasting the observed set back in without deciding the new prose is right.
  */
 const DECLARED_SENTENCE_SHAPES: readonly string[] = [
+  "Count, Compare & Make needs confirmed quantities. Choose another supported profile, or edit this profile to confirm that the child works with counted groups.",
+  "Dry Math needs at least one confirmed symbolic operation. Choose another supported profile with an enabled operation, or edit this profile to confirm one. Count, Compare & Make offers quantity practice for a profile that confirms quantities.",
+  "Dry Math needs equations and an enabled operation. Choose another supported profile with those confirmed capabilities, or edit this profile to confirm them. Count, Compare & Make offers quantity practice for a profile that confirms quantities.",
   "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's operands limits.",
   "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's operands limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
   "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's results limits.",
@@ -647,6 +654,8 @@ const DECLARED_SENTENCE_SHAPES: readonly string[] = [
   "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's counting and numerals limits.",
   "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's counting limits.",
   "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's numerals limits.",
+  "Two Whats and a Wow needs confirmed quantities, or equations with equality understanding and an enabled operation. Choose another supported profile or edit this profile to confirm one of those capability paths.",
+  "Version N worksheets support ages N–N. This profile stays saved for a future skill pack.",
 ];
 
 const DECLARED_ARM_IDS = new Set(DECLARED_ARMS.map(({ id }) => id));
@@ -747,6 +756,30 @@ const bothCapabilitiesProfile: ChildProfileV1 = {
   interests: ["sports", "nature"],
 };
 
+/**
+ * Every quantity AND equation maximum stored far above the Version 1 ceiling.
+ *
+ * The schema permits maxima up to 1000, and plan.md:701 is exactly the
+ * stored-above-the-ceiling case. Without a profile like this one the three
+ * `*-v1clamp` rows in the catalogue are dead for want of an input rather than
+ * by the mechanism they name: every other probe stores at most the ceiling, so
+ * the clamp term can only ever tie. Here the projection clamp is the only
+ * thing standing between a stored 100 and a limit arithmetic that would name
+ * `v1clamp` the strict winner, which is what the deadness rows claim.
+ */
+const aboveCeilingProfile: ChildProfileV1 = {
+  ...bothCapabilitiesProfile,
+  id: "0c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+  mathSkills: {
+    ...bothCapabilitiesProfile.mathSkills,
+    countingMax: 5 * V1_NUMERIC_MAXIMUM,
+    numeralMax: 5 * V1_NUMERIC_MAXIMUM,
+    compareMax: 5 * V1_NUMERIC_MAXIMUM,
+    operandMax: 5 * V1_NUMERIC_MAXIMUM,
+    resultMax: 5 * V1_NUMERIC_MAXIMUM,
+  },
+};
+
 /** Version 1 supports ages 4-8; a stored 9 is the projection's own refusal. */
 const beyondV1AgeProfile: ChildProfileV1 = {
   ...bothCapabilitiesProfile,
@@ -814,6 +847,7 @@ const PROBE_PROFILES: readonly ChildProfileV1[] = [
   // Equations confirmed with nothing usable behind them.
   equationProfile("c5d6e7f8-a9b0-42b9-84cd-f4a5b6c7d8e9", 0, 0, []),
   bothCapabilitiesProfile,
+  aboveCeilingProfile,
   beyondV1AgeProfile,
 ].map((profile) => ChildProfileV1Schema.parse(profile));
 
@@ -863,12 +897,11 @@ function lowestTerms(
 /**
  * The arm a production `Math.min` limit really selected.
  *
- * The winners are read off the value the production function RETURNED, never
- * off a minimum recomputed here: a test-local mirror records the same arm
- * whatever production does, which is the unfalsifiable-coverage shape this file
- * exists to end. `terms` names the stored maxima the limit is documented to be
- * the minimum of, and the assertion is what fails when production starts
- * reading a different one.
+ * The winners are read off the value the production function RETURNED: a
+ * test-local mirror records the same arm whatever production does, which is
+ * the unfalsifiable-coverage shape this file exists to end. `terms` names the
+ * stored maxima the limit is documented to be the minimum of, and the
+ * assertion is what fails when production starts reading a different one.
  */
 function observedMinimumArm(
   prefix: string,
@@ -901,6 +934,13 @@ describe("every declared arm of the capacity and advice surface", () => {
     // no arm - it changes the sentence. Digits are normalised away so the set
     // is the shape of the parent-facing prose and not its arithmetic.
     const shapes = new Set<string>();
+    // Every parent-facing capacity sentence this sweep renders, with the
+    // digits normalised to `N`. Called at each site that produces one rather
+    // than once at the end, because two of the three sites are followed by a
+    // `continue`.
+    const collectSentence = (sentence: string): void => {
+      shapes.add(sentence.replace(/\d+/gu, "N"));
+    };
     const observe = (arm: string): void => {
       if (!DECLARED_ARM_IDS.has(arm)) {
         // An arm nobody declared is the same defect as an arm nobody reached:
@@ -928,6 +968,13 @@ describe("every declared arm of the capacity and advice surface", () => {
               observe(
                 `REG-${worksheetType}-${support.available ? "AVAIL" : "UNAVAIL"}`,
               );
+              if (!support.available) {
+                // The refusal IS the capacity line the parent reads for this
+                // selection, and it is rendered for every registered family
+                // rather than only the probing ones, so it is collected here -
+                // above both `continue`s below.
+                collectSentence(support.message);
+              }
 
               // The effective-unit noun arms, read off the unit the
               // registration really returned rather than off a threshold
@@ -990,9 +1037,21 @@ describe("every declared arm of the capacity and advice surface", () => {
                   length,
                   printScale,
                 },
+                // Scope clause: the sweep probes the CONFIRMED stretch only.
+                // With this false the projection refuses every stretch cell
+                // before any capacity is measured, which is a different
+                // surface - `project-request.test.ts` owns that refusal - and
+                // would silence two thirds of the difficulty axis here.
                 stretchConfirmed: true,
               });
               observe(projection.ok ? "PS-ok" : "PS-projection-fail");
+              if (!projection.ok) {
+                // A refused projection reaches the parent through the same
+                // capacity line - the assertion just below pins that the
+                // registration surfaces exactly this message - so its shape
+                // belongs in the closed set too.
+                collectSentence(projection.message);
+              }
               if (!projection.ok && support.available) {
                 // A projection that failed must surface its OWN message, not a
                 // capacity sentence about limits it never computed.
@@ -1027,7 +1086,7 @@ describe("every declared arm of the capacity and advice surface", () => {
 
               const labels = namedLimitLabels(message);
               if (message !== "") {
-                shapes.add(message.replace(/\d+/gu, "N"));
+                collectSentence(message);
                 // The empty arm is emitted from the same site as the other
                 // two, so "no remedy named a maximum" is a declared arm the
                 // equality assertion owns rather than a claim about a branch
@@ -1239,7 +1298,12 @@ describe("the structurally dead Count, Compare & Make arms", () => {
     }
     expect(shortages).toBeGreaterThan(0);
     // "group-completion" and "draw-a-quantity" never appear, and a comparison
-    // shortage never names counting: those are the four dead arms.
+    // shortage never names counting: those are the four dead arms. The same
+    // four ids are asserted from an independent derivation in
+    // `worksheets/count-compare-make/generator.test.ts` - a property run over
+    // sampled pairs rather than this exhaustive cube. The two lists are kept
+    // separate on purpose: sharing one expectation would make two independent
+    // nets one net. Edit either and check its twin.
     expect([...observed].sort()).toEqual([
       "compare:comparisons",
       "match:counting",
@@ -1383,12 +1447,14 @@ describe("the equation families' binding-maximum arms", () => {
     // makes the arm live and the set above changes; lowering it moves the
     // margin and this line changes.
     expect(smallestBothBindingPool).toBe(FIND_THE_WOW_GROUP_BUDGETS.long);
-    // A min model reproduces both arm SETS above, so these rows are the only
-    // thing here that distinguishes it from the per-key probe. One named row
-    // per family: a family whose probe was replaced by a `Math.min` loses its
-    // row and fails here even though nothing else in this test moves. The
-    // dry-math row is the pair the handoff names as the trap - the lower
-    // maximum is not the one holding the pool down.
+    // A min model reproduces the DRY-MATH arm set above, so the dry-math row
+    // below is what distinguishes the two models there: the recorded swap of
+    // that family's probe for a `Math.min` left every other assertion in this
+    // test standing and failed only at this row. The find-the-wow row is a
+    // second net over an arm-set assertion that already fails - the same swap
+    // for that family went red at the find-the-wow arm set, because a min
+    // model makes both maxima bind there. The dry-math pair is the trap the
+    // handoff names: the lower maximum is not the one holding the pool down.
     const disagreements = [...minModelDisagreements].sort();
     expect(disagreements).toContain(
       "dry-math subtraction 3/1: probe both, min results",
