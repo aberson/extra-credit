@@ -223,14 +223,13 @@ const CAPACITY_PROBE_PREFERENCES = {
 /**
  * The one remedy the parent can take without touching the child's profile.
  *
- * Confidence narrows every relevant maximum before generation, so it is often
- * the whole reason a length stopped fitting - and the shortage sentence used
- * to offer only "shorten the worksheet" and "review the profile limits",
- * steering a parent toward lowering the page or raising a four-year-old's
- * confirmed counting maximum when one option flip would have done it. It is
- * appended only after the same selection has been PROVED producible at
- * practice, because a remedy that cannot change the outcome is the defect
- * issue #16 is about.
+ * Confidence is often the whole reason a length stopped fitting - and the
+ * shortage sentence used to offer only "shorten the worksheet" and "review the
+ * profile limits", steering a parent toward lowering the page or raising a
+ * four-year-old's confirmed counting maximum when one option flip would have
+ * done it. It is appended only after the same selection has been PROVED
+ * producible at practice, because a remedy that cannot change the outcome is
+ * the defect issue #16 is about.
  */
 const DIFFICULTY_REMEDY =
   "Setting Difficulty to Practice also fills this selection, without changing the profile.";

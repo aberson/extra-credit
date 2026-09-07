@@ -151,7 +151,6 @@ type ProfileControllerAction =
     }
   | {
       readonly type: "adopt-defaults-write";
-      readonly message: string;
       readonly operation: ProfileOperation;
       readonly saved: LoadedConfig;
     }
@@ -310,6 +309,11 @@ function profileControllerReducer(
      * parent's selections intact, because nothing about a child profile
      * changed. The open editor is re-stamped with the new ETag so its own save
      * is not stranded behind a precondition this write just superseded.
+     *
+     * The confirmation belongs to the panel that holds the button, beside the
+     * failure message its own retry already reads: there it appears where the
+     * parent clicked and is cleared the moment they change a selection. This
+     * status line carries profile news, and a defaults write is not that.
      */
     case "adopt-defaults-write": {
       if (!operationMatches(state.operation, action.operation)) {
@@ -333,7 +337,7 @@ function profileControllerReducer(
           etag: action.saved.etag,
           revision,
         },
-        successMessage: action.message,
+        successMessage: null,
       };
     }
     /**
@@ -619,11 +623,7 @@ export function App() {
   );
 
   const adoptDefaultsWriteOutcome = useCallback(
-    (
-      completedOperation: ProfileOperation,
-      saved: LoadedConfig,
-      message: string,
-    ): boolean => {
+    (completedOperation: ProfileOperation, saved: LoadedConfig): boolean => {
       if (!operationMatches(operationRef.current, completedOperation)) {
         return false;
       }
@@ -631,7 +631,6 @@ export function App() {
       nextOperationGenerationRef.current += 1;
       dispatchProfile({
         type: "adopt-defaults-write",
-        message,
         operation: completedOperation,
         saved,
       });
@@ -840,13 +839,7 @@ export function App() {
       const saved = await saveConfig(nextConfig, {
         ...(profileState.etag === undefined ? {} : { etag: profileState.etag }),
       });
-      if (
-        !adoptDefaultsWriteOutcome(
-          write,
-          saved,
-          "Worksheet defaults saved locally.",
-        )
-      ) {
+      if (!adoptDefaultsWriteOutcome(write, saved)) {
         throw new ConfigApiError(
           "CONFIG_CONFLICT",
           "A newer profile operation superseded this save.",

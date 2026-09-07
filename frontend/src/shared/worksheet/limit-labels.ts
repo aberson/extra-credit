@@ -67,7 +67,6 @@ export const NO_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] = Object.freeze(
   [],
 );
 
-/** The one list joiner every parent-facing sentence in this layer uses. */
 export function joinLabels(labels: readonly string[]): string {
   const last = labels[labels.length - 1];
   if (last === undefined) {

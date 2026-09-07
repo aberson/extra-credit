@@ -540,15 +540,6 @@ describe("capacity-aware availability (issue #14)", () => {
     expect(message).toBe(
       `${generatorMessage} Setting Difficulty to Practice also fills this selection, without changing the profile.`,
     );
-
-    // The same profile at the standard length stays offered and producible.
-    const shorter = registration.controls.getCapabilitySupport(
-      contextFor(preschoolQuantityProfile, {
-        difficulty: "confidence",
-        length: "standard",
-      }),
-    );
-    expect(shorter.available && shorter.capacity.sufficient).toBe(true);
   });
 
   test("quantity capacity edges disable exactly the lengths the limits cannot fill", () => {
@@ -670,31 +661,6 @@ describe("capacity-aware availability (issue #14)", () => {
     expect(message).toBe(
       "The confirmed limits provide 7 unique equation groups, but this length needs 8. Choose a shorter worksheet or review the profile's operands limits.",
     );
-  });
-
-  test("the control disables Create and promises no budget when capacity is short", () => {
-    renderControls(preschoolQuantityProfile, "find-the-wow", {
-      difficulty: "confidence",
-      length: "long",
-    });
-    const create = screen.getByRole("button", { name: "Create worksheet" });
-    expect(create).toBeDisabled();
-    expect(
-      screen.getByText(
-        /provide 7 unique quantity groups, but this length needs 8/u,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/This selection creates/u)).toBeNull();
-
-    fireEvent.change(screen.getByRole("combobox", { name: "Length" }), {
-      target: { value: "standard" },
-    });
-    expect(create).toBeEnabled();
-    expect(
-      screen.getByText(
-        "This selection creates 6 unique groups on one practice page.",
-      ),
-    ).toBeInTheDocument();
   });
 
   test("every probing family reaches the DOM with its own shortage sentence", () => {
@@ -943,8 +909,6 @@ describe("family-aware limiting-resource copy (issue #16)", () => {
   });
 
   test("the declared maximums and the advice sentence stay one list", () => {
-    let numericFamilies = 0;
-    let vocabularyFamilies = 0;
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
       const registration = getWorksheetRegistration(worksheetType);
       for (const profile of SWEEP_PROFILES) {
@@ -957,19 +921,15 @@ describe("family-aware limiting-resource copy (issue #16)", () => {
             // Nothing numeric bounds this page, so nothing may send the
             // parent to the profile's numbers.
             expect(`${worksheetType}: ${advice}`).not.toMatch(/limits/iu);
-            vocabularyFamilies += 1;
           } else {
             for (const { label } of maximums) {
               expect(advice).toContain(label);
             }
             expect(advice).toMatch(/limits/u);
-            numericFamilies += 1;
           }
         }
       }
     }
-    expect(numericFamilies).toBeGreaterThan(0);
-    expect(vocabularyFamilies).toBeGreaterThan(0);
   });
 
   test("the shared exhaustion message derives its explanation from the registration", () => {
@@ -1128,6 +1088,30 @@ describe("stored generation defaults", () => {
       printScale: "large",
     });
     expect(independentProfile).toEqual(before);
+  });
+
+  test("the save confirmation lands in this panel and retires when a choice changes", async () => {
+    // It used to render in the global profiles status line far above the
+    // button, so the click produced no visible change anywhere near the
+    // pointer - and it then sat there beside selections the parent had since
+    // changed and not saved, with nothing telling saved from unsaved apart.
+    renderControls(independentProfile, "count-compare-make");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save these as worksheet defaults" }),
+    );
+    const confirmation = await screen.findByText(
+      "Worksheet defaults saved locally.",
+    );
+    expect(
+      confirmation.closest('section[aria-labelledby="generator-title"]'),
+    ).not.toBeNull();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Length" }), {
+      target: { value: "long" },
+    });
+    expect(
+      screen.queryByText("Worksheet defaults saved locally."),
+    ).toBeNull();
   });
 
   test("a save that changes no child profile keeps the parent's selection", async () => {

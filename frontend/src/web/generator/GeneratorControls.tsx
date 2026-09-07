@@ -169,6 +169,7 @@ export function GeneratorControls({
   const [stretchConfirmed, setStretchConfirmed] = useState(false);
   const [savingDefaults, setSavingDefaults] = useState(false);
   const [defaultsError, setDefaultsError] = useState<string | null>(null);
+  const [defaultsSaved, setDefaultsSaved] = useState(false);
 
   /**
    * The parent's pick, falling back to the first profile when it is no longer
@@ -204,7 +205,7 @@ export function GeneratorControls({
   // Memoized on its own values because the capacity verdict inside
   // `getCapabilitySupport` enumerates a family's whole candidate collection.
   // That is the right unit to measure in, and it is far too much work to redo
-  // on every keystroke-driven re-render.
+  // on every re-render.
   const controlContext: WorksheetControlContextV1 | undefined = useMemo(
     () =>
       selectedProfile === undefined
@@ -271,6 +272,10 @@ export function GeneratorControls({
   function changed(change: () => void): void {
     change();
     setDefaultsError(null);
+    // The confirmation describes the selection that was saved, so a changed
+    // selection retires it: otherwise "saved" sits beside choices the parent
+    // has since changed and not saved, with nothing telling the two apart.
+    setDefaultsSaved(false);
     onInputsChanged();
   }
 
@@ -312,8 +317,10 @@ export function GeneratorControls({
     }
     setSavingDefaults(true);
     setDefaultsError(null);
+    setDefaultsSaved(false);
     try {
       await onSaveDefaults(currentPreferences());
+      setDefaultsSaved(true);
     } catch (error) {
       setDefaultsError(
         // A superseded write is the one failure with a next step: the host has
@@ -674,6 +681,11 @@ export function GeneratorControls({
             Worksheet defaults are stored beside the profiles in the same local
             file and change no child profile.
           </p>
+          {defaultsSaved && (
+            <p aria-live="polite" role="status">
+              Worksheet defaults saved locally.
+            </p>
+          )}
           {defaultsError !== null && <p role="alert">{defaultsError}</p>}
         </div>
       </div>
