@@ -13,7 +13,7 @@ export const WORKSHEET_TYPE_IDS = [
 ] as const;
 
 /**
- * The Version 1 numeric envelope: the largest number any generated quantity,
+ * The Version 1 numeric envelope: the largest number a generated quantity,
  * operand or result may reach.
  *
  * Defined in this leaf module because the projection boundary that clamps to
@@ -21,27 +21,16 @@ export const WORKSHEET_TYPE_IDS = [
  * limit arithmetic repeats it, the ten-frame ceiling in the preview, and the
  * parent-facing controls that disclose it all import from here.
  *
- * `tests/integration/envelope-single-source.test.ts` asserts each EXPORTED
- * alias of this constant equals it and, because equality of numbers cannot
- * tell a re-export from a fresh literal, PARSES the shipped tree (`src`, `.ts`
- * and `.tsx`, `*.test.*` excluded) with the TypeScript compiler and reads the
- * syntax tree for the source of a second one. Three things fail there: a
- * second VARIABLE declaration named `V1_NUMERIC_MAXIMUM` or ending
- * `_V1_MAXIMUM`, an alias in that file's declared table whose initializer is a
- * number rather than this constant, and any NUMERIC LITERAL of this value off
- * that file's reviewed-site list - which is what covers a literal under a name
- * the first two filters never look at. A declaration is one declaration
- * however many LINES it is written across, so the two-line spelling a
- * line-based reader could not see is read like any other; a committed fixture
- * in that file runs both its number form and its alias form through the
- * declaration scan.
+ * `tests/integration/envelope-single-source.test.ts` guards that. Value
+ * equality cannot tell a re-export from a constant retyped as a fresh literal,
+ * so it pairs the runtime identity with source scans that hand the shipped
+ * modules under `frontend/src` (`.ts` and `.tsx`, `*.test.*` excluded) to the
+ * TypeScript compiler and walk the syntax tree.
  *
- * What none of that sees is a second envelope computed rather than written
- * (`4 * 5` is no numeric literal of this value), and an alias BY NAME - under
- * a name that file's declared table does not recognise, or parked on any node
- * kind that is not a variable declaration, a class property and an
- * object-literal property among them. The same fixture runs both halves of
- * that second bound.
+ * What that guard covers is defined by the tests and the fixtures in that
+ * file, and nowhere else: a claim about its reach arrives there as a fixture
+ * row plus a test, never as a sentence in this comment. A hole it does not
+ * close belongs on the Step 9 follow-up issue.
  */
 export const V1_NUMERIC_MAXIMUM = 20;
 
