@@ -12,6 +12,28 @@ export const WORKSHEET_TYPE_IDS = [
   "count-compare-make",
 ] as const;
 
+/**
+ * The Version 1 numeric envelope: the largest number a generated quantity,
+ * operand or result may reach.
+ *
+ * Defined in this leaf module because the projection boundary that clamps to
+ * it, the invariant checker that re-verifies the clamp, the families whose own
+ * limit arithmetic repeats it, the ten-frame ceiling in the preview, and the
+ * parent-facing controls that disclose it all import from here.
+ *
+ * `tests/integration/envelope-single-source.test.ts` guards that. Value
+ * equality cannot tell a re-export from a constant retyped as a fresh literal,
+ * so it pairs the runtime identity with source scans that hand the shipped
+ * modules under `frontend/src` (`.ts` and `.tsx`, `*.test.*` excluded) to the
+ * TypeScript compiler and walk the syntax tree.
+ *
+ * What that guard covers is defined by the tests and the fixtures in that
+ * file: a claim about its reach arrives there as a fixture row plus a test,
+ * never as a sentence in this comment. Known escapes are tracked on
+ * issue #23.
+ */
+export const V1_NUMERIC_MAXIMUM = 20;
+
 export const TOPIC_IDS = [
   "animals",
   "space",

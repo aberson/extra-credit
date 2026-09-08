@@ -1,8 +1,15 @@
-import type {
-  EffectiveMathSkillsV1,
-  ObjectiveAnswerV1,
-  PrintScale,
-  WorksheetLength,
+import {
+  bindingMaximumKeys,
+  capacityRemedySentence,
+  shorterLengthLowersRequirement,
+  type WorksheetRelevantMaximumKey,
+} from "../../shared/worksheet/limit-labels.js";
+import {
+  V1_NUMERIC_MAXIMUM,
+  type EffectiveMathSkillsV1,
+  type ObjectiveAnswerV1,
+  type PrintScale,
+  type WorksheetLength,
 } from "../../shared/worksheet/types.js";
 
 export const COUNT_COMPARE_MAKE_DEFINITION = {
@@ -16,10 +23,13 @@ export const COUNT_COMPARE_MAKE_DEFINITION = {
 /**
  * Every rendered quantity is clamped to the v1 source envelope even when the
  * stored profile records a higher capability (plan.md:211). The sole
- * projection boundary already clamps the request; this constant keeps the
- * family's own limit arithmetic from being able to widen past it.
+ * projection boundary already clamps the request; repeating the clamp here
+ * keeps the family's own limit arithmetic from being able to widen past it.
+ *
+ * A re-export of the one envelope constant, never a second literal: the two
+ * are the same number by construction rather than by agreement.
  */
-export const COUNT_COMPARE_MAKE_V1_MAXIMUM = 20;
+export const COUNT_COMPARE_MAKE_V1_MAXIMUM = V1_NUMERIC_MAXIMUM;
 
 /** Three group choices per match item, one of them the exact match. */
 export const COUNT_COMPARE_MAKE_MATCH_CHOICE_COUNT = 3;
@@ -117,7 +127,10 @@ type CountCompareRelevantSkills = Pick<
   "countingMax" | "numeralMax" | "compareMax"
 >;
 
-/** `min(countingMax, numeralMax, 20)`: numeral, complete, and make work (plan.md:207). */
+/**
+ * `min(countingMax, numeralMax, COUNT_COMPARE_MAKE_V1_MAXIMUM)`: numeral,
+ * complete, and make work (plan.md:207).
+ */
 export function getCountCompareMakeNumeralLimit(
   mathSkills: CountCompareRelevantSkills,
 ): number {
@@ -128,7 +141,10 @@ export function getCountCompareMakeNumeralLimit(
   );
 }
 
-/** `min(countingMax, compareMax, 20)`: comparison work only (plan.md:207). */
+/**
+ * `min(countingMax, compareMax, COUNT_COMPARE_MAKE_V1_MAXIMUM)`: comparison
+ * work only (plan.md:207).
+ */
 export function getCountCompareMakeComparisonLimit(
   mathSkills: CountCompareRelevantSkills,
 ): number {
@@ -161,4 +177,75 @@ export function getCountCompareMakeCapabilitySupport(
     };
   }
   return { available: true };
+}
+
+/** Parent-facing subtype names used only in the shortage explanation. */
+export const COUNT_COMPARE_MAKE_LABELS = {
+  match: "numeral-matching",
+  compare: "group-comparison",
+  complete: "group-completion",
+  draw: "draw-a-quantity",
+} as const satisfies Record<CountCompareSubtypeV1, string>;
+
+/**
+ * The stored maxima that really bound one subtype's pool.
+ *
+ * `compare` is drawn from `min(countingMax, compareMax)` and the other three
+ * from `min(countingMax, numeralMax)`, so naming "counting" for every shortage
+ * sends a parent whose `compareMax` is the binding term to a number that
+ * cannot change the answer - issue #16's failure mode, occurring inside one
+ * family instead of across families.
+ */
+function bindingKeysForSubtype(
+  subtype: CountCompareSubtypeV1,
+  mathSkills: CountCompareRelevantSkills,
+): readonly WorksheetRelevantMaximumKey[] {
+  return bindingMaximumKeys(
+    subtype === "compare"
+      ? [
+          ["countingMax", mathSkills.countingMax],
+          ["compareMax", mathSkills.compareMax],
+        ]
+      : [
+          ["countingMax", mathSkills.countingMax],
+          ["numeralMax", mathSkills.numeralMax],
+        ],
+  );
+}
+
+/**
+ * The one shortage sentence Count, Compare & Make prints, whoever asks.
+ *
+ * The subtypes are walked in `COUNT_COMPARE_MAKE_SUBTYPES` order so the first
+ * shortage a parent is shown before pressing Create is the first shortage the
+ * generator would have answered with afterwards (issue #14). The allocation is
+ * derived HERE so a caller cannot measure capacity against a budget the
+ * generator never uses, and both remedies are checked against the shortage
+ * they claim to fix: the subtype's OWN binding maximum is named, and a shorter
+ * worksheet is offered only when a shorter length really asks for fewer of
+ * that subtype (`short` and `standard` both ask for two comparisons).
+ */
+export function countCompareCapacityShortfall(
+  capacity: CountCompareSubtypeCountsV1,
+  mathSkills: CountCompareRelevantSkills,
+  length: WorksheetLength,
+  printScale: PrintScale,
+): string | undefined {
+  const allocation = getCountCompareMakeAllocation(length, printScale);
+  for (const subtype of COUNT_COMPARE_MAKE_SUBTYPES) {
+    const required = allocation[subtype];
+    if (capacity[subtype] >= required) {
+      continue;
+    }
+    const remedy = capacityRemedySentence(
+      shorterLengthLowersRequirement(
+        length,
+        required,
+        (shorter) => getCountCompareMakeAllocation(shorter, printScale)[subtype],
+      ),
+      bindingKeysForSubtype(subtype, mathSkills),
+    );
+    return `The confirmed limits provide ${capacity[subtype]} unique ${COUNT_COMPARE_MAKE_LABELS[subtype]} exercises, but this length needs ${required}. ${remedy}`;
+  }
+  return undefined;
 }

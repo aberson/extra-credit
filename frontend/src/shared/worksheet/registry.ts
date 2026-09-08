@@ -7,19 +7,28 @@ import {
   getCountCompareMakeCapabilitySupport,
   getCountCompareMakeItemCount,
 } from "../../worksheets/count-compare-make/definition.js";
-import { generateCountCompareMake } from "../../worksheets/count-compare-make/generator.js";
+import {
+  countCompareMakeCapacityVerdict,
+  generateCountCompareMake,
+} from "../../worksheets/count-compare-make/generator.js";
 import {
   DRY_MATH_DEFINITION,
   getDryMathCapabilitySupport,
   getDryMathItemCount,
 } from "../../worksheets/dry-math/definition.js";
-import { generateDryMath } from "../../worksheets/dry-math/generator.js";
+import {
+  dryMathCapacityVerdict,
+  generateDryMath,
+} from "../../worksheets/dry-math/generator.js";
 import {
   FIND_THE_WOW_DEFINITION,
   getFindTheWowCapabilitySupport,
   getFindTheWowGroupCount,
 } from "../../worksheets/find-the-wow/definition.js";
-import { generateFindTheWow } from "../../worksheets/find-the-wow/generator.js";
+import {
+  findTheWowCapacityVerdict,
+  generateFindTheWow,
+} from "../../worksheets/find-the-wow/generator.js";
 import {
   SENTENCE_BUILDER_DEFINITION,
   SENTENCE_BUILDER_ITEM_COUNT,
@@ -30,21 +39,26 @@ import {
 } from "../../worksheets/sentence-builder/definition.js";
 import { generateSentenceBuilder } from "../../worksheets/sentence-builder/generator.js";
 import { isBankWritingMode } from "../../worksheets/sentence-builder/vocabulary.js";
+import {
+  COUNTING_NUMERAL_COMPARE_MAXIMUMS,
+  COUNTING_NUMERAL_MAXIMUMS,
+  NO_MAXIMUMS,
+  OPERAND_RESULT_MAXIMUMS,
+  joinLabels,
+  type WorksheetRelevantMaximumV1,
+} from "./limit-labels.js";
+import { projectGenerationRequest } from "./project-request.js";
 import type {
   Difficulty,
+  GenerationRequestV1,
   WorksheetGeneratorV1,
   WorksheetType,
 } from "./types.js";
 
-export type WorksheetRelevantMaximumKey = keyof Pick<
-  ChildProfileV1["mathSkills"],
-  "countingMax" | "numeralMax" | "compareMax" | "operandMax" | "resultMax"
->;
-
-export interface WorksheetRelevantMaximumV1 {
-  readonly key: WorksheetRelevantMaximumKey;
-  readonly label: string;
-}
+export type {
+  WorksheetRelevantMaximumKey,
+  WorksheetRelevantMaximumV1,
+} from "./limit-labels.js";
 
 export interface WorksheetControlContextV1 {
   readonly profile: ChildProfileV1;
@@ -53,8 +67,26 @@ export interface WorksheetControlContextV1 {
   readonly printScale: GenerationDefaultsV1["printScale"];
 }
 
+/**
+ * Whether the effective limits behind an AVAILABLE selection can actually
+ * supply the distinct exercises its length asks for.
+ *
+ * Availability and capacity are two different questions and issue #14 was born
+ * of answering only the first: `getFindTheWowCapabilitySupport` resolved a
+ * mode, the control said "Create", and the generator then refused the click
+ * because the confirmed limits held fewer distinct stems than the length
+ * needed. Every registration now answers both.
+ */
+export type WorksheetCapacityVerdictV1 =
+  | { readonly sufficient: true }
+  | { readonly sufficient: false; readonly message: string };
+
 export type WorksheetCapabilitySupportV1 =
-  | { readonly available: true; readonly statusMessage?: string }
+  | {
+      readonly available: true;
+      readonly capacity: WorksheetCapacityVerdictV1;
+      readonly statusMessage?: string;
+    }
   | { readonly available: false; readonly message: string };
 
 /**
@@ -117,6 +149,22 @@ export interface WorksheetControlContractV1 {
     context: WorksheetControlContextV1,
   ) => WorksheetCapabilitySupportV1;
   /**
+   * One sentence naming the resource that actually bounds this family's
+   * variety, for the shared generation session to append to its exhaustion
+   * message.
+   *
+   * The shared message used to end "Review the profile limits" for every
+   * family. That is true of the three math families, whose variety really is
+   * bounded by stored numeric maxima, and false of Sentence Builder, whose
+   * variety is bounded by the reviewed vocabulary for a writing mode - a
+   * parent following that advice would edit numbers that cannot change the
+   * outcome (issue #16). The families that DO name numeric maxima derive this
+   * sentence from `getRelevantMaximums`, so one list feeds both.
+   */
+  readonly getLimitingResourceAdvice: (
+    context: WorksheetControlContextV1,
+  ) => string;
+  /**
    * The stored maxima this family actually reads for the given context. It must
    * never claim a key the sole projection boundary would not scale, because the
    * parent's stretch gate and preview are derived from exactly this list.
@@ -136,26 +184,155 @@ export interface WorksheetControlContractV1 {
   ) => GenerationDefaultsV1;
 }
 
-const OPERAND_RESULT_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] =
-  Object.freeze([
-    { key: "operandMax", label: "operands" },
-    { key: "resultMax", label: "results" },
-  ]);
+const SUFFICIENT_CAPACITY: WorksheetCapacityVerdictV1 = Object.freeze({
+  sufficient: true,
+});
 
-const COUNTING_NUMERAL_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] =
-  Object.freeze([
-    { key: "countingMax", label: "counting" },
-    { key: "numeralMax", label: "numerals" },
-  ]);
+/**
+ * The seed the capacity probe below projects with.
+ *
+ * Capacity is a property of the effective limits and the length budget, never
+ * of the seed: every family counts the whole candidate collection before it
+ * draws from it, so a shortage fails closed on every seed rather than on some.
+ * A fixed nonzero seed therefore measures the same capacity the parent's real
+ * draw will meet, and keeps the control free of a random source.
+ */
+export const CAPACITY_PROBE_SEED = "00000001";
 
-const COUNTING_NUMERAL_COMPARE_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] =
-  Object.freeze([
-    { key: "countingMax", label: "counting" },
-    { key: "numeralMax", label: "numerals" },
-    { key: "compareMax", label: "comparisons" },
-  ]);
+/**
+ * The preferences that cannot move any family's capacity, pinned so the probe
+ * varies only the three the control context carries.
+ *
+ * Nickname, interests, decoration, answer key and paper size change what a
+ * page SAYS, never how many distinct exercises the limits can supply. Sentence
+ * Builder is the one family whose vocabulary breadth does follow the reviewed
+ * interests, and it does not use this probe: its own gate measures the leanest
+ * reviewed topic, which bounds every interest set the parent could enable.
+ */
+export const CAPACITY_PROBE_PREFERENCES = Object.freeze({
+  useDisplayName: false,
+  useInterests: false,
+  includeDecorativeGraphics: false,
+  includeAnswerKey: false,
+  paperSize: "letter",
+} as const satisfies Omit<
+  GenerationDefaultsV1,
+  "difficulty" | "length" | "printScale"
+>);
 
-const NO_MAXIMUMS: readonly WorksheetRelevantMaximumV1[] = Object.freeze([]);
+/**
+ * The one remedy the parent can take without touching the child's profile.
+ *
+ * Confidence is often the whole reason a length stopped fitting - and the
+ * shortage sentence used to offer only "shorten the worksheet" and "review the
+ * profile limits", steering a parent toward lowering the page or raising a
+ * four-year-old's confirmed counting maximum when one option flip would have
+ * done it. It is appended only after the same selection has been PROVED
+ * producible at practice, because a remedy that cannot change the outcome is
+ * the defect issue #16 is about.
+ */
+export const DIFFICULTY_REMEDY =
+  "Setting Difficulty to Practice also fills this selection, without changing the profile.";
+
+/**
+ * Runs a family's own capacity verdict on the request that selection projects.
+ *
+ * The request is built by the sole projection boundary rather than assembled
+ * here, so the effective maxima the verdict counts against are the clamped,
+ * difficulty-scaled ones the generator will really see - the confidence
+ * downgrade that made issue #14 reachable included. What the probe does NOT
+ * share with a real run is the parent's personalization: nickname, interests,
+ * decoration, answer key and paper size are pinned, and stretch is treated as
+ * confirmed. None of them can move any family's candidate count, which is why
+ * pinning them is safe; the control keeps its own separate stretch gate.
+ *
+ * A projection that fails reports its own message: the control must never
+ * offer a selection it could not even project.
+ */
+function probeShortfall(
+  definition: {
+    readonly generatorVersion: number;
+    readonly id: WorksheetType;
+  },
+  context: WorksheetControlContextV1,
+  verdictOf: (request: GenerationRequestV1) => string | undefined,
+): string | undefined {
+  const projection = projectGenerationRequest({
+    profile: context.profile,
+    worksheetType: definition.id,
+    generatorVersion: definition.generatorVersion,
+    seed: CAPACITY_PROBE_SEED,
+    preferences: {
+      ...CAPACITY_PROBE_PREFERENCES,
+      difficulty: context.difficulty,
+      length: context.length,
+      printScale: context.printScale,
+    },
+    stretchConfirmed: true,
+  });
+  return projection.ok ? verdictOf(projection.request) : projection.message;
+}
+
+function probeCapacity(
+  definition: {
+    readonly generatorVersion: number;
+    readonly id: WorksheetType;
+  },
+  context: WorksheetControlContextV1,
+  verdictOf: (request: GenerationRequestV1) => string | undefined,
+): WorksheetCapacityVerdictV1 {
+  const shortfall = probeShortfall(definition, context, verdictOf);
+  if (shortfall === undefined) {
+    return SUFFICIENT_CAPACITY;
+  }
+  const practiceFills =
+    context.difficulty === "confidence" &&
+    probeShortfall(
+      definition,
+      { ...context, difficulty: "practice" },
+      verdictOf,
+    ) === undefined;
+  return {
+    sufficient: false,
+    message: practiceFills ? `${shortfall} ${DIFFICULTY_REMEDY}` : shortfall,
+  };
+}
+
+/**
+ * The limiting-resource sentence for a family whose variety really is bounded
+ * by stored numeric maxima, DERIVED from the same `getRelevantMaximums` list
+ * the stretch preview and the limit display read. A family that reads no
+ * stored maximum must never be given this sentence (issue #16).
+ */
+function numericLimitAdvice(
+  displayName: string,
+  maximums: readonly WorksheetRelevantMaximumV1[],
+): string {
+  return maximums.length === 0
+    ? `${displayName} has no further variation to offer for this selection. Create a new worksheet later.`
+    : `${displayName} varies within the profile's ${joinLabels(
+        maximums.map(({ label }) => label),
+      )} limits. Review those limits in the profile or create a new worksheet later.`;
+}
+
+/**
+ * The maxima Two Whats and a Wow reads, which follow the mode its confirmed
+ * capabilities resolve to. One owner for both the declared list and the
+ * limiting-resource sentence keeps a quantity page from being explained in
+ * terms of operands.
+ */
+function findTheWowRelevantMaximums({
+  difficulty,
+  profile,
+}: WorksheetControlContextV1): readonly WorksheetRelevantMaximumV1[] {
+  const support = getFindTheWowCapabilitySupport(profile.mathSkills, difficulty);
+  if (!support.available) {
+    return NO_MAXIMUMS;
+  }
+  return support.mode === "equation"
+    ? OPERAND_RESULT_MAXIMUMS
+    : COUNTING_NUMERAL_MAXIMUMS;
+}
 
 export interface WorksheetRegistrationV1 {
   readonly id: WorksheetType;
@@ -172,12 +349,24 @@ export const WORKSHEET_REGISTRY = {
     ...DRY_MATH_DEFINITION,
     generate: generateDryMath,
     controls: {
-      getCapabilitySupport: ({ profile }) => {
-        const support = getDryMathCapabilitySupport(profile.mathSkills);
+      getCapabilitySupport: (context) => {
+        const support = getDryMathCapabilitySupport(context.profile.mathSkills);
         return support.available
-          ? { available: true }
+          ? {
+              available: true,
+              capacity: probeCapacity(
+                DRY_MATH_DEFINITION,
+                context,
+                dryMathCapacityVerdict,
+              ),
+            }
           : { available: false, message: support.reason };
       },
+      getLimitingResourceAdvice: () =>
+        numericLimitAdvice(
+          DRY_MATH_DEFINITION.displayName,
+          OPERAND_RESULT_MAXIMUMS,
+        ),
       getRelevantMaximums: () => OPERAND_RESULT_MAXIMUMS,
       getEffectiveUnit: ({ length, printScale }) => ({
         count: getDryMathItemCount(length, printScale),
@@ -205,30 +394,29 @@ export const WORKSHEET_REGISTRY = {
     ...FIND_THE_WOW_DEFINITION,
     generate: generateFindTheWow,
     controls: {
-      getCapabilitySupport: ({ difficulty, profile }) => {
+      getCapabilitySupport: (context) => {
         const support = getFindTheWowCapabilitySupport(
-          profile.mathSkills,
-          difficulty,
+          context.profile.mathSkills,
+          context.difficulty,
         );
         return support.available
           ? {
               available: true,
+              capacity: probeCapacity(
+                FIND_THE_WOW_DEFINITION,
+                context,
+                findTheWowCapacityVerdict,
+              ),
               statusMessage: `This profile will use ${support.mode} mode for Two Whats and a Wow.`,
             }
           : { available: false, message: support.reason };
       },
-      getRelevantMaximums: ({ difficulty, profile }) => {
-        const support = getFindTheWowCapabilitySupport(
-          profile.mathSkills,
-          difficulty,
-        );
-        if (!support.available) {
-          return [];
-        }
-        return support.mode === "equation"
-          ? OPERAND_RESULT_MAXIMUMS
-          : COUNTING_NUMERAL_MAXIMUMS;
-      },
+      getLimitingResourceAdvice: (context) =>
+        numericLimitAdvice(
+          FIND_THE_WOW_DEFINITION.displayName,
+          findTheWowRelevantMaximums(context),
+        ),
+      getRelevantMaximums: findTheWowRelevantMaximums,
       getEffectiveUnit: ({ length, printScale }) => ({
         count: getFindTheWowGroupCount(length, printScale),
         singularLabel: "group",
@@ -262,13 +450,24 @@ export const WORKSHEET_REGISTRY = {
           length,
           printScale,
         );
+        const statusMessage = `This profile will use ${SENTENCE_BUILDER_MODE_LABELS[profile.writingMode]} mode for Sentence Builder.`;
+        // Sentence Builder needs none of the numeric probing the math
+        // families do: `getSentenceBuilderCapabilitySupport` already measures
+        // the leanest reviewed topic against this length's bank budget, which
+        // bounds every interest set the parent could enable. Whether the
+        // SHIPPED vocabulary can ever fall short of that budget is pinned
+        // exhaustively by `web/generator/options.test.tsx`, so a starved pool
+        // added later fails CI rather than reaching a parent as an
+        // unexplained refusal.
         return support.available
-          ? {
-              available: true,
-              statusMessage: `This profile will use ${SENTENCE_BUILDER_MODE_LABELS[profile.writingMode]} mode for Sentence Builder.`,
-            }
+          ? { available: true, capacity: SUFFICIENT_CAPACITY, statusMessage }
           : { available: false, message: support.reason };
       },
+      // Sentence Builder's variety is the reviewed vocabulary, so the numeric
+      // advice the math families derive would send a parent to edit numbers
+      // that cannot change this page (issue #16).
+      getLimitingResourceAdvice: ({ profile }) =>
+        `Sentence Builder varies within the reviewed vocabulary for ${SENTENCE_BUILDER_MODE_LABELS[profile.writingMode]} mode, which no stored number can widen. Choose a different writing mode in the profile, or create a new worksheet later.`,
       // Sentence Builder reads no stored numeric maximum, exactly as the sole
       // projection boundary scales none for it.
       getRelevantMaximums: () => NO_MAXIMUMS,
@@ -328,12 +527,26 @@ export const WORKSHEET_REGISTRY = {
     ...COUNT_COMPARE_MAKE_DEFINITION,
     generate: generateCountCompareMake,
     controls: {
-      getCapabilitySupport: ({ profile }) => {
-        const support = getCountCompareMakeCapabilitySupport(profile.mathSkills);
+      getCapabilitySupport: (context) => {
+        const support = getCountCompareMakeCapabilitySupport(
+          context.profile.mathSkills,
+        );
         return support.available
-          ? { available: true }
+          ? {
+              available: true,
+              capacity: probeCapacity(
+                COUNT_COMPARE_MAKE_DEFINITION,
+                context,
+                countCompareMakeCapacityVerdict,
+              ),
+            }
           : { available: false, message: support.reason };
       },
+      getLimitingResourceAdvice: () =>
+        numericLimitAdvice(
+          COUNT_COMPARE_MAKE_DEFINITION.displayName,
+          COUNTING_NUMERAL_COMPARE_MAXIMUMS,
+        ),
       // The three maxima the sole projection boundary scales for this family:
       // counting and numerals bound match/complete/draw work, comparisons
       // bound the two compared groups (plan.md:207).

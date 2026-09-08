@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest";
 import {
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
+  ChildProfileV1Schema,
   type ChildProfileV1,
   type GenerationDefaultsV1,
 } from "../../shared/config/schema.js";
@@ -19,6 +20,7 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   COUNT_COMPARE_MAKE_ALLOCATIONS,
+  COUNT_COMPARE_MAKE_LABELS,
   COUNT_COMPARE_MAKE_SUBTYPES,
   getCountCompareMakeAllocation,
   getCountCompareMakeCapabilitySupport,
@@ -59,7 +61,15 @@ interface ProfileShape {
   readonly representations?: ChildProfileV1["mathSkills"]["representations"];
 }
 
-function quantityProfile({
+/**
+ * The profile shape, built but NOT parsed.
+ *
+ * `MathSkillsV1Schema` floors the three quantity maxima at 1, so only the two
+ * enumeration cubes below use this directly: they deliberately probe a 0 the
+ * schema refuses, which is a claim about the enumeration staying total rather
+ * than about a profile a parent could store.
+ */
+function buildQuantityProfile({
   compareMax,
   countingMax = 10,
   numeralMax,
@@ -86,6 +96,17 @@ function quantityProfile({
     writingMode: "draw-and-tell",
     interests: ["Distinctive Private Space"],
   };
+}
+
+/**
+ * A profile a parent can really store.
+ *
+ * Parsed, not merely typed: a fixture the schema would reject describes a
+ * profile that can never reach production, so a property drawing them proves
+ * its invariant partly over shapes no parent can produce.
+ */
+function quantityProfile(shape: ProfileShape = {}): ChildProfileV1 {
+  return ChildProfileV1Schema.parse(buildQuantityProfile(shape));
 }
 
 function request(
@@ -266,7 +287,7 @@ describe("Count, Compare & Make candidate capacity", () => {
       for (let numeralMax = 0; numeralMax <= 20; numeralMax += 1) {
         for (let compareMax = 0; compareMax <= 20; compareMax += 1) {
           const requestValue = request(
-            quantityProfile({ compareMax, countingMax, numeralMax }),
+            buildQuantityProfile({ compareMax, countingMax, numeralMax }),
           );
           const skills = requestValue.capabilities.mathSkills;
           const numeralLimit = getCountCompareMakeNumeralLimit(skills);
@@ -294,7 +315,7 @@ describe("Count, Compare & Make candidate capacity", () => {
   test("match capacity is L targets at L>=3 and zero below it", () => {
     for (let limit = 0; limit <= 6; limit += 1) {
       const pools = enumerateCountCompareCandidates(
-        request(quantityProfile({ countingMax: limit })),
+        request(buildQuantityProfile({ countingMax: limit })),
       );
       expect(pools.match.length, `L=${limit}`).toBe(limit >= 3 ? limit : 0);
       expect(new Set(pools.match.map(({ target }) => target)).size).toBe(
@@ -402,11 +423,14 @@ describe("capacity is counted in the collection selection draws from", () => {
     1, 2, 3, 7, 13, 42, 97, 255, 1024, 65_535, 999_983, 0xdead_beef,
   ] as const;
 
+  // 1, not 0: `MathSkillsV1Schema` floors all three quantity maxima at 1, so a
+  // 0 draw describes a profile a parent can never store. 24 stays above the
+  // Version 1 ceiling of 20, so the clamped half of the range is still drawn.
   const requestShape = fc.record({
-    compareMax: fc.integer({ min: 0, max: 24 }),
-    countingMax: fc.integer({ min: 0, max: 24 }),
+    compareMax: fc.integer({ min: 1, max: 24 }),
+    countingMax: fc.integer({ min: 1, max: 24 }),
     length: fc.constantFrom(...WORKSHEET_LENGTHS),
-    numeralMax: fc.integer({ min: 0, max: 24 }),
+    numeralMax: fc.integer({ min: 1, max: 24 }),
     printScale: fc.constantFrom(...PRINT_SCALES),
   });
 
@@ -519,7 +543,12 @@ describe("capacity is counted in the collection selection draws from", () => {
       ok: false,
       code: "GENERATION_CONSTRAINT_CONFLICT",
     });
-    expect(short.ok ? "" : short.message).toMatch(/numeral-matching/u);
+    // The WHOLE sentence, not a fragment: counting and numerals are tied at 2
+    // here, so both really do bound the pool and a selector that named one of
+    // them would be telling the parent that raising it alone is enough.
+    expect(short.ok ? "" : short.message).toBe(
+      "The confirmed limits provide 0 unique numeral-matching exercises, but this length needs 2. Review the profile's counting and numerals limits.",
+    );
     expect(short).not.toHaveProperty("document");
   });
 
@@ -536,7 +565,87 @@ describe("capacity is counted in the collection selection draws from", () => {
       ok: false,
       code: "GENERATION_CONSTRAINT_CONFLICT",
     });
-    expect(result.ok ? "" : result.message).toMatch(/group-comparison/u);
+    expect(result.ok ? "" : result.message).toBe(
+      "The confirmed limits provide 1 unique group-comparison exercises, but this length needs 2. Review the profile's comparisons limits.",
+    );
+  });
+
+  test("a shortage sentence names the maxima that really bound that subtype", () => {
+    // The verdict tests above vary the three maxima independently and read only
+    // ok/conflict; the sentence tests one directory over pin sentences but tie
+    // the maxima. This is the missing cell: untied values AND the parent-facing
+    // string. A selector that named a constant pair, or the wrong member of the
+    // pair, survives either half alone.
+    const observed = new Set<string>();
+    fc.assert(
+      fc.property(requestShape, (shape) => {
+        const profile = quantityProfile({
+          compareMax: shape.compareMax,
+          countingMax: shape.countingMax,
+          numeralMax: shape.numeralMax,
+        });
+        const seeded = request(profile, {
+          length: shape.length,
+          printScale: shape.printScale,
+        });
+        const result = generateCountCompareMake(seeded, {
+          worksheetId: WORKSHEET_ID,
+        });
+        if (result.ok) {
+          return true;
+        }
+        const skills = seeded.capabilities.mathSkills;
+        const subtype = COUNT_COMPARE_MAKE_SUBTYPES.find((candidate) =>
+          result.message.includes(
+            `unique ${COUNT_COMPARE_MAKE_LABELS[candidate]} exercises`,
+          ),
+        );
+        expect(subtype, result.message).toBeDefined();
+        // The pair this subtype is really drawn from, and the strictly lowest
+        // member(s) of it - recomputed here from the effective skills rather
+        // than read back out of the code under test.
+        const pair: readonly (readonly [string, number])[] =
+          subtype === "compare"
+            ? [
+                ["counting", skills.countingMax],
+                ["comparisons", skills.compareMax],
+              ]
+            : [
+                ["counting", skills.countingMax],
+                ["numerals", skills.numeralMax],
+              ];
+        const lowest = Math.min(...pair.map(([, value]) => value));
+        const expectedLabels = pair
+          .filter(([, value]) => value === lowest)
+          .map(([label]) => label);
+        const expectedClause =
+          expectedLabels.length === 1
+            ? `${expectedLabels[0]} limits.`
+            : `${expectedLabels[0]} and ${expectedLabels[1]} limits.`;
+        // Lowercased so one assertion covers both remedy openings ("Review
+        // the profile's ..." and "Choose a shorter worksheet or review the
+        // profile's ..."); the labels themselves are already lowercase.
+        expect(
+          `${result.message.toLowerCase()} | pair ${JSON.stringify(pair)}`,
+        ).toContain(`review the profile's ${expectedClause}`);
+        observed.add(`${subtype}:${expectedLabels.join("+")}`);
+        return true;
+      }),
+      { numRuns: 120, seed: 20_260_907 },
+    );
+    // Non-vacuity, and the shape of the arm set this family can actually
+    // produce: a run that only ever saw one subtype would prove nothing about
+    // the selector's other branch. The same four ids are asserted from an
+    // independent derivation in `shared/worksheet/limit-labels.test.ts` - the
+    // exhaustive maxima cube rather than this property run. The two lists are
+    // kept separate on purpose: sharing one expectation would make two
+    // independent nets one net. Edit either and check its twin.
+    expect([...observed].sort()).toEqual([
+      "compare:comparisons",
+      "match:counting",
+      "match:counting+numerals",
+      "match:numerals",
+    ]);
   });
 });
 

@@ -1,3 +1,10 @@
+import {
+  OPERAND_RESULT_MAXIMUM_KEYS,
+  bindingMaximumKeysByProbe,
+  capacityRemedySentence,
+  shorterLengthLowersRequirement,
+  type WorksheetMaximumValues,
+} from "../../shared/worksheet/limit-labels.js";
 import type {
   EffectiveMathSkillsV1,
   PrintScale,
@@ -59,4 +66,48 @@ export function getDryMathCapabilitySupport(
     };
   }
   return { available: true };
+}
+
+/**
+ * The one shortage sentence Dry Math prints, whoever asks.
+ *
+ * Both the pre-click control (through the registration's capacity verdict) and
+ * the generator's own fail-closed branch call this. Issue #14 was exactly the
+ * gap between those two moments; keeping one owner for the wording means they
+ * cannot drift into two different explanations of the same shortage. The
+ * required count is derived HERE from the length and print scale rather than
+ * passed in, so a caller cannot measure capacity against a budget the
+ * generator never uses.
+ *
+ * The remedy names only the maxima that are really binding. The candidate
+ * enumeration filters on operands AND on the result, so the smaller of the two
+ * numbers is not necessarily the one holding the count down: at operands 20 and
+ * results 2 an addition pool grows only when the RESULT limit rises, while
+ * operands 20 is already at the ceiling `clampPositive` enforces. Naming it
+ * would send the parent to a knob that cannot move, so `measureCapacity`
+ * re-runs the caller's own enumeration with each maximum lifted instead.
+ */
+export function dryMathCapacityShortfall(
+  capacity: number,
+  maximums: WorksheetMaximumValues,
+  measureCapacity: (maximums: WorksheetMaximumValues) => number,
+  length: WorksheetLength,
+  printScale: PrintScale,
+): string | undefined {
+  const required = getDryMathItemCount(length, printScale);
+  if (capacity >= required) {
+    return undefined;
+  }
+  const remedy = capacityRemedySentence(
+    shorterLengthLowersRequirement(length, required, (shorter) =>
+      getDryMathItemCount(shorter, printScale),
+    ),
+    bindingMaximumKeysByProbe(
+      maximums,
+      OPERAND_RESULT_MAXIMUM_KEYS,
+      capacity,
+      measureCapacity,
+    ),
+  );
+  return `The confirmed limits provide ${capacity} unique facts, but this length needs ${required}. ${remedy}`;
 }

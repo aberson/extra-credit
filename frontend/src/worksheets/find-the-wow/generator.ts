@@ -21,8 +21,11 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   FIND_THE_WOW_DEFINITION,
+  FIND_THE_WOW_V1_MAXIMUM,
+  findTheWowCapacityShortfall,
   getFindTheWowCapabilitySupport,
   getFindTheWowGroupCount,
+  getQuantityWowLimit,
   type FindTheWowMode,
 } from "./definition.js";
 
@@ -99,7 +102,7 @@ export function enumerateQuantityWowCandidates(
   request: GenerationRequestV1,
 ): readonly QuantityWowCandidate[] {
   const skills = request.capabilities.mathSkills;
-  const limit = Math.min(skills.countingMax, skills.numeralMax, 20);
+  const limit = getQuantityWowLimit(skills);
   if (limit < 3) {
     return [];
   }
@@ -125,8 +128,8 @@ export function enumerateEquationWowCandidates(
   request: GenerationRequestV1,
 ): readonly EquationWowCandidate[] {
   const skills = request.capabilities.mathSkills;
-  const operandLimit = Math.min(skills.operandMax, 20);
-  const resultLimit = Math.min(skills.resultMax, 20);
+  const operandLimit = Math.min(skills.operandMax, FIND_THE_WOW_V1_MAXIMUM);
+  const resultLimit = Math.min(skills.resultMax, FIND_THE_WOW_V1_MAXIMUM);
   const candidates: EquationWowCandidate[] = [];
 
   for (const operation of skills.operations) {
@@ -367,16 +370,16 @@ function validateWowDocument(
       skills.compareMax,
       skills.operandMax,
       skills.resultMax,
-    ].some((maximum) => maximum < 0 || maximum > 20)
+    ].some((maximum) => maximum < 0 || maximum > FIND_THE_WOW_V1_MAXIMUM)
   ) {
     return invariantFailure(
       "Two Whats and a Wow included unsupported content or effective limits.",
     );
   }
 
-  const quantityLimit = Math.min(skills.countingMax, skills.numeralMax, 20);
-  const operandLimit = Math.min(skills.operandMax, 20);
-  const resultLimit = Math.min(skills.resultMax, 20);
+  const quantityLimit = getQuantityWowLimit(skills);
+  const operandLimit = Math.min(skills.operandMax, FIND_THE_WOW_V1_MAXIMUM);
+  const resultLimit = Math.min(skills.resultMax, FIND_THE_WOW_V1_MAXIMUM);
   const groupKeys = new Set<string>();
   const positionCounts = [0, 0, 0];
 
@@ -489,6 +492,37 @@ function validateWowDocument(
   return undefined;
 }
 
+/**
+ * The shortage sentence for one already-measured request, wired to the same
+ * stem enumeration the shortfall's binding-maximum probe re-runs in equation
+ * mode, so the generator's fail-closed branch and the pre-click verdict cannot
+ * be wired to two different enumerations.
+ */
+function findTheWowShortfallFor(
+  request: GenerationRequestV1,
+  mode: FindTheWowMode,
+  capacity: number,
+): string | undefined {
+  return findTheWowCapacityShortfall(
+    mode,
+    capacity,
+    request.capabilities.mathSkills,
+    (maximums) =>
+      measureFindTheWowStemCapacity(
+        {
+          ...request,
+          capabilities: {
+            ...request.capabilities,
+            mathSkills: { ...request.capabilities.mathSkills, ...maximums },
+          },
+        },
+        mode,
+      ),
+    request.options.length,
+    request.options.printScale,
+  );
+}
+
 export function generateFindTheWow(
   request: GenerationRequestV1,
   context: GeneratorContextV1,
@@ -521,11 +555,12 @@ export function generateFindTheWow(
   let items: readonly WowGroupItemV1[] | undefined;
   if (support.mode === "equation") {
     const stems = enumerateEquationWowStems(request);
-    if (stems.length < groupCount) {
+    const shortfall = findTheWowShortfallFor(request, "equation", stems.length);
+    if (shortfall !== undefined) {
       return {
         ok: false,
         code: GENERATION_CONSTRAINT_CONFLICT,
-        message: `The confirmed limits provide ${stems.length} unique equation groups, but this length needs ${groupCount}. Choose a shorter worksheet or review the profile limits.`,
+        message: shortfall,
       };
     }
     items = constructItems(
@@ -536,11 +571,12 @@ export function generateFindTheWow(
     );
   } else {
     const stems = enumerateQuantityWowStems(request);
-    if (stems.length < groupCount) {
+    const shortfall = findTheWowShortfallFor(request, "quantity", stems.length);
+    if (shortfall !== undefined) {
       return {
         ok: false,
         code: GENERATION_CONSTRAINT_CONFLICT,
-        message: `The confirmed limits provide ${stems.length} unique quantity groups, but this length needs ${groupCount}. Choose a shorter worksheet or review the profile limits.`,
+        message: shortfall,
       };
     }
     items = constructItems(
@@ -568,4 +604,48 @@ export function generateFindTheWow(
   return invariantFailureResult === undefined
     ? { ok: true, document }
     : invariantFailureResult;
+}
+
+/**
+ * The distinct stems these confirmed limits provide in one mode, counted by
+ * enumerating the very stem list `generateFindTheWow` shuffles.
+ *
+ * The count is the number of DISTINCT EXERCISES, not of candidates: one stem
+ * carries every distractor pair it could print, and the page may show it only
+ * once. That is the unit the length budget is measured in, so it is the unit
+ * the pre-click capacity verdict has to be measured in too (issue #14).
+ */
+export function measureFindTheWowStemCapacity(
+  request: GenerationRequestV1,
+  mode: FindTheWowMode,
+): number {
+  return mode === "equation"
+    ? enumerateEquationWowStems(request).length
+    : enumerateQuantityWowStems(request).length;
+}
+
+/**
+ * The whole capacity answer for one request, mode included.
+ *
+ * The mode is re-resolved from the request's OWN effective capabilities,
+ * exactly as `generateFindTheWow` does above, rather than from the stored
+ * profile: the confidence downgrade can move a profile between modes, and
+ * measuring one mode's stems against the other mode's page is how issue #14
+ * would come back.
+ */
+export function findTheWowCapacityVerdict(
+  request: GenerationRequestV1,
+): string | undefined {
+  const support = getFindTheWowCapabilitySupport(
+    request.capabilities.mathSkills,
+    request.options.difficulty,
+  );
+  if (!support.available) {
+    return support.reason;
+  }
+  return findTheWowShortfallFor(
+    request,
+    support.mode,
+    measureFindTheWowStemCapacity(request, support.mode),
+  );
 }

@@ -9,6 +9,7 @@ import {
 import {
   GENERATION_CONSTRAINT_CONFLICT,
   GENERATION_INVARIANT_FAILED,
+  V1_NUMERIC_MAXIMUM,
   type DryMathItemV1,
   type GenerationRequestV1,
   type GenerationResult,
@@ -18,6 +19,7 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   DRY_MATH_DEFINITION,
+  dryMathCapacityShortfall,
   getDryMathItemCount,
   getDryMathCapabilitySupport,
 } from "./definition.js";
@@ -69,8 +71,8 @@ export function enumerateDryMathCandidates(
   request: GenerationRequestV1,
 ): readonly ArithmeticCandidate[] {
   const skills = request.capabilities.mathSkills;
-  const operandLimit = Math.min(skills.operandMax, 20);
-  const resultLimit = Math.min(skills.resultMax, 20);
+  const operandLimit = Math.min(skills.operandMax, V1_NUMERIC_MAXIMUM);
+  const resultLimit = Math.min(skills.resultMax, V1_NUMERIC_MAXIMUM);
   const candidates: ArithmeticCandidate[] = [];
 
   for (const operation of skills.operations) {
@@ -103,6 +105,32 @@ export function enumerateDryMathCandidates(
   return candidates;
 }
 
+/**
+ * The shortage sentence for one already-measured request, wired to the same
+ * enumeration the shortfall's binding-maximum probe re-runs, so the
+ * generator's fail-closed branch and the pre-click verdict cannot be wired to
+ * two different enumerations.
+ */
+function dryMathShortfallFor(
+  request: GenerationRequestV1,
+  capacity: number,
+): string | undefined {
+  return dryMathCapacityShortfall(
+    capacity,
+    request.capabilities.mathSkills,
+    (maximums) =>
+      enumerateDryMathCandidates({
+        ...request,
+        capabilities: {
+          ...request.capabilities,
+          mathSkills: { ...request.capabilities.mathSkills, ...maximums },
+        },
+      }).length,
+    request.options.length,
+    request.options.printScale,
+  );
+}
+
 export function generateDryMath(
   request: GenerationRequestV1,
   context: GeneratorContextV1,
@@ -129,11 +157,12 @@ export function generateDryMath(
 
   const itemCount = effectiveDryMathItemCount(request);
   const candidates = enumerateDryMathCandidates(request);
-  if (candidates.length < itemCount) {
+  const shortfall = dryMathShortfallFor(request, candidates.length);
+  if (shortfall !== undefined) {
     return {
       ok: false,
       code: GENERATION_CONSTRAINT_CONFLICT,
-      message: `The confirmed limits provide ${candidates.length} unique facts, but this length needs ${itemCount}. Choose a shorter worksheet or review the profile limits.`,
+      message: shortfall,
     };
   }
 
@@ -173,4 +202,27 @@ export function generateDryMath(
     }
   }
   return { ok: true, document };
+}
+
+/**
+ * The distinct facts these confirmed limits provide, counted by enumerating
+ * the very collection `generateDryMath` shuffles. Sharing one enumeration is
+ * what keeps the control's pre-click capacity verdict from drifting away from
+ * the generator's own fail-closed branch (issue #14).
+ */
+export function measureDryMathCapacity(request: GenerationRequestV1): number {
+  return enumerateDryMathCandidates(request).length;
+}
+
+/**
+ * The whole capacity answer for one request: measured and judged by the same
+ * pair of functions `generateDryMath` uses above. The registration calls this
+ * rather than re-composing the measurement with a separately-derived budget,
+ * so a second constraint added inside this file cannot be missed by the
+ * pre-click gate (issue #14).
+ */
+export function dryMathCapacityVerdict(
+  request: GenerationRequestV1,
+): string | undefined {
+  return dryMathShortfallFor(request, measureDryMathCapacity(request));
 }

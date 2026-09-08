@@ -27,6 +27,14 @@
       "siteCount": 1
     },
     {
+      "file": "frontend/src/shared/worksheet/limit-labels.test.ts",
+      "planLine": 701,
+      "anchors": [
+        "a stored maximum above 20 and either future permission flag are shown but cannot widen v1 generation"
+      ],
+      "siteCount": 1
+    },
+    {
       "file": "frontend/src/shared/worksheet/registry.ts",
       "planLine": 202,
       "anchors": [

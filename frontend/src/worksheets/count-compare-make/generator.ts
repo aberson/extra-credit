@@ -21,6 +21,7 @@ import {
   COUNT_COMPARE_MAKE_MATCH_CHOICE_COUNT,
   COUNT_COMPARE_MAKE_SUBTYPES,
   COUNT_COMPARE_MAKE_V1_MAXIMUM,
+  countCompareCapacityShortfall,
   getCountCompareMakeAllocation,
   getCountCompareMakeCapabilitySupport,
   getCountCompareMakeComparisonLimit,
@@ -93,14 +94,6 @@ type CountCompareDraftV1 =
       readonly subtype: "draw";
       readonly candidate: CountCompareDrawCandidateV1;
     };
-
-/** Parent-facing subtype names used only in the shortage explanation. */
-const COUNT_COMPARE_MAKE_LABELS = {
-  match: "numeral-matching",
-  compare: "group-comparison",
-  complete: "group-completion",
-  draw: "draw-a-quantity",
-} as const satisfies Record<CountCompareSubtypeV1, string>;
 
 function invariantFailure(message: string): GenerationFailure {
   return { ok: false, code: GENERATION_INVARIANT_FAILED, message };
@@ -296,6 +289,24 @@ export function measureCountCompareCapacity(
     draw: pools.draw.length,
     match: pools.match.length,
   };
+}
+
+/**
+ * The whole capacity answer for one request: the same enumeration, the same
+ * measurement and the same shortage sentence `generateCountCompareMake` uses
+ * below. The registration calls this instead of re-composing the triple, so a
+ * fourth subtype or a second constraint added here reaches the pre-click gate
+ * for free (issue #14).
+ */
+export function countCompareMakeCapacityVerdict(
+  request: GenerationRequestV1,
+): string | undefined {
+  return countCompareCapacityShortfall(
+    measureCountCompareCapacity(enumerateCountCompareCandidates(request)),
+    request.capabilities.mathSkills,
+    request.options.length,
+    request.options.printScale,
+  );
 }
 
 /**
@@ -628,12 +639,14 @@ export function generateCountCompareMake(
   // rather than surfacing on some seeds as a repeated exercise.
   const pools = enumerateCountCompareCandidates(request);
   const capacity = measureCountCompareCapacity(pools);
-  for (const subtype of COUNT_COMPARE_MAKE_SUBTYPES) {
-    if (capacity[subtype] < allocation[subtype]) {
-      return constraintConflict(
-        `The confirmed limits provide ${capacity[subtype]} unique ${COUNT_COMPARE_MAKE_LABELS[subtype]} exercises, but this length needs ${allocation[subtype]}. Choose a shorter worksheet or review the profile's counting limits.`,
-      );
-    }
+  const shortfall = countCompareCapacityShortfall(
+    capacity,
+    request.capabilities.mathSkills,
+    request.options.length,
+    request.options.printScale,
+  );
+  if (shortfall !== undefined) {
+    return constraintConflict(shortfall);
   }
 
   const random = createSeededRandom(request.seed);

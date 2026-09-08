@@ -1,5 +1,6 @@
 import {
   GENERATION_INVARIANT_FAILED,
+  V1_NUMERIC_MAXIMUM,
   type DryMathItemV1,
   type GenerationFailure,
   type ObjectiveAnswerV1,
@@ -142,12 +143,12 @@ export function validateWorksheetInvariants(
         Number.isInteger(item.rightOperand) &&
         item.leftOperand >= 0 &&
         item.rightOperand >= 0 &&
-        item.leftOperand <= Math.min(skills.operandMax, 20) &&
-        item.rightOperand <= Math.min(skills.operandMax, 20);
+        item.leftOperand <= Math.min(skills.operandMax, V1_NUMERIC_MAXIMUM) &&
+        item.rightOperand <= Math.min(skills.operandMax, V1_NUMERIC_MAXIMUM);
       const resultInBounds =
         Number.isInteger(item.answer.value) &&
         item.answer.value >= 0 &&
-        item.answer.value <= Math.min(skills.resultMax, 20);
+        item.answer.value <= Math.min(skills.resultMax, V1_NUMERIC_MAXIMUM);
       const regroupingFree =
         item.operation === "addition"
           ? additionHasNoCarrying(item.leftOperand, item.rightOperand)
@@ -183,7 +184,7 @@ export function validateWorksheetInvariants(
         document.request.capabilities.mathSkills.compareMax,
         document.request.capabilities.mathSkills.operandMax,
         document.request.capabilities.mathSkills.resultMax,
-      ].some((maximum) => maximum < 0 || maximum > 20))
+      ].some((maximum) => maximum < 0 || maximum > V1_NUMERIC_MAXIMUM))
   ) {
     return {
       ok: false,
