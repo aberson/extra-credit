@@ -772,10 +772,11 @@ const bothCapabilitiesProfile: ChildProfileV1 = {
  * `projectGenerationRequest` clamps all five maxima and `probeCapacity` always
  * projects before it measures, so this profile's EFFECTIVE skills are the ones
  * `bothCapabilitiesProfile` already produces: every cell it could add to the
- * cube would recompute that profile's enumerations, and all-at-the-ceiling
- * maxima are the most expensive shape in the set. What it alone can reach is
+ * cube would recompute that profile's enumerations. What it alone can reach is
  * the three limit minima with a stored maximum above the ceiling behind them,
- * which is what the loop feeds through the same `observedMinimumArm`.
+ * which is what the loop feeds through the same `observedMinimumArm` - and,
+ * because those arms are ties the cube reaches anyway, through a closed set of
+ * its own so that deleting the loop is not silent.
  */
 const aboveCeilingProfile: ChildProfileV1 = ChildProfileV1Schema.parse({
   ...bothCapabilitiesProfile,
@@ -1258,6 +1259,11 @@ describe("every declared arm of the capacity and advice surface", () => {
     // holding it down. Confidence is the difficulty because it is what puts Two
     // Whats and a Wow in quantity mode for a profile that also confirms
     // equations, and quantity mode is where that family's clamp term is read.
+    //
+    // Every arm this loop reaches is a tie the cube already reaches, so
+    // `observe` cannot tell whether the loop ran: the closed set below is what
+    // makes it answerable, and deleting the loop empties that set.
+    const aboveCeilingObservations: string[] = [];
     for (const worksheetType of [
       "find-the-wow",
       "count-compare-make",
@@ -1282,12 +1288,19 @@ describe("every declared arm of the capacity and advice surface", () => {
         continue;
       }
       const skills = projection.request.capabilities.mathSkills;
+      // Both the arm and the PROJECTED limit it was read at, so the set below
+      // records what the clamp did and not merely that a line ran.
+      const record = (arm: string, limit: number): void => {
+        aboveCeilingObservations.push(`${where}: ${arm} at ${limit}`);
+        observe(arm);
+      };
       if (worksheetType === "find-the-wow") {
         const mode = getFindTheWowCapabilitySupport(skills, "confidence");
         expect(`${where}: ${mode.available ? mode.mode : "unavailable"}`).toBe(
           `${where}: quantity`,
         );
-        observe(
+        const quantityLimit = getQuantityWowLimit(skills);
+        record(
           observedMinimumArm(
             "QL",
             [
@@ -1295,12 +1308,14 @@ describe("every declared arm of the capacity and advice surface", () => {
               ["numerals", skills.numeralMax],
               ["v1clamp", FIND_THE_WOW_V1_MAXIMUM],
             ],
-            getQuantityWowLimit(skills),
+            quantityLimit,
             where,
           ),
+          quantityLimit,
         );
       } else {
-        observe(
+        const numeralLimit = getCountCompareMakeNumeralLimit(skills);
+        record(
           observedMinimumArm(
             "NL",
             [
@@ -1308,11 +1323,13 @@ describe("every declared arm of the capacity and advice surface", () => {
               ["numerals", skills.numeralMax],
               ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
             ],
-            getCountCompareMakeNumeralLimit(skills),
+            numeralLimit,
             where,
           ),
+          numeralLimit,
         );
-        observe(
+        const comparisonLimit = getCountCompareMakeComparisonLimit(skills);
+        record(
           observedMinimumArm(
             "CL",
             [
@@ -1320,12 +1337,36 @@ describe("every declared arm of the capacity and advice surface", () => {
               ["comparisons", skills.compareMax],
               ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
             ],
-            getCountCompareMakeComparisonLimit(skills),
+            comparisonLimit,
             where,
           ),
+          comparisonLimit,
         );
       }
     }
+
+    // The closed set for the loop above. Its arms are ties the cube reaches
+    // anyway, so both set equalities at the end of this test stay green if the
+    // loop is deleted and the three `*-v1clamp` deadness rows quietly return to
+    // being prose about an input nothing supplies. This set is what the loop is
+    // answerable to: it empties if the loop goes, and it changes if a family
+    // stops being projected or the projection stops landing where it does.
+    //
+    // Why 15 and why a tie: `confidence` is floor(0.75 x) of each relevant
+    // maximum and runs AFTER the clamp, so this profile's stored 5x maxima
+    // arrive as 20 and leave as 15, tying counting against numerals (and
+    // against comparisons for CL) with the family's clamp term at 20 above
+    // them. That is exactly the shape the `*-v1clamp` rows are dead in: dead
+    // because the clamp bound the stored maximum first, not because no profile
+    // ever stores more than the ceiling.
+    const ABOVE_CEILING_CONFIDENCE_LIMIT = 15;
+    expect([...aboveCeilingObservations].sort()).toEqual(
+      [
+        `find-the-wow above-ceiling: QL-tie at ${ABOVE_CEILING_CONFIDENCE_LIMIT}`,
+        `count-compare-make above-ceiling: NL-tie at ${ABOVE_CEILING_CONFIDENCE_LIMIT}`,
+        `count-compare-make above-ceiling: CL-tie at ${ABOVE_CEILING_CONFIDENCE_LIMIT}`,
+      ].sort(),
+    );
 
     // Before the set equality, so a dead arm that went live names itself
     // instead of arriving as one row of a 60-element set diff.
@@ -1534,16 +1575,26 @@ describe("the equation families' binding-maximum arms", () => {
     // makes the arm live and the set above changes; lowering it moves the
     // margin and this line changes.
     expect(smallestBothBindingPool).toBe(FIND_THE_WOW_GROUP_BUDGETS.long);
-    // A min model reproduces the DRY-MATH arm set above, so for that family the
-    // set assertion cannot tell the two models apart and this row is what does.
-    // Each row names a cube cell where the counterfactual probe and a `Math.min`
-    // over the same two maxima disagree, and the dry-math cell is the trap the
-    // handoff names: at subtraction 3/1 the probe finds BOTH maxima binding
-    // where a min names results alone, so the lower maximum is not the one
-    // holding the pool down. The find-the-wow row records the mirror case and is
-    // a second net rather than the only one - its cell has the min model naming
-    // "both", an arm the declared find-the-wow set above does not contain, so a
-    // min-model rewrite of that family moves that set as well.
+    // The two rows below pin the counterfactual probe against a `Math.min` over
+    // the same two maxima. How much help each family's set assertion above is
+    // differs, and the difference is mechanical, from this file alone:
+    // `probeSuffix` can return only `none`, one of the two labels, or `both`,
+    // and `none` is excluded by the assertion inside the loop, so the dry-math
+    // expectation ["both", "operands", "results"] IS that entire codomain. A
+    // set equal to its own codomain can only fail by an arm vanishing, never by
+    // a second model that also reaches all three. The find-the-wow expectation
+    // is a proper subset of the same codomain, so an extra "both" fails it.
+    //
+    // Both models are caught, by different assertions rather than by one:
+    // rewriting dry-math to a min model moves the sweep's declared-reachable-
+    // arm-set equality - no cube cell reaches DSF-both under a min model - and
+    // the first row below; rewriting find-the-wow moves the find-the-wow set
+    // above, which gains the "both" it excludes. Each row names
+    // a cube cell where the two models disagree, and the dry-math cell is the
+    // trap the handoff names: at subtraction 3/1 the probe finds BOTH maxima
+    // binding where a min names results alone, so the lower maximum is not the
+    // one holding the pool down. The find-the-wow row records the mirror case,
+    // its cell having the min model name "both".
     const disagreements = [...minModelDisagreements].sort();
     expect(disagreements).toContain(
       "dry-math subtraction 3/1: probe both, min results",
