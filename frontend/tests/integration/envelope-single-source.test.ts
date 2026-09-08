@@ -63,10 +63,32 @@ function frontendPath(path: string): string {
 }
 
 /**
+ * An entry's kind by `lstat`, or `"other"` when the platform refuses to report
+ * it: a WSL-created symbolic link raises `EACCES` here on Windows, and the
+ * recursion above skips such an entry for free, since it classifies from the
+ * `Dirent` alone and never stats.
+ */
+function entryKind(path: string): "directory" | "file" | "other" {
+  try {
+    const kind = lstatSync(path);
+    if (kind.isDirectory()) {
+      return "directory";
+    }
+    return kind.isFile() ? "file" : "other";
+  } catch {
+    return "other";
+  }
+}
+
+/**
  * The same tree walked a second time by a different route: a level-by-level
  * worklist rather than the recursion above, `lstat` rather than the `Dirent`
- * kind, and the suffixes written out here rather than `SCANNED_EXTENSIONS`
- * and `TEST_SUFFIXES`.
+ * kind for the entries it stats, and the suffixes written out here rather than
+ * `SCANNED_EXTENSIONS` and `TEST_SUFFIXES`.
+ *
+ * A link is skipped from the `Dirent` before any stat, and `entryKind` skips
+ * an entry the platform refuses to stat, so an entry this walk cannot classify
+ * leaves it the way it leaves the recursion above: skipped, not raised.
  */
 function independentSourceWalk(root: string): readonly string[] {
   const walked: string[] = [];
@@ -75,15 +97,18 @@ function independentSourceWalk(root: string): readonly string[] {
     const deeper: string[] = [];
     for (const directory of pending) {
       for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        if (entry.isSymbolicLink()) {
+          continue;
+        }
         const path = resolve(entry.parentPath, entry.name);
-        const kind = lstatSync(path);
-        if (kind.isDirectory()) {
+        const kind = entryKind(path);
+        if (kind === "directory") {
           deeper.push(path);
           continue;
         }
         const file = frontendPath(path);
         if (
-          kind.isFile() &&
+          kind === "file" &&
           (file.endsWith(".ts") || file.endsWith(".tsx")) &&
           !file.endsWith(".test.ts") &&
           !file.endsWith(".test.tsx")
@@ -95,6 +120,33 @@ function independentSourceWalk(root: string): readonly string[] {
     pending = deeper;
   }
   return [...walked].sort();
+}
+
+/**
+ * The two walks' disagreement, in the shape the sibling plan-citation guard
+ * uses: each string says which walk reached the file and what to do about it,
+ * so whoever trips the comparison reads the repair rather than an array diff.
+ * Takes both sides as arguments, so the test below runs the real comparison
+ * over a fixture.
+ */
+function oneSidedFiles(
+  scanned: readonly string[],
+  walked: readonly string[],
+): readonly string[] {
+  return [
+    ...scanned
+      .filter((file) => !walked.includes(file))
+      .map(
+        (file) =>
+          `${file}: the guard's scan reached it, the independent walk did not; fix the walk, or check for a link it skips`,
+      ),
+    ...walked
+      .filter((file) => !scanned.includes(file))
+      .map(
+        (file) =>
+          `${file}: the independent walk reached it, the guard's scan did not; widen the guard's scan to reach it, or delete the file`,
+      ),
+  ];
 }
 
 /* --------------------------------------------------------------------------
@@ -583,21 +635,33 @@ const REVIEWED_BUDGET_FIXTURE = [
   "];",
 ].join("\n");
 
+/**
+ * The one-sided fixture: one file each walk reached alone and one both
+ * reached, so what each direction tells its reader is run rather than
+ * described.
+ */
+const ONE_SIDED_FIXTURE = {
+  scanned: ["src/scanned-only.ts", "src/both-walks.ts"],
+  walked: ["src/walked-only.ts", "src/both-walks.ts"],
+};
+
 describe("the Version 1 numeric envelope has one definition", () => {
   test("the scan itself reached the tree", () => {
     const scanned = shippedSourceFiles(sourceRoot).map(frontendPath);
     const walked = independentSourceWalk(sourceRoot);
-    const oneSided = [
-      ...scanned
-        .filter((file) => !walked.includes(file))
-        .map((file) => `${file}: scanned, not walked`),
-      ...walked
-        .filter((file) => !scanned.includes(file))
-        .map((file) => `${file}: walked, not scanned`),
-    ];
+    const oneSided = oneSidedFiles(scanned, walked);
     expect(oneSided).toEqual([]);
     expect(walked).toContain("src/shared/worksheet/types.ts");
     expect(scanned).toEqual(walked);
+  });
+
+  test("a one-sided file names the walk that missed it and the repair", () => {
+    expect(
+      oneSidedFiles(ONE_SIDED_FIXTURE.scanned, ONE_SIDED_FIXTURE.walked),
+    ).toEqual([
+      "src/scanned-only.ts: the guard's scan reached it, the independent walk did not; fix the walk, or check for a link it skips",
+      "src/walked-only.ts: the independent walk reached it, the guard's scan did not; widen the guard's scan to reach it, or delete the file",
+    ]);
   });
 
   test("every shipped module parses, so no scan reads a fragment of one", () => {
