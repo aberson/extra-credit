@@ -14,15 +14,14 @@ import { FIND_THE_WOW_V1_MAXIMUM } from "../../src/worksheets/find-the-wow/defin
  *
  * Value equality cannot tell a re-export from a constant retyped as a fresh
  * `20`, so the tests below pair the runtime identity with source scans: each
- * scan hands the shipped modules under `frontend/src` (`.ts` and `.tsx`,
- * `*.test.*` excluded) to the compiler this repository already type-checks
- * with and walks the syntax tree it returns, instead of matching source text
- * against a pattern.
+ * tree-level scan hands the shipped modules under `frontend/src` (`.ts` and
+ * `.tsx`, `*.test.*` excluded) to the compiler this repository already
+ * type-checks with and walks the syntax tree it returns, instead of matching
+ * source text against a pattern.
  *
- * What this guard covers is defined by the tests and the fixtures below, and
- * nowhere else: a claim about its reach arrives here as a fixture row plus a
- * test, never as a sentence in this comment. A hole it does not close belongs
- * on the Step 9 follow-up issue.
+ * What this guard covers is defined by the tests and the fixtures below: a
+ * claim about its reach arrives here as a fixture row plus a test, never as a
+ * sentence in this comment. Known escapes are tracked on issue #23.
  */
 
 /* --------------------------------------------------------------------------
@@ -74,9 +73,10 @@ function frontendPath(path: string): string {
  *
  * `parseDiagnostics` is how a `SourceFile` carries them, but it is not part of
  * the published `typescript` type surface, so it is declared here as optional
- * and test 1 asserts it is actually PRESENT before it asserts it is empty: a
- * future compiler that stops exposing it turns that test red rather than
- * silently certifying every file as clean.
+ * and the test "every shipped module parses, so no scan reads a fragment of
+ * one" asserts it is actually PRESENT before it asserts it is empty: a future
+ * compiler that stops exposing it turns that test red rather than silently
+ * certifying every file as clean.
  */
 interface ParsedModule extends ts.SourceFile {
   readonly parseDiagnostics?: readonly ts.Diagnostic[];
@@ -162,9 +162,9 @@ interface ConstantDefinition {
   readonly exported: boolean;
   /**
    * The whole initializer, with runs of whitespace collapsed to one space. A
-   * name taken out of a binding pattern has no initializer of its own, so it
-   * records what the declaration destructures, marked as such: that render
-   * cannot be read as a direct initializer.
+   * name taken out of a binding pattern records the expression it destructures
+   * - or `(no initializer)` where the declaration has none - marked as such:
+   * that render cannot be read as a direct initializer.
    */
   readonly value: string;
 }
@@ -241,10 +241,9 @@ function isExported(declaration: ts.VariableDeclaration): boolean {
 }
 
 /**
- * The identifiers a variable declaration binds, in source order: the name
- * itself when it is a plain one, and the names inside the binding elements
- * when the declaration destructures. A nested pattern recurses, and an array
- * pattern's elision carries no binding element to descend into.
+ * The identifiers a variable declaration binds, in source order. Which binding
+ * shapes that covers is stated by the fixture rows below and the expectations
+ * beside them, never here.
  */
 function boundNames(name: ts.BindingName): readonly ts.Identifier[] {
   if (ts.isIdentifier(name)) {
@@ -517,12 +516,11 @@ const CLASSIFICATION_FIXTURE = [
 ].join("\n");
 
 /**
- * The declaration scan's own fixture. Each row is a probe the three tests
- * below classify by running the real `envelopeDefinitionsIn`,
- * `envelopeLiteralsIn` and `isEnvelopeConstantName` over this text - both
- * scans take their source as an argument for that. This file sits outside the
- * scanned tree, so the rows stay fixture text rather than becoming definitions
- * the scan of `src` reaches.
+ * The declaration scan's own fixture. The tests below classify these rows by
+ * running the real `envelopeDefinitionsIn`, `envelopeLiteralsIn` and
+ * `isEnvelopeConstantName` over this text - both scans take their source as an
+ * argument for that. This file sits outside the scanned tree, so the rows stay
+ * fixture text rather than becoming definitions the scan of `src` reaches.
  */
 const DECLARATION_FIXTURE = [
   "export const PROBE_V1_MAXIMUM =",
@@ -531,6 +529,10 @@ const DECLARATION_FIXTURE = [
   "  V1_NUMERIC_MAXIMUM;",
   "const { V1_NUMERIC_MAXIMUM } = scanProbeLimits;",
   "const { resultMax: RESULT_V1_MAXIMUM } = scanProbeSkills;",
+  "const { limits: { NESTED_V1_MAXIMUM } } = scanProbeNest;",
+  "const [, , ELIDED_V1_MAXIMUM] = scanProbeRow;",
+  "const [...REST_V1_MAXIMUM] = scanProbeRow;",
+  "for (const { FOR_OF_V1_MAXIMUM } of scanProbeRows) {}",
   "const SAFE_CEILING = V1_NUMERIC_MAXIMUM;",
   "class ScanProbeLimits {",
   "  static readonly CLASS_V1_MAXIMUM = V1_NUMERIC_MAXIMUM;",
@@ -552,6 +554,28 @@ const REVIEWED_BUDGET_FIXTURE = [
 ].join("\n");
 
 describe("the Version 1 numeric envelope has one definition", () => {
+  test("the scan itself reached the tree", () => {
+    const read = new Set(shippedSourceFiles(sourceRoot).map(frontendPath));
+    const probes = [
+      "src/server/security.ts",
+      "src/shared/worksheet/limit-labels.test.ts",
+      "src/shared/worksheet/types.ts",
+      "src/web/preview/InstructionalVisual.tsx",
+      "src/worksheets/find-the-wow/definition.ts",
+    ];
+    expect(
+      probes.map((file) => `${file}: ${read.has(file) ? "read" : "not read"}`),
+    ).toEqual([
+      // `.ts` and `.tsx` modules under four different top-level directories of
+      // `src`, and a test file beside the one definition.
+      "src/server/security.ts: read",
+      "src/shared/worksheet/limit-labels.test.ts: not read",
+      "src/shared/worksheet/types.ts: read",
+      "src/web/preview/InstructionalVisual.tsx: read",
+      "src/worksheets/find-the-wow/definition.ts: read",
+    ]);
+  });
+
   test("every shipped module parses, so no scan reads a fragment of one", () => {
     const unreadable: string[] = [];
     for (const path of shippedSourceFiles(sourceRoot)) {
@@ -579,12 +603,12 @@ describe("the Version 1 numeric envelope has one definition", () => {
         occurrenceKey,
       ),
     ).toEqual([
-      // In source order: a substitution is code, the four spellings of the
-      // envelope are one literal, and the comment, the string, the template
-      // TEXT, the JSX text and the regular expression holding both a double
-      // quote and an apostrophe are none of them findings - the regular
-      // expression in particular does not carry the reader into the lines
-      // after it.
+      // In source order: a substitution is code, the four alternative
+      // spellings of the envelope are the same literal as `20`, and the
+      // comment, the string, the template TEXT, the JSX text and the regular
+      // expression holding both a double quote and an apostrophe are none of
+      // them findings - the regular expression in particular does not carry
+      // the reader into the lines after it.
       "fixture.tsx: interpolated: const interpolated = `${WIDTH * 20}px`;",
       "fixture.tsx: bare: const bare = 20;",
       "fixture.tsx: hex: const hex = 0x14;",
@@ -605,14 +629,16 @@ describe("the Version 1 numeric envelope has one definition", () => {
       // the one definition, and `= V1_NUMERIC_MAXIMUM`, which they require of
       // an alias. A name taken out of a binding pattern is inventoried under
       // the name it binds and renders with what the declaration destructures,
-      // marked so it reads as neither shape. The class property and the
-      // object-literal property carry names this scan's NAME filter
-      // recognises and are absent here, because the scan reads variable
-      // declarations.
+      // or `(no initializer)` where it has none, marked so it reads as
+      // neither shape.
       `fixture.ts: export const PROBE_V1_MAXIMUM = ${ENVELOPE_LITERAL_TEXT}`,
       `fixture.ts: const OTHER_V1_MAXIMUM = ${ENVELOPE_NAME}`,
       `fixture.ts: const ${ENVELOPE_NAME} = (destructured from scanProbeLimits)`,
       "fixture.ts: const RESULT_V1_MAXIMUM = (destructured from scanProbeSkills)",
+      "fixture.ts: const NESTED_V1_MAXIMUM = (destructured from scanProbeNest)",
+      "fixture.ts: const ELIDED_V1_MAXIMUM = (destructured from scanProbeRow)",
+      "fixture.ts: const REST_V1_MAXIMUM = (destructured from scanProbeRow)",
+      "fixture.ts: const FOR_OF_V1_MAXIMUM = (destructured from (no initializer))",
     ]);
   });
 
@@ -623,16 +649,19 @@ describe("the Version 1 numeric envelope has one definition", () => {
           `${name}: ${isEnvelopeConstantName(name) ? "inventoried" : "passed over"}`,
       ),
     ).toEqual([
-      // In source order. `SAFE_CEILING` holds the envelope under a name the
-      // filter does not recognise, so the declaration scan passes over it and
-      // the row above cannot list it: the escape is executed here rather than
-      // asserted by its absence from some other list. `scanProbeTable` is the
-      // same case; the class properties are no variable declarations and are
-      // not names this function is offered at all.
+      // In source order, each name run through `isEnvelopeConstantName` - the
+      // same predicate the declaration scan filters on. `SAFE_CEILING` holds
+      // the envelope under a name that predicate does not recognise, so the
+      // escape is executed here rather than asserted by its absence from the
+      // list above. `scanProbeTable` is the same case.
       "PROBE_V1_MAXIMUM: inventoried",
       "OTHER_V1_MAXIMUM: inventoried",
       `${ENVELOPE_NAME}: inventoried`,
       "RESULT_V1_MAXIMUM: inventoried",
+      "NESTED_V1_MAXIMUM: inventoried",
+      "ELIDED_V1_MAXIMUM: inventoried",
+      "REST_V1_MAXIMUM: inventoried",
+      "FOR_OF_V1_MAXIMUM: inventoried",
       "SAFE_CEILING: passed over",
       "scanProbeTable: passed over",
     ]);
@@ -709,6 +738,40 @@ describe("the Version 1 numeric envelope has one definition", () => {
       `fixture.ts:3 spells the envelope as a number inside scanProbeBudget; import ${ENVELOPE_NAME} instead, or add a reviewed entry naming that declaration and the reason it is not a second definition`,
     ]);
     expect(findingsAgainst(occurrences, [entry, entry])).toEqual([]);
+  });
+
+  test("a reviewed entry no occurrence claimed is a finding in the other direction", () => {
+    const entry: ReviewedLiteralSite = {
+      file: "fixture.ts",
+      declaration: "scanProbeBudget",
+      text: `${ENVELOPE_LITERAL_TEXT},`,
+      reason: "the fixture's one reviewed entry",
+    };
+    const stale = `fixture.ts: scanProbeBudget: ${ENVELOPE_LITERAL_TEXT}, is on the reviewed list but no such literal is in the tree; drop the entry`;
+    // The budget counts on this side too: two entries at one key with nothing
+    // in the tree spending either are two entries to drop, not one.
+    expect(findingsAgainst([], [entry])).toEqual([stale]);
+    expect(findingsAgainst([], [entry, entry])).toEqual([stale, stale]);
+  });
+
+  test("findings from both directions come back sorted, not in the order they are pushed", () => {
+    const occurrences = envelopeLiteralsIn(
+      "fixture.ts",
+      REVIEWED_BUDGET_FIXTURE,
+    );
+    const unclaimed: ReviewedLiteralSite = {
+      file: "fixture.ts",
+      declaration: "scanProbeSpare",
+      text: `${ENVELOPE_LITERAL_TEXT},`,
+      reason: "an entry naming a declaration the fixture does not hold",
+    };
+    // The unclaimed entry is pushed after both occurrences and comes back
+    // ahead of them.
+    expect(findingsAgainst(occurrences, [unclaimed])).toEqual([
+      `fixture.ts: scanProbeSpare: ${ENVELOPE_LITERAL_TEXT}, is on the reviewed list but no such literal is in the tree; drop the entry`,
+      `fixture.ts:2 spells the envelope as a number inside scanProbeBudget; import ${ENVELOPE_NAME} instead, or add a reviewed entry naming that declaration and the reason it is not a second definition`,
+      `fixture.ts:3 spells the envelope as a number inside scanProbeBudget; import ${ENVELOPE_NAME} instead, or add a reviewed entry naming that declaration and the reason it is not a second definition`,
+    ]);
   });
 
   test("no shipped module spells the envelope as a bare number off the reviewed list", () => {

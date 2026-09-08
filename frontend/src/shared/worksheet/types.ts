@@ -28,9 +28,9 @@ export const WORKSHEET_TYPE_IDS = [
  * TypeScript compiler and walk the syntax tree.
  *
  * What that guard covers is defined by the tests and the fixtures in that
- * file, and nowhere else: a claim about its reach arrives there as a fixture
- * row plus a test, never as a sentence in this comment. A hole it does not
- * close belongs on the Step 9 follow-up issue.
+ * file: a claim about its reach arrives there as a fixture row plus a test,
+ * never as a sentence in this comment. Known escapes are tracked on
+ * issue #23.
  */
 export const V1_NUMERIC_MAXIMUM = 20;
 
