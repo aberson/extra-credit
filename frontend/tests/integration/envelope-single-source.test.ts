@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { lstatSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -38,9 +38,7 @@ const TEST_SUFFIXES = [".test.ts", ".test.tsx"];
 /**
  * The shipped modules the scans read. A test file may hold whatever fixture
  * number it needs; what must not exist twice is a DEFINITION the application
- * runs on. Recursion and collection both branch on the entry's `Dirent` kind,
- * and the result is sorted, so the scan order is the same on Windows and on
- * CI's Ubuntu.
+ * runs on.
  */
 function shippedSourceFiles(directory: string): readonly string[] {
   const found: string[] = [];
@@ -62,6 +60,35 @@ function shippedSourceFiles(directory: string): readonly string[] {
 /** A scanned path, relative to `frontend/` and with forward slashes. */
 function frontendPath(path: string): string {
   return path.slice(frontendRoot.length + 1).replaceAll("\\", "/");
+}
+
+/**
+ * The same tree walked a second time by a different route: Node's own
+ * recursive `readdirSync` rather than the recursion above, `lstat` rather than
+ * the `Dirent` kind, and the suffixes written out here rather than
+ * `SCANNED_EXTENSIONS` and `TEST_SUFFIXES`. Nothing the scan under test
+ * defines is reused, so what the comparison below runs is two walks rather
+ * than one walk and itself. The single shared helper is `frontendPath`, which
+ * renders a path each walk has already selected.
+ */
+function independentSourceWalk(root: string): readonly string[] {
+  const walked: string[] = [];
+  for (const entry of readdirSync(root, {
+    encoding: "utf8",
+    recursive: true,
+  })) {
+    const path = resolve(root, entry);
+    const file = frontendPath(path);
+    if (
+      (file.endsWith(".ts") || file.endsWith(".tsx")) &&
+      !file.endsWith(".test.ts") &&
+      !file.endsWith(".test.tsx") &&
+      lstatSync(path).isFile()
+    ) {
+      walked.push(file);
+    }
+  }
+  return [...walked].sort();
 }
 
 /* --------------------------------------------------------------------------
@@ -161,10 +188,9 @@ interface ConstantDefinition {
   readonly name: string;
   readonly exported: boolean;
   /**
-   * The whole initializer, with runs of whitespace collapsed to one space. A
-   * name taken out of a binding pattern records the expression it destructures
-   * - or `(no initializer)` where the declaration has none - marked as such:
-   * that render cannot be read as a direct initializer.
+   * A name taken out of a binding pattern records the expression it
+   * destructures - or `(no initializer)` where the declaration has none -
+   * marked as such: that render cannot be read as a direct initializer.
    */
   readonly value: string;
 }
@@ -555,25 +581,9 @@ const REVIEWED_BUDGET_FIXTURE = [
 
 describe("the Version 1 numeric envelope has one definition", () => {
   test("the scan itself reached the tree", () => {
-    const read = new Set(shippedSourceFiles(sourceRoot).map(frontendPath));
-    const probes = [
-      "src/server/security.ts",
-      "src/shared/worksheet/limit-labels.test.ts",
-      "src/shared/worksheet/types.ts",
-      "src/web/preview/InstructionalVisual.tsx",
-      "src/worksheets/find-the-wow/definition.ts",
-    ];
-    expect(
-      probes.map((file) => `${file}: ${read.has(file) ? "read" : "not read"}`),
-    ).toEqual([
-      // `.ts` and `.tsx` modules under four different top-level directories of
-      // `src`, and a test file beside the one definition.
-      "src/server/security.ts: read",
-      "src/shared/worksheet/limit-labels.test.ts: not read",
-      "src/shared/worksheet/types.ts: read",
-      "src/web/preview/InstructionalVisual.tsx: read",
-      "src/worksheets/find-the-wow/definition.ts: read",
-    ]);
+    expect(shippedSourceFiles(sourceRoot).map(frontendPath)).toEqual(
+      independentSourceWalk(sourceRoot),
+    );
   });
 
   test("every shipped module parses, so no scan reads a fragment of one", () => {
