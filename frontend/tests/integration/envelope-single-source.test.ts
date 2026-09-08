@@ -63,30 +63,36 @@ function frontendPath(path: string): string {
 }
 
 /**
- * The same tree walked a second time by a different route: Node's own
- * recursive `readdirSync` rather than the recursion above, `lstat` rather than
- * the `Dirent` kind, and the suffixes written out here rather than
- * `SCANNED_EXTENSIONS` and `TEST_SUFFIXES`. Nothing the scan under test
- * defines is reused, so what the comparison below runs is two walks rather
- * than one walk and itself. The single shared helper is `frontendPath`, which
- * renders a path each walk has already selected.
+ * The same tree walked a second time by a different route: a level-by-level
+ * worklist rather than the recursion above, `lstat` rather than the `Dirent`
+ * kind, and the suffixes written out here rather than `SCANNED_EXTENSIONS`
+ * and `TEST_SUFFIXES`.
  */
 function independentSourceWalk(root: string): readonly string[] {
   const walked: string[] = [];
-  for (const entry of readdirSync(root, {
-    encoding: "utf8",
-    recursive: true,
-  })) {
-    const path = resolve(root, entry);
-    const file = frontendPath(path);
-    if (
-      (file.endsWith(".ts") || file.endsWith(".tsx")) &&
-      !file.endsWith(".test.ts") &&
-      !file.endsWith(".test.tsx") &&
-      lstatSync(path).isFile()
-    ) {
-      walked.push(file);
+  let pending: readonly string[] = [root];
+  while (pending.length > 0) {
+    const deeper: string[] = [];
+    for (const directory of pending) {
+      for (const entry of readdirSync(directory, { withFileTypes: true })) {
+        const path = resolve(entry.parentPath, entry.name);
+        const kind = lstatSync(path);
+        if (kind.isDirectory()) {
+          deeper.push(path);
+          continue;
+        }
+        const file = frontendPath(path);
+        if (
+          kind.isFile() &&
+          (file.endsWith(".ts") || file.endsWith(".tsx")) &&
+          !file.endsWith(".test.ts") &&
+          !file.endsWith(".test.tsx")
+        ) {
+          walked.push(file);
+        }
+      }
     }
+    pending = deeper;
   }
   return [...walked].sort();
 }
@@ -317,9 +323,7 @@ function envelopeDefinitionsIn(
 
 /**
  * The names a module's variable declarations bind, in source order, whatever
- * the name filter makes of them. The classification test runs this over the
- * declaration fixture, so a probe row is asserted by being present rather than
- * by being absent from another list.
+ * the name filter makes of them.
  */
 function variableNamesIn(file: string, source: string): readonly string[] {
   const parsed = parseModule(file, source);
@@ -581,9 +585,19 @@ const REVIEWED_BUDGET_FIXTURE = [
 
 describe("the Version 1 numeric envelope has one definition", () => {
   test("the scan itself reached the tree", () => {
-    expect(shippedSourceFiles(sourceRoot).map(frontendPath)).toEqual(
-      independentSourceWalk(sourceRoot),
-    );
+    const scanned = shippedSourceFiles(sourceRoot).map(frontendPath);
+    const walked = independentSourceWalk(sourceRoot);
+    const oneSided = [
+      ...scanned
+        .filter((file) => !walked.includes(file))
+        .map((file) => `${file}: scanned, not walked`),
+      ...walked
+        .filter((file) => !scanned.includes(file))
+        .map((file) => `${file}: walked, not scanned`),
+    ];
+    expect(oneSided).toEqual([]);
+    expect(walked).toContain("src/shared/worksheet/types.ts");
+    expect(scanned).toEqual(walked);
   });
 
   test("every shipped module parses, so no scan reads a fragment of one", () => {
