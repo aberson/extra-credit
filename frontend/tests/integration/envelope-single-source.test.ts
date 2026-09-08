@@ -44,10 +44,13 @@ import { FIND_THE_WOW_V1_MAXIMUM } from "../../src/worksheets/find-the-wow/defin
  *     across, so the two-line spelling a line-based reader could not see is
  *     read here like any other.
  *
- * The second test in this file runs that classification over a fixture holding
- * each of those shapes - a regular expression containing both a double quote
- * and an apostrophe among them - so the list above is an executed result and
- * not a description of intent.
+ * Two committed fixtures make that list an executed result and not a
+ * description of intent. `CLASSIFICATION_FIXTURE` runs the first three bullets
+ * through the literal scan - a regular expression containing both a double
+ * quote and an apostrophe among them - and `DECLARATION_FIXTURE` runs the
+ * fourth through the declaration scan, where a two-line `= 20` reads as one
+ * definition whose initializer is the digits and a two-line
+ * `= V1_NUMERIC_MAXIMUM` reads as one alias.
  *
  * The tree read is `frontend/src`: regular files ending `.ts` or `.tsx`, minus
  * `.test.ts` and `.test.tsx`. Recursion is by real directory and reading is of
@@ -63,27 +66,33 @@ import { FIND_THE_WOW_V1_MAXIMUM } from "../../src/worksheets/find-the-wow/defin
  *    the value this test imported at runtime, written in decimal.
  * 3. Every alias in `DECLARED_ALIASES` is declared in its stated file with
  *    `V1_NUMERIC_MAXIMUM` as its whole initializer and with the export
- *    visibility the table declares, and every declaration in the tree named
- *    `V1_NUMERIC_MAXIMUM`, ending `_V1_MAXIMUM`, or matching a declared alias
- *    name is in that table. The aliases their modules export are additionally
- *    asserted to equal the leaf constant at runtime, as a closed set that
- *    cannot quietly run empty; a module-private alias has no importable value
- *    and is held to the source half alone, which is the half a literal fails.
+ *    visibility the table declares, and every VARIABLE declaration in the tree
+ *    named `V1_NUMERIC_MAXIMUM`, ending `_V1_MAXIMUM`, or matching a declared
+ *    alias name is in that table. The aliases their modules export are
+ *    additionally asserted to equal the leaf constant at runtime, as a closed
+ *    set that cannot quietly run empty; a module-private alias has no
+ *    importable value and is held to the source half alone, which is the half
+ *    a literal fails.
  * 4. Every numeric literal equal to the envelope anywhere in the tree is a
  *    reviewed entry of `REVIEWED_LITERAL_SITES` - one entry per literal
- *    OCCURRENCE, not per distinct line text, anchored to the file and the
- *    enclosing declaration rather than to a line number. So a second literal
- *    in an already-listed file is a finding, and an entry whose literal is
- *    gone is a finding in the other direction. This is the half that sees a
- *    literal under any name, including a module-private one, and an inline
- *    `Math.min(x, 20)` that declares nothing at all.
+ *    OCCURRENCE, matched by file, enclosing declaration and line text
+ *    together. So a second literal in an already-listed file is a finding, and
+ *    an entry whose literal is gone is a finding in the other direction. This
+ *    is the half that sees a literal under any name, including a
+ *    module-private one, and an inline `Math.min(x, 20)` that declares nothing
+ *    at all.
  *
  * What these still cannot see, stated so nobody trusts them further than they
  * reach: a second envelope written as ARITHMETIC (`4 * 5`, `10 + 10`) is not a
  * numeric literal equal to the envelope and passes test 4; a constant that
- * aliases the envelope BY NAME under a name test 3 does not recognise is a
- * name and not a literal, so it passes both source scans; and the runtime half
- * reaches only what a module exports.
+ * aliases the envelope BY NAME - under a name test 3 does not recognise, or
+ * parked on any node kind that is not a variable declaration, a class property
+ * and an object-literal property among them - is a name and not a literal, so
+ * it passes both source scans; and the runtime half reaches only what a module
+ * exports. The declaration fixture below runs both halves of that bound: the
+ * two name-aliased properties are absent from the declaration scan, and the
+ * NUMBER written at one of those same places is still a numeric literal test 4
+ * finds.
  *
  * Placement: beside the other repository-contract tests rather than under
  * `src/`, because nothing in the shipped application reads a source file.
@@ -517,7 +526,7 @@ function envelopeLiteralFindings(root: string): readonly string[] {
 }
 
 /* --------------------------------------------------------------------------
- * The fixture behind the classification claims in the header
+ * The fixtures behind the classification claims in the header
  * ----------------------------------------------------------------------- */
 
 const CLASSIFICATION_FIXTURE = [
@@ -535,6 +544,31 @@ const CLASSIFICATION_FIXTURE = [
   "const bigger = 120;",
   "const fraction = 0.20;",
   "const markup = <p>Don't count to 20 here</p>;",
+].join("\n");
+
+/**
+ * The declaration scan's own fixture, holding the fourth bullet's shape - a
+ * declaration written across two lines - in both the form that is a second
+ * definition and the form that is an alias, and the two node kinds the scan
+ * does NOT inventory beside them. `envelopeDefinitionsIn` and
+ * `envelopeLiteralsIn` both take their source as an argument for exactly this.
+ *
+ * The `_V1_MAXIMUM` suffix is what `isEnvelopeConstantName` looks for, so
+ * every name here is one the NAME filter recognises; what separates them is
+ * the node kind the name sits on. This file is outside the scanned tree, so
+ * these stay fixture text and never become definitions the scan of `src` can
+ * reach.
+ */
+const DECLARATION_FIXTURE = [
+  "export const PROBE_V1_MAXIMUM =",
+  "  20;",
+  "const OTHER_V1_MAXIMUM =",
+  "  V1_NUMERIC_MAXIMUM;",
+  "class ScanProbeLimits {",
+  "  static readonly CLASS_V1_MAXIMUM = V1_NUMERIC_MAXIMUM;",
+  "  static readonly CLASS_LITERAL_V1_MAXIMUM = 20;",
+  "}",
+  "const scanProbeTable = { OBJECT_V1_MAXIMUM: V1_NUMERIC_MAXIMUM };",
 ].join("\n");
 
 describe("the Version 1 numeric envelope has one definition", () => {
@@ -577,6 +611,36 @@ describe("the Version 1 numeric envelope has one definition", () => {
       "fixture.tsx: separated: const separated = 2_0;",
       "fixture.tsx: trailing: const trailing = 20.0;",
       "fixture.tsx: exponent: const exponent = 20e0;",
+    ]);
+  });
+
+  test("the declaration scan reads a two-line declaration as one, and inventories variable declarations only", () => {
+    expect(
+      envelopeDefinitionsIn("fixture.ts", DECLARATION_FIXTURE).map(
+        renderDefinition,
+      ),
+    ).toEqual([
+      // The two-line number form and the two-line alias form each render as
+      // ONE definition, in the two shapes the definition tests below compare:
+      // `= 20` is what they reject and `= V1_NUMERIC_MAXIMUM` is what they
+      // accept. The class property and the object-literal property carry a
+      // name this scan's NAME filter recognises and are missing from this list
+      // anyway, because the scan reads variable declarations only - the escape
+      // the header states.
+      `fixture.ts: export const PROBE_V1_MAXIMUM = ${ENVELOPE_LITERAL_TEXT}`,
+      `fixture.ts: const OTHER_V1_MAXIMUM = ${ENVELOPE_NAME}`,
+    ]);
+  });
+
+  test("a name alias off a variable declaration escapes that scan, the number at the same place does not", () => {
+    expect(
+      envelopeLiteralsIn("fixture.ts", DECLARATION_FIXTURE).map(occurrenceKey),
+    ).toEqual([
+      // Both aliases BY NAME are gone - a name is no numeric literal - while
+      // the two places that spell the envelope as a number are both here, the
+      // class property among them. That is the bound on the escape above.
+      `fixture.ts: PROBE_V1_MAXIMUM: ${ENVELOPE_LITERAL_TEXT};`,
+      `fixture.ts: ScanProbeLimits.CLASS_LITERAL_V1_MAXIMUM: static readonly CLASS_LITERAL_V1_MAXIMUM = ${ENVELOPE_LITERAL_TEXT};`,
     ]);
   });
 

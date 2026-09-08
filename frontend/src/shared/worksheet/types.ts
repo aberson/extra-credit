@@ -26,17 +26,22 @@ export const WORKSHEET_TYPE_IDS = [
  * tell a re-export from a fresh literal, PARSES the shipped tree (`src`, `.ts`
  * and `.tsx`, `*.test.*` excluded) with the TypeScript compiler and reads the
  * syntax tree for the source of a second one. Three things fail there: a
- * second declaration named `V1_NUMERIC_MAXIMUM` or ending `_V1_MAXIMUM`, an
- * alias in that file's declared table whose initializer is a number rather
- * than this constant, and any NUMERIC LITERAL of this value off that file's
- * reviewed-site list - which is what covers a literal under a name the first
- * two filters never look at. How many lines a declaration is written across
- * does not matter to any of the three, because the unit each one reads is a
- * declaration and not a line.
+ * second VARIABLE declaration named `V1_NUMERIC_MAXIMUM` or ending
+ * `_V1_MAXIMUM`, an alias in that file's declared table whose initializer is a
+ * number rather than this constant, and any NUMERIC LITERAL of this value off
+ * that file's reviewed-site list - which is what covers a literal under a name
+ * the first two filters never look at. A declaration is one declaration
+ * however many LINES it is written across, so the two-line spelling a
+ * line-based reader could not see is read like any other; a committed fixture
+ * in that file runs both its number form and its alias form through the
+ * declaration scan.
  *
  * What none of that sees is a second envelope computed rather than written
- * (`4 * 5` is no numeric literal of this value), and an alias BY NAME under a
- * name that file's declared table does not recognise.
+ * (`4 * 5` is no numeric literal of this value), and an alias BY NAME - under
+ * a name that file's declared table does not recognise, or parked on any node
+ * kind that is not a variable declaration, a class property and an
+ * object-literal property among them. The same fixture runs both halves of
+ * that second bound.
  */
 export const V1_NUMERIC_MAXIMUM = 20;
 
