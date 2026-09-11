@@ -705,7 +705,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Make every worksheet and answer key fit its selected paper and print-scale contract in the supported browsers.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** BLOCKED (2026-09-10)
 - **Issue:** #10
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
