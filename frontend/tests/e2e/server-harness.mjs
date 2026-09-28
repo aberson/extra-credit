@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const require = createRequire(import.meta.url);
+const releaseSmokeOnly = process.argv.includes("--project=release-smoke");
 const frontendRoot = fileURLToPath(new URL("../..", import.meta.url));
 const appModuleUrl = pathToFileURL(resolve(frontendRoot, "dist/server/app.js"));
 const startupModuleUrl = pathToFileURL(
@@ -37,7 +38,7 @@ function writeHarnessStatus(message, sensitiveValues) {
   console.log(message);
 }
 
-function runPlaywright(baseURL) {
+function runPlaywright(baseURL, privacyEvidencePath, privateValues = []) {
   const playwrightCli = require.resolve("@playwright/test/cli");
 
   return new Promise((resolveExit, reject) => {
@@ -46,19 +47,38 @@ function runPlaywright(baseURL) {
       env: {
         ...process.env,
         EXTRA_CREDIT_E2E_BASE_URL: baseURL,
+        EXTRA_CREDIT_E2E_PRIVACY_EVIDENCE: privacyEvidencePath,
       },
-      stdio: "inherit",
+      stdio: ["inherit", "pipe", "pipe"],
       windowsHide: true,
     });
+    let output = "";
+    for (const [stream, destination] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
+      stream?.on("data", (chunk) => {
+        output += chunk.toString();
+        destination.write(chunk);
+      });
+    }
 
     child.once("error", reject);
-    child.once("exit", (code, signal) => {
+    child.once("close", async (code, signal) => {
       if (signal !== null) {
         reject(new Error(`Playwright terminated with signal ${signal}.`));
         return;
       }
 
-      resolveExit(code ?? 1);
+      try {
+        // The smoke exports actual saved values through a private temporary file,
+        // including the disposable profile before deletion. Never print evidence.
+        const evidence = await readFile(privacyEvidencePath, "utf8");
+        const savedValues = evidence.split("\n").filter(Boolean).flatMap((line) => JSON.parse(line));
+        if ([...privateValues, ...savedValues].some((value) => output.includes(value))) {
+          throw new Error("The release smoke logs contained profile data.");
+        }
+        resolveExit(code ?? 1);
+      } catch (error) {
+        reject(error);
+      }
     });
   });
 }
@@ -166,6 +186,7 @@ async function runCompiledLifecyclePrivacyProbe() {
 }
 
 async function main() {
+  const started = performance.now();
   let app;
   let configPath;
   let playwrightExitCode;
@@ -214,7 +235,11 @@ async function main() {
       configPath,
       "ephemeral-test",
     ]);
-    playwrightExitCode = await runPlaywright(baseURL);
+    const example = JSON.parse(await readFile(resolve(frontendRoot, "../config/children.example.json"), "utf8"));
+    const privateValues = example.profiles.flatMap(({ id, displayName, interests }) => [id, displayName, ...interests]);
+    const privacyEvidencePath = join(temporaryDirectory, "privacy-evidence.jsonl");
+    await writeFile(privacyEvidencePath, "", { flag: "wx", mode: 0o600 });
+    playwrightExitCode = await runPlaywright(baseURL, privacyEvidencePath, privateValues);
   } finally {
     try {
       if (app !== undefined) {
@@ -231,6 +256,13 @@ async function main() {
     }
   }
 
+  if (releaseSmokeOnly) {
+    const duration = performance.now() - started;
+    console.log(`Extra Credit release smoke elapsed: ${Math.round(duration)} ms.`);
+    if (duration >= 60_000) {
+      throw new Error("The release smoke exceeded its 60-second budget.");
+    }
+  }
   process.exitCode = playwrightExitCode;
 }
 

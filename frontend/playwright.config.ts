@@ -27,7 +27,15 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: "**/release-smoke.spec.ts",
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "release-smoke",
+      testMatch: "**/release-smoke.spec.ts",
+      timeout: 59_000,
+      retries: 0,
+      use: { ...devices["Desktop Chrome"], actionTimeout: 5_000 },
     },
   ],
 });

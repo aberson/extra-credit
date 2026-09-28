@@ -69,12 +69,13 @@ describe("CI and package-script contract", () => {
       'npm run dev:preflight && concurrently --kill-others --success first "npm:dev:web" "npm:dev:server"',
     );
     expect(scripts.check).toBe(
-      "npm run lint && npm run typecheck && npm test && npm run test:e2e",
+      "npm run lint && npm run typecheck && npm test && npm run test:e2e && npm run test:log-privacy",
     );
     expect(scripts["test:e2e"]).toBe(
       "npm run build && node tests/e2e/server-harness.mjs",
     );
     expect(scripts["manual:print"]).toBe("node tests/manual/print-harness.mjs");
+    expect(scripts["test:log-privacy"]).toBe("node tests/e2e/log-privacy-calibration.mjs");
   });
 
   it("runs the complete locked quality gate for every push and pull request", async () => {

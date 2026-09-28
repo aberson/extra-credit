@@ -380,21 +380,47 @@
           </p>
         </div>
         <div class="stamp">
-          <span class="pill">Step 11 accepted / round 1 of 10</span>
+          <span class="pill">Step 12 verifying / round 2 of 10</span>
           <p>
             Updated
-            <time datetime="2026-09-28T21:23:51Z">2026-09-28 21:23:51 UTC</time>
+            <time datetime="2026-09-28T22:15:11Z">2026-09-28 22:15:11 UTC</time>
           </p>
           <button id="print" class="print-button">Print / save PDF</button>
         </div>
       </header>
       <div class="stats">
         <div class="stat">Accepted and merged<strong>Steps 1-11</strong></div>
-        <div class="stat">Accepted on first review<strong>Step 11 / round 1 of 10</strong></div>
-        <div class="stat">Pending gates<strong>12-13 / M1-M3</strong></div>
+        <div class="stat">Full gates passed<strong>Step 12 / round 2 of 10</strong></div>
+        <div class="stat">Unaccepted gates<strong>12-13 / M1-M3</strong></div>
       </div>
       <div class="notice">
-        <strong>Checkpoint: Step 11 accepted and merged after round 1 of 10.</strong>
+        <strong>Checkpoint: Step 12 round 2 full gates passed; fresh review next.</strong>
+        <p>
+          Developer and coordinator mechanical verification PASSED, each with
+          457 unit tests and 159 browser tests. Coordinator full check exited 0;
+          its browser suite reported 4.0 minutes. Privacy calibration returned
+          expected exits 1 / 1 / 0. Developer dedicated CI smoke completed in
+          8.213 seconds; coordinator dedicated CI smoke PASSED (exit 0),
+          with full harness elapsed time of 8.133 seconds.
+          Separate development and compiled UI captures PASSED: three canonical
+          profiles, eight-item A4 large worksheet and matching answer-key IDs.
+          Temporary data and sockets were cleaned up.
+          Fresh round 2 reviews are next; the allowance is 10 rounds, with one
+          consumed. Step 12 remains unaccepted and unmerged on the isolated
+          candidate from checkpoint <code>3457c9b</code>. Main is unchanged.
+          Next: fresh independent reviews
+          before acceptance and Step 13 clean-room verification.
+          M1-M3 remain pending. No push has occurred.
+        </p>
+        <p>
+          Round 1 aggregate review returned NEEDS WORK with one blocking
+          test-quality finding: the log oracle checked fixed example profile
+          IDs while the UI created random IDs, so an ID-only server log could
+          evade the assertion. This was missing oracle coverage, not an observed
+          security incident. The other five lenses passed and source audit was
+          clean. Prior full gates, dedicated CI smoke and runtime captures passed;
+          that evidence and the failed review remain in the observed timeline.
+        </p>
         <p>
           Step 11 merged at <code>1f30ce4</code>. All eight fresh independent
           reviews passed with zero findings and 18 runtime confirmations.
@@ -423,8 +449,8 @@
         </p>
         <p>
           Step 10 implementation: <code>e721ca6</code>; acceptance checkpoint:
-          <code>765c138</code>. Steps 12 and 13 release smoke and clean-room
-          verification remain pending. Physical printing
+          <code>765c138</code>. Step 12 release smoke is under round 2 verification; Step 13 clean-room
+          verification remains pending. Physical printing
           (M1), the family pilot (M2) and pushed Ubuntu CI (M3) remain pending.
           No push has occurred. Historical failed rounds remain recorded below.
         </p>
@@ -634,13 +660,13 @@
                   <td>
                     <strong>Step12</strong><br />Real-pipeline release smoke
                   </td>
-                  <td>Pending</td>
+                  <td>Full gates and CI smoke passed / review next / unaccepted / unmerged</td>
                   <td>Agent<br />Step 11</td>
                   <td>
                     Real compiled application smoke across canonical fixtures
                     and all families; privacy/network checks; under 60
-                    seconds.<br /><a href="../plan.md"
-                      >Plan gate / no acceptance observed</a
+                    seconds.<br /><a href="#step12-round2-coordinator-evidence"
+                      >Round 2 full gates / review next</a
                     >
                   </td>
                 </tr>
@@ -830,10 +856,10 @@
               <div class="lane">
                 <strong>Release proof</strong
                 ><button
-                  class="bar pending"
+                  class="bar review"
                   data-detail="Step12"
                   style="grid-column: 11"
-                  aria-label="Step12: Real-pipeline release smoke; Pending"
+                  aria-label="Step12: Real-pipeline release smoke; Full gates and CI smoke passed, review next, round 2 of 10, unaccepted and unmerged"
                 >
                   Step12</button
                 ><button
@@ -881,18 +907,18 @@
             </div>
           </div>
           <div class="detail" aria-live="polite">
-            <h3 id="detail-title">Step11 / Parent UI accessibility hardening</h3>
+            <h3 id="detail-title">Step12 / Real-pipeline release smoke</h3>
             <dl>
               <dt>Dependency / owner</dt>
-              <dd id="detail-dependency">Step 10 / Agent</dd>
+              <dd id="detail-dependency">Step 11 / Agent</dd>
               <dt>Outcome</dt>
               <dd id="detail-state">
-                Accepted / merged; round 1 of 10 passed
+                Full gates and CI smoke passed / review next / round 2 of 10 / unaccepted / unmerged
               </dd>
               <dt>Acceptance boundary</dt>
               <dd id="detail-gate">
-                Zero scoped axe violations, keyboard create-to-preview, 200%
-                text resize and 320px reflow.
+                Real compiled application smoke across canonical fixtures and
+                all families; privacy/network checks; under 60 seconds.
               </dd>
             </dl>
           </div>
@@ -1026,6 +1052,104 @@
                     Steps 12-13 and M1-M3 remain pending.
                   </td>
                   <td>Run start/end unknown / checkpoint observation only</td>
+                </tr>
+                <tr id="step12-evidence">
+                  <td>2026-09-28 21:26:24 UTC checkpoint</td>
+                  <td>
+                    Step 12 round 1 of 10: implementation active on an isolated
+                    candidate based on accepted checkpoint <code>3457c9b</code>.
+                    Dependency installation PASSED (exit 0). Developer is
+                    implementing the <a href="../plan.md">real-pipeline release
+                    smoke gate</a>. Full developer and coordinator gates,
+                    six independent code-review lenses and separate UI capture
+                    remain ahead. Unaccepted and unmerged; Step 13 clean-room
+                    verification and M1-M3 remain pending. No push has occurred.
+                  </td>
+                  <td>Start/end unknown / active state observed at checkpoint</td>
+                </tr>
+                <tr id="step12-gates-evidence">
+                  <td>2026-09-28 21:47:59 UTC checkpoint</td>
+                  <td>
+                    Step 12 round 1 of 10: developer and coordinator full gates
+                    PASSED, each with lint, three TypeScript projects, 457 unit
+                    tests in 20 files and 159 browser tests (158 prior plus one
+                    smoke). Dedicated CI smoke PASSED: developer one test in
+                    7.6 seconds, full harness 8460 ms; coordinator one test in
+                    7.4 seconds, full harness 8287 ms (exit 0).
+                    Earlier failed attempts are retained here: 01 typing,
+                    03 first-profile label, 05 concatenated numeric text,
+                    06 age-nine suggestion, 07 custom-panel collapse and
+                    08 profile selection. State and selector audit corrected
+                    these failures; five-second action limits and the overall
+                    59-second limit remain unchanged. Separate runtime/UI
+                    capture and six fresh independent code reviewers are next.
+                    Built but unaccepted and unmerged; Step 13 and M1-M3 remain
+                    pending. No push has occurred.
+                  </td>
+                  <td>Run start/end unknown / reported elapsed durations only</td>
+                </tr>
+                <tr id="step12-round1-review-evidence">
+                  <td>2026-09-28 21:57:32 UTC checkpoint</td>
+                  <td>
+                    Step 12 round 1 aggregate review: NEEDS WORK, one blocking
+                    test-quality finding. The log oracle checks fixed example
+                    IDs while the UI creates real random IDs, allowing an
+                    ID-only server-log leak to evade the assertion. This records
+                    missing oracle coverage, not an observed security incident.
+                    The other five review lenses PASSED; source audit clean.
+                    Prior developer/coordinator full gates (457 unit tests,
+                    159 browser tests), dedicated CI smoke and runtime captures
+                    passed but did not establish acceptance. Fresh developer
+                    repair is active in round 2 of 10; one round consumed.
+                    Next: repair the oracle, repeat full verification and fresh
+                    review. Step 12 remains unaccepted and unmerged;
+                    Step 13 and M1-M3 remain pending. No push has occurred.
+                  </td>
+                  <td>Run start/end unknown / review verdict observed at checkpoint</td>
+                </tr>
+                <tr id="step12-round2-developer-evidence">
+                  <td>2026-09-28 22:08:28 UTC checkpoint</td>
+                  <td>
+                    Step 12 round 2 developer mechanical gates PASSED:
+                    457 unit tests and 159 browser tests. Privacy calibration
+                    returned expected exits 1 / 1 / 0; dedicated CI smoke
+                    completed in 8.213 seconds. Coordinator full check is
+                    running; fresh round 2 review is upcoming. One review
+                    round consumed of 10 allowed. The round 1 blocking
+                    oracle-coverage finding remains historical evidence;
+                    developer success does not establish acceptance.
+                    Step 12 is unaccepted and unmerged; main unchanged.
+                    Step 13 and M1-M3 remain pending. No push has occurred.
+                  </td>
+                  <td>Run start/end unknown / reported smoke duration only</td>
+                </tr>
+                <tr id="step12-round2-coordinator-evidence">
+                  <td>2026-09-28 22:13:57 UTC checkpoint</td>
+                  <td>
+                    Step 12 round 2 coordinator full check PASSED (exit 0):
+                    457 unit tests and 159 browser tests; browser suite reported
+                    4.0 minutes. Privacy calibration returned expected exits
+                    1 / 1 / 0. Separate development and compiled UI captures
+                    PASSED: three canonical profiles, eight-item A4 large
+                    worksheet and matching answer-key IDs. Temporary data and
+                    sockets were cleaned up. Developer dedicated CI smoke
+                    passed in 8.213 seconds; coordinator dedicated CI smoke
+                    is running. Fresh round 2 independent reviews are next;
+                    no review acceptance is claimed. Step 12 remains unaccepted
+                    and unmerged; main unchanged. Step 13 and M1-M3 remain
+                    pending. No push has occurred.
+                  </td>
+                  <td>Run start/end unknown / reported test duration only</td>
+                </tr>
+                <tr id="step12-round2-ci-evidence">
+                  <td>2026-09-28 22:15:11 UTC checkpoint</td>
+                  <td>
+                    Coordinator dedicated CI smoke PASSED (exit 0), full
+                    harness elapsed 8.133 seconds. Round 2 mechanical gates
+                    are complete; fresh independent reviews are next.
+                    Step 12 remains unaccepted and unmerged.
+                  </td>
+                  <td>Run start/end unknown / reported harness duration only</td>
                 </tr>
               </tbody>
             </table>
@@ -1183,9 +1307,9 @@
           label: "Real-pipeline release smoke",
           dep: "Step 11",
           owner: "Agent",
-          state: "Pending",
+          state: "Full gates and CI smoke passed / review next / round 2 of 10 / unaccepted / unmerged",
           gate: "Real compiled application smoke across canonical fixtures and all families; privacy/network checks; under 60 seconds.",
-          evidence: "../plan.md",
+          evidence: "#step12-round2-coordinator-evidence",
         },
         Step13: {
           id: "Step13",

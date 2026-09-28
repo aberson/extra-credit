@@ -18,6 +18,7 @@ import type { AppConfigV1 } from "../../../src/shared/config/schema.ts";
 
 interface AppServerFixture {
   readonly origin: string;
+  serverErrors(): readonly string[];
   backupContents(): Promise<readonly Buffer[]>;
   readConfig(): Promise<AppConfigV1>;
   readRaw(): Promise<Buffer>;
@@ -88,9 +89,10 @@ export const test = base.extend<ProfileFixtures>({
       await Promise.all([import(appModuleUrl.href), import(startupModuleUrl.href)]);
     let app: FastifyInstance | undefined;
     let appPort: number | undefined;
+    const serverErrors: string[] = [];
 
     const start = async (port: number): Promise<FastifyInstance> => {
-      const next = buildApp({
+      const next: FastifyInstance = buildApp({
         configPath,
         securityMode: "ephemeral-test",
         staticRoot: PRODUCTION_STATIC_ROOT,
@@ -98,6 +100,9 @@ export const test = base.extend<ProfileFixtures>({
       assertPrivateBootstrapContext(next, {
         configPath,
         securityMode: "ephemeral-test",
+      });
+      next.addHook("onError", async (_request, _reply, error) => {
+        serverErrors.push(error.message);
       });
       await listenOnValidatedSocket(next, "127.0.0.1", port);
       return next;
@@ -114,6 +119,7 @@ export const test = base.extend<ProfileFixtures>({
 
       await use({
         origin,
+        serverErrors: () => [...serverErrors],
         async backupContents() {
           const names = (await readdir(temporaryDirectory)).filter(
             (name) => name.endsWith(".bak") && name !== siblingFixtureName,
