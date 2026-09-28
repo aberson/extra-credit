@@ -380,30 +380,32 @@
           </p>
         </div>
         <div class="stamp">
-          <span class="pill">Step 11 local gates passed / round 1 of 10</span>
+          <span class="pill">Step 11 accepted / round 1 of 10</span>
           <p>
             Updated
-            <time datetime="2026-09-28T21:01:45Z">2026-09-28 21:01:45 UTC</time>
+            <time datetime="2026-09-28T21:23:51Z">2026-09-28 21:23:51 UTC</time>
           </p>
           <button id="print" class="print-button">Print / save PDF</button>
         </div>
       </header>
       <div class="stats">
-        <div class="stat">Accepted and merged<strong>Steps 1-10</strong></div>
-        <div class="stat">Developer + coordinator passed<strong>Step 11 / round 1 of 10</strong></div>
+        <div class="stat">Accepted and merged<strong>Steps 1-11</strong></div>
+        <div class="stat">Accepted on first review<strong>Step 11 / round 1 of 10</strong></div>
         <div class="stat">Pending gates<strong>12-13 / M1-M3</strong></div>
       </div>
       <div class="notice">
-        <strong>Checkpoint: Step 11 round 1 of 10; developer and coordinator gates passed.</strong>
+        <strong>Checkpoint: Step 11 accepted and merged after round 1 of 10.</strong>
         <p>
-          Developer full <code>npm run check</code> attempt 2 PASSED (exit 0):
-          lint, three TypeScript projects, 457 unit tests in 20 files and 158
-          Playwright tests. The coordinator full gate also PASSED (exit 0):
-          lint, three TypeScript projects, 457 unit tests in 20 files and 158
-          Playwright tests. The candidate is built and locally verified;
-          independent review and merge acceptance remain outstanding.
-          Next: runtime capture and eight fresh independent reviews.
-          Its allowance is 10 total rounds.
+          Step 11 merged at <code>1f30ce4</code>. All eight fresh independent
+          reviews passed with zero findings and 18 runtime confirmations.
+          Developer attempt 2, coordinator and main post-merge full
+          <code>npm run check</code> gates PASSED (exit 0): lint, three
+          TypeScript projects, 457 unit tests in 20 files and 158 Playwright
+          tests each. Source audit is clean. Evidence was archived and hash
+          checked (493 files, 28 MB); the step worktree and branch were removed.
+          Authenticated advancement was consumed. Next: Step 12 real-pipeline
+          release smoke, then Step 13 clean-room verification. Step 11 used
+          one of its 10 allowed review rounds.
           The unchanged desktop foundation regression passed focused attempt 7
           after removing the line-height override and reducing the control
           minimum from 44px to 36px. Full attempt 1's height failure and the
@@ -422,9 +424,9 @@
         <p>
           Step 10 implementation: <code>e721ca6</code>; acceptance checkpoint:
           <code>765c138</code>. Steps 12 and 13 release smoke and clean-room
-          verification remain pending after Step 11. Physical printing
+          verification remain pending. Physical printing
           (M1), the family pilot (M2) and pushed Ubuntu CI (M3) remain pending.
-          Historical failed rounds remain recorded below.
+          No push has occurred. Historical failed rounds remain recorded below.
         </p>
       </div>
       <nav class="tabs" role="tablist" aria-label="Progress views">
@@ -619,12 +621,12 @@
                     <strong>Step11</strong><br />Parent UI accessibility
                     hardening
                   </td>
-                  <td>Built / developer and coordinator passed / round 1 of 10; unaccepted</td>
+                  <td>Accepted / merged; round 1 of 10 passed</td>
                   <td>Agent<br />Step 10</td>
                   <td>
                     Zero scoped axe violations, keyboard create-to-preview, 200%
                     text resize and 320px reflow.<br /><a href="#step11-evidence"
-                      >Both full gates passed; runtime capture and eight reviews next</a
+                      >Eight reviews and all three full gates passed; merged 1f30ce4</a
                     >
                   </td>
                 </tr>
@@ -817,10 +819,10 @@
                 >
                   Step10</button
                 ><button
-                  class="bar review"
+                  class="bar"
                   data-detail="Step11"
                   style="grid-column: 10"
-                  aria-label="Step11: Parent UI accessibility hardening; Built / developer and coordinator passed / round 1 of 10; unaccepted"
+                  aria-label="Step11: Parent UI accessibility hardening; Accepted / merged; round 1 of 10 passed"
                 >
                   Step11
                 </button>
@@ -885,7 +887,7 @@
               <dd id="detail-dependency">Step 10 / Agent</dd>
               <dt>Outcome</dt>
               <dd id="detail-state">
-                Built / developer and coordinator passed / round 1 of 10; unaccepted
+                Accepted / merged; round 1 of 10 passed
               </dd>
               <dt>Acceptance boundary</dt>
               <dd id="detail-gate">
@@ -997,7 +999,7 @@
                   <td>Run start/end unknown / failure observed at checkpoint</td>
                 </tr>
                 <tr id="step11-evidence">
-                  <td>2026-09-28 21:01:45 UTC checkpoint</td>
+                  <td>2026-09-28 21:23:51 UTC checkpoint</td>
                   <td>
                     Step 11 round 1 of 10: unchanged desktop foundation
                     regression passed on focused attempt 7. After removing
@@ -1010,10 +1012,17 @@
                     pass is the subsequent candidate evidence. Coordinator
                     full gate also PASSED (exit 0): lint, three TypeScript
                     projects, 457 unit tests in 20 files and 158 Playwright
-                    tests. Built and locally verified, with no independent
-                    review or merge acceptance. Next: runtime capture and
-                    eight fresh independent reviews against the
-                    <a href="../plan.md">Step 11 gate</a>.
+                    tests. All eight fresh independent reviews passed with zero
+                    findings and 18 runtime confirmations against the
+                    <a href="../plan.md">Step 11 gate</a>. Accepted and merged
+                    at <code>1f30ce4</code> after review round 1 of 10.
+                    Main post-merge full check PASSED: lint, three TypeScript
+                    projects, 457 unit tests in 20 files and 158 Playwright
+                    tests. Source audit clean; 493 evidence files (28 MB)
+                    archived and hash checked. Step worktree and branch removed;
+                    authenticated advancement consumed. Next prerequisite:
+                    Step 12 real-pipeline release smoke, then Step 13 clean-room
+                    verification. No push has occurred.
                     Steps 12-13 and M1-M3 remain pending.
                   </td>
                   <td>Run start/end unknown / checkpoint observation only</td>
@@ -1165,7 +1174,7 @@
           label: "Parent UI accessibility hardening",
           dep: "Step 10",
           owner: "Agent",
-          state: "Built / developer and coordinator passed / round 1 of 10; unaccepted",
+          state: "Accepted / merged; round 1 of 10 passed",
           gate: "Zero scoped axe violations, keyboard create-to-preview, 200% text resize and 320px reflow.",
           evidence: "#step11-evidence",
         },

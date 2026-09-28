@@ -719,7 +719,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Make setup, generation, preview, recovery, and error flows usable through the declared browser-accessibility contract.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** DONE (2026-09-28)
 - **Issue:** #11
 - **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
