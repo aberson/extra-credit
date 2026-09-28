@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 
 import {
   expandMathPreset,
@@ -136,6 +136,9 @@ export function ProfileEditor({
   profile,
   recoveryMode = false,
 }: ProfileEditorProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { headingRef.current?.focus(); }, []);
   const isEditing = profile !== undefined;
   const [id] = useState(() => profile?.id ?? crypto.randomUUID());
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
@@ -163,6 +166,7 @@ export function ProfileEditor({
     profile?.interests.join(", ") ?? "",
   );
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (error !== null) errorRef.current?.focus(); }, [error]);
   const [saving, setSaving] = useState(false);
   const [conflictState, setConflictState] = useState<
     "none" | "needs-reload" | "reloading" | "reconciled"
@@ -334,20 +338,21 @@ export function ProfileEditor({
   }
 
   return (
-    <form aria-labelledby="profile-editor-title" onSubmit={(event) => void handleSubmit(event)}>
+    <form aria-describedby={error === null ? undefined : "profile-error"} aria-labelledby="profile-editor-title" onSubmit={(event) => void handleSubmit(event)}>
       <header style={{ marginBottom: "0.8rem" }}>
         <p style={{ color: "#a14d2c", fontSize: "0.76rem", fontWeight: 750, letterSpacing: "0.1em", margin: 0, textTransform: "uppercase" }}>
           {recoveryMode ? "Recovery replacement" : isEditing ? "Edit profile" : "New profile"}
         </p>
-        <h2 id="profile-editor-title" style={{ margin: "0.15rem 0 0" }}>
+        <h2 ref={headingRef} tabIndex={-1} id="profile-editor-title" style={{ margin: "0.15rem 0 0" }}>
           {isEditing ? "Update this profile" : "Set up a profile"}
         </h2>
       </header>
 
-      <div style={{ display: "grid", gap: "0.8rem", gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))" }}>
+      <div style={{ display: "grid", gap: "0.8rem", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 12rem), 1fr))" }}>
         <label style={fieldStyle}>
           Nickname (optional)
           <input
+            aria-describedby="profile-privacy"
             autoComplete="off"
             onChange={(event) => setDisplayName(event.target.value)}
             style={inputStyle}
@@ -424,6 +429,7 @@ export function ProfileEditor({
       <label style={{ ...fieldStyle, marginTop: "0.8rem" }}>
         Broad interests (optional, separated by commas)
         <input
+          aria-describedby="profile-privacy"
           autoComplete="off"
           onChange={(event) => setInterestsText(event.target.value)}
           placeholder="animals, space"
@@ -431,14 +437,14 @@ export function ProfileEditor({
           value={interestsText}
         />
       </label>
-      <p style={{ color: "#5c6677", fontSize: "0.88rem", margin: "0.35rem 0 0" }}>
+      <p id="profile-privacy" style={{ color: "#5c6677", fontSize: "0.88rem", margin: "0.35rem 0 0" }}>
         Use a nickname and broad topics only. Do not enter a surname or legal name,
         exact birthdate, school, teacher, email, location, photo, voice, diagnosis,
         scores, behavioral details, or private history.
       </p>
 
       {error !== null && (
-        <div role="alert" style={{ background: "#fff0ee", borderLeft: "0.25rem solid #b23a3a", marginTop: "0.8rem", padding: "0.7rem" }}>
+        <div ref={errorRef} tabIndex={-1} id="profile-error" role="alert" style={{ background: "#fff0ee", borderLeft: "0.25rem solid #b23a3a", marginTop: "0.8rem", padding: "0.7rem" }}>
           {error}
           {conflictState === "needs-reload" && onResolveConflict !== undefined && (
             <div style={{ marginTop: "0.6rem" }}>

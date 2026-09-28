@@ -523,6 +523,7 @@ export function App() {
   const generationActionRef = useRef(false);
   const [activeGeneration, setActiveGeneration] =
     useState<ActiveGeneration | null>(null);
+  const [generationFailed, setGenerationFailed] = useState(false);
   const [generationMessage, setGenerationMessage] = useState<string | null>(
     null,
   );
@@ -964,11 +965,13 @@ export function App() {
       const currentSelection = { ...selection, profile: currentProfile };
       const generated = createInitialWorksheetSession(currentSelection);
       if (!generated.ok) {
+        setGenerationFailed(true);
         setActiveGeneration(null);
         setGenerationMessage(generated.message);
         setMakeAnotherExhausted(false);
         return;
       }
+      setGenerationFailed(false);
       setActiveGeneration({
         authority: renderedAuthority,
         selection: currentSelection,
@@ -1028,6 +1031,7 @@ export function App() {
         activeGeneration.session,
         currentSelection,
       );
+      setGenerationFailed(alternative.status === "failed");
       if (alternative.status === "changed") {
         setActiveGeneration({
           authority: activeGeneration.authority,
@@ -1047,6 +1051,14 @@ export function App() {
   }
 
   const showEditor = editorSession !== undefined;
+  const editorWasOpen = useRef(false);
+  const workspaceRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (editorWasOpen.current && !showEditor) {
+      workspaceRef.current?.querySelector<HTMLElement>("#profiles-title, #first-profile-title")?.focus();
+    }
+    editorWasOpen.current = showEditor;
+  }, [showEditor]);
   const profileConfig =
     profileState.kind === "ready" || profileState.kind === "recovery"
       ? profileState.config
@@ -1060,7 +1072,7 @@ export function App() {
       : null;
 
   return (
-    <main className="app-shell" style={shellStyle}>
+    <main ref={workspaceRef} className="app-shell" style={shellStyle}>
       <section aria-labelledby="welcome-title" className="welcome-card" style={cardStyle}>
         <header className="print-controls" style={{ display: "grid", gap: "0.8rem", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 18rem), 1fr))", marginBottom: "1rem" }}>
           <div>
@@ -1249,9 +1261,9 @@ export function App() {
                   )}
                   {generationMessage !== null && (
                     <p
-                      aria-live="polite"
+                      aria-live={generationFailed ? "assertive" : "polite"}
                       id={makeAnotherExhausted ? "make-another-status" : undefined}
-                      role="status"
+                      role={generationFailed ? "alert" : "status"}
                     >
                       {generationMessage}
                     </p>

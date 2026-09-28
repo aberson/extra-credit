@@ -1,0 +1,12 @@
+/* Screen rules never change the physical print contract. */
+@media screen {
+  .app-shell *, .app-shell { min-width: 0; }
+  .app-shell { overflow-wrap: anywhere; }
+  button, input, select, textarea { font: inherit; max-width: 100%; }
+  button { white-space: normal; }
+  input:not([type="checkbox"]):not([type="radio"]), select { min-height: 2.25rem; }
+  button, summary { min-height: 2.25rem; }
+  :focus-visible { outline: 3px solid #174e9b; outline-offset: 3px; }
+  [tabindex="-1"]:focus { outline: 3px solid #174e9b; outline-offset: 3px; }
+  .profile-actions { flex-wrap: wrap; }
+}

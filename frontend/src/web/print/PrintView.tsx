@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import type { WorksheetDocumentV1 } from "../../shared/worksheet/types";
 import { WorksheetPreview } from "../preview/WorksheetPreview";
@@ -23,6 +23,8 @@ function surfaceButtonStyle(selected: boolean): CSSProperties {
 }
 
 export function PrintView({ document }: PrintViewProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { headingRef.current?.focus(); }, []);
   const [surface, setSurface] = useState<"worksheet" | "answer">("worksheet");
   const answerKeyAvailable = document.request.options.includeAnswerKey;
   const effectiveSurface = answerKeyAvailable ? surface : "worksheet";
@@ -30,7 +32,7 @@ export function PrintView({ document }: PrintViewProps) {
   return (
     <section className="print-workspace" aria-labelledby={`preview-${document.worksheetId}`} style={{ marginTop: "1.5rem" }}>
       <div className="print-controls">
-        <h2 id={`preview-${document.worksheetId}`}>Preview and print</h2>
+        <h2 ref={headingRef} tabIndex={-1} id={`preview-${document.worksheetId}`}>Preview and print</h2>
         <p>
           Preview the child page or the separate parent key. Print on the selected
           paper at 100% scale, with browser headers and footers turned off.

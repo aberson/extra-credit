@@ -422,6 +422,7 @@ export function GeneratorControls({
         <label>
           Worksheet type
           <select
+            aria-describedby={!availability.available ? "generation-unavailable" : undefined}
             aria-label="Worksheet type"
             disabled={disabled}
             onChange={(event) =>
@@ -443,7 +444,7 @@ export function GeneratorControls({
         </label>
 
         {!availability.available && (
-          <p aria-live="polite" style={{ background: "#fff5e8", padding: "0.75rem" }}>
+          <p id="generation-unavailable" aria-live="polite" style={{ background: "#fff5e8", padding: "0.75rem" }}>
             {availability.message}
           </p>
         )}
@@ -455,6 +456,7 @@ export function GeneratorControls({
         {capacityShortfall !== undefined && (
           <p
             aria-live="polite"
+            id="generation-capacity"
             data-capacity-conflict="true"
             style={{ background: "#fff5e8", padding: "0.75rem" }}
           >
@@ -691,6 +693,7 @@ export function GeneratorControls({
         )}
 
         <button
+          aria-describedby={!availability.available ? "generation-unavailable" : capacityShortfall !== undefined ? "generation-capacity" : undefined}
           disabled={disabled || !producible || stretchNeedsConfirmation}
           onClick={submit}
           type="button"

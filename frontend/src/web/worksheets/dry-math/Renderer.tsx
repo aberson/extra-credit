@@ -33,7 +33,7 @@ export function DryMathRenderer({ document }: WorksheetRendererProps) {
         style={{
           display: "grid",
           gap: "1rem",
-          gridTemplateColumns: "repeat(auto-fit, minmax(12rem, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 12rem), 1fr))",
           listStylePosition: "inside",
           padding: 0,
         }}

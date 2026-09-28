@@ -43,7 +43,7 @@ const fieldsetStyle: CSSProperties = {
 const gridStyle: CSSProperties = {
   display: "grid",
   gap: "0.7rem",
-  gridTemplateColumns: "repeat(auto-fit, minmax(10.5rem, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr))",
 };
 
 function replaceArrayValue<T extends string>(

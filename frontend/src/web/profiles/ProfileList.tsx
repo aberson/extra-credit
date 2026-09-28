@@ -58,7 +58,7 @@ export function ProfileList({
   if (profiles.length === 0) {
     return (
       <section aria-busy={disabled} aria-labelledby="first-profile-title">
-        <h2 id="first-profile-title">Start with one reusable profile</h2>
+        <h2 tabIndex={-1} id="first-profile-title">Start with one reusable profile</h2>
         <p>
           Keep only a nickname, age, broad interests, and capabilities you have
           confirmed. The profile stays in the local configuration file.
@@ -77,7 +77,7 @@ export function ProfileList({
           <p style={{ color: "#a14d2c", fontSize: "0.76rem", fontWeight: 750, letterSpacing: "0.1em", margin: 0, textTransform: "uppercase" }}>
             Local profiles
           </p>
-          <h2 id="profiles-title" style={{ margin: "0.15rem 0 0" }}>Choose a profile to update</h2>
+          <h2 tabIndex={-1} id="profiles-title" style={{ margin: "0.15rem 0 0" }}>Choose a profile to update</h2>
         </div>
         <button disabled={disabled} onClick={onAdd} type="button">Add profile</button>
       </div>
@@ -95,7 +95,7 @@ export function ProfileList({
                     {support.supported ? "worksheet band available" : "saved; generation unsupported"}
                   </p>
                 </div>
-                <div style={{ display: "flex", gap: "0.45rem" }}>
+                <div className="profile-actions" style={{ display: "flex", gap: "0.45rem" }}>
                   <button
                     disabled={disabled}
                     onClick={() => onEdit(profile)}
