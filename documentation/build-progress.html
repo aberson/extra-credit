@@ -380,37 +380,34 @@
           </p>
         </div>
         <div class="stamp">
-          <span class="pill">Step 12 verifying / round 2 of 10</span>
+          <span class="pill">Step 12 accepted / round 2 of 10</span>
           <p>
             Updated
-            <time datetime="2026-09-28T22:15:11Z">2026-09-28 22:15:11 UTC</time>
+            <time datetime="2026-09-28T22:27:43Z">2026-09-28 22:27:43 UTC</time>
           </p>
           <button id="print" class="print-button">Print / save PDF</button>
         </div>
       </header>
       <div class="stats">
-        <div class="stat">Accepted and merged<strong>Steps 1-11</strong></div>
-        <div class="stat">Full gates passed<strong>Step 12 / round 2 of 10</strong></div>
-        <div class="stat">Unaccepted gates<strong>12-13 / M1-M3</strong></div>
+        <div class="stat">Accepted and merged<strong>Steps 1-12</strong></div>
+        <div class="stat">Accepted review<strong>Step 12 / round 2 of 10</strong></div>
+        <div class="stat">Unaccepted gates<strong>13 / M1-M3</strong></div>
       </div>
       <div class="notice">
-        <strong>Checkpoint: Step 12 round 2 full gates passed; fresh review next.</strong>
+        <strong>Checkpoint: Step 12 accepted and merged; Step 13 next.</strong>
         <p>
-          Developer and coordinator mechanical verification PASSED, each with
-          457 unit tests and 159 browser tests. Coordinator full check exited 0;
-          its browser suite reported 4.0 minutes. Privacy calibration returned
-          expected exits 1 / 1 / 0. Developer dedicated CI smoke completed in
-          8.213 seconds; coordinator dedicated CI smoke PASSED (exit 0),
-          with full harness elapsed time of 8.133 seconds.
+          Step 12 merged at <code>7b5a27d</code> after round 2 of its 10-round
+          allowance. The canonical six-code-lens review PASSED with zero
+          findings. Developer, coordinator and main post-merge full gates
+          PASSED, each with 457 unit tests and 159 browser tests. Privacy
+          calibration retained the expected exits 1 / 1 / 0. Coordinator
+          dedicated CI smoke PASSED in 8.133 seconds.
           Separate development and compiled UI captures PASSED: three canonical
           profiles, eight-item A4 large worksheet and matching answer-key IDs.
-          Temporary data and sockets were cleaned up.
-          Fresh round 2 reviews are next; the allowance is 10 rounds, with one
-          consumed. Step 12 remains unaccepted and unmerged on the isolated
-          candidate from checkpoint <code>3457c9b</code>. Main is unchanged.
-          Next: fresh independent reviews
-          before acceptance and Step 13 clean-room verification.
-          M1-M3 remain pending. No push has occurred.
+          Evidence was archived with a hash manifest (544 files); the final
+          ship check was clean, and the step worktree and branch were removed.
+          Authenticated advancement was consumed. Next: Step 13 clean-room
+          verification. M1-M3 remain pending. No push has occurred.
         </p>
         <p>
           Round 1 aggregate review returned NEEDS WORK with one blocking
@@ -429,8 +426,7 @@
           TypeScript projects, 457 unit tests in 20 files and 158 Playwright
           tests each. Source audit is clean. Evidence was archived and hash
           checked (493 files, 28 MB); the step worktree and branch were removed.
-          Authenticated advancement was consumed. Next: Step 12 real-pipeline
-          release smoke, then Step 13 clean-room verification. Step 11 used
+          Authenticated advancement was consumed. Step 11 used
           one of its 10 allowed review rounds.
           The unchanged desktop foundation regression passed focused attempt 7
           after removing the line-height override and reducing the control
@@ -449,7 +445,7 @@
         </p>
         <p>
           Step 10 implementation: <code>e721ca6</code>; acceptance checkpoint:
-          <code>765c138</code>. Step 12 release smoke is under round 2 verification; Step 13 clean-room
+          <code>765c138</code>. Step 12 release smoke is accepted and merged; Step 13 clean-room
           verification remains pending. Physical printing
           (M1), the family pilot (M2) and pushed Ubuntu CI (M3) remain pending.
           No push has occurred. Historical failed rounds remain recorded below.
@@ -660,13 +656,13 @@
                   <td>
                     <strong>Step12</strong><br />Real-pipeline release smoke
                   </td>
-                  <td>Full gates and CI smoke passed / review next / unaccepted / unmerged</td>
+                  <td>Accepted / merged; round 2 of 10 passed</td>
                   <td>Agent<br />Step 11</td>
                   <td>
                     Real compiled application smoke across canonical fixtures
                     and all families; privacy/network checks; under 60
-                    seconds.<br /><a href="#step12-round2-coordinator-evidence"
-                      >Round 2 full gates / review next</a
+                    seconds.<br /><a href="#step12-accepted-evidence"
+                      >Six code lenses and all three full gates passed; merged 7b5a27d</a
                     >
                   </td>
                 </tr>
@@ -856,10 +852,10 @@
               <div class="lane">
                 <strong>Release proof</strong
                 ><button
-                  class="bar review"
+                  class="bar"
                   data-detail="Step12"
                   style="grid-column: 11"
-                  aria-label="Step12: Real-pipeline release smoke; Full gates and CI smoke passed, review next, round 2 of 10, unaccepted and unmerged"
+                  aria-label="Step12: Real-pipeline release smoke; Accepted and merged, round 2 of 10 passed"
                 >
                   Step12</button
                 ><button
@@ -913,7 +909,7 @@
               <dd id="detail-dependency">Step 11 / Agent</dd>
               <dt>Outcome</dt>
               <dd id="detail-state">
-                Full gates and CI smoke passed / review next / round 2 of 10 / unaccepted / unmerged
+                Accepted / merged; round 2 of 10 passed
               </dd>
               <dt>Acceptance boundary</dt>
               <dd id="detail-gate">
@@ -1151,6 +1147,27 @@
                   </td>
                   <td>Run start/end unknown / reported harness duration only</td>
                 </tr>
+                <tr id="step12-accepted-evidence">
+                  <td>2026-09-28 22:27:43 UTC checkpoint</td>
+                  <td>
+                    Step 12 accepted and merged at <code>7b5a27d</code> after
+                    review round 2 of 10. Canonical six-code-lens review PASSED
+                    with zero findings (review evidence timestamp
+                    2026-09-28 22:20:04 UTC). Developer, coordinator and main
+                    post-merge full gates PASSED: 457 unit tests and 159 browser
+                    tests each. Retained privacy calibration returned expected
+                    exits 1 / 1 / 0. Coordinator dedicated CI smoke PASSED in
+                    8.133 seconds. Separate development and compiled runtime/UI
+                    captures PASSED. Evidence archive contains 544 files with a
+                    hash manifest; final ship check clean. Step worktree and
+                    branch removed; authenticated advancement consumed.
+                    Next: <a href="../plan.md">Step 13 clean-room verification</a>.
+                    M1 physical printing, M2 family pilot and M3 pushed Ubuntu CI
+                    remain pending. No push has occurred. Round 1 blocking
+                    review and earlier failed runs remain historical evidence.
+                  </td>
+                  <td>Run start/end unknown / acceptance observed at checkpoint</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1307,9 +1324,9 @@
           label: "Real-pipeline release smoke",
           dep: "Step 11",
           owner: "Agent",
-          state: "Full gates and CI smoke passed / review next / round 2 of 10 / unaccepted / unmerged",
+          state: "Accepted / merged; round 2 of 10 passed",
           gate: "Real compiled application smoke across canonical fixtures and all families; privacy/network checks; under 60 seconds.",
-          evidence: "#step12-round2-coordinator-evidence",
+          evidence: "#step12-accepted-evidence",
         },
         Step13: {
           id: "Step13",

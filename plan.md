@@ -733,7 +733,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Prove the built application completes one real profile-to-print cycle across all four worksheet generators without mocks or external requests.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** DONE (2026-09-28)
 - **Issue:** #12
 - **Flags:** --reviewers deep --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
