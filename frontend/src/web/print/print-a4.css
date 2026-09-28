@@ -1,0 +1,10 @@
+@page extra-credit-a4 {
+  size: A4;
+  margin: 10mm;
+}
+
+.print-surface[data-paper-size="a4"] {
+  page: extra-credit-a4;
+  --print-width: 190mm;
+  --print-height: 277mm;
+}

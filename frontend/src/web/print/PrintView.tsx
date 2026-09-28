@@ -3,6 +3,9 @@ import { useState, type CSSProperties } from "react";
 import type { WorksheetDocumentV1 } from "../../shared/worksheet/types";
 import { WorksheetPreview } from "../preview/WorksheetPreview";
 import { AnswerKeyView } from "./AnswerKeyView";
+import "./print-letter.css";
+import "./print-a4.css";
+import "../styles/tokens.css";
 
 interface PrintViewProps {
   readonly document: WorksheetDocumentV1;
@@ -25,13 +28,12 @@ export function PrintView({ document }: PrintViewProps) {
   const effectiveSurface = answerKeyAvailable ? surface : "worksheet";
 
   return (
-    <section aria-labelledby="preview-title" style={{ marginTop: "1.5rem" }}>
-      <style>{`@media print { .print-controls, .profile-workspace { display: none !important; } .print-surface { border: 0 !important; box-shadow: none !important; } }`}</style>
+    <section className="print-workspace" aria-labelledby={`preview-${document.worksheetId}`} style={{ marginTop: "1.5rem" }}>
       <div className="print-controls">
-        <h2 id="preview-title">Preview and print</h2>
+        <h2 id={`preview-${document.worksheetId}`}>Preview and print</h2>
         <p>
-          Preview the child page or the separate parent key. Browser print settings
-          control the final paper output.
+          Preview the child page or the separate parent key. Print on the selected
+          paper at 100% scale, with browser headers and footers turned off.
         </p>
         <div aria-label="Print surface" role="group">
           <button

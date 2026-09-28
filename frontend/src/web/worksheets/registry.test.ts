@@ -329,6 +329,55 @@ function parseVisibleEquation(choice: Element): {
 afterEach(cleanup);
 
 describe("worksheet renderer registry", () => {
+  test("hidden stored decoration is canonicalized before generation and prints no panel", () => {
+    for (const [worksheetType, sourceProfile] of [
+      ["dry-math", profile],
+      ["find-the-wow", quantityProfile],
+      ["find-the-wow", profile],
+    ] as const) {
+      const generated = createWorksheetSessionForSeed({
+        ...selection,
+        worksheetType,
+        profile: sourceProfile,
+        preferences: { ...selection.preferences, includeDecorativeGraphics: true },
+      }, 42);
+      if (!generated.ok) {
+        throw new Error(generated.message);
+      }
+      expect(generated.session.document.request.options.includeDecorativeGraphics).toBe(false);
+      const { container, unmount } = render(createElement(PrintView, {
+        document: generated.session.document,
+      }));
+      expect(container.querySelectorAll(".print-surface [data-item-id]")).toHaveLength(
+        generated.session.document.items.length,
+      );
+      expect(container.querySelectorAll("[data-decorative-panel]")).toHaveLength(0);
+      unmount();
+    }
+  });
+
+  test.each(REGISTERED_WORKSHEET_IDS)("%s worksheet and parent key coexist with document-scoped unique IDs", (worksheetType) => {
+    const generated = createWorksheetSessionForSeed({ ...selection, worksheetType }, 42);
+    if (!generated.ok) throw new Error(generated.message);
+    const session = generated.session;
+    render(createElement("div", null,
+      createElement(WorksheetPreview, { document: session.document }),
+      createElement(AnswerKeyView, { document: session.document }),
+    ));
+    const ids = [...document.querySelectorAll("[id]")].map((element) => element.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const worksheet = screen.getByLabelText("Worksheet preview");
+    const key = screen.getByRole("list", { name: "Objective answers" });
+    expect(worksheet.querySelectorAll("[data-item-id][id]")).toHaveLength(session.document.items.length);
+    expect(key.querySelectorAll("[data-item-id][id]")).toHaveLength(
+      session.document.items.filter((item) => item.answerability === "objective").length,
+    );
+    for (const region of document.querySelectorAll("[aria-labelledby]")) {
+      const labelId = region.getAttribute("aria-labelledby");
+      expect(labelId === null ? null : document.getElementById(labelId)).not.toBeNull();
+    }
+  });
+
   test("has exactly the same keys as the shared generator registry", () => {
     expect(Object.keys(WEB_WORKSHEET_RENDERERS).sort()).toEqual(
       Object.keys(WORKSHEET_REGISTRY).sort(),

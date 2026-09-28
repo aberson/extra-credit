@@ -372,6 +372,19 @@ async function occupyPort(port: number): Promise<Server> {
   return server;
 }
 
+async function availablePort(): Promise<number> {
+  const probe = await occupyPort(0);
+  try {
+    const address = probe.address();
+    if (address === null || typeof address === "string") {
+      throw new Error("Missing ephemeral socket address.");
+    }
+    return address.port;
+  } finally {
+    await closeServer(probe);
+  }
+}
+
 async function assertPortReleased(port: number): Promise<void> {
   const deadline = Date.now() + 5_000;
 
@@ -856,12 +869,14 @@ test("fixed development stack proxies health and rejects repository config throu
   }
 });
 
-for (const [label, arguments_, extraPort] of [
-  ["host", ["--host", "0.0.0.0"], undefined],
-  ["port", ["--port", "54321"], 54_321],
-  ["strict-port", ["--strictPort=false"], undefined],
+for (const [label, options] of [
+  ["host", ["--host", "0.0.0.0"]],
+  ["port", []],
+  ["strict-port", ["--strictPort=false"]],
 ] as const) {
   test(`Vite rejects a resolved ${label} override before listening`, async () => {
+    const extraPort = label === "port" ? await availablePort() : undefined;
+    const arguments_ = extraPort === undefined ? options : ["--port", String(extraPort)];
     let developmentProcess: CapturedProcess | undefined;
 
     try {
@@ -895,7 +910,7 @@ for (const [label, arguments_, extraPort] of [
 }
 
 test("Vite preview package path is rejected before listening", async () => {
-  const previewPort = 54_322;
+  const previewPort = await availablePort();
   const unsafeHost = "0.0.0.0";
   const safeError =
     "EXTRA_CREDIT_VITE_AUTHORITY_ERROR: Vite preview is disabled; use npm run start.";

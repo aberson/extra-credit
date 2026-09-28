@@ -2,7 +2,7 @@
 
 ## 1. What This Is
 
-Proposal: documentation/extra-credit-proposal.html
+Proposal: documentation/extra-credit-proposal.html | [Build progress](documentation/build-progress.html)
 
 Extra Credit is an open-source, parent-facing local web application that creates personalized, capability-aligned activity sheets for printing at home. A parent maintains reusable child profiles in a gitignored JSON file, chooses an activity and a small set of options, previews the result, then prints the worksheet and an optional parent answer key. Version 1 supports Dry Math, Math — Two Whats and a Wow, Sentence Builder, and the younger-child-friendly Count, Compare & Make. Children use the printed output rather than an online account, and the application sends no profile or worksheet data off the computer.
 
@@ -707,7 +707,7 @@ These run unattended through `/build-phase`.
 - **Type:** code
 - **Status:** BLOCKED (2026-09-10)
 - **Issue:** #10
-- **Flags:** --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
+- **Flags:** --max-iter 10 --reviewers full --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`
 - **URL:** `http://127.0.0.1:4311`
 - **Files:** `frontend/src/web/print/PrintView.tsx`, `frontend/src/web/print/AnswerKeyView.tsx`, `frontend/src/web/print/print-letter.css`, `frontend/src/web/print/print-a4.css`, `frontend/src/web/styles/tokens.css`, `frontend/tests/e2e/print.spec.ts`, `frontend/tests/fixtures/print/`, `frontend/tests/manual/print-harness.mjs`, `frontend/tests/integration/ci-contract.test.ts`, `documentation/testing-print.md`, `frontend/package.json`

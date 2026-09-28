@@ -41,7 +41,7 @@ function runPlaywright(baseURL) {
   const playwrightCli = require.resolve("@playwright/test/cli");
 
   return new Promise((resolveExit, reject) => {
-    const child = spawn(process.execPath, [playwrightCli, "test"], {
+    const child = spawn(process.execPath, [playwrightCli, "test", ...process.argv.slice(2)], {
       cwd: frontendRoot,
       env: {
         ...process.env,

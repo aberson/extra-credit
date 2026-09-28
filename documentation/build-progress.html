@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Extra Credit / Build progress</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f3ec;
+        --card: #fffdf8;
+        --ink: #26322f;
+        --muted: #62716a;
+        --line: #dbdfd5;
+        --accent: #14746b;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 system-ui,
+          sans-serif;
+      }
+      .shell {
+        max-width: 1250px;
+        margin: auto;
+        padding: 32px;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+      }
+      h1 {
+        font-size: 42px;
+        line-height: 1.12;
+        letter-spacing: -1px;
+        margin: 10px 0;
+      }
+      h2 {
+        font-size: 23px;
+      }
+      p {
+        max-width: 850px;
+      }
+      .eyebrow {
+        color: #986d18;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        font-weight: 700;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .card,
+      .notice {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 22px;
+        margin: 18px 0;
+      }
+      .notice {
+        border-left: 5px solid #986d18;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+      .stat {
+        padding: 18px;
+        background: #e8ece3;
+        border-radius: 10px;
+      }
+      .stat strong {
+        display: block;
+        font-size: 27px;
+      }
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+        background: var(--card);
+        border: 1px solid #aeb9ae;
+        border-radius: 7px;
+        padding: 9px 13px;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #227a98;
+        outline-offset: 3px;
+      }
+      .tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 24px 0;
+      }
+      .tabs [aria-selected="true"] {
+        background: var(--ink);
+        color: white;
+      }
+      .scroll {
+        overflow: auto;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        text-align: left;
+      }
+      td,
+      th {
+        padding: 13px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+      a {
+        color: #225f80;
+      }
+      .pill {
+        background: #e8ece3;
+        border-radius: 20px;
+        padding: 4px 10px;
+        white-space: nowrap;
+      }
+      .gantt {
+        min-width: 730px;
+      }
+      .ghead,
+      .lane {
+        display: grid;
+        grid-template-columns: 180px repeat(3, 1fr);
+        gap: 10px;
+        align-items: center;
+        margin: 12px 0;
+      }
+      .ghead {
+        color: var(--muted);
+      }
+      .bar {
+        background: #dff1e9;
+        border-color: #14746b;
+        text-align: left;
+        min-height: 60px;
+      }
+      .bar.review {
+        background: #fff0c8;
+        border-color: #996a15;
+      }
+      .detail {
+        border-left: 4px solid var(--accent);
+        padding-left: 18px;
+      }
+      dt {
+        color: var(--muted);
+        margin-top: 10px;
+      }
+      dd {
+        margin: 0;
+      }
+      .empty {
+        padding: 25px;
+        border: 1px dashed #aeb9ae;
+        border-radius: 8px;
+      }
+      .stamp {
+        text-align: right;
+        min-width: 150px;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      @media (max-width: 700px) {
+        .shell {
+          padding: 18px;
+        }
+        header {
+          display: block;
+        }
+        .stamp {
+          text-align: left;
+        }
+        .stats {
+          grid-template-columns: 1fr;
+        }
+        h1 {
+          font-size: 34px;
+        }
+        td,
+        th {
+          padding: 10px;
+        }
+      }
+      @media print {
+        @page {
+          size: A4 landscape;
+          margin: 14mm;
+        }
+        :root {
+          --bg: #fff;
+          --card: #fff;
+          --ink: #26322f;
+          --muted: #52635a;
+          --line: #ced5c8;
+        }
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        body {
+          background: white;
+          font-size: 10pt;
+        }
+        .shell {
+          padding: 0;
+          max-width: none;
+        }
+        .tabs,
+        .controls,
+        .print-button {
+          display: none !important;
+        }
+        .panel[hidden],
+        tr[hidden] {
+          display: revert !important;
+        }
+        .panel {
+          break-before: page;
+        }
+        .card,
+        tr,
+        .stats {
+          break-inside: avoid;
+        }
+        h1,
+        h2 {
+          break-after: avoid;
+        }
+        thead {
+          display: table-header-group;
+        }
+        .scroll {
+          overflow: visible;
+        }
+        .gantt {
+          min-width: 0;
+        }
+        button {
+          color: #26322f;
+        }
+        a {
+          color: #225f80;
+        }
+      }
+
+      .gantt {
+        min-width: 1000px;
+      }
+      .ghead,
+      .lane {
+        grid-template-columns: 130px repeat(12, minmax(58px, 1fr));
+        gap: 5px;
+      }
+      .bar {
+        font-size: 12px;
+        padding: 7px;
+        min-height: 48px;
+      }
+      .bar.pending {
+        background: #eef0f2;
+        border-color: #89949e;
+      }
+      .legend {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .stamp {
+        max-width: 235px;
+      }
+      td:first-child {
+        min-width: 155px;
+      }
+      .detail {
+        margin-top: 25px;
+      }
+      .history-note {
+        font-size: 13px;
+      }
+      @media (max-width: 700px) {
+        #inventory table,
+        #inventory tbody,
+        #inventory tr,
+        #inventory td {
+          display: block;
+        }
+        #inventory thead {
+          display: none;
+        }
+        #inventory td {
+          border: 0;
+          padding: 5px 0;
+        }
+        #inventory tr {
+          padding: 15px 0;
+          border-bottom: 1px solid var(--line);
+        }
+      }
+      @media print {
+        :root,
+        [data-theme="light"],
+        [data-theme="dark"] {
+          color-scheme: light;
+          --bg: #fff;
+          --card: #fff;
+          --ink: #26322f;
+          --muted: #52635a;
+          --line: #ced5c8;
+        }
+        .gantt {
+          min-width: 0;
+        }
+        .ghead,
+        .lane {
+          grid-template-columns: 105px repeat(12, minmax(0, 1fr));
+        }
+        .bar {
+          font-size: 8pt;
+          padding: 4px;
+          overflow-wrap: anywhere;
+        }
+        .notice,
+        .stat,
+        .lane {
+          break-inside: avoid;
+        }
+        header,
+        .scroll {
+          position: static;
+          overflow: visible;
+        }
+        .panel[hidden],
+        tr[hidden] {
+          display: revert !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <div>
+          <div class="eyebrow">Extra Credit / build program</div>
+          <h1>Built is a milestone.<br />Accepted is a gate.</h1>
+          <p class="muted">
+            Projection of the <a href="../plan.md">canonical plan</a>. Complete
+            inventory through release and operator acceptance. No release
+            acceptance is claimed.
+          </p>
+        </div>
+        <div class="stamp">
+          <span class="pill">Step 10 round 5 verification active</span>
+          <p>
+            Updated
+            <time datetime="2026-09-28T20:06:43Z">2026-09-28 20:06:43 UTC</time>
+          </p>
+          <button id="print" class="print-button">Print / save PDF</button>
+        </div>
+      </header>
+      <div class="stats">
+        <div class="stat">Accepted and merged<strong>Steps 1-9</strong></div>
+        <div class="stat">Built, unaccepted<strong>Step 10</strong></div>
+        <div class="stat">Pending gates<strong>11-13 / M1-M3</strong></div>
+      </div>
+      <div class="notice">
+        <strong
+          >Checkpoint: round 5 developer gate passed; coordinator gate
+          running.</strong
+        >
+        <p>
+          Step 10 was held September 10 after three review rounds. Diagnostic
+          counterexamples were verified September 28. The operator extended the
+          allowance to <strong>10 total rounds</strong>: four consumed, round 5
+          active, six available including this round. Round 5 developer full
+          gate PASSED (exit 0): lint, three TypeScript projects, 457 Vitest tests
+          in 20 files and 145 Playwright tests. The exact seed 00000005 regression
+          is repaired in developer checks. Four order tests and 960 real seed
+          observations passed. Separately labeled synthetic stress and upper-v1
+          Wow probes also passed. Coordinator full gate is running; independent
+          round 5 reviews have not started. Next: complete coordinator checks
+          and independent review before acceptance. Round 4 remains reviewer
+          rejected; the chart source-format repair awaits independent re-review.
+        </p>
+        <p>
+          Main snapshot: <code>b41957b</code>. The plan still records the
+          September 10 blocked checkpoint; this session has resumed work; round
+          4 was reviewer rejected and round 5 is in progress. Step 10 remains
+          unaccepted and unmerged. Steps 11-13 wait on Step 10 acceptance.
+        </p>
+      </div>
+      <nav class="tabs" role="tablist" aria-label="Progress views">
+        <button
+          id="inventory-tab"
+          role="tab"
+          aria-controls="inventory"
+          aria-selected="true"
+        >
+          Done &amp; to do</button
+        ><button
+          id="gantt-tab"
+          role="tab"
+          aria-controls="dependencies"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Dependency Gantt</button
+        ><button
+          id="history-tab"
+          role="tab"
+          aria-controls="history"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          Observed timeline
+        </button>
+      </nav>
+      <section
+        id="inventory"
+        class="panel"
+        role="tabpanel"
+        aria-labelledby="inventory-tab"
+      >
+        <div class="card">
+          <h2>Complete inventory</h2>
+          <p>
+            16 stable units. Accepted scope is each step's gate; merged
+            implementation does not establish physical, family or live-CI
+            acceptance.
+          </p>
+          <div class="controls">
+            <label for="search">Filter inventory</label
+            ><input id="search" type="search" /><button id="reset">Reset</button
+            ><span id="count" role="status">All 16 units shown</span>
+          </div>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID / unit</th>
+                  <th>Outcome</th>
+                  <th>Owner / dependency</th>
+                  <th>Acceptance boundary / evidence</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr data-unit="Step1" id="unit-Step1">
+                  <td>
+                    <strong>Step1</strong><br />Runnable application foundation
+                  </td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />none</td>
+                  <td>
+                    Locked install, lint, typecheck, build and test
+                    foundation.<br /><a href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step2" id="unit-Step2">
+                  <td>
+                    <strong>Step2</strong><br />Secure profile config round trip
+                  </td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />Step 1</td>
+                  <td>
+                    Secure durable profile read/write and recovery contract.<br /><a
+                      href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step3" id="unit-Step3">
+                  <td><strong>Step3</strong><br />Parent profile setup flow</td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />Step 2</td>
+                  <td>
+                    Parent setup and capability editing through the real API.<br /><a
+                      href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step4" id="unit-Step4">
+                  <td><strong>Step4</strong><br />Dry Math vertical slice</td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />Step 3</td>
+                  <td>
+                    Deterministic capability-bounded Dry Math and answers.<br /><a
+                      href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step5" id="unit-Step5">
+                  <td>
+                    <strong>Step5</strong><br />Two Whats and a Wow vertical
+                    slice
+                  </td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />Step 4</td>
+                  <td>
+                    Quantity and equation Wow variants with recomputed
+                    answers.<br /><a href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step6" id="unit-Step6">
+                  <td>
+                    <strong>Step6</strong><br />Sentence Builder vertical slice
+                  </td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />Step 4</td>
+                  <td>
+                    All five writing modes, reviewed vocabulary and response
+                    areas.<br /><a href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step7" id="unit-Step7">
+                  <td>
+                    <strong>Step7</strong><br />Reviewed decorative line-art
+                    system
+                  </td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />Step 6</td>
+                  <td>
+                    Reviewed local original line art with provenance and
+                    toggles.<br /><a href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step8" id="unit-Step8">
+                  <td>
+                    <strong>Step8</strong><br />Count, Compare &amp; Make
+                    vertical slice
+                  </td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />Step 4</td>
+                  <td>
+                    Four count/compare activities and objective keys.<br /><a
+                      href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step9" id="unit-Step9">
+                  <td>
+                    <strong>Step9</strong><br />Personalization and worksheet
+                    options
+                  </td>
+                  <td>Accepted / merged</td>
+                  <td>Agent<br />Steps 5, 7, and 8</td>
+                  <td>
+                    Normalized options, personalization removal and
+                    capacity-aware availability.<br /><a
+                      href="#accepted-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step10" id="unit-Step10">
+                  <td>
+                    <strong>Step10</strong><br />Print and pagination hardening
+                  </td>
+                  <td>Built / unaccepted; round 5 coordinator gate running</td>
+                  <td>Agent<br />Step 9</td>
+                  <td>
+                    Mandatory Windows DOM/PDF geometry and page counts across
+                    the complete print matrix; independent review and merge.
+                    Physical print remains M1.<br /><a href="#step10-evidence"
+                      >Observed evidence summary</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step11" id="unit-Step11">
+                  <td>
+                    <strong>Step11</strong><br />Parent UI accessibility
+                    hardening
+                  </td>
+                  <td>Pending</td>
+                  <td>Agent<br />Step 10</td>
+                  <td>
+                    Zero scoped axe violations, keyboard create-to-preview, 200%
+                    text resize and 320px reflow.<br /><a href="../plan.md"
+                      >Plan gate / no acceptance observed</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step12" id="unit-Step12">
+                  <td>
+                    <strong>Step12</strong><br />Real-pipeline release smoke
+                  </td>
+                  <td>Pending</td>
+                  <td>Agent<br />Step 11</td>
+                  <td>
+                    Real compiled application smoke across canonical fixtures
+                    and all families; privacy/network checks; under 60
+                    seconds.<br /><a href="../plan.md"
+                      >Plan gate / no acceptance observed</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="Step13" id="unit-Step13">
+                  <td>
+                    <strong>Step13</strong><br />Public open-source release
+                    surface
+                  </td>
+                  <td>Pending</td>
+                  <td>Agent<br />Step 12</td>
+                  <td>
+                    Working-tree clean-room release:verify, privacy/license
+                    audit and complete quality suite. Live pushed CI remains
+                    M3.<br /><a href="../plan.md"
+                      >Plan gate / no acceptance observed</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="M1" id="unit-M1">
+                  <td><strong>M1</strong><br />Physical print acceptance</td>
+                  <td>Pending</td>
+                  <td>Operator<br />Step13 (includes Step10)</td>
+                  <td>
+                    Physical Letter/A4 output in Edge and Chrome; all families,
+                    both Wow variants, standard/large and separate keys. Record
+                    non-sensitive printer/browser observations.<br /><a
+                      href="../plan.md"
+                      >Plan gate / no acceptance observed</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="M2" id="unit-M2">
+                  <td><strong>M2</strong><br />Short family usability pilot</td>
+                  <td>Pending</td>
+                  <td>Operator<br />M1</td>
+                  <td>
+                    Capability-aligned pilot and non-identifying observations.
+                    Current pilot covers ages four and six; age eight has
+                    fixture-based acceptance only.<br /><a href="../plan.md"
+                      >Plan gate / no acceptance observed</a
+                    >
+                  </td>
+                </tr>
+                <tr data-unit="M3" id="unit-M3">
+                  <td><strong>M3</strong><br />Live GitHub Actions smoke</td>
+                  <td>Pending</td>
+                  <td>Operator<br />M2 / repo-update commit/push</td>
+                  <td>
+                    Successful push-triggered ci.yml on exact pushed HEAD and
+                    branch, including mandatory Ubuntu print geometry and POSIX
+                    gates.<br /><a href="../plan.md"
+                      >Plan gate / no acceptance observed</a
+                    >
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <section
+        id="dependencies"
+        class="panel"
+        role="tabpanel"
+        aria-labelledby="gantt-tab"
+        hidden
+      >
+        <div class="card">
+          <h2>Dependency Gantt</h2>
+          <p>
+            Illustrative dependency waves,
+            <strong>not dates or durations</strong>. Branches after Step 4 join
+            at Step 9. Final operator gates are sequential: Step 13, then M1,
+            then M2, then repo-update commit/push, then M3. On a narrow screen,
+            scroll the chart horizontally. Select any bar by mouse or Tab then
+            Enter/Space.
+          </p>
+          <p class="legend">
+            <span>Green: accepted / merged</span
+            ><span>Amber: built / unaccepted</span><span>Gray: pending</span>
+          </p>
+          <div class="scroll">
+            <div class="gantt">
+              <div class="ghead">
+                <span>Lane</span><span>1</span><span>2</span><span>3</span
+                ><span>4</span><span>5</span><span>6</span><span>7</span
+                ><span>8</span><span>9</span><span>10</span><span>11</span
+                ><span>Manual</span>
+              </div>
+              <div class="lane">
+                <strong>Foundation</strong
+                ><button
+                  class="bar"
+                  data-detail="Step1"
+                  style="grid-column: 2"
+                  aria-label="Step1: Runnable application foundation; Accepted / merged"
+                >
+                  Step1</button
+                ><button
+                  class="bar"
+                  data-detail="Step2"
+                  style="grid-column: 3"
+                  aria-label="Step2: Secure profile config round trip; Accepted / merged"
+                >
+                  Step2</button
+                ><button
+                  class="bar"
+                  data-detail="Step3"
+                  style="grid-column: 4"
+                  aria-label="Step3: Parent profile setup flow; Accepted / merged"
+                >
+                  Step3</button
+                ><button
+                  class="bar"
+                  data-detail="Step4"
+                  style="grid-column: 5"
+                  aria-label="Step4: Dry Math vertical slice; Accepted / merged"
+                >
+                  Step4
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Math / Wow</strong
+                ><button
+                  class="bar"
+                  data-detail="Step5"
+                  style="grid-column: 6"
+                  aria-label="Step5: Two Whats and a Wow vertical slice; Accepted / merged"
+                >
+                  Step5
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Writing / art</strong
+                ><button
+                  class="bar"
+                  data-detail="Step6"
+                  style="grid-column: 6"
+                  aria-label="Step6: Sentence Builder vertical slice; Accepted / merged"
+                >
+                  Step6</button
+                ><button
+                  class="bar"
+                  data-detail="Step7"
+                  style="grid-column: 7"
+                  aria-label="Step7: Reviewed decorative line-art system; Accepted / merged"
+                >
+                  Step7
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Count / compare</strong
+                ><button
+                  class="bar"
+                  data-detail="Step8"
+                  style="grid-column: 6"
+                  aria-label="Step8: Count, Compare &amp; Make vertical slice; Accepted / merged"
+                >
+                  Step8
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Join / hardening</strong
+                ><button
+                  class="bar"
+                  data-detail="Step9"
+                  style="grid-column: 8"
+                  aria-label="Step9: Personalization and worksheet options; Accepted / merged"
+                >
+                  Step9</button
+                ><button
+                  class="bar review"
+                  data-detail="Step10"
+                  style="grid-column: 9"
+                  aria-label="Step10: Print and pagination hardening; Built / unaccepted; round 5 coordinator gate running"
+                >
+                  Step10</button
+                ><button
+                  class="bar pending"
+                  data-detail="Step11"
+                  style="grid-column: 10"
+                  aria-label="Step11: Parent UI accessibility hardening; Pending"
+                >
+                  Step11
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Release proof</strong
+                ><button
+                  class="bar pending"
+                  data-detail="Step12"
+                  style="grid-column: 11"
+                  aria-label="Step12: Real-pipeline release smoke; Pending"
+                >
+                  Step12</button
+                ><button
+                  class="bar pending"
+                  data-detail="Step13"
+                  style="grid-column: 12"
+                  aria-label="Step13: Public open-source release surface; Pending"
+                >
+                  Step13
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Physical gate</strong
+                ><button
+                  class="bar pending"
+                  data-detail="M1"
+                  style="grid-column: 13"
+                  aria-label="M1: Physical print acceptance; Pending"
+                >
+                  M1
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Family gate</strong
+                ><button
+                  class="bar pending"
+                  data-detail="M2"
+                  style="grid-column: 13"
+                  aria-label="M2: Short family usability pilot; Pending"
+                >
+                  M2
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Push / live CI</strong
+                ><button
+                  class="bar pending"
+                  data-detail="M3"
+                  style="grid-column: 13"
+                  aria-label="M3: Live GitHub Actions smoke; Pending"
+                >
+                  M3
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="detail" aria-live="polite">
+            <h3 id="detail-title">Step10 / Print and pagination hardening</h3>
+            <dl>
+              <dt>Dependency / owner</dt>
+              <dd id="detail-dependency">Step 9 / Agent</dd>
+              <dt>Outcome</dt>
+              <dd id="detail-state">
+                Built / unaccepted; round 5 coordinator gate running
+              </dd>
+              <dt>Acceptance boundary</dt>
+              <dd id="detail-gate">
+                Mandatory Windows DOM/PDF geometry and page counts across the
+                complete print matrix; independent review and merge. Physical
+                print remains M1.
+              </dd>
+            </dl>
+          </div>
+          <p>
+            Failed manual acceptance returns to the owning step and its complete
+            downstream closure through Step 13, then affected manual gates
+            repeat. Failed M3 also requires another commit/push and exact-commit
+            verification.
+          </p>
+        </div>
+      </section>
+      <section
+        id="history"
+        class="panel"
+        role="tabpanel"
+        aria-labelledby="history-tab"
+        hidden
+      >
+        <div class="card">
+          <h2>Observed timeline</h2>
+          <p>
+            Point observations only. Work start/end times are unknown unless
+            explicitly stated; checkpoint timestamps are not durations. Dates
+            supplied without a time retain date-only precision.
+          </p>
+          <div class="scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Observed point</th>
+                  <th>Verdict / evidence</th>
+                  <th>Start / end</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr id="accepted-evidence">
+                  <td>By main snapshot <code>b41957b</code></td>
+                  <td>
+                    Steps 1-9 accepted and merged.
+                    <a href="../plan.md">Plan Step 1-9 DONE records</a> and main
+                    history. Step 9 merge <code>46b844b</code>: 2026-09-08
+                    17:53:10 UTC; the plan's September 7 completion date is a
+                    separate scope record.
+                  </td>
+                  <td>Unknown / merge/checkpoint observations only</td>
+                </tr>
+                <tr id="step10-evidence">
+                  <td>
+                    2026-09-10 hold record<br />Checkpoint committed 2026-09-11
+                    05:12:54 UTC
+                  </td>
+                  <td>
+                    Step 10 held after three rounds; candidate unmerged. Main
+                    checkpoint <code>b41957b</code> and
+                    <a href="../plan.md">Step 10 BLOCKED record</a>. Historical
+                    held verdict retained.
+                  </td>
+                  <td>Unknown / hold date only</td>
+                </tr>
+                <tr>
+                  <td>2026-09-28</td>
+                  <td>
+                    Coordinator verified diagnostic counterexamples and operator
+                    extension to ten total rounds. Round 4 developer and
+                    coordinator checks passed: 457 Vitest tests in 20 files and
+                    141 Playwright tests; developer lint and three TypeScript
+                    projects passed. Developer counterexample checks failed as
+                    intended. Coordinator checked 100 fresh surfaces; seven
+                    other review lenses passed. These results did not establish
+                    acceptance: correctness review found a legal Count/Compare
+                    seed 00000005 produced two Letter pages. Aggregate verdict:
+                    NEEDS WORK (one HIGH, zero MEDIUM, one LOW for compressed
+                    chart source). Round 5 developer full gate PASSED (exit 0):
+                    lint, three TypeScript projects, 457 Vitest tests in 20 files
+                    and 145 Playwright tests. The exact seed 00000005 repair,
+                    four order tests and 960 real seed observations passed in
+                    developer checks. Separately labeled synthetic stress and
+                    upper-v1 Wow probes also passed. Coordinator full gate is
+                    running; independent round 5 reviews have not started.
+                    Step 10 remains unaccepted and unmerged.
+                  </td>
+                  <td>
+                    Diagnostic and round 4 start/end timestamps unavailable;
+                    round 5 developer start/end timestamps unavailable;
+                    coordinator gate end unknown
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="history-note">
+            Evidence summaries omit private run artifacts. The current outcome
+            is recorded in the checkpoint and inventory; historical holds remain
+            here for traceability.
+          </p>
+        </div>
+      </section>
+      <noscript
+        ><style>
+          .panel[hidden] {
+            display: block !important;
+          }
+          .tabs,
+          .controls {
+            display: none;
+          }
+        </style>
+        <p>
+          All views are shown. Interactive selection requires JavaScript.
+        </p></noscript
+      >
+    </main>
+    <script>
+      const tabs = [...document.querySelectorAll("[role=tab]")];
+      function selectTab(button) {
+        for (const b of tabs) {
+          const selected = b === button;
+          b.setAttribute("aria-selected", String(selected));
+          b.tabIndex = selected ? 0 : -1;
+          document.getElementById(b.getAttribute("aria-controls")).hidden =
+            !selected;
+        }
+      }
+      tabs.forEach((b, i) => {
+        b.addEventListener("click", () => selectTab(b));
+        b.addEventListener("keydown", (e) => {
+          let n;
+          if (e.key === "ArrowRight") n = (i + 1) % tabs.length;
+          if (e.key === "ArrowLeft") n = (i + tabs.length - 1) % tabs.length;
+          if (e.key === "Home") n = 0;
+          if (e.key === "End") n = tabs.length - 1;
+          if (n !== undefined) {
+            e.preventDefault();
+            selectTab(tabs[n]);
+            tabs[n].focus();
+          }
+        });
+      });
+      const units = {
+        Step1: {
+          id: "Step1",
+          label: "Runnable application foundation",
+          dep: "none",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "Locked install, lint, typecheck, build and test foundation.",
+          evidence: "#accepted-evidence",
+        },
+        Step2: {
+          id: "Step2",
+          label: "Secure profile config round trip",
+          dep: "Step 1",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "Secure durable profile read/write and recovery contract.",
+          evidence: "#accepted-evidence",
+        },
+        Step3: {
+          id: "Step3",
+          label: "Parent profile setup flow",
+          dep: "Step 2",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "Parent setup and capability editing through the real API.",
+          evidence: "#accepted-evidence",
+        },
+        Step4: {
+          id: "Step4",
+          label: "Dry Math vertical slice",
+          dep: "Step 3",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "Deterministic capability-bounded Dry Math and answers.",
+          evidence: "#accepted-evidence",
+        },
+        Step5: {
+          id: "Step5",
+          label: "Two Whats and a Wow vertical slice",
+          dep: "Step 4",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "Quantity and equation Wow variants with recomputed answers.",
+          evidence: "#accepted-evidence",
+        },
+        Step6: {
+          id: "Step6",
+          label: "Sentence Builder vertical slice",
+          dep: "Step 4",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "All five writing modes, reviewed vocabulary and response areas.",
+          evidence: "#accepted-evidence",
+        },
+        Step7: {
+          id: "Step7",
+          label: "Reviewed decorative line-art system",
+          dep: "Step 6",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "Reviewed local original line art with provenance and toggles.",
+          evidence: "#accepted-evidence",
+        },
+        Step8: {
+          id: "Step8",
+          label: "Count, Compare & Make vertical slice",
+          dep: "Step 4",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "Four count/compare activities and objective keys.",
+          evidence: "#accepted-evidence",
+        },
+        Step9: {
+          id: "Step9",
+          label: "Personalization and worksheet options",
+          dep: "Steps 5, 7, and 8",
+          owner: "Agent",
+          state: "Accepted / merged",
+          gate: "Normalized options, personalization removal and capacity-aware availability.",
+          evidence: "#accepted-evidence",
+        },
+        Step10: {
+          id: "Step10",
+          label: "Print and pagination hardening",
+          dep: "Step 9",
+          owner: "Agent",
+          state: "Built / unaccepted; round 5 coordinator gate running",
+          gate: "Mandatory Windows DOM/PDF geometry and page counts across the complete print matrix; independent review and merge. Physical print remains M1.",
+          evidence: "#step10-evidence",
+        },
+        Step11: {
+          id: "Step11",
+          label: "Parent UI accessibility hardening",
+          dep: "Step 10",
+          owner: "Agent",
+          state: "Pending",
+          gate: "Zero scoped axe violations, keyboard create-to-preview, 200% text resize and 320px reflow.",
+          evidence: "../plan.md",
+        },
+        Step12: {
+          id: "Step12",
+          label: "Real-pipeline release smoke",
+          dep: "Step 11",
+          owner: "Agent",
+          state: "Pending",
+          gate: "Real compiled application smoke across canonical fixtures and all families; privacy/network checks; under 60 seconds.",
+          evidence: "../plan.md",
+        },
+        Step13: {
+          id: "Step13",
+          label: "Public open-source release surface",
+          dep: "Step 12",
+          owner: "Agent",
+          state: "Pending",
+          gate: "Working-tree clean-room release:verify, privacy/license audit and complete quality suite. Live pushed CI remains M3.",
+          evidence: "../plan.md",
+        },
+        M1: {
+          id: "M1",
+          label: "Physical print acceptance",
+          dep: "Step13 (includes Step10)",
+          owner: "Operator",
+          state: "Pending",
+          gate: "Physical Letter/A4 output in Edge and Chrome; all families, both Wow variants, standard/large and separate keys. Record non-sensitive printer/browser observations.",
+          evidence: "../plan.md",
+        },
+        M2: {
+          id: "M2",
+          label: "Short family usability pilot",
+          dep: "M1",
+          owner: "Operator",
+          state: "Pending",
+          gate: "Capability-aligned pilot and non-identifying observations. Current pilot covers ages four and six; age eight has fixture-based acceptance only.",
+          evidence: "../plan.md",
+        },
+        M3: {
+          id: "M3",
+          label: "Live GitHub Actions smoke",
+          dep: "M2 / repo-update commit/push",
+          owner: "Operator",
+          state: "Pending",
+          gate: "Successful push-triggered ci.yml on exact pushed HEAD and branch, including mandatory Ubuntu print geometry and POSIX gates.",
+          evidence: "../plan.md",
+        },
+      };
+      document.querySelectorAll("[data-detail]").forEach((b) =>
+        b.addEventListener("click", () => {
+          const u = units[b.dataset.detail];
+          document.getElementById("detail-title").textContent =
+            u.id + " / " + u.label;
+          document.getElementById("detail-dependency").textContent =
+            u.dep + " / " + u.owner;
+          document.getElementById("detail-state").textContent = u.state;
+          document.getElementById("detail-gate").textContent = u.gate;
+        }),
+      );
+      const search = document.getElementById("search");
+      function filter() {
+        let n = 0;
+        for (const row of document.querySelectorAll("[data-unit]")) {
+          row.hidden = !row.textContent
+            .toLowerCase()
+            .includes(search.value.toLowerCase().trim());
+          if (!row.hidden) n++;
+        }
+        document.getElementById("count").textContent = n + " of 16 units shown";
+      }
+      search.addEventListener("input", filter);
+      document.getElementById("reset").addEventListener("click", () => {
+        search.value = "";
+        filter();
+        search.focus();
+      });
+      document
+        .getElementById("print")
+        .addEventListener("click", () => window.print());
+      document.querySelectorAll('a[href^="#"]').forEach((a) =>
+        a.addEventListener("click", () => {
+          const target = document.querySelector(a.getAttribute("href"));
+          const panel = target.closest(".panel");
+          selectTab(
+            tabs.find((b) => b.getAttribute("aria-controls") === panel.id),
+          );
+        }),
+      );
+    </script>
+  </body>
+</html>

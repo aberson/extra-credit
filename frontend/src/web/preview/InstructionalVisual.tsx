@@ -62,10 +62,42 @@ const groupStyle: CSSProperties = {
 const tenFrameStyle: CSSProperties = {
   border: "2px solid #24324a",
   display: "inline-grid",
-  gridTemplateColumns: `repeat(${TEN_FRAME_COLUMNS}, 1.6em)`,
+  gridTemplateColumns: "1fr",
   lineHeight: 1,
   verticalAlign: "middle",
 };
+
+const frameStyle: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: `repeat(${TEN_FRAME_COLUMNS}, 1.6em)`,
+};
+
+/** Keep each five-by-two frame intact when print places two frames side by side. */
+function FrameCells({ cells, filled = 0, shape = "circle", guide = false }: {
+  readonly cells: number;
+  readonly filled?: number;
+  readonly shape?: InstructionalMarkShapeV1;
+  readonly guide?: boolean;
+}) {
+  return Array.from({ length: cells / TEN_FRAME_CELLS }, (_, frame) => (
+    <span data-ten-frame="true" key={frame} style={frameStyle}>
+      {Array.from({ length: TEN_FRAME_CELLS }, (_, cell) => {
+        const index = frame * TEN_FRAME_CELLS + cell;
+        return (
+          <span
+            aria-hidden="true"
+            data-instructional-mark={guide ? undefined : index < filled ? "filled" : "empty"}
+            data-instructional-guide-cell={guide ? "true" : undefined}
+            key={cell}
+            style={tenFrameCellStyle}
+          >
+            {index < filled ? MARK_GLYPHS[shape] : ""}
+          </span>
+        );
+      })}
+    </span>
+  ));
+}
 
 const tenFrameCellStyle: CSSProperties = {
   alignItems: "center",
@@ -143,16 +175,7 @@ export function InstructionalVisual({
         role="img"
         style={tenFrameStyle}
       >
-        {Array.from({ length: cells }, (_, index) => (
-          <span
-            aria-hidden="true"
-            data-instructional-mark={index < shown ? "filled" : "empty"}
-            key={index}
-            style={tenFrameCellStyle}
-          >
-            {index < shown ? MARK_GLYPHS[shape] : ""}
-          </span>
-        ))}
+        <FrameCells cells={cells} filled={shown} shape={shape} />
       </span>
     );
   }
@@ -212,13 +235,7 @@ export function InstructionalWritingGuide({
         data-instructional-guide-cells={cellCount}
         style={guideGridStyle}
       >
-        {Array.from({ length: cellCount }, (_, index) => (
-          <span
-            data-instructional-guide-cell="true"
-            key={index}
-            style={tenFrameCellStyle}
-          />
-        ))}
+        <FrameCells cells={cellCount} guide />
       </div>
     </div>
   );

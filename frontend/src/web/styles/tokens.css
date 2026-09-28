@@ -1,0 +1,180 @@
+/* Print owns physical geometry; screen previews retain their responsive layout. */
+@media print {
+  html, body, #root, .app-shell, .welcome-card, .print-workspace {
+    background: white !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+
+  .print-controls, .profile-workspace { display: none !important; }
+  .app-shell { display: block !important; }
+  .welcome-card { width: auto !important; }
+
+  .print-surface {
+    --instruction-size: 16pt;
+    --response-line: 7mm;
+    --drawing-height: 33mm;
+    --cell-size: 5mm;
+    box-sizing: border-box;
+    width: var(--print-width);
+    color: black;
+    font: var(--instruction-size)/1.1 Arial, sans-serif;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .print-surface[data-print-scale="large"] {
+    --instruction-size: 18pt;
+    --response-line: 9mm;
+    --drawing-height: 38mm;
+    --cell-size: 6mm;
+  }
+
+  .print-surface * {
+    box-sizing: border-box;
+    border-color: black !important;
+    color: black !important;
+  }
+
+  .print-surface header {
+    break-inside: avoid;
+    flex-wrap: nowrap !important;
+    gap: 3mm !important;
+    margin: 0 0 3mm !important;
+    padding-bottom: 2mm;
+  }
+
+  .print-surface h2 {
+    font-size: var(--instruction-size);
+    line-height: 1.15;
+    margin: 0 0 2mm;
+    overflow-wrap: anywhere;
+  }
+
+  .print-surface h3, .print-surface p:not([data-doodle-note]) {
+    font-size: var(--instruction-size) !important;
+    margin: 0 0 2mm !important;
+  }
+
+  .print-surface article > ol {
+    margin: 0;
+    gap: 2mm !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .print-surface [data-item-id] {
+    break-inside: avoid;
+    min-width: 0;
+    padding: 2mm !important;
+    font-size: var(--instruction-size) !important;
+  }
+
+  .print-surface [data-worksheet-type="dry-math"] [data-item-id] {
+    padding: 4mm 2mm !important;
+    white-space: nowrap;
+  }
+
+  .print-surface [data-decorative-panel] {
+    flex: 0 0 24mm !important;
+    width: 24mm !important;
+    height: 24mm !important;
+  }
+
+  /* Three choices across each full-width Wow group keep quantities together. */
+  .print-surface [data-worksheet-type="find-the-wow"] article > ol {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 1.5mm !important;
+  }
+
+  .print-surface [data-wow-group] { padding: 1.5mm !important; }
+  .print-surface [data-wow-group] > ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2mm !important;
+    margin: 1mm 0 0 !important;
+  }
+  .print-surface [data-wow-choice] {
+    font-size: var(--instruction-size) !important;
+    grid-template-columns: auto auto minmax(0, 1fr) !important;
+    gap: 1mm !important;
+    min-height: 0 !important;
+  }
+  .print-surface [data-visible-numeral] { font-size: 1em !important; }
+  .print-surface [data-wow-choice] > span:last-child {
+    display: flex;
+    align-items: center;
+    gap: 1mm;
+  }
+  .print-surface [data-wow-choice] > span:last-child > span { margin: 0 !important; }
+  .print-surface [data-wow-choice] [role="img"],
+  .print-surface [data-instructional-visual="group"] {
+    grid-template-columns: repeat(5, 2.5mm) !important;
+    gap: 0.4mm !important;
+    line-height: 1 !important;
+  }
+  .print-surface [data-quantity-mark],
+  .print-surface [data-instructional-visual="group"] [data-instructional-mark] {
+    font-size: 9pt !important;
+    line-height: 2.5mm;
+  }
+  .print-surface [data-circle-target] { width: 4mm !important; height: 4mm !important; }
+
+  .print-surface [data-activity] > [data-problem-number] { float: left; margin-right: 1mm; }
+  .print-surface [data-worksheet-type="count-compare-make"] article > ol {
+    display: block !important;
+    columns: 2;
+    column-gap: 2mm;
+  }
+  .print-surface [data-activity] { display: inline-block; width: 100%; margin-bottom: 1mm; padding: 1.5mm !important; }
+  .print-surface [data-activity] p { margin-bottom: 0 !important; }
+  .print-surface [data-activity="match"] > ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1mm !important;
+  }
+  .print-surface [data-match-choice] {
+    grid-template-columns: auto auto !important;
+    justify-content: start;
+    gap: 1mm !important;
+    min-height: 0 !important;
+  }
+  .print-surface [data-match-choice] [role="img"] { grid-column: 1 / -1; }
+  .print-surface [data-activity="compare"] > div {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 2mm !important;
+  }
+  .print-surface [data-activity="compare"] ul { gap: 1mm 2mm !important; margin: 1mm 0 !important; }
+  .print-surface [data-relation-word] { padding: 0 0.5mm !important; }
+  .print-surface [data-instructional-visual="ten-frame"],
+  .print-surface [data-instructional-guide-cells] {
+    display: inline-flex !important;
+    gap: 2mm;
+  }
+  .print-surface [data-ten-frame] {
+    grid-template-columns: repeat(5, var(--cell-size)) !important;
+  }
+  .print-surface [data-instructional-visual="ten-frame"] [data-instructional-mark],
+  .print-surface [data-instructional-guide-cell] { height: var(--cell-size) !important; }
+
+  .print-surface [data-sentence-item] { padding: 0 !important; }
+  .print-surface [data-word-bank] { padding: 2mm !important; margin-bottom: 2mm !important; }
+  .print-surface [data-word-bank] ul { gap: 1mm 2mm !important; }
+  .print-surface [data-bank-word] { padding: 0 1mm !important; }
+  .print-surface [data-response-panel] { gap: 2mm !important; }
+  .print-surface [data-response-line] { height: var(--response-line) !important; }
+  .print-surface [data-drawing-box] { height: var(--drawing-height) !important; }
+  .print-surface [data-writing-mode="draw-and-tell"] [data-drawing-box] { height: 100mm !important; }
+  .print-surface[data-print-scale="large"] [data-writing-mode="draw-and-tell"] [data-drawing-box] { height: 110mm !important; }
+  .print-surface [data-model-sentence] { padding: 2mm !important; }
+  .print-surface [data-sentence-frame] { font-size: var(--instruction-size) !important; }
+  .print-surface [aria-label="Objective answers"] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 3mm;
+  }
+}

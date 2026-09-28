@@ -1,4 +1,7 @@
 import { readFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { createRequire } from "node:module";
+import { promisify } from "node:util";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,6 +27,37 @@ function asArray(value: unknown, label: string): unknown[] {
 }
 
 describe("CI and package-script contract", () => {
+  it("discovers the mandatory print matrix through the same unfiltered browser entry point", async () => {
+    const require = createRequire(import.meta.url);
+    const { stdout } = await promisify(execFile)(process.execPath, [require.resolve("@playwright/test/cli"), "test", "--list"], {
+      cwd: frontendRoot,
+      env: { ...process.env, EXTRA_CREDIT_E2E_BASE_URL: "http://127.0.0.1:1" },
+    });
+    const listed = stdout.split("\n").filter((line) => /print\.spec\.ts:\d+:\d+/u.test(line));
+    // 84 worksheet rows, four order-bound sweeps, earliest-print probe,
+    // and 13 manual lifecycle cases.
+    expect(listed).toHaveLength(102);
+    expect(listed.filter((line) => line.includes("count ordering and frame bounds"))).toHaveLength(4);
+    for (const paper of ["letter", "a4"]) {
+      for (const scale of ["standard", "large"]) {
+        for (const decoration of ["false", "true"]) {
+          const rows = listed.filter((line) =>
+            line.includes(`-${paper}-${scale}-decoration-${decoration}`),
+          );
+          expect(rows).toHaveLength(decoration === "true" ? 9 : 12);
+          if (decoration === "true") {
+            expect(rows.every((line) => /(?:sentence-|count-all-four-subtypes-)/u.test(line)))
+              .toBe(true);
+          }
+        }
+      }
+    }
+    const source = await readFile(resolve(frontendRoot, "tests/e2e/print.spec.ts"), "utf8");
+    expect(source).not.toMatch(/\b(?:skip|fixme|only)\s*\(|process\.platform|node:os|toHaveScreenshot|toMatchSnapshot/u);
+    const harness = await readFile(resolve(frontendRoot, "tests/e2e/server-harness.mjs"), "utf8");
+    expect(harness).toContain('[playwrightCli, "test", ...process.argv.slice(2)]');
+  });
+
   it("pins the development supervisor and complete browser-gate graph", async () => {
     const packageMetadata = asRecord(
       JSON.parse(await readFile(packagePath, "utf8")),
@@ -40,6 +74,7 @@ describe("CI and package-script contract", () => {
     expect(scripts["test:e2e"]).toBe(
       "npm run build && node tests/e2e/server-harness.mjs",
     );
+    expect(scripts["manual:print"]).toBe("node tests/manual/print-harness.mjs");
   });
 
   it("runs the complete locked quality gate for every push and pull request", async () => {
