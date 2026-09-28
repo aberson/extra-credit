@@ -380,43 +380,35 @@
           </p>
         </div>
         <div class="stamp">
-          <span class="pill">Step 10 round 5 verification active</span>
+          <span class="pill">Step 10 accepted / Step 11 next</span>
           <p>
             Updated
-            <time datetime="2026-09-28T20:06:43Z">2026-09-28 20:06:43 UTC</time>
+            <time datetime="2026-09-28T20:31:21Z">2026-09-28 20:31:21 UTC</time>
           </p>
           <button id="print" class="print-button">Print / save PDF</button>
         </div>
       </header>
       <div class="stats">
-        <div class="stat">Accepted and merged<strong>Steps 1-9</strong></div>
-        <div class="stat">Built, unaccepted<strong>Step 10</strong></div>
+        <div class="stat">Accepted and merged<strong>Steps 1-10</strong></div>
+        <div class="stat">Next automated gate<strong>Step 11</strong></div>
         <div class="stat">Pending gates<strong>11-13 / M1-M3</strong></div>
       </div>
       <div class="notice">
-        <strong
-          >Checkpoint: round 5 developer gate passed; coordinator gate
-          running.</strong
-        >
+        <strong>Checkpoint: Step 10 accepted and merged after round 5.</strong>
         <p>
-          Step 10 was held September 10 after three review rounds. Diagnostic
-          counterexamples were verified September 28. The operator extended the
-          allowance to <strong>10 total rounds</strong>: four consumed, round 5
-          active, six available including this round. Round 5 developer full
-          gate PASSED (exit 0): lint, three TypeScript projects, 457 Vitest tests
-          in 20 files and 145 Playwright tests. The exact seed 00000005 regression
-          is repaired in developer checks. Four order tests and 960 real seed
-          observations passed. Separately labeled synthetic stress and upper-v1
-          Wow probes also passed. Coordinator full gate is running; independent
-          round 5 reviews have not started. Next: complete coordinator checks
-          and independent review before acceptance. Round 4 remains reviewer
-          rejected; the chart source-format repair awaits independent re-review.
+          The approved allowance was 10 total rounds, retaining the first three.
+          Round 5 passed all eight independent reviews with zero findings.
+          Developer, coordinator and main post-merge checks passed: lint, three
+          TypeScript projects, 457 Vitest tests in 20 files and 145 Playwright tests.
+          The exact seed 00000005 regression now prints one page. The evidence
+          includes 100 print-matrix surfaces, 960 real ordering observations and
+          separately labeled synthetic stress and upper-v1 Wow probes.
         </p>
         <p>
-          Main snapshot: <code>b41957b</code>. The plan still records the
-          September 10 blocked checkpoint; this session has resumed work; round
-          4 was reviewer rejected and round 5 is in progress. Step 10 remains
-          unaccepted and unmerged. Steps 11-13 wait on Step 10 acceptance.
+          Main implementation: <code>e721ca6</code>. Next: Step 11 accessibility,
+          followed by release smoke and clean-room verification. Physical printing
+          (M1), the family pilot (M2) and pushed Ubuntu CI (M3) remain pending.
+          Historical failed rounds remain recorded below.
         </p>
       </div>
       <nav class="tabs" role="tablist" aria-label="Progress views">
@@ -596,7 +588,7 @@
                   <td>
                     <strong>Step10</strong><br />Print and pagination hardening
                   </td>
-                  <td>Built / unaccepted; round 5 coordinator gate running</td>
+                  <td>Accepted / merged; round 5 passed</td>
                   <td>Agent<br />Step 9</td>
                   <td>
                     Mandatory Windows DOM/PDF geometry and page counts across
@@ -802,10 +794,10 @@
                 >
                   Step9</button
                 ><button
-                  class="bar review"
+                  class="bar"
                   data-detail="Step10"
                   style="grid-column: 9"
-                  aria-label="Step10: Print and pagination hardening; Built / unaccepted; round 5 coordinator gate running"
+                  aria-label="Step10: Print and pagination hardening; Accepted / merged; round 5 passed"
                 >
                   Step10</button
                 ><button
@@ -877,7 +869,7 @@
               <dd id="detail-dependency">Step 9 / Agent</dd>
               <dt>Outcome</dt>
               <dd id="detail-state">
-                Built / unaccepted; round 5 coordinator gate running
+                Accepted / merged; round 5 passed
               </dd>
               <dt>Acceptance boundary</dt>
               <dd id="detail-gate">
@@ -961,14 +953,15 @@
                     and 145 Playwright tests. The exact seed 00000005 repair,
                     four order tests and 960 real seed observations passed in
                     developer checks. Separately labeled synthetic stress and
-                    upper-v1 Wow probes also passed. Coordinator full gate is
-                    running; independent round 5 reviews have not started.
-                    Step 10 remains unaccepted and unmerged.
+                    upper-v1 Wow probes also passed. Coordinator full gate,
+                    all eight independent reviews (zero findings), and the full
+                    main post-merge gate passed. Implementation merged at
+                    <code>e721ca6</code>; Step 10 accepted. Physical M1 remains pending.
                   </td>
                   <td>
                     Diagnostic and round 4 start/end timestamps unavailable;
                     round 5 developer start/end timestamps unavailable;
-                    coordinator gate end unknown
+                    acceptance observed 2026-09-28 20:31:21 UTC
                   </td>
                 </tr>
               </tbody>
@@ -1109,7 +1102,7 @@
           label: "Print and pagination hardening",
           dep: "Step 9",
           owner: "Agent",
-          state: "Built / unaccepted; round 5 coordinator gate running",
+          state: "Accepted / merged; round 5 passed",
           gate: "Mandatory Windows DOM/PDF geometry and page counts across the complete print matrix; independent review and merge. Physical print remains M1.",
           evidence: "#step10-evidence",
         },
