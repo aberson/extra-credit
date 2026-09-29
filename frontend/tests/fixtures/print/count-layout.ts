@@ -7,10 +7,12 @@ import { acceptanceConfig, boundaryNickname } from "./matrix.ts";
 // A4's narrower columns wrap the comparison sentence once more at 16 pt.
 // All text remains 16/18 pt, quantities are at most 20 (four mark rows), and
 // one or two five-by-two frames occupy the same height in print.
+// UAT spacing adds 1 mm total vertical padding, while replacing two 1 px
+// borders with a 0.3 mm rule: round the net increase up to 3 px per card.
 export function countCardBounds(paper: "letter" | "a4", scale: PrintScale) {
   return scale === "large"
-    ? { match: 140, compare: 257, complete: 143, draw: 117 }
-    : { match: 108, compare: paper === "letter" ? 208 : 237, complete: 127, draw: 104 };
+    ? { match: 143, compare: 260, complete: 146, draw: 120 }
+    : { match: 111, compare: paper === "letter" ? 211 : 240, complete: 130, draw: 107 };
 }
 
 export type CountActivity = keyof ReturnType<typeof countCardBounds>;
@@ -27,9 +29,9 @@ export function countOrderBound(paper: "letter" | "a4", scale: PrintScale) {
   function visit(order: CountActivity[]) {
     if (order.length === length) {
       permutations += 1;
-      // Each card includes an upward-rounded 1 mm trailing gap. For each
+      // Each card includes an upward-rounded 2.5 mm trailing gap. For each
       // legal reading order, choose the best contiguous two-column split.
-      const sizes = order.map((activity) => heights[activity] + 4);
+      const sizes = order.map((activity) => heights[activity] + 10);
       const total = sizes.reduce((sum, height) => sum + height, 0);
       let prefix = 0;
       let best = Number.POSITIVE_INFINITY;

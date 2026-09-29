@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Steps 1-13 are merged.** The accepted Windows baseline has 517 unit tests and 159 browser specs, including print geometry, accessibility, the real profile-to-print smoke, and log-privacy calibration. The clean-room release gate below has passed independent review and local verification; physical-print, family-pilot, and post-push Ubuntu acceptance remain pending. See [plan.md](plan.md).
+> **Steps 1-13 and two iterative UAT revisions are implemented.** The UAT revisions expand arithmetic presets and simplify profile, worksheet and print presentation. The final combined Windows check passed 521 unit tests and 160 browser specs, lint/types, and log-privacy calibration. Physical-print and family-pilot acceptance remain pending. See [plan.md](plan.md), the [UAT review](documentation/uat-round-2-review.md), and the [next-feature seeds](documentation/feature-seeds/README.md).
 
 ## V1 worksheets
 
@@ -21,7 +21,7 @@ Profiles may be stored for ages 4–18. Worksheet generation is enabled only for
 
 The code is public, but family data stays local:
 
-- The only live durable user-data store is the gitignored `config/children.local.json`; explicit recovery can also leave residual backup copies described below.
+- The production user-data store is the gitignored `config/children.local.json`; explicit recovery can also leave residual backup copies described below. Local attended UAT may use separate ignored retained profiles under `config/uat-session/`; these are private too and are excluded from release exports.
 - The browser will not store child data in local storage, session storage, IndexedDB, the Cache API, or service workers.
 - V1 has no login, cloud sync, analytics, advertising, API keys, or runtime AI.
 - The application binds only to `127.0.0.1`: port `4310` for the built app/API and port `4311` for Vite development.
@@ -156,7 +156,7 @@ A profile contains an optional nickname, age, parent-confirmed presentation band
 ## Key design decisions
 
 - Educational content is governed by explicit capabilities rather than age alone.
-- Every generated number, operand, and result stays within 20 in V1, with no negative results or carrying/borrowing.
+- Dry Math supports addition/subtraction presets through 100; quantity and Wow activities stay within 20. No activity produces negative results or carrying/borrowing in this increment.
 - A seed and generator version reproduce the same educational content.
 - Answer keys derive from the same immutable worksheet document shown to the child.
 - Instructional visuals remain present when decorative graphics are disabled.

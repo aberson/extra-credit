@@ -31,6 +31,10 @@ const presetLabels: Record<ConcreteMathPresetId, string> = {
   "emerging-equations-within-5": "Emerging equations within 5",
   "early-primary-within-10": "Early primary within 10",
   "early-primary-within-20": "Early primary within 20",
+  "addition-within-20": "Addition within 20",
+  "subtraction-within-20": "Subtraction within 20",
+  "arithmetic-within-50": "Addition and subtraction within 50",
+  "arithmetic-within-100": "Addition and subtraction within 100",
 };
 
 const fieldsetStyle: CSSProperties = {
@@ -104,6 +108,7 @@ export function MathSkillsEditor({
 
       <fieldset style={{ ...fieldsetStyle, marginTop: "0.6rem" }}>
         <legend>Math preset</legend>
+        <p>Dry Math supports facts through 100 without carrying or borrowing. Counting pictures and Wow activities stay within 20.</p>
         <div style={gridStyle}>
           {(Object.keys(presetLabels) as ConcreteMathPresetId[]).map((presetId) => (
             <label key={presetId} style={{ alignItems: "start", display: "flex", gap: "0.45rem" }}>
@@ -138,8 +143,10 @@ export function MathSkillsEditor({
         </button>
       )}
 
+      {(selectedDefinition?.presentationBand == null || selectedPresetId === "custom") && (
       <fieldset style={{ ...fieldsetStyle, marginTop: "0.8rem" }}>
-        <legend>Presentation band</legend>
+        <legend>Sentence vocabulary</legend>
+        <p>Chooses the prompt vocabulary for Sentence Builder. Math difficulty comes from the math preset.</p>
         {!presentationBandConfirmed && selectedDefinition?.presentationBand === null && (
           <p style={{ color: "#784a14", marginTop: 0 }}>
             Choose the presentation band explicitly for this capability set.
@@ -160,6 +167,7 @@ export function MathSkillsEditor({
           </label>
         ))}
       </fieldset>
+      )}
 
       {selectedDefinition !== null && selectedDefinition.mathSkills !== null && !showCustom && (
         <dl
@@ -185,11 +193,8 @@ export function MathSkillsEditor({
           <dd style={{ margin: 0 }}>{mathSkills.operations.join(", ") || "none"}</dd>
           <dt>Operand / result maximum</dt>
           <dd style={{ margin: 0 }}>{mathSkills.operandMax} / {mathSkills.resultMax}</dd>
-          <dt>Regrouping / negative results</dt>
-          <dd style={{ margin: 0 }}>
-            {mathSkills.allowRegrouping ? "allowed" : "not allowed"} /{" "}
-            {mathSkills.allowNegativeResults ? "allowed" : "not allowed"}
-          </dd>
+          <dt>Sentence vocabulary</dt>
+          <dd style={{ margin: 0 }}>{presentationBand === "preschool" ? "Preschool" : "Early primary"}</dd>
         </dl>
       )}
 
@@ -278,8 +283,6 @@ export function MathSkillsEditor({
 
         {([
           ["Parent confirms understanding of equality", "understandsEquality"],
-          ["Retain future permission for regrouping", "allowRegrouping"],
-          ["Retain future permission for negative results", "allowNegativeResults"],
         ] as const).map(([label, key]) => (
           <label key={key} style={{ display: "block", marginTop: "0.55rem" }}>
             <input

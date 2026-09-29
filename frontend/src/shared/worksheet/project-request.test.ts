@@ -127,8 +127,8 @@ describe("projectGenerationRequest", () => {
       countingMax: 20,
       numeralMax: 20,
       compareMax: 20,
-      operandMax: 20,
-      resultMax: 20,
+      operandMax: 100,
+      resultMax: 100,
       allowRegrouping: false,
       allowNegativeResults: false,
     });
@@ -160,8 +160,8 @@ describe("projectGenerationRequest", () => {
         countingMax: 20,
         numeralMax: 20,
         compareMax: 20,
-        operandMax: 15,
-        resultMax: 15,
+        operandMax: 75,
+        resultMax: 75,
       });
     }
 
@@ -199,7 +199,7 @@ describe("projectGenerationRequest", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.request.options.difficulty).toBe("practice");
-      expect(result.request.capabilities.mathSkills.operandMax).toBe(20);
+      expect(result.request.capabilities.mathSkills.operandMax).toBe(100);
     }
   });
 

@@ -294,7 +294,6 @@ export function CountCompareMakeRenderer({ document }: WorksheetRendererProps) {
               ? familyTitle
               : `${displayName}’s ${familyTitle}`}
           </h2>
-          <p>Count the groups, compare them, and make the ones that are asked for.</p>
         </div>
         <DecorativeGraphic
           includeDecorativeGraphics={

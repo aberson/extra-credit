@@ -1043,3 +1043,34 @@ The proposal presents operator-picked decisions as locked context and records th
 | D8 | Agent-defaulted | Make semantic HTML/CSS the print source, support Letter/A4, and verify accessibility, geometry, PDF page count, and the scoped browser/platform matrix. | Confirmed 2026-08-22 |
 | D9 | Agent-defaulted | Use the pinned Node/React/Fastify/Vite/TypeScript test stack and one root MIT license for every project-original code, worksheet-template, documentation, and line-art artifact. | Changed 2026-08-22; confirmed |
 | D10 | Agent-defaulted | Deliver through thirteen gated automated build steps followed by physical-print, family-pilot, and live-CI manual gates. | Confirmed 2026-08-22 |
+
+## Post-build iterative UAT checkpoint
+
+Two operator feedback rounds extended the completed build after Steps 1–13.
+This retrospective records shipped changes; it adds no new automated build step
+and does not mark physical-print or family-pilot acceptance complete.
+
+- Dry Math adds addition-only/subtraction-only presets within 20 and mixed presets
+  within 50/100. This supersedes the earlier global-20 numeric expectation for
+  **Dry Math operands/results only**. Quantity/Wow limits remain 20, and carrying,
+  borrowing and negative results remain excluded.
+- Profile help explains Writing mode; normal presets fold in sentence vocabulary;
+  inactive future permission switches are hidden while stored values survive.
+- Copy/Label worksheets omit redundant header directions. Paper/scale share a
+  responsive row. Count/Compare uses more spacing, lighter boundaries and clear
+  comparison choices, omitting its redundant page-level directions.
+- Attended local UAT profiles are retained separately from the disposable fictional
+  print harness. Private retained files are excluded from Git and release exports.
+
+Evidence before wrap: the first UAT full Windows check passed 521 unit tests and
+160 browser specs plus privacy calibration; the later focused presentation check
+passed 20 unit tests and 109 browser checks, including the four 240-seed ordering
+sweeps and worst-order PDFs. Original clean-room qualification remains historical;
+physical M1/family M2 acceptance remains open. Wrap evidence records any subsequent
+full check and exact pushed-commit CI result separately.
+
+The operator asked for durable planning seeds, not an immediate expansion of this
+completed step rail. Begin at [feature seeds](documentation/feature-seeds/README.md):
+worksheet-first settings, math operations/activities, and printable packets.
+Age removal, worksheet-level writing/math choices, a replacement for Difficulty,
+explicit themes, multiplication/division and packets are **not yet shipped**.

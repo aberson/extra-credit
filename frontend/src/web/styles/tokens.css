@@ -129,9 +129,17 @@
   .print-surface [data-worksheet-type="count-compare-make"] article > ol {
     display: block !important;
     columns: 2;
-    column-gap: 2mm;
+    column-gap: 4mm;
   }
-  .print-surface [data-activity] { display: inline-block; width: 100%; margin-bottom: 1mm; padding: 1.5mm !important; }
+  .print-surface [data-activity] {
+    display: inline-block;
+    width: 100%;
+    margin-bottom: 2.5mm;
+    padding: 2mm !important;
+    border: 0 !important;
+    border-top: 0.3mm solid #777 !important;
+    border-radius: 0 !important;
+  }
   .print-surface [data-activity] p { margin-bottom: 0 !important; }
   .print-surface [data-activity="match"] > ol {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -149,7 +157,12 @@
     gap: 2mm !important;
   }
   .print-surface [data-activity="compare"] ul { gap: 1mm 2mm !important; margin: 1mm 0 !important; }
-  .print-surface [data-relation-word] { padding: 0 0.5mm !important; }
+  .print-surface [data-relation-word] {
+    padding: 0 0.5mm !important;
+    border: 0 !important;
+    border-bottom: 0.2mm solid #777 !important;
+    border-radius: 0 !important;
+  }
   .print-surface [data-instructional-visual="ten-frame"],
   .print-surface [data-instructional-guide-cells] {
     display: inline-flex !important;

@@ -1,3 +1,4 @@
+import { V1_NUMERIC_MAXIMUM } from "../worksheet/types.js";
 import type {
   MathSkillsV1,
   PresentationBand,
@@ -8,6 +9,10 @@ export const MATH_PRESET_IDS = [
   "emerging-equations-within-5",
   "early-primary-within-10",
   "early-primary-within-20",
+  "addition-within-20",
+  "subtraction-within-20",
+  "arithmetic-within-50",
+  "arithmetic-within-100",
   "custom",
 ] as const;
 
@@ -83,6 +88,42 @@ export const MATH_PRESETS = {
       resultMax: 20,
       allowRegrouping: false,
       allowNegativeResults: false,
+    },
+  },
+  "addition-within-20": {
+    presentationBand: "early-primary",
+    mathSkills: {
+      countingMax: V1_NUMERIC_MAXIMUM, numeralMax: V1_NUMERIC_MAXIMUM, compareMax: V1_NUMERIC_MAXIMUM,
+      representations: ["quantities", "equations"], understandsEquality: true,
+      operations: ["addition"], operandMax: V1_NUMERIC_MAXIMUM, resultMax: V1_NUMERIC_MAXIMUM,
+      allowRegrouping: false, allowNegativeResults: false,
+    },
+  },
+  "subtraction-within-20": {
+    presentationBand: "early-primary",
+    mathSkills: {
+      countingMax: V1_NUMERIC_MAXIMUM, numeralMax: V1_NUMERIC_MAXIMUM, compareMax: V1_NUMERIC_MAXIMUM,
+      representations: ["quantities", "equations"], understandsEquality: true,
+      operations: ["subtraction"], operandMax: V1_NUMERIC_MAXIMUM, resultMax: V1_NUMERIC_MAXIMUM,
+      allowRegrouping: false, allowNegativeResults: false,
+    },
+  },
+  "arithmetic-within-50": {
+    presentationBand: "early-primary",
+    mathSkills: {
+      countingMax: V1_NUMERIC_MAXIMUM, numeralMax: V1_NUMERIC_MAXIMUM, compareMax: V1_NUMERIC_MAXIMUM,
+      representations: ["quantities", "equations"], understandsEquality: true,
+      operations: ["addition", "subtraction"], operandMax: 50, resultMax: 50,
+      allowRegrouping: false, allowNegativeResults: false,
+    },
+  },
+  "arithmetic-within-100": {
+    presentationBand: "early-primary",
+    mathSkills: {
+      countingMax: V1_NUMERIC_MAXIMUM, numeralMax: V1_NUMERIC_MAXIMUM, compareMax: V1_NUMERIC_MAXIMUM,
+      representations: ["quantities", "equations"], understandsEquality: true,
+      operations: ["addition", "subtraction"], operandMax: 100, resultMax: 100,
+      allowRegrouping: false, allowNegativeResults: false,
     },
   },
   custom: {

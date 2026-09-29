@@ -17,7 +17,7 @@ import {
   type WorksheetRelevantMaximumKey,
   type WorksheetRelevantMaximumV1,
 } from "../../shared/worksheet/registry";
-import { V1_NUMERIC_MAXIMUM } from "../../shared/worksheet/types";
+import { V1_NUMERIC_MAXIMUM, worksheetMaximum } from "../../shared/worksheet/types";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
 import type { GenerationSelection } from "./create-session";
 
@@ -41,6 +41,7 @@ interface GeneratorControlsProps {
 interface RelevantLimit {
   readonly label: string;
   readonly value: number;
+  readonly maximum: number;
 }
 
 const NO_APPLICABLE_CONTROLS: WorksheetApplicableControlsV1 = {
@@ -136,32 +137,33 @@ function relevantMaximums(
 function relevantLimits(
   maximums: readonly WorksheetRelevantMaximumV1[],
   context: WorksheetControlContextV1 | undefined,
+  worksheetType: RegisteredWorksheetType,
 ): readonly RelevantLimit[] {
   if (context === undefined) {
     return [];
   }
   return maximums
-    .map(({ key, label }) => ({ label, value: context.profile.mathSkills[key] }))
+    .map(({ key, label }) => ({ label, value: context.profile.mathSkills[key], maximum: worksheetMaximum(worksheetType, key) }))
     .filter(({ value }) => value > 0);
 }
 
 /**
  * Mirrors the projection boundary's own stretch downgrade: an empty
- * relevant-limit list and an all-at-20 list both fall back to practice, so the
+ * relevant-limit list and limits at their activity ceilings fall back to practice, so the
  * parent is never asked to confirm a stretch that cannot change the sheet.
  */
 function stretchCannotApply(limits: readonly RelevantLimit[]): boolean {
   return (
     limits.length === 0 ||
-    limits.every(({ value }) => value >= V1_NUMERIC_MAXIMUM)
+    limits.every(({ value, maximum }) => value >= maximum)
   );
 }
 
-function stretchLimit(value: number): readonly [number, number] {
-  const base = Math.min(value, V1_NUMERIC_MAXIMUM);
+function stretchLimit(value: number, maximum: number): readonly [number, number] {
+  const base = Math.min(value, maximum);
   return [
     base,
-    Math.min(V1_NUMERIC_MAXIMUM, base + Math.max(1, Math.ceil(base * 0.25))),
+    Math.min(maximum, base + Math.max(1, Math.ceil(base * 0.25))),
   ];
 }
 
@@ -220,7 +222,7 @@ export function GeneratorControls({
       ? undefined
       : { profile: selectedProfile, difficulty, length, printScale };
   const maximums = relevantMaximums(selectedRegistration, requestedContext);
-  const limits = relevantLimits(maximums, requestedContext);
+  const limits = relevantLimits(maximums, requestedContext, worksheetType);
   const stretchUnavailable = stretchCannotApply(limits);
   const effectiveDifficulty =
     difficulty === "stretch" && stretchUnavailable ? "practice" : difficulty;
@@ -277,10 +279,11 @@ export function GeneratorControls({
     selectedProfile === undefined
       ? []
       : STORED_MAXIMUM_KEYS.filter(
-          (key) => selectedProfile.mathSkills[key] > V1_NUMERIC_MAXIMUM,
+          (key) => selectedProfile.mathSkills[key] > worksheetMaximum(worksheetType, key),
         ).map((key) => ({
           label: WORKSHEET_MAXIMUM_LABELS[key],
           value: selectedProfile.mathSkills[key],
+          maximum: worksheetMaximum(worksheetType, key),
         }));
   const futurePermissions =
     selectedProfile === undefined
@@ -513,9 +516,11 @@ export function GeneratorControls({
           <p>
             Stored limits reach{" "}
             {limitsAboveV1
-              .map(({ label, value }) => `${label} ${value}`)
+              .map(({ label, value, maximum }) => worksheetType === "dry-math"
+                ? `${label} ${value} (this activity uses at most ${maximum})`
+                : `${label} ${value}`)
               .join(", ")}
-            {`; Version 1 uses at most ${V1_NUMERIC_MAXIMUM}.`}
+            {worksheetType === "dry-math" ? "." : `; Version 1 uses at most ${V1_NUMERIC_MAXIMUM}.`}
           </p>
         )}
 
@@ -569,8 +574,8 @@ export function GeneratorControls({
                           One-time stretch preview:{" "}
                           {limits
                             .map(
-                              ({ label, value }) =>
-                                `${label} ${stretchLimit(value).join(" → ")}`,
+                              ({ label, value, maximum }) =>
+                                `${label} ${stretchLimit(value, maximum).join(" → ")}`,
                             )
                             .join("; ")}
                           .
@@ -638,6 +643,7 @@ export function GeneratorControls({
                 </label>
               )}
 
+              <div role="group" aria-label="Print layout" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 12rem), 1fr))", gap: "0.75rem" }}>
               {applicableControls.paperSize && (
                 <label>
                   Paper size
@@ -681,6 +687,7 @@ export function GeneratorControls({
                   </select>
                 </label>
               )}
+              </div>
             </div>
           </details>
         )}

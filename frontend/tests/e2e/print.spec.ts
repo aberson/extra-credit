@@ -608,7 +608,9 @@ for (const paper of ["letter", "a4"] as const) {
       await page.emulateMedia({ media: "print" });
       const bound = countOrderBound(paper, scale);
       expect(bound.permutations).toBe(scale === "standard" ? 25_200 : 2_520);
-      const headerBound = scale === "standard" ? 134 : 174;
+      // Title/art only: each problem carries its own directions. These bounds
+      // retain the worst-case nickname and the reserved decorative panel.
+      const headerBound = scale === "standard" ? 112 : 120;
       expect(headerBound + bound.maximum).toBeLessThan(paperMetrics[paper].printable.height);
       const observations = [];
       async function generate(seed: number) {

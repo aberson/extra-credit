@@ -185,7 +185,9 @@ const countingAtMaximumProfile: ChildProfileV1 = {
 const AT_V1_MAXIMUM_PROFILES: Readonly<
   Record<RegisteredWorksheetType, ChildProfileV1>
 > = {
-  "dry-math": equationsAtMaximumProfile,
+  "dry-math": { ...equationsAtMaximumProfile, mathSkills: {
+    ...equationsAtMaximumProfile.mathSkills, operandMax: 100, resultMax: 100,
+  } },
   "find-the-wow": equationsAtMaximumProfile,
   "sentence-builder": equationsAtMaximumProfile,
   "count-compare-make": countingAtMaximumProfile,
@@ -1451,11 +1453,9 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
 
     const session = sentenceSessionFor("label");
     render(createElement(WorksheetPreview, { document: session.document }));
-    const header =
-      document.querySelector("[data-mode-instruction]")?.textContent ?? "";
     const prompt =
       document.querySelector("[data-sentence-prompt]")?.textContent ?? "";
-    expect(/\bon the lines\b/iu.test(header)).toBe(true);
+    expect(document.querySelector("[data-mode-instruction]")).toBeNull();
     expect(/\bon the lines\b/iu.test(prompt)).toBe(true);
     expect(countOf('[data-response-line="label"]')).toBeGreaterThan(0);
     expect(document.querySelector("[data-drawing-box]")).toHaveAttribute(

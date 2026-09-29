@@ -564,7 +564,7 @@ test("requires explicit invalid-file recovery and offers only the warned generic
     "animals, space",
   );
   await expect(page.getByRole("radio", { name: "Quantities to 10" })).toBeChecked();
-  await expect(page.getByRole("radio", { name: "Preschool", exact: true })).toBeChecked();
+  await expect(page.getByText("Sentence vocabulary", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText("Preschool");
   await expect(recoveryConfirmation).not.toBeChecked();
   await expect(downloadButton).toBeEnabled();
   expect(putStatuses).toEqual([409]);

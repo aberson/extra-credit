@@ -1,6 +1,7 @@
 # Private family data and recovery files
 /config/children.local.json
 /config/children.local.json.*
+/config/uat-session/
 /extra-credit-profile-backup.json
 /Extra Credit Worksheet*.pdf
 /Extra Credit Worksheet*.png

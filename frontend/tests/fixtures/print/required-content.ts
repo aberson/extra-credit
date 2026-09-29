@@ -25,8 +25,8 @@ export function requiredPrintContent(
   };
   const sentenceInstruction = {
     "draw-and-tell": "Draw your picture, then tell a grown-up about it.",
-    label: "Draw your picture, then write labels on the lines.",
-    "copy-with-model": "Read the model sentence, then copy it on the lines.",
+    label: "",
+    "copy-with-model": "",
     "sentence-frame": "Finish the sentence frame on the writing lines.",
     independent: "Draw your picture, then write about it on the lines.",
   };
@@ -45,14 +45,14 @@ export function requiredPrintContent(
         : "Circle the wow in each group: the one equation that is true."
       : document.worksheetType === "dry-math"
         ? "Practice page · solve each equation."
-        : "Count the groups, compare them, and make the ones that are asked for.";
+        : "";
   const title = titles[document.worksheetType];
   text("header h2", surface === "answer"
     ? "Parent answer key"
     : `${document.request.displayName}’s ${title}`);
-  text("header p:not([data-doodle-note])", surface === "answer"
-    ? "Answers match the numbered problems on the worksheet."
-    : instruction);
+  text("header p:not([data-doodle-note])", ...(surface === "answer"
+    ? ["Answers match the numbered problems on the worksheet."]
+    : instruction === "" ? [] : [instruction]));
   required.push({ selector: "[data-item-id]", count: document.items.length });
 
   function sentenceContent(item: SentenceItemV1, selector: string) {
@@ -89,14 +89,15 @@ export function requiredPrintContent(
     };
     const captions = {
       label: "Write your labels here.",
-      copy: "Copy the sentence here.",
       write: item.writingMode === "independent"
         ? "Write your sentences here."
         : "Write your sentence here.",
     };
     for (const kind of ["label", "copy", "write"] as const) {
       boxes(`${selector} [data-response-line="${kind}"]`, lines[kind], "bottom-rule");
-      if (lines[kind] > 0) {
+      if (kind === "copy") {
+        text(`${selector} [data-response-lines="copy"] > p`);
+      } else if (lines[kind] > 0) {
         text(`${selector} [data-response-lines="${kind}"] > p`, captions[kind]);
       }
     }

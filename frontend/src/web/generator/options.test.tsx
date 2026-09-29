@@ -1050,7 +1050,8 @@ describe("stored capabilities Version 1 keeps but never uses", () => {
 
   test("a maximum above 20 and both future permissions are shown", () => {
     renderControls(beyondV1Profile, "dry-math");
-    expect(screen.getByText(STORED_MAXIMA_SENTENCE)).toBeInTheDocument();
+    expect(screen.getByText("Stored limits reach counting 25 (this activity uses at most 20), numerals 25 (this activity uses at most 20), comparisons 25 (this activity uses at most 20).")).toBeInTheDocument();
+    expect(screen.queryByText(/operands 25, results 25/)).toBeNull();
     expect(screen.getByText(STORED_PERMISSIONS_SENTENCE)).toBeInTheDocument();
   });
 

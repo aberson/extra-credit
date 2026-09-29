@@ -4,6 +4,7 @@ import {
   expandMathPreset,
   getAgePresetSuggestion,
   MATH_PRESETS,
+  MATH_PRESET_IDS,
   type ConcreteMathPresetId,
   type MathPresetId,
 } from "../../shared/config/math-presets";
@@ -77,12 +78,8 @@ function sameMathSkills(left: MathSkillsV1, right: MathSkillsV1): boolean {
 }
 
 function inferPreset(profile: ChildProfileV1): MathPresetId {
-  for (const presetId of [
-    "quantities-to-10",
-    "emerging-equations-within-5",
-    "early-primary-within-10",
-    "early-primary-within-20",
-  ] as const) {
+  for (const presetId of MATH_PRESET_IDS) {
+    if (presetId === "custom") continue;
     const definition = MATH_PRESETS[presetId];
     if (
       sameMathSkills(profile.mathSkills, definition.mathSkills) &&
@@ -375,6 +372,7 @@ export function ProfileEditor({
         <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
           <legend>Writing mode</legend>
           <select
+            aria-describedby="writing-mode-help"
             aria-label="Writing mode"
             onChange={(event) => setWritingMode(event.target.value as WritingMode)}
             style={inputStyle}
@@ -386,6 +384,11 @@ export function ProfileEditor({
               </option>
             ))}
           </select>
+          <p id="writing-mode-help">
+            Changes Sentence Builder only: draw and tell a grown-up, label a
+            picture, copy a model sentence, finish a sentence frame, or write
+            independently. It does not change math worksheets.
+          </p>
         </fieldset>
         <label style={fieldStyle}>
           Reviewed on

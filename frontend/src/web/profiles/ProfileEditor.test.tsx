@@ -300,7 +300,8 @@ describe("ProfileEditor form behavior", () => {
 
     expect(screen.getByRole("radio", { name: "Early primary within 10" })).toBeChecked();
     expect(expandedValue("Operand / result maximum")).toBe("10 / 10");
-    expect(screen.getByRole("radio", { name: "Early primary" })).toBeChecked();
+    expect(expandedValue("Sentence vocabulary")).toBe("Early primary");
+    expect(screen.queryByRole("radio", { name: "Early primary" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Save profile" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
@@ -588,7 +589,9 @@ describe("App profile authority behavior", () => {
 
   test("reconciles a conflict onto the fresh revision without losing or auto-saving the draft", async () => {
     const initialConfig = configWithProfiles([
-      canonicalSixYearOld,
+      { ...canonicalSixYearOld, mathSkills: {
+        ...canonicalSixYearOld.mathSkills, allowRegrouping: true, allowNegativeResults: true,
+      } },
       canonicalEightYearOld,
     ]);
     const externalSibling = {
@@ -689,12 +692,7 @@ describe("App profile authority behavior", () => {
     await user.click(
       screen.getByRole("checkbox", { name: "Parent confirms understanding of equality" }),
     );
-    await user.click(
-      screen.getByRole("checkbox", { name: "Retain future permission for regrouping" }),
-    );
-    await user.click(
-      screen.getByRole("checkbox", { name: "Retain future permission for negative results" }),
-    );
+    expect(screen.queryByRole("checkbox", { name: /future permission/ })).not.toBeInTheDocument();
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
@@ -736,12 +734,7 @@ describe("App profile authority behavior", () => {
     expect(
       screen.getByRole("checkbox", { name: "Parent confirms understanding of equality" }),
     ).not.toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: "Retain future permission for regrouping" }),
-    ).toBeChecked();
-    expect(
-      screen.getByRole("checkbox", { name: "Retain future permission for negative results" }),
-    ).toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: /future permission/ })).not.toBeInTheDocument();
 
     await drainScheduledWork();
     expect(putRequests).toHaveLength(1);
@@ -1042,7 +1035,7 @@ describe("App profile authority behavior", () => {
         "copy-with-model",
       );
       expect(screen.getByRole("radio", { name: "Quantities to 10" })).toBeChecked();
-      expect(screen.getByRole("radio", { name: "Preschool" })).toBeChecked();
+      expect(expandedValue("Sentence vocabulary")).toBe("Preschool");
       expect(expandedValue("Counting / numeral / compare")).toBe("10 / 10 / 10");
       expect(expandedValue("Operand / result maximum")).toBe("0 / 0");
 

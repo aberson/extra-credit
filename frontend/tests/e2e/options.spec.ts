@@ -25,9 +25,9 @@ import { expect, test } from "./fixtures/app-server.ts";
  *    and is not reproducible - and the child and family they selected must all
  *    still be there afterwards.
  *
- * 3. Stored-but-unused capabilities. A profile may record a maximum above 20
- *    and both future permissions; the compiled page must show them and must
- *    still print only within-20 work.
+ * 3. Stored-but-unused capabilities. Quantity limits above 20 and both future
+ *    permissions remain disclosed; Dry Math can use the stored arithmetic
+ *    limits while still excluding carrying, borrowing and negative answers.
  *
  * The defaults claim carries a geometry assertion for the same reason: where a
  * confirmation lands is a layout fact, and jsdom has no layout.
@@ -334,7 +334,7 @@ test("shows stored capabilities Version 1 keeps but never prints", async ({
 
   await expect(
     page.getByText(
-      "Stored limits reach counting 25, numerals 25, comparisons 25, operands 25, results 25; Version 1 uses at most 20.",
+      "Stored limits reach counting 25 (this activity uses at most 20), numerals 25 (this activity uses at most 20), comparisons 25 (this activity uses at most 20).",
     ),
   ).toBeVisible();
   await expect(
@@ -356,7 +356,7 @@ test("shows stored capabilities Version 1 keeps but never prints", async ({
     const left = Number(match?.[1]);
     const right = Number(match?.[3]);
     const result = match?.[2] === "+" ? left + right : left - right;
-    expect(Math.max(left, right, result)).toBeLessThanOrEqual(20);
+    expect(Math.max(left, right, result)).toBeLessThanOrEqual(25);
     expect(result).toBeGreaterThanOrEqual(0);
   }
 });

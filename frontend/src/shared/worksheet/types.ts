@@ -13,8 +13,8 @@ export const WORKSHEET_TYPE_IDS = [
 ] as const;
 
 /**
- * The Version 1 numeric envelope: the largest number a generated quantity,
- * operand or result may reach.
+ * The quantity and unexpanded-family numeric envelope. Symbolic Dry Math
+ * has its own higher operand/result ceiling below; dot/frame tasks stay small.
  *
  * Defined in this leaf module because the projection boundary that clamps to
  * it, the invariant checker that re-verifies the clamp, the families whose own
@@ -33,6 +33,18 @@ export const WORKSHEET_TYPE_IDS = [
  * issue #23.
  */
 export const V1_NUMERIC_MAXIMUM = 20;
+
+/** Symbolic Dry Math supports larger facts without enlarging dot/frame tasks. */
+export const DRY_MATH_NUMERIC_MAXIMUM = 100;
+
+export function worksheetMaximum(
+  worksheetType: WorksheetType,
+  key: "countingMax" | "numeralMax" | "compareMax" | "operandMax" | "resultMax",
+): number {
+  return worksheetType === "dry-math" && (key === "operandMax" || key === "resultMax")
+    ? DRY_MATH_NUMERIC_MAXIMUM
+    : V1_NUMERIC_MAXIMUM;
+}
 
 export const TOPIC_IDS = [
   "animals",

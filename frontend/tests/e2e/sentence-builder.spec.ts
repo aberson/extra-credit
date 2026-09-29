@@ -354,10 +354,18 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
 
     const sheet = await readSheet(preview);
     expectSheetMatches(sheet, expectedSheet);
+    if (writingMode === "copy-with-model") {
+      await expect(preview.locator("[data-mode-instruction]")).toHaveCount(0);
+      await expect(preview.locator('[data-response-lines="copy"] > p')).toHaveCount(0);
+      await expect(preview.locator("[data-sentence-prompt]")).toHaveText(sheet.prompt!);
+      await expect(preview.locator("[data-model-sentence]")).toBeVisible();
+      await expect(preview.locator('[data-response-line="copy"]')).toHaveCount(3);
+    }
 
     // The child page must not name a surface it does not print: the only
     // place to write a label is the ruled label lines.
     if (writingMode === "label") {
+      await expect(preview.locator("[data-mode-instruction]")).toHaveCount(0);
       expect(sheet.prompt?.toLowerCase()).toContain("on the lines");
     }
 

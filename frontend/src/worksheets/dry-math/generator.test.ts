@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { expandMathPreset } from "../../shared/config/math-presets.js";
 
 import type {
   ChildProfileV1,
@@ -145,7 +146,7 @@ function assertExhaustiveCandidateOracle(
     expect(candidate.answer).toBe(recomputed);
     expect(candidate.answer).toBeGreaterThanOrEqual(0);
     expect(candidate.answer).toBeLessThanOrEqual(skills.resultMax);
-    expect(candidate.answer).toBeLessThanOrEqual(20);
+    expect(candidate.answer).toBeLessThanOrEqual(100);
     expect(
       candidate.operation === "addition"
         ? carries(candidate.leftOperand, candidate.rightOperand)
@@ -349,6 +350,32 @@ describe("Dry Math candidate model", () => {
 });
 
 describe("Dry Math documents", () => {
+  test.each([
+    ["addition-within-20", 20, ["addition"]],
+    ["subtraction-within-20", 20, ["subtraction"]],
+    ["arithmetic-within-50", 50, ["addition", "subtraction"]],
+    ["arithmetic-within-100", 100, ["addition", "subtraction"]],
+  ] as const)("generates the actual %s range with matching answers", (preset, maximum, operations) => {
+    const expanded = expandMathPreset(preset);
+    const source = { ...profile(), ...expanded };
+    const seen = new Set<number>();
+    for (let seed = 1; seed <= 12; seed += 1) {
+      const document = generated(request(source, { ...defaults, length: "long" }, formatSeedHex(seed)));
+      expect(validateWorksheetInvariants(document)).toBeUndefined();
+      for (const item of document.items) {
+        const fact = item as DryMathItemV1;
+        expect(operations).toContain(fact.operation);
+        for (const value of [fact.leftOperand, fact.rightOperand, fact.answer.value]) {
+          expect(value).toBeGreaterThanOrEqual(0);
+          expect(value).toBeLessThanOrEqual(maximum);
+          seen.add(value);
+        }
+        expect(fact.answer.value).toBe(recomputeDryMathAnswer(fact));
+      }
+    }
+    expect(Math.max(...seen)).toBeGreaterThan(maximum === 20 ? 10 : 20);
+  });
+
   test("is deterministic by request, seed, and version but not lifecycle UUID", () => {
     const projected = request(profile(), defaults, "9dcca8c5");
     const first = generated(projected, "11111111-1111-4111-8111-111111111111");
@@ -372,10 +399,10 @@ describe("Dry Math documents", () => {
       tupleKeys.add(tuple);
       expect(fact.leftOperand).toBeGreaterThanOrEqual(0);
       expect(fact.rightOperand).toBeGreaterThanOrEqual(0);
-      expect(fact.leftOperand).toBeLessThanOrEqual(20);
-      expect(fact.rightOperand).toBeLessThanOrEqual(20);
+      expect(fact.leftOperand).toBeLessThanOrEqual(100);
+      expect(fact.rightOperand).toBeLessThanOrEqual(100);
       expect(fact.answer.value).toBeGreaterThanOrEqual(0);
-      expect(fact.answer.value).toBeLessThanOrEqual(20);
+      expect(fact.answer.value).toBeLessThanOrEqual(100);
       expect(fact.answer.value).toBe(recomputeDryMathAnswer(fact));
       expect(
         fact.operation === "addition"
@@ -387,8 +414,8 @@ describe("Dry Math documents", () => {
       document.items.map(({ id }) => id),
     );
     expect(document.request.capabilities.mathSkills).toMatchObject({
-      operandMax: 20,
-      resultMax: 20,
+      operandMax: 100,
+      resultMax: 100,
       allowRegrouping: false,
       allowNegativeResults: false,
     });

@@ -9,7 +9,7 @@ import { parseSeedHex } from "./seeded-random.js";
 import {
   GENERATION_CONSTRAINT_CONFLICT,
   REVIEWED_TOPIC_IDS,
-  V1_NUMERIC_MAXIMUM,
+  worksheetMaximum,
   type EffectiveMathSkillsV1,
   type GenerationRequestV1,
   type GenerationResult,
@@ -59,8 +59,8 @@ export type ProjectionResult =
 
 export type ProjectAndGenerateResult = GenerationResult | ProjectionFailure;
 
-function clampPositive(value: number): number {
-  return value === 0 ? 0 : Math.min(value, V1_NUMERIC_MAXIMUM);
+function clampPositive(value: number, maximum: number): number {
+  return value === 0 ? 0 : Math.min(value, maximum);
 }
 
 function relevantMaximumKeys(
@@ -94,11 +94,11 @@ function applyDifficulty(
     }
   | ProjectionFailure {
   const numeric = {
-    countingMax: clampPositive(skills.countingMax),
-    numeralMax: clampPositive(skills.numeralMax),
-    compareMax: clampPositive(skills.compareMax),
-    operandMax: clampPositive(skills.operandMax),
-    resultMax: clampPositive(skills.resultMax),
+    countingMax: clampPositive(skills.countingMax, worksheetMaximum(worksheetType, "countingMax")),
+    numeralMax: clampPositive(skills.numeralMax, worksheetMaximum(worksheetType, "numeralMax")),
+    compareMax: clampPositive(skills.compareMax, worksheetMaximum(worksheetType, "compareMax")),
+    operandMax: clampPositive(skills.operandMax, worksheetMaximum(worksheetType, "operandMax")),
+    resultMax: clampPositive(skills.resultMax, worksheetMaximum(worksheetType, "resultMax")),
   };
   const relevantKeys = relevantMaximumKeys(worksheetType).filter(
     (key) => numeric[key] > 0,
@@ -109,7 +109,7 @@ function applyDifficulty(
   if (
     effectiveDifficulty === "stretch" &&
     (relevantKeys.length === 0 ||
-      relevantKeys.every((key) => numeric[key] === V1_NUMERIC_MAXIMUM))
+      relevantKeys.every((key) => numeric[key] === worksheetMaximum(worksheetType, key)))
   ) {
     effectiveDifficulty = "practice";
   } else if (effectiveDifficulty === "stretch" && !stretchConfirmed) {
@@ -126,7 +126,7 @@ function applyDifficulty(
       numeric[key] = Math.max(1, Math.floor(base * 0.75));
     } else if (effectiveDifficulty === "stretch") {
       numeric[key] = Math.min(
-        V1_NUMERIC_MAXIMUM,
+        worksheetMaximum(worksheetType, key),
         base + Math.max(1, Math.ceil(base * 0.25)),
       );
     }

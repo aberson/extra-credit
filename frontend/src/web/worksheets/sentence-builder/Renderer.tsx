@@ -84,12 +84,12 @@ const MODE_COPY = {
   },
   label: {
     bankTitle: "Word bank",
-    instruction: "Draw your picture, then write labels on the lines.",
+    instruction: "",
     writingCaption: "Write your sentence here.",
   },
   "copy-with-model": {
     bankTitle: "Word bank",
-    instruction: "Read the model sentence, then copy it on the lines.",
+    instruction: "",
     writingCaption: "Write your sentence here.",
   },
   "sentence-frame": {
@@ -132,12 +132,12 @@ function ResponseLines({
 }: {
   readonly count: number;
   readonly kind: "label" | "copy" | "write";
-  readonly label: string;
+  readonly label?: string;
   readonly lineHeight: string;
 }) {
   return (
     <div data-response-lines={kind}>
-      <p style={{ margin: "0 0 0.35rem" }}>{label}</p>
+      {label !== undefined && <p style={{ margin: "0 0 0.35rem" }}>{label}</p>}
       {Array.from({ length: count }, (_, index) => (
         <div
           aria-hidden="true"
@@ -211,9 +211,11 @@ export function SentenceBuilderRenderer({ document }: WorksheetRendererProps) {
               ? familyTitle
               : `${displayName}’s ${familyTitle}`}
           </h2>
-          <p data-mode-instruction={SENTENCE_BUILDER_MODE_LABELS[item.writingMode]}>
-            {copy.instruction}
-          </p>
+          {copy.instruction !== "" && (
+            <p data-mode-instruction={SENTENCE_BUILDER_MODE_LABELS[item.writingMode]}>
+              {copy.instruction}
+            </p>
+          )}
         </div>
         <DecorativeGraphic
           includeDecorativeGraphics={
@@ -342,7 +344,6 @@ export function SentenceBuilderRenderer({ document }: WorksheetRendererProps) {
               <ResponseLines
                 count={lines.copyLines}
                 kind="copy"
-                label="Copy the sentence here."
                 lineHeight={lineHeight}
               />
             )}

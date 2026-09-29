@@ -1,5 +1,6 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
+import { PDFDocument } from "pdf-lib";
 
 import type {
   AppConfigV1,
@@ -116,7 +117,7 @@ interface ProblemRow {
   readonly text: string;
 }
 
-function validateProblemRows(rows: readonly ProblemRow[]): Map<string, number> {
+function validateProblemRows(rows: readonly ProblemRow[], maximum = 10): Map<string, number> {
   const answers = new Map<string, number>();
   for (const row of rows) {
     const match = row.text.match(/(\d+)\s*([+−])\s*(\d+)\s*=\s*_+/u);
@@ -128,16 +129,82 @@ function validateProblemRows(rows: readonly ProblemRow[]): Map<string, number> {
     const right = Number(match[3]);
     const addition = match[2] === "+";
     const answer = addition ? left + right : left - right;
-    expect(left).toBeLessThanOrEqual(10);
-    expect(right).toBeLessThanOrEqual(10);
+    expect(left).toBeLessThanOrEqual(maximum);
+    expect(right).toBeLessThanOrEqual(maximum);
     expect(answer).toBeGreaterThanOrEqual(0);
-    expect(answer).toBeLessThanOrEqual(10);
+    expect(answer).toBeLessThanOrEqual(maximum);
     expect(addition ? hasCarry(left, right) : hasBorrow(left, right)).toBe(false);
     answers.set(row.id, answer);
   }
   expect(new Set(rows.map(({ text }) => text)).size).toBe(rows.length);
   return answers;
 }
+
+test("expanded presets save, generate their real range, and print matching single-page keys", async ({ appServer, page }, testInfo) => {
+  test.setTimeout(90_000);
+  await appServer.seedConfig({ schemaVersion: 1, profiles: [profiles[1]], defaults });
+  await page.addInitScript(() => {
+    const browserCrypto = globalThis.crypto as unknown as {
+      getRandomValues: (array: ArrayBufferView) => ArrayBufferView;
+    };
+    const original = browserCrypto.getRandomValues.bind(browserCrypto);
+    Object.defineProperty(Crypto.prototype, "getRandomValues", {
+      configurable: true,
+      value(array: ArrayBufferView | null): ArrayBufferView | null {
+        if (array instanceof Uint32Array) { array[0] = 1; return array; }
+        return array === null ? null : original(array);
+      },
+    });
+  });
+  for (const [label, maximum, operations] of [
+    ["Addition within 20", 20, ["addition"]],
+    ["Subtraction within 20", 20, ["subtraction"]],
+    ["Addition and subtraction within 50", 50, ["addition", "subtraction"]],
+    ["Addition and subtraction within 100", 100, ["addition", "subtraction"]],
+  ] as const) {
+    await page.goto(appServer.origin);
+    await page.getByRole("button", { name: "Edit Morgan" }).click();
+    await expect(page.getByRole("checkbox", { name: /future permission/ })).toHaveCount(0);
+    await page.getByRole("radio", { name: label, exact: true }).check();
+    await page.getByRole("button", { name: "Save profile", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Edit Morgan" })).toBeVisible();
+    expect((await appServer.readConfig()).profiles[0]?.mathSkills).toMatchObject({
+      operandMax: maximum, resultMax: maximum, operations,
+    });
+    await page.reload();
+    await page.getByText("More options", { exact: true }).click();
+    await page.getByRole("combobox", { name: "Length", exact: true }).selectOption("long");
+    for (const paper of ["letter", "a4"] as const) {
+      for (const scale of ["standard", "large"] as const) {
+        await page.getByRole("combobox", { name: "Paper size" }).selectOption(paper);
+        await page.getByRole("combobox", { name: "Print scale" }).selectOption(scale);
+        await page.getByRole("button", { name: "Create worksheet" }).click();
+        const preview = page.getByLabel("Worksheet preview");
+        const items = preview.locator("[data-item-id]");
+        await expect(items).toHaveCount(scale === "large" ? 12 : 18);
+        const rows = await items.evaluateAll(elements => elements.map(element => ({
+          id: element.getAttribute("data-item-id"), text: element.textContent ?? "",
+        })));
+        const answers = validateProblemRows(rows, maximum);
+        if (operations.length === 1) {
+          expect(rows.every(row => row.text.includes(operations[0] === "addition" ? "+" : "−"))).toBe(true);
+        }
+        if (maximum > 20) expect(rows.some(row => [...row.text.matchAll(/\d+/gu)].some(match => Number(match[0]) > 20))).toBe(true);
+        const pdf = await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }));
+        expect(pdf.getPageCount()).toBe(1);
+        await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+        const keyed = await page.locator('.print-surface [data-item-id]').evaluateAll(elements => elements.map(element => ({
+          id: element.getAttribute("data-item-id"),
+          value: Number(element.querySelector("[data-answer-value]")?.getAttribute("data-answer-value")),
+        })));
+        expect(keyed).toHaveLength(answers.size);
+        for (const row of keyed) expect(row.value).toBe(answers.get(row.id!));
+        expect((await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }))).getPageCount()).toBe(1);
+        if (maximum === 100) await page.screenshot({ path: testInfo.outputPath(`${paper}-${scale}-key.png`), fullPage: true });
+      }
+    }
+  }
+});
 
 test("creates, keys, varies, and prints Dry Math through the real local UI", async ({
   appServer,
