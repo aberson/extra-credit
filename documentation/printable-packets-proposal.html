@@ -1,0 +1,789 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Printable Packets Proposal</title>
+  <style>
+    :root {
+      --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --size-page: 72rem;
+      --space-1: 0.35rem;
+      --space-2: 0.65rem;
+      --space-3: 1rem;
+      --space-4: 1.5rem;
+      --space-5: 2.25rem;
+      --radius: 0.75rem;
+      --border-width: 1px;
+      --bg: #f7f5ef;
+      --surface: #ffffff;
+      --surface-alt: #eef5ef;
+      --text: #18211a;
+      --muted: #4b5d50;
+      --border: #b9c6bb;
+      --hairline: #d9e1da;
+      --accent: #155d38;
+      --accent-soft: #dcefe2;
+      --picked: #235a9f;
+      --picked-soft: #e2edfa;
+      --turn: #8a4b00;
+      --turn-soft: #fbeedb;
+      --retired: #5d5d5d;
+      --retired-soft: #ececec;
+      --focus: #a83f00;
+      --shadow: 0 0.5rem 1.4rem rgb(24 33 26 / 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #111712;
+        --surface: #182019;
+        --surface-alt: #1b2b20;
+        --text: #edf4ee;
+        --muted: #b8c8ba;
+        --border: #526456;
+        --hairline: #2c3a2f;
+        --accent: #8ed8aa;
+        --accent-soft: #203f2c;
+        --picked: #99c8ff;
+        --picked-soft: #203a59;
+        --turn: #f0b872;
+        --turn-soft: #3a2a12;
+        --retired: #c4c4c4;
+        --retired-soft: #2e2e2e;
+        --focus: #ffb47a;
+        --shadow: none;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #111712;
+      --surface: #182019;
+      --surface-alt: #1b2b20;
+      --text: #edf4ee;
+      --muted: #b8c8ba;
+      --border: #526456;
+      --hairline: #2c3a2f;
+      --accent: #8ed8aa;
+      --accent-soft: #203f2c;
+      --picked: #99c8ff;
+      --picked-soft: #203a59;
+      --turn: #f0b872;
+      --turn-soft: #3a2a12;
+      --retired: #c4c4c4;
+      --retired-soft: #2e2e2e;
+      --focus: #ffb47a;
+      --shadow: none;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.6;
+      overflow-wrap: break-word;
+    }
+    a { color: var(--accent); text-underline-offset: 0.18em; }
+    a:focus-visible, summary:focus-visible {
+      outline: 0.2rem solid var(--focus);
+      outline-offset: 0.2rem;
+    }
+    .skip-link {
+      position: absolute;
+      left: var(--space-3);
+      top: -5rem;
+      z-index: 10;
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface);
+      color: var(--text);
+      border: var(--border-width) solid var(--border);
+    }
+    .skip-link:focus { top: var(--space-3); }
+    header, main, footer {
+      width: min(calc(100% - 2rem), var(--size-page));
+      margin-inline: auto;
+    }
+    header { padding-block: var(--space-5) var(--space-4); }
+    main { padding-bottom: var(--space-5); }
+    footer {
+      padding-block: var(--space-4);
+      border-top: var(--border-width) solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin: 0 0 var(--space-2); font-size: clamp(2rem, 6vw, 3.4rem); letter-spacing: -0.01em; }
+    h2 { margin: var(--space-1) 0 var(--space-2); font-size: clamp(1.4rem, 3vw, 1.9rem); }
+    h3 { margin: 0; font-size: 1.08rem; }
+    p { max-width: 76ch; }
+    .eyebrow {
+      margin: 0 0 var(--space-2);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .lede { font-size: 1.14rem; color: var(--muted); margin-top: 0; }
+    main > section { margin-top: var(--space-5); }
+    .kicker {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .section-lead { color: var(--muted); margin-top: 0; }
+    .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-block: var(--space-3);
+      padding: 0;
+      list-style: none;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2rem;
+      padding: var(--space-1) var(--space-2);
+      border: var(--border-width) solid var(--border);
+      border-radius: 99rem;
+      background: var(--surface);
+      font-weight: 650;
+      font-size: 0.92rem;
+    }
+    .pill.hot { border-color: var(--turn); color: var(--turn); background: var(--turn-soft); }
+    nav {
+      padding: var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2) var(--space-4);
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+      gap: var(--space-3);
+    }
+    .grid.wide { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); }
+    .card {
+      padding: var(--space-4);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+    .card > :first-child { margin-top: 0; }
+    .card > :last-child { margin-bottom: 0; }
+    code {
+      padding: 0.1em 0.35em;
+      border-radius: 0.3em;
+      background: var(--surface-alt);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      overflow-wrap: anywhere;
+    }
+    .tag {
+      display: inline-block;
+      margin-bottom: var(--space-2);
+      padding: 0.14rem 0.5rem;
+      border-radius: 0.35rem;
+      font-size: 0.76rem;
+      font-weight: 750;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .tag.picked { color: var(--picked); background: var(--picked-soft); }
+    .tag.defaulted { color: var(--turn); background: var(--turn-soft); }
+    .tag.ruling { color: var(--accent); background: var(--accent-soft); }
+    .tag.retired { color: var(--retired); background: var(--retired-soft); }
+    .id {
+      display: inline-block;
+      margin-right: 0.4rem;
+      padding: 0.08rem 0.4rem;
+      border: var(--border-width) solid currentColor;
+      border-radius: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.86em;
+      white-space: nowrap;
+    }
+    .p-id { color: var(--picked); }
+    .d-id { color: var(--turn); }
+
+    /* Dependency note */
+    .depends { margin-block: var(--space-3); border-left: 0.35rem solid var(--picked); background: var(--surface-alt); }
+    .depends h2 { font-size: 1.1rem; margin: 0 0 var(--space-2); }
+    .depends ul { margin: var(--space-2) 0 0; padding-left: 1.2rem; }
+
+    /* What I heard */
+    .heard { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); margin: 0; padding: 0; list-style: none; counter-reset: heard; }
+    .heard li { counter-increment: heard; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); align-items: start; }
+    .heard li::before {
+      content: counter(heard);
+      display: grid;
+      place-items: center;
+      width: 1.8rem;
+      height: 1.8rem;
+      border-radius: 99rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .ask { display: block; color: var(--muted); font-style: italic; font-size: 0.92rem; }
+    .becomes { display: block; }
+    .where { display: block; color: var(--muted); font-size: 0.84rem; font-family: var(--font-mono); }
+
+    /* Why this shape */
+    .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-3); padding: 0; list-style: none; }
+    .chip {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.45rem;
+      padding: 0.45rem 0.75rem;
+      border: var(--border-width) solid var(--border);
+      border-radius: 0.6rem;
+      background: var(--surface);
+    }
+    .chip .n { font-size: 1.2rem; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--turn); }
+    .chip .l { font-size: 0.86rem; color: var(--muted); }
+
+    /* Look first */
+    .look { border-left: 0.35rem solid var(--turn); }
+    .look h3 { margin-bottom: var(--space-2); }
+    .reply-example { display: block; margin-top: var(--space-2); font-family: var(--font-mono); font-size: 0.9rem; overflow-wrap: anywhere; }
+    .signoff { border-left: 0.35rem solid var(--picked); background: var(--surface-alt); margin-top: var(--space-3); }
+    .signoff ul { margin-bottom: 0; padding-left: 1.2rem; }
+
+    /* Timeline */
+    ol.timeline { list-style: none; margin: 0; padding: 0; }
+    ol.timeline > li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 var(--space-3); }
+    .tl-mark { display: flex; flex-direction: column; align-items: center; }
+    .tl-num {
+      display: grid;
+      place-items: center;
+      min-width: 2.4rem;
+      height: 2.4rem;
+      padding: 0 0.3rem;
+      border: 2px solid var(--accent);
+      border-radius: 99rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.86rem;
+    }
+    .tl-num.you { border-color: var(--picked); background: var(--picked-soft); color: var(--picked); }
+    .tl-num.gate { border-color: var(--turn); background: var(--turn-soft); color: var(--turn); }
+    .tl-line { flex: 1; width: 2px; min-height: 0.75rem; margin: 0.25rem 0; background: var(--hairline); }
+    ol.timeline > li:last-child .tl-line { display: none; }
+    .tl-body { padding-bottom: var(--space-4); min-width: 0; }
+    .tl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
+    .tl-head h3 { font-size: 1.05rem; }
+    .flag {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      padding: 0.06rem 0.4rem;
+      border-radius: 0.3rem;
+      border: var(--border-width) solid var(--border);
+      color: var(--muted);
+    }
+    .tl-body p { margin: var(--space-1) 0 0; }
+    .tl-body ul { margin: var(--space-1) 0 0; padding-left: 1.2rem; }
+    .after { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: 0.5rem; background: var(--surface-alt); }
+    .after .arw { color: var(--accent); font-weight: 750; }
+
+    /* Decisions */
+    details.group { margin-top: var(--space-3); }
+    details.group > summary {
+      cursor: pointer;
+      padding: var(--space-2) var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    details.group > summary .count { color: var(--muted); font-weight: 500; font-size: 0.92rem; }
+    details.group[open] > summary { margin-bottom: var(--space-3); }
+    .dec h3 { font-size: 1rem; margin-bottom: var(--space-2); }
+    .dec dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-2); }
+    .dec dt { font-weight: 700; font-size: 0.86rem; color: var(--muted); padding-top: 0.08rem; }
+    .dec dd { margin: 0; font-size: 0.95rem; }
+    .dec dd.tweak { color: var(--turn); }
+    .picked-card p { margin-bottom: 0; }
+    .relied { font-size: 0.9rem; color: var(--muted); }
+
+    /* Cuts, risks, feedback */
+    .compact { margin: 0; padding-left: 1.2rem; }
+    .compact li { margin-block: var(--space-1); }
+    .risks { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+    .risks li { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--space-1) var(--space-4); padding: var(--space-3); border: var(--border-width) solid var(--border); border-radius: var(--radius); background: var(--surface); }
+    .risks .r { font-weight: 700; }
+    .risks .a { color: var(--muted); }
+    .feedback {
+      padding: var(--space-4);
+      border-left: 0.35rem solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--surface-alt);
+    }
+    .fb-ex {
+      margin: var(--space-3) 0;
+      padding: var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: 0.5rem;
+      background: var(--surface);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .fb-ex .c { color: var(--muted); }
+    .kv { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: var(--space-2) var(--space-3); margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: var(--border-width) solid var(--border); }
+    .kv dt { font-family: var(--font-mono); font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-top: 0.15rem; }
+    .kv dd { margin: 0; }
+    @media (max-width: 30rem) {
+      .kv, .dec dl { grid-template-columns: minmax(0, 1fr); }
+      .kv dd, .dec dd { margin-bottom: var(--space-1); }
+    }
+
+    @media print {
+      :root { --bg: #fff; --surface: #fff; --surface-alt: #f3f3f3; --text: #000; --muted: #333; --border: #777; --shadow: none; }
+      body { font-size: 10.5pt; }
+      .skip-link, nav { display: none; }
+      header, main, footer { width: 100%; }
+      .card, .risks li, ol.timeline > li { break-inside: avoid; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to proposal</a>
+  <header>
+    <p class="eyebrow">Proposal · feature plan 03 of 3 · publication 1 · issues not yet synced</p>
+    <h1>Printable packets</h1>
+    <p class="lede">Queue several generated worksheets — different types, variants and children — reorder them, give one sheet new problems, then preview and print the whole packet once, with the answer keys where you want them. The packet lives in its own private local file, so a reload or a server restart brings it back and never touches saved child profiles.</p>
+    <ul class="status-line" aria-label="Proposal status">
+      <li class="pill hot">Proposal — nothing built yet</li>
+      <li class="pill">Publication 1 · 2026-09-29</li>
+      <li class="pill">Steps 28–34 · 7 code steps + manual UAT · issues not yet synced</li>
+      <li class="pill">3 operator choices here · 5 relied on · 59 agent defaults</li>
+      <li class="pill">Built third: after plan 01 and plan 02</li>
+    </ul>
+    <div class="card depends" role="note" aria-labelledby="depends-title">
+      <h2 id="depends-title">Built last, on what actually shipped</h2>
+      <ul>
+        <li><b>Depends on plan 01</b>, the worksheet-first controls (Steps 14–20, issues #25–#31): packets reuse its request shape, worksheet session, enum arrays and identity-only profiles.</li>
+        <li><b>Built after plan 02</b>, the math activities (Steps 21–27), starting from the tip plan 02 leaves, so multiplication, division, required regrouping and Number Bonds sheets are covered by name in every packet sweep.</li>
+        <li><b>A pre-build delta check re-verifies the assumptions against shipped code.</b> The plan relies on plans 01 and 02 only through its "Assumptions from plan 01" table: 48 rows, A0–A47. Before <code>/build-phase</code> starts Step 28, the coordinator re-runs every row with <code>git grep</code> against the shipped <code>main</code>. A failed gating row means this plan is not started: it is parked under P7, reported in the morning summary, and the steps that row feeds are re-planned at redline. Informational rows only report. Step 29 then commits the same rows as a calibrated script that reads every file at the plan 03 base commit.</li>
+      </ul>
+    </div>
+    <nav aria-label="Proposal sections">
+      <ul>
+        <li><a href="#heard">What I heard</a></li>
+        <li><a href="#why">Why this shape</a></li>
+        <li><a href="#look-first">Look at these first</a></li>
+        <li><a href="#timeline">Step by step</a></li>
+        <li><a href="#picked">Your choices</a></li>
+        <li><a href="#defaults">My defaults</a></li>
+        <li><a href="#cuts">Not in this plan</a></li>
+        <li><a href="#risks">Risks</a></li>
+        <li><a href="#reply">How to reply</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="heard" aria-labelledby="heard-title">
+      <p class="kicker">What I heard</p>
+      <h2 id="heard-title">Nine asks from seed 03, nine deliverables.</h2>
+      <p class="section-lead">My read of the outcomes recorded in <code>documentation/feature-seeds/03-printable-packets.md</code>, which left packet size, persistence, key placement and regeneration open. If a mapping is off, flag it first — for example <code>heard #5 is off: I meant …</code>.</p>
+      <div class="card">
+        <ol class="heard">
+          <li><span><span class="ask">"Multiple sheets without generating and printing each one individually."</span><span class="becomes"><b>Add to packet</b> sits beside Make another while a preview is showing; a packet holds up to <b>10 sheets</b> and prints with one browser print.</span><span class="where">Steps 31 and 33 · K1, K2, K8 · D-packet</span></span></li>
+          <li><span><span class="ask">"Store the already-generated immutable documents so changing current controls cannot silently change earlier pages."</span><span class="becomes">Each sheet keeps <b>the exact document you previewed</b> — problems, answers, seed and request. On every load the browser regenerates it and requires an identical result; a sheet that differs is flagged on its own, never silently replaced.</span><span class="where">Steps 28 and 31 · K3 · D9, D27, D29</span></span></li>
+          <li><span><span class="ask">"Durable drafts must remain local, versioned and private; never use browser storage for child data or commit generated sheets."</span><span class="becomes">Your P4: a second gitignored file, <code>config/packet-draft.local.json</code>, with its own 256 KiB cap, ETags, atomic writes, backup-first recovery and release-export exclusion. Nothing packet-related touches browser storage.</span><span class="where">Steps 28–30 · P4 · D10, D16, D36</span></span></li>
+          <li><span><span class="ask">"Reorder or remove sheets … regenerate only the selected page through an explicit action and update its matching key together."</span><span class="becomes"><b>Move up</b>, <b>Move down</b>, <b>Remove</b> with one guarded <b>Undo</b>, and <b>New problems for sheet N</b>. The worksheet and its key render from one document, so they always change together.</span><span class="where">Step 32 · K5 · D18, D22</span></span></li>
+          <li><span><span class="ask">"A single packet layout … define whether changing it rerenders existing documents or requires explicit regeneration, without changing their problems."</span><span class="becomes"><b>Paper for every sheet</b> and <b>Print size for every sheet</b>. Sheets that can keep identical problems are re-laid-out; any other sheet is named and changes only through one explicit, all-or-nothing Make new problems action.</span><span class="where">Step 32 · K6 · D-packet, D21, D41</span></span></li>
+          <li><span><span class="ask">"An explicit answer-key placement choice; recommend grouped keys at the end … keep matching identifiers/page labels."</span><span class="becomes"><b>All answer keys at the end</b> (default), <b>Each key after its worksheet</b> or <b>Leave out answer keys</b>. Each key heading names its sheet number, family and printed nickname; writing pages have no objective key.</span><span class="where">Step 33 · K7 · D23, D24, D42</span></span></li>
+          <li><span><span class="ask">"Decide multi-child support … switching selected child must not rewrite queued documents."</span><span class="becomes">One packet can hold sheets for <b>several children</b>; each keeps the nickname, topics and theme it was made with. Deleting a child keeps that child's queued sheets, labeled "for a removed profile", and the delete dialog says how many.</span><span class="where">Steps 31 and 33 · K9, K11 · D26, D45</span></span></li>
+          <li><span><span class="ask">"Printing must not clear the queue … PDF order, page count, required content and keys exactly match the previewed packet."</span><span class="becomes"><b>Preview packet</b> shows every page in print order; <b>Print packet (N pages)</b> prints once; cancelling returns to the same packet. Page order is proven twice at 10 sheets on Letter and A4, standard and large print.</span><span class="where">Steps 33 and 34 · K8 · D32</span></span></li>
+          <li><span><span class="ask">"Privacy calibration covers queued, removed and regenerated profile identifiers … restart never resets saved child profiles."</span><span class="becomes">Two new leak gates in the log-privacy calibration, and a proof that no packet read, save, recovery or restart ever writes the profile file — nor any profile action the packet file.</span><span class="where">Steps 30 and 34 · K4 · D30, D38</span></span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="why" aria-labelledby="why-title">
+      <p class="kicker">Why this shape</p>
+      <h2 id="why-title">What the code survey found underneath printing today.</h2>
+      <ul class="chips" aria-label="Survey findings">
+        <li class="chip"><span class="n">1</span><span class="l">surface per browser print today: one worksheet or one key</span></li>
+        <li class="chip"><span class="n">52,491 bytes</span><span class="l">ten of today's largest documents, compact, against the profile file's 65,536-byte cap</span></li>
+        <li class="chip"><span class="n">256 KiB</span><span class="l">the packet file's own cap, with the worst ten-sheet packet held under half</span></li>
+        <li class="chip"><span class="n">48</span><span class="l">assumption rows re-checked against shipped code before Step 28</span></li>
+      </ul>
+      <div class="grid wide">
+        <article class="card">
+          <h3>Printing is one surface at a time</h3>
+          <p><code>PrintView</code> shows one worksheet or one key and calls the browser print for that one surface, and the named page comes from that surface's own paper. A packet therefore needs its own composed print view — one page per surface, a page break between them — not a loop that calls Print again. Single-sheet printing, its print CSS and its renderers stay exactly as proven.</p>
+        </article>
+        <article class="card">
+          <h3>A second file, not a key in the profile file</h3>
+          <p>Ten of the largest documents already take most of the profile file's cap, and a key there would force a profile schema version 3 and tie packet recovery to profile recovery. So the packet gets its own sibling file, built on the same extracted file-safety code, and neither store ever reads, locks or backs up the other's file.</p>
+        </article>
+        <article class="card">
+          <h3>Stored pages, proven on every load</h3>
+          <p>The file treats each document as opaque; the browser proves each sheet by regenerating it from its own stored request. A later generator, family or request change never invalidates the file — it only flags the sheets it touches, which keep their stored bytes and can be removed or given new problems.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="look-first" aria-labelledby="look-title">
+      <p class="kicker">Look at these first</p>
+      <h2 id="look-title">Three defaults with the biggest effect on you.</h2>
+      <p class="section-lead">Everything else can wait for a skim. These set the packet's shape, how you match keys to pages, and what happens to a child's queued sheets when you delete the child.</p>
+      <div class="grid">
+        <article class="card look">
+          <h3><span class="id d-id">D-packet</span>Ten sheets, one layout, keys at the end</h3>
+          <p>At most 10 sheets, one paper size and print scale for the whole packet, keys grouped at the end by default, sheets for different children allowed, and printing never clears the packet. A layout change keeps a sheet's problems only when its generator produces the identical items at the new layout; any other sheet is named and changes only when you choose Make new problems, which Undo covers.</p>
+          <span class="reply-example">D-packet -&gt; allow 12 sheets</span>
+        </article>
+        <article class="card look">
+          <h3><span class="id d-id">D24</span>Keys are labeled; child pages are not</h3>
+          <p>Each key heading names its sheet, family and printed nickname, but child pages gain no label, because an extra line would change page geometry the single-sheet print matrix proved. With keys grouped at the end, two sheets that print the same title match their keys only by order and problems; the panel then recommends Each key after its worksheet. M1 and M2 observe it.</p>
+          <span class="reply-example">D24 -&gt; label child pages too</span>
+        </article>
+        <article class="card look">
+          <h3><span class="id d-id">D26</span>Deleting a child keeps its queued sheets</h3>
+          <p>Deleting a profile never rewrites the packet. That child's sheets stay, labeled "for a removed profile", with the profile id and any printed nickname they were made with, until you remove them. The delete dialog says how many stay — or, while the packet is loading or cannot be opened, that it may still hold some — and the privacy docs give cleanup guidance.</p>
+          <span class="reply-example">D26 -&gt; offer to remove those sheets with the profile</span>
+        </article>
+      </div>
+      <div class="card signoff" role="note" aria-labelledby="open-title">
+        <h3 id="open-title">Four open questions, each answered by a default</h3>
+        <p>The plan answers every question it raised, so silence lets the build proceed. Reply only to change one:</p>
+        <ul>
+          <li>Several named packets? <b>No</b> — one current packet (<a href="#d10">D10</a>); named packets need a packet schema version 2.</li>
+          <li>Keep "Leave out answer keys"? <b>Yes</b> (<a href="#d23">D23</a>). Dropping it narrows the saved values, so decide before Step 28.</li>
+          <li>Label child pages? <b>Keys only</b>, with the same-title note and the accepted limitation (<a href="#d24">D24</a>); the title-heading alternative is recorded.</li>
+          <li>Keep an old generator registered so old sheets stay printable? <b>No</b> — old sheets are flagged and offered new problems (<a href="#d46">D46</a>).</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="timeline" aria-labelledby="timeline-title">
+      <p class="kicker">What lands, step by step</p>
+      <h2 id="timeline-title">You clear the way, the shipped code is re-checked, then seven gated steps and your checks.</h2>
+      <p class="section-lead">Every step's DONE gate is the full <code>npm --prefix frontend run check</code>, and neither test count may fall. Steps 28–30 lay the durable file, store and API before any UI, so no build ever ships a packet that is not durable, even if a halt parks the rest (P7). Nothing is pushed until Step 34's gate passes (P8). Interim builds are never used with real family data.</p>
+      <ol class="timeline">
+        <li>
+          <div class="tl-mark"><div class="tl-num you" aria-hidden="true">0</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Before the run — you</h3><span class="flag">operator only</span></div>
+            <ul>
+              <li>No <code>config/children.local.json</code>, no <code>config/packet-draft.local.json</code> and no sibling of either in the main checkout; nothing listening on 127.0.0.1:4310 or :4311. Checked when the three-plan run is armed, and again before any resumed or re-armed run of this plan.</li>
+              <li>The retained attended-UAT launcher stays stopped for the whole run. Agents never read, run, copy, move or delete <code>config/uat-session/</code>, the launcher or its TEMP file (D-uatbackup).</li>
+              <li>repo-sync has committed this plan and plan 02, which are still untracked; plan 01, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section are already committed (D-planindex).</li>
+              <li>After a halt inside this plan, never run the interim build against real data. No real packet can exist until Step 34 and its repo-update have shipped.</li>
+            </ul>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Check:</b> <code>Get-ChildItem config -Name -Filter *.local.json*</code> lists nothing, <code>Get-NetTCPConnection -State Listen -LocalPort 4310,4311</code> finds nothing, and <code>git status --porcelain -- plan.md documentation</code> prints nothing.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num gate" aria-hidden="true">Δ</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Pre-build delta check — coordinator</h3><span class="flag">P7 re-check · not a build-phase halt</span></div>
+            <p>After plan 02's Step 27 gate and its repo-update, the coordinator runs row A0 and then all 48 Assumptions rows against <code>main</code> using only <code>git</code>, <code>git grep</code> and <code>git ls-files</code>, and compares each with its expected result. It also lists any stray fictional config or packet file by name and records git status and recent commit dates, report-only.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> every gating row passes and <code>/build-phase</code> starts Step 28 from that tip — or a gating row fails, plan 03 is parked, and the failing rows appear in the morning summary for re-planning at redline. Informational rows never park, and nothing under <code>documentation/</code> is edited.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">28</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 28 · Packet file contract and export exclusion</h3><span class="flag">issue after repo-sync</span><span class="flag">deep review</span></div>
+            <p>The versioned packet envelope (up to 10 sheets, one layout, one key placement), its classifier and fingerprint, the strict request mirror, and per-sheet verification by regeneration over every request shape plans 01 and 02 ship, plus a size check over every family. The ignore rules and release export drop the packet file before any code can write it.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> nothing visible and no runtime change. <code>documentation/printable-packets-evidence.md</code> starts, recording the plan 03 base commit, and <code>npm --prefix frontend run release:verify</code> exits 0.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">29</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 29 · Shared file-safety core, packet store, delta-check script</h3><span class="flag">issue after repo-sync</span><span class="flag">deep review</span></div>
+            <p>The profile store's private file mechanics move into one shared module with its load and save code byte-identical. The packet store is built on the same core: bounded no-follow reads, strong ETags, preconditions, flushed atomic replacement and backup-first recovery. One hostile-file table runs against both stores.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> still nothing visible; profiles save exactly as before. <code>node frontend/scripts/packet-delta-check.mjs --ref &lt;plan 03 base&gt;</code> and its <code>--calibrate</code> mode are recorded in the evidence file.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">30</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 30 · Packet API, store independence, audit boundary</h3><span class="flag">issue after repo-sync</span><span class="flag">deep review</span></div>
+            <p><code>GET</code> and <code>PUT /api/packet-draft</code> behind the existing loopback checks (Host, Origin, Fetch Metadata, session token, content type, schemas, ETags), with 11 packet error codes, its own body limit and the development proxy. A test proves that no read, write, recovery, legacy upgrade save or restart of either file touches the other. The release audit starts rejecting committed packets, sheets, documents and requests, and the shared packet test fixtures land.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> a missing packet reads as an empty one; there is still no packet UI. A halt here leaves a durable API with no UI.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">31</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 31 · Add to packet and restore the saved packet</h3><span class="flag">issue after repo-sync</span><span class="flag">full review</span></div>
+            <p>Add to packet beside Make another; the "Printable packet" panel lists "Sheet N · family · detail · for child"; every change is saved before it shows. A reload or restart restores the same verified sheets; an unverifiable sheet is flagged on its own; an unreadable or newer packet file shows one non-destructive notice.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> you can queue sheets for several children and restart the server without losing them. Changing controls, the child, a profile or the saved defaults never changes a queued page. Editing and printing arrive next.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">32</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 32 · Edit sheets, one packet layout, recovery</h3><span class="flag">issue after repo-sync</span><span class="flag">full review</span></div>
+            <p>Move up, Move down, Remove with Undo, and New problems for one sheet, whose key changes with it. "Paper for every sheet" and "Print size for every sheet" re-lay every sheet whose problems can stay identical and name the rest for one all-or-nothing Make new problems action. Backup-first recovery for an unreadable packet file, and fixed guidance for a newer, oversized or unsafe one.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> switching Letter to A4 keeps every problem; switching to large print names the sheets that would need new problems and changes nothing until you press the explicit button.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">33</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 33 · Preview and print the whole packet once</h3><span class="flag">issue after repo-sync</span><span class="flag">full review</span></div>
+            <p>Preview packet shows every page in print order and Print packet (N pages) prints once, with each worksheet and each applicable key on its own page in your chosen placement and every key labeled by sheet. Proven at 10 sheets on Letter and A4 at both scales by page count, page order and geometry. The profile delete dialog discloses the queued sheets it leaves behind.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> one print for the whole packet; cancelling returns to the same packet, and printing never clears it.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">34</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 34 · Compiled smoke, PDF page order, privacy docs</h3><span class="flag">issue after repo-sync</span><span class="flag">deep review</span></div>
+            <p>On the compiled app with real routes and temporary files, a two-child packet is assembled, edited, given new problems, restored after a server restart and printed once, with saved profiles byte-unchanged. The PDF outline proves page order at maximum length; every key placement and a cancelled print are checked; the log-privacy calibration covers queued, removed and regenerated sheets' profile ids. README, PRIVACY and SECURITY name the packet file as the second private local store.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> <code>npm --prefix frontend run check</code> includes the <code>packet-smoke</code> project and <code>npm --prefix frontend run test:log-privacy</code> reports exactly 1/1/1/1/1/1/0/0/0/0. repo-update commits and pushes (P8), ending the three-plan run.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num you" aria-hidden="true">UAT</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Your checks at the end</h3><span class="flag">operator only · never marked passed by an agent</span></div>
+            <ul>
+              <li><b>PK-0:</b> before using packets with the retained launcher, decide privately whether its mirror should also keep <code>packet-draft.local.json</code>, which the server now writes beside the launcher's working config file.</li>
+              <li><b>PK-1:</b> with the disposable fictional profiles, build a 10-sheet packet across the three canonical children, reorder, remove with Undo, give one sheet new problems, switch layout and placement, and preview. Nothing persists after the harness exits.</li>
+              <li><b>M1 additions:</b> physical print in current Edge and Chrome of a 10-sheet packet on Letter and A4, standard and large, with keys grouped at the end and after each worksheet; record whether two same-title sheets' keys could be matched and whether the note appeared.</li>
+              <li><b>M2 additions:</b> a family pilot assembling one week's packet for two children; non-identifying notes on Add to packet, the labels, the layout controls, key placement and restart behavior.</li>
+              <li><b>M3:</b> watch the exact pushed commit's Ubuntu CI run.</li>
+            </ul>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>PK-1 commands, in order:</b> <code>npm --prefix frontend run build</code>, then <code>npm --prefix frontend run manual:print</code> (stop it with Ctrl+C).</span></div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="picked" aria-labelledby="picked-title">
+      <p class="kicker">Choices you already made</p>
+      <h2 id="picked-title">Your picks — binding on this plan.</h2>
+      <p class="section-lead">Recorded 2026-09-29 in <code>documentation/feature-seeds/operator-decisions.md</code>. Changeable, but only by you. P4, P7 and P8 shape this plan directly; the other five are yours for plans 01 and 02, and this plan relies on them.</p>
+      <div class="grid">
+        <article class="card picked-card" id="p4"><span class="tag picked">Operator pick · this plan</span><h3><span class="id p-id">P4</span>Durable local drafts</h3><p>Packets are durable local drafts: a versioned, private, gitignored local draft store with its own ETag precondition, atomic writes, explicit recovery and release-export exclusion. Carried by Steps 28–31.</p></article>
+        <article class="card picked-card" id="p7"><span class="tag picked">Operator pick · this plan</span><h3><span class="id p-id">P7</span>One unattended run, three plans</h3><p>All three plans build in dependency order with the default iteration budget, each gated on the previous plan's full gate; later plans are re-checked against what shipped — here, the pre-build delta check. Any halt parks the remainder.</p></article>
+        <article class="card picked-card" id="p8"><span class="tag picked">Operator pick · this plan</span><h3><span class="id p-id">P8</span>Commit and push after each plan</h3><p>After each increment passes its full gate, repo-update commits and pushes so the exact commit gets Ubuntu CI evidence. For this plan that happens once, after Step 34 (M3).</p></article>
+      </div>
+      <details class="group">
+        <summary>Your plan 01 and 02 picks this plan relies on <span class="count">· 5 picks</span></summary>
+        <div class="grid">
+          <article class="card picked-card" id="p1"><span class="tag picked">Operator pick · relied on</span><h3><span class="id p-id">P1</span>Global defaults, saved explicitly</h3><p>Worksheet choices persist only as global worksheet defaults, saved explicitly. <span class="relied">Here: packets store generated documents, never worksheet choices; Add, New problems and layout changes never read or write the saved defaults.</span></p></article>
+          <article class="card picked-card" id="p2"><span class="tag picked">Operator pick · relied on</span><h3><span class="id p-id">P2</span>Age removed entirely</h3><p>Age is removed from profiles and the generation gate goes away. <span class="relied">Here: packet requests and the packet file carry no age, and no packet document or copy uses age wording.</span></p></article>
+          <article class="card picked-card" id="p3"><span class="tag picked">Operator pick · relied on</span><h3><span class="id p-id">P3</span>Multiplication and division</h3><p>Factors 0–12, dividends through 144, exact division only (plan 02). <span class="relied">Here: the request mirror carries the facts kind with plan 02's bounds, and every packet sweep includes single and full fact-family sets.</span></p></article>
+          <article class="card picked-card" id="p5"><span class="tag picked">Operator pick · relied on</span><h3><span class="id p-id">P5</span>Number Bonds first</h3><p>The first new family is Number Bonds / Missing Numbers (plan 02). <span class="relied">Here: the mirror carries the Number Bonds kind, every sweep covers both variants and both regrouping choices, and its sheets meet Step 32's re-layout safety rule.</span></p></article>
+          <article class="card picked-card" id="p6"><span class="tag picked">Operator pick · relied on</span><h3><span class="id p-id">P6</span>Carrying and borrowing</h3><p>An explicit Dry Math capability in plan 02. <span class="relied">Here: the mirror accepts it only as the required-regrouping kind, sweeps include both modes, and the sheet row shows its regrouping phrase; Number Bonds keeps its own separate regrouping field (D-bonds-ten).</span></p></article>
+        </div>
+      </details>
+    </section>
+
+    <section id="defaults" aria-labelledby="defaults-title">
+      <p class="kicker">Choices I made on your behalf</p>
+      <h2 id="defaults-title">Agent defaults — reference any ID to tweak.</h2>
+      <p class="section-lead">Amber tags are adopted or proposed defaults; green tags are coordinator rulings made under your delegation of routine choices. "Changed 2026-09-29" marks rows revised during plan review. All 59 are negotiable, and none is an operator choice.</p>
+
+      <details class="group" open>
+        <summary>What a parent will notice <span class="count">· 18 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d-packet"><span class="tag defaulted">Adopted default · changed 2026-09-29</span><h3><span class="id d-id">D-packet</span>The packet's shape</h3><dl><dt>What</dt><dd>At most 10 sheets; one paper size and print scale for the whole packet; keys grouped at the end by default with a per-packet placement choice; sheets from different children allowed; printing never clears the packet. Recorded deviation: "re-renders without changing problems" is met by replacing a sheet's document with the one its generator produces at the new layout with identical items; a sheet whose items would change is named and changes only through Make new problems, which Undo covers.</dd><dt>Why</dt><dd>A bounded first packet that reuses the proven single-page print contract; a re-laid page is always one the print matrix proved.</dd><dt>Tweak</dt><dd class="tweak">Another limit, per-sheet layouts, another default placement, or paper-only layout changes.</dd></dl></article>
+          <article class="card dec" id="d10"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D10</span>One current packet</h3><dl><dt>What</dt><dd>One current packet in <code>packet-draft.local.json</code>, derived as the profile file's sibling; no path option; removing every sheet saves an empty packet.</dd><dt>Why</dt><dd>Every test harness isolates it automatically, and the API never accepts a path.</dd><dt>Tweak</dt><dd class="tweak">Named packets through a packet schema version 2.</dd></dl></article>
+          <article class="card dec" id="d17"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D17</span>Saved before it shows</h3><dl><dt>What</dt><dd>Every packet change is saved before it shows; one save in flight; a change from another tab reloads the saved packet once and says so.</dd><dt>Why</dt><dd>The saved file is the packet.</dd><dt>Tweak</dt><dd class="tweak">Optimistic updates with rollback.</dd></dl></article>
+          <article class="card dec" id="d18"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D18</span>One guarded Undo</h3><dl><dt>What</dt><dd>Undo restores the exact saved packet from before the last Remove, New problems or Make new problems for sheets …, offered only while nothing else has changed the packet since; it clears on any other change, reload, conflict, Retry, recovery or failed save, and is never saved.</dd><dt>Why</dt><dd>A safety net without dialogs or stored history that can never write a stale sheet into a packet another tab changed, and that covers the bulk action.</dd><dt>Tweak</dt><dd class="tweak">A confirmation before Remove, or a per-sheet restore.</dd></dl></article>
+          <article class="card dec" id="d19"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D19</span>Add only from the visible preview</h3><dl><dt>What</dt><dd>Add to packet appears only while a current preview is visible. An empty packet adopts that worksheet's layout; Step 31 refuses a worksheet at another layout; from Step 32 it is re-laid-out to the packet's layout, announced as "problems unchanged", or refused.</dd><dt>Why</dt><dd>The stored document has exactly the problems and answers you previewed.</dd><dt>Tweak</dt><dd class="tweak">Let Add make new problems at the packet layout after a confirmation.</dd></dl></article>
+          <article class="card dec" id="d20"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D20</span>No duplicate work</h3><dl><dt>What</dt><dd>The same worksheet, or identical problems, cannot be queued twice; new problems must differ from every queued sheet.</dd><dt>Why</dt><dd>No duplicate work in one packet.</dd><dt>Tweak</dt><dd class="tweak">Allow identical sheets for siblings.</dd></dl></article>
+          <article class="card dec" id="d21"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D21</span>Layout changes keep problems when they can</h3><dl><dt>What</dt><dd>A layout change searches the sheet's lengths at the new layout with the same seed and accepts only identical content, producing a genuine generated page.</dd><dt>Why</dt><dd>"Re-render without changing problems" becomes a mechanical proof, and every page stays one the print matrix proved.</dd><dt>Tweak</dt><dd class="tweak">Allow paper changes only.</dd></dl></article>
+          <article class="card dec" id="d22"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D22</span>New problems for one sheet</h3><dl><dt>What</dt><dd>Re-seeds that sheet's stored request — never the current controls, child or profile — at the current generator version, within Make another's attempt limit and with a fresh worksheet id; position, child and sheet id stay. A flagged sheet is regenerated at the packet's paper and scale with its stored length.</dd><dt>Why</dt><dd>The Make another contract for one queued sheet, and a repaired sheet must not come back flagged.</dd><dt>Tweak</dt><dd class="tweak">Re-project from the child's current profile.</dd></dl></article>
+          <article class="card dec" id="d23"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D23</span>Three key placements</h3><dl><dt>What</dt><dd>All answer keys at the end (default), Each key after its worksheet, Leave out answer keys.</dd><dt>Why</dt><dd>The seed's default plus two useful alternatives.</dd><dt>Tweak</dt><dd class="tweak">Drop Leave out answer keys (decide before Step 28).</dd></dl></article>
+          <article class="card dec" id="d24"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D24</span>Keys are labeled; child pages are not</h3><dl><dt>What</dt><dd>Key pages name their sheet in their headings; child pages gain no label. Under grouped keys, two keyed sheets whose child pages print the same title (same family and same printed nickname, or none on both, whichever children they were made for) match their keys only by order and problems — an accepted limitation. The answer-key group then shows a same-title note recommending Each key after its worksheet; your saved placement is never changed automatically.</dd><dt>Why</dt><dd>An added line on a maximum-length child page would change geometry the single-sheet print matrix proved.</dd><dt>Tweak</dt><dd class="tweak">An optional label in each renderer's title heading, with a renderer sweep and a print-matrix re-run; or Each key after its worksheet as the default.</dd></dl></article>
+          <article class="card dec" id="d25"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D25</span>Packet print CSS only adds page breaks</h3><dl><dt>What</dt><dd>A statically imported <code>print-packet.css</code> with only the page-break rule, screen spacing and, only if Step 33's key headroom check needs it, one rule for the key label; one packet print workspace mounted at a time; one page per surface.</dd><dt>Why</dt><dd>Single-sheet printing stays as proven, and existing print checks never see two workspaces.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d26"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D26</span>Deleting a child keeps its queued sheets</h3><dl><dt>What</dt><dd>Deleting a profile never rewrites the packet; its sheets stay, labeled "for a removed profile", and the delete dialog states how many — or, when the packet is loading or cannot be read, that it may still hold sheets for that child.</dd><dt>Why</dt><dd>No silent edits to saved data, with disclosure at the moment of deletion in every packet state.</dd><dt>Tweak</dt><dd class="tweak">Offer to remove those sheets with the profile.</dd></dl></article>
+          <article class="card dec" id="d27"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D27</span>A flagged sheet blocks printing</h3><dl><dt>What</dt><dd>A sheet this version cannot verify blocks Preview and Print until it is removed or given new problems; the other sheets stay listed.</dd><dt>Why</dt><dd>Never print problems other than the ones you previewed.</dd><dt>Tweak</dt><dd class="tweak">Print the other sheets while one is flagged.</dd></dl></article>
+          <article class="card dec" id="d28"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D28</span>The panel appears only when needed</h3><dl><dt>What</dt><dd>The packet panel renders only while the packet holds a sheet or needs attention: recovery, blocked or unavailable states, an Undo on offer, or a pending message. Removing the only sheet keeps its Undo visible, and a failed first Add shows its message.</dd><dt>Why</dt><dd>The empty first screen and plan 01's relocated 1920×1080 layout test stay unchanged, while Undo and save messages stay reachable.</dd><dt>Tweak</dt><dd class="tweak">Always show a collapsed summary.</dd></dl></article>
+          <article class="card dec" id="d40"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D40</span>No Remove all</h3><dl><dt>What</dt><dd>No Remove-all control.</dd><dt>Why</dt><dd>Keeps the first packet small; at most 10 removals.</dd><dt>Tweak</dt><dd class="tweak">Add Remove all with inline confirmation and Undo.</dd></dl></article>
+          <article class="card dec" id="d41"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D41</span>Layout and bulk new problems are all or nothing</h3><dl><dt>What</dt><dd>A layout change applies to every sheet or none and is refused while any sheet is flagged. Make new problems for sheets … saves nothing if any named sheet fails or runs out of attempts, and names that sheet; each accepted sheet's problems count as queued before the next is regenerated.</dd><dt>Why</dt><dd>A packet never mixes layouts, a partial batch would leave a sheet at the old layout, and two regenerated sheets must never share problems.</dd><dt>Tweak</dt><dd class="tweak">Save the sheets that succeeded and keep the old layout.</dd></dl></article>
+          <article class="card dec" id="d42"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D42</span>What a key label says</h3><dl><dt>What</dt><dd>A key heading carries a label naming sheet number, total and family, plus the nickname when that worksheet prints one — for example "Parent answer key · Sheet 3 of 7: Dry Math". The label exists only on packet pages.</dd><dt>Why</dt><dd>Multi-child packets need association, the nickname is already on the child page, and a unique heading lets the PDF-outline check tell pages apart.</dd><dt>Tweak</dt><dd class="tweak">Omit the nickname, or use a separate label paragraph.</dd></dl></article>
+          <article class="card dec" id="d48"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D48</span>Row details reuse the shipped labels</h3><dl><dt>What</dt><dd>Each row's detail is composed from the shipped label owners — the practice-focus summary, the Sentence variant and vocabulary labels — with the fixed fallback "Settings from when it was added". Step 31 may add an <code>export</code> keyword, and moves a label owner found only in web code, text unchanged, into a shared module.</dd><dt>Why</dt><dd>A row must name the practice the child page shows, including facts, regrouping and Number Bonds, without a second copy of any label.</dd><dt>Tweak</dt><dd class="tweak">Store the visible detail in the sheet (a file-shape change needing a packet schema version 2).</dd></dl></article>
+        </div>
+      </details>
+
+      <details class="group">
+        <summary>Storage, privacy and safety <span class="count">· 18 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d9"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D9</span>Each sheet stores its generated document</h3><dl><dt>What</dt><dd>Each sheet stores its generated document, opaque inside the packet file and proven per sheet by regeneration.</dd><dt>Why</dt><dd>The seed's contract; previewed problems survive later drift; the file is not coupled to the request type.</dd><dt>Tweak</dt><dd class="tweak">Store a recipe plus a digest instead.</dd></dl></article>
+          <article class="card dec" id="d11"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D11</span>A missing packet is normal</h3><dl><dt>What</dt><dd>With no packet file, the API answers 200 with an empty packet and no ETag.</dd><dt>Why</dt><dd>A 404 would fail the release smoke's status and console checks.</dd><dt>Tweak</dt><dd class="tweak">Answer 404, with every spec taught to expect it.</dd></dl></article>
+          <article class="card dec" id="d12"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D12</span>Packet-specific error codes</h3><dl><dt>What</dt><dd>11 <code>PACKET_DRAFT_*</code> codes, mapped by exact path, with messages naming the saved packet; neutral shared security codes are reused; no existing code or message changes.</dd><dt>Why</dt><dd>Existing validation messages name the profile file, and the app routes profile codes to profile recovery.</dd><dt>Tweak</dt><dd class="tweak">Make the two shared messages subject-neutral instead.</dd></dl></article>
+          <article class="card dec" id="d13"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D13</span>One file-safety core for both files</h3><dl><dt>What</dt><dd>The profile store's file mechanics move into one shared module; the profile store delegates with its load and save code byte-identical; one parity table covers both stores.</dd><dt>Why</dt><dd>One source of truth for safety-critical code, and plan 01's calibration anchor stays put.</dd><dt>Tweak</dt><dd class="tweak">Copy the mechanics.</dd></dl></article>
+          <article class="card dec" id="d14"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D14</span>Strict checks, and a request mirror</h3><dl><dt>What</dt><dd>The server's transport and strict schemas check the packet envelope; a strict, transform-free mirror of the generation request, type-checked both ways against the shipped type, is used only by verification.</dd><dt>Why</dt><dd>Bounded, exact verification without tying the file to the request type.</dd><dt>Tweak</dt><dd class="tweak">Restate the request in the transport schema.</dd></dl></article>
+          <article class="card dec" id="d15"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D15</span>The envelope is fingerprinted; documents are not</h3><dl><dt>What</dt><dd>The packet file's outer shape is pinned by a fingerprint test and the contributing Persisted shape rule; any change needs packet schema version 2 with a version 1 reader.</dd><dt>Why</dt><dd>An older build must never mistake a newer packet for a damaged one and offer destructive recovery; document changes are handled per sheet.</dd><dt>Tweak</dt><dd class="tweak">Also pin generator versions to force a version 2.</dd></dl></article>
+          <article class="card dec" id="d16"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D16</span>Privacy boundary before any writer</h3><dl><dt>What</dt><dd>Ignore rules and export exclusion in Step 28; in Step 30 the release audit rejects committed packets, sheets, documents and requests with no allowlist, cross-checked against records built from the schemas' own keys.</dd><dt>Why</dt><dd>The boundary exists before any code can write the file, and no generated sheet is ever committed.</dd><dt>Tweak</dt><dd class="tweak">Allow runtime-generated fixtures under a fixtures path.</dd></dl></article>
+          <article class="card dec" id="d29"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D29</span>The browser verifies; the server never generates</h3><dl><dt>What</dt><dd>Sheets are verified in the browser at load; the server checks only envelope, size, file safety and preconditions.</dd><dt>Why</dt><dd>A drifted sheet must stay removable and repairable after an upgrade.</dd><dt>Tweak</dt><dd class="tweak">Verify on the server at every save.</dd></dl></article>
+          <article class="card dec" id="d36"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D36</span>A 256 KiB packet cap</h3><dl><dt>What</dt><dd>Compact serialization, a 262,144-byte packet cap and the same body limit on its save route, with the worst ten-sheet packet under half the cap; every profile-file limit stays.</dd><dt>Why</dt><dd>Full documents fit with headroom for later families while the profile limits stay.</dd><dt>Tweak</dt><dd class="tweak">Pretty-print with a larger cap.</dd></dl></article>
+          <article class="card dec" id="d38"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D38</span>Two files that never touch each other</h3><dl><dt>What</dt><dd>An independence test covers every packet state against missing, current, legacy (plan 01's and plan 02's, each with its first upgrade save), invalid and future profile files, including both recoveries and a restart, with a mirror case.</dd><dt>Why</dt><dd>Restart and recovery never touching saved profiles is the seed's hard requirement, and the files a parent really has differ after plan 02.</dd><dt>Tweak</dt><dd class="tweak">A sampled matrix.</dd></dl></article>
+          <article class="card dec" id="d39"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D39</span>Cheap checks before any generator</h3><dl><dt>What</dt><dd>Verification runs its bounded checks, including the request mirror, before any generator runs.</dd><dt>Why</dt><dd>A hostile or hand-edited packet cannot trigger a huge enumeration.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d44"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D44</span>Privacy docs with the finished feature</h3><dl><dt>What</dt><dd>README, PRIVACY and SECURITY describe the packet file in Step 34, with no age wording.</dd><dt>Why</dt><dd>Interim documents are never pushed (P8), the audit term lands with the docs, and plan 01's age scan pins those documents.</dd><dt>Tweak</dt><dd class="tweak">Land the docs with the route in Step 30.</dd></dl></article>
+          <article class="card dec" id="d45"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D45</span>What the packet file holds</h3><dl><dt>What</dt><dd>Generated documents (a nickname only when that worksheet prints one, reviewed topic ids, seeds) and the profile id each sheet was made for — never ages or free-text interests.</dd><dt>Why</dt><dd>The minimum for multi-child packets; profile ids serve row labels and the deletion count.</dd><dt>Tweak</dt><dd class="tweak">Drop profile ids and label sheets by printed nickname only.</dd></dl></article>
+          <article class="card dec" id="d46"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D46</span>A generator change flags old sheets</h3><dl><dt>What</dt><dd>A generator-version bump flags every queued sheet made by an older version, keeps its stored bytes and offers Remove or New problems. Step 28 amends plan 02's contributing rule to say so; no old generator is kept registered for packets.</dd><dt>Why</dt><dd>The registry holds one implementation per family, so a keep-registered promise could never be honored and would mislead a contributor.</dd><dt>Tweak</dt><dd class="tweak">A per-family version map in the registry.</dd></dl></article>
+          <article class="card dec" id="d49"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D49</span>Packet errors stay packet errors</h3><dl><dt>What</dt><dd>The packet client converts every session-token failure into a packet error: shared security codes keep their code, anything else becomes <code>PACKET_DRAFT_IO_ERROR</code>.</dd><dt>Why</dt><dd>The token helper throws profile-file errors, which D12 keeps out of packet paths.</dd><dt>Tweak</dt><dd class="tweak">Give the token helper a neutral error type used by both clients.</dd></dl></article>
+          <article class="card dec" id="d52"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D52</span>Path derivation tested on both platforms</h3><dl><dt>What</dt><dd><code>packetDraftPathFor</code> takes the path module, and its test calls the Windows and POSIX forms explicitly.</dd><dt>Why</dt><dd>Ubuntu CI is POSIX, so a Windows-style input would otherwise fail only after the push.</dd><dt>Tweak</dt><dd class="tweak">Test platform-native inputs only.</dd></dl></article>
+          <article class="card dec" id="d54"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D54</span>Nesting depth is bounded</h3><dl><dt>What</dt><dd>A stored document is a JSON object the schema never walks, with nesting depth at most 64, checked iteratively; a deeper file is invalid and reaches backup-first recovery, and a deeper save is refused.</dd><dt>Why</dt><dd>The byte cap alone allows tens of thousands of levels, which could overflow a recursive check and leave a permanent error with no recovery path.</dd><dt>Tweak</dt><dd class="tweak">Another limit.</dd></dl></article>
+          <article class="card dec" id="d55"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D55</span>The mirror reuses plan 02's schemas</h3><dl><dt>What</dt><dd>The request mirror builds plan 02's facts and Number Bonds members from plan 02's own selection schemas; a member that cannot be reused is stated from the same constants and bound to plan 02's by an equality property.</dd><dt>Why</dt><dd>One source of truth per value domain; the two-way type check catches key drift but not rule drift.</dd><dt>Tweak</dt><dd class="tweak">A hand-kept mirror with boundary tests only.</dd></dl></article>
+        </div>
+      </details>
+
+      <details class="group">
+        <summary>Proof and evidence <span class="count">· 14 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d30"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D30</span>Compiled smoke and packet privacy gates</h3><dl><dt>What</dt><dd>A single-test <code>packet-smoke</code> project (90 s); the log-privacy calibration gains two packet leak gates and one clean packet gate, so its sequence is exactly 1/1/1/1/1/1/0/0/0/0; every injected compiled file is restored and hash-checked.</dd><dt>Why</dt><dd>The calibration requires exactly one passing test per run, and the removed-sheet gate proves the evidence keeps a deleted child's id.</dd><dt>Tweak</dt><dd class="tweak">One packet leak gate.</dd></dl></article>
+          <article class="card dec" id="d31"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D31</span>An evidence file for this plan</h3><dl><dt>What</dt><dd><code>documentation/printable-packets-evidence.md</code>, created in Step 28 and extended by every step.</dd><dt>Why</dt><dd>The build checkpoint is a fixed message, and the per-step build records never land.</dd><dt>Tweak</dt><dd class="tweak">Append to plan 01's evidence file.</dd></dl></article>
+          <article class="card dec" id="d32"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D32</span>Two independent page-order checks</h3><dl><dt>What</dt><dd>Step 33 compares the composed page order with the PDF page count; Step 34 reads the PDF outline through <code>pdf-lib</code>. Each is calibrated to fail on swapped pages; titles are unique because each evidence sheet has its own nickname and each key heading its label.</dd><dt>Why</dt><dd>The PDF itself is checked, and neither check can pass by construction.</dd><dt>Tweak</dt><dd class="tweak">The page-count check only.</dd></dl></article>
+          <article class="card dec" id="d33"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D33</span>Shared packet test helpers land with the route</h3><dl><dt>What</dt><dd>One Playwright packet helper, a runtime documents builder, packet accessors on the test server, profile-only backup counting and one App-level fetch-mock helper, all landing in Step 30.</dd><dt>Why</dt><dd>Later steps edit one helper, test directories now hold two stores' backups, and the UI steps stay small enough for the default budget.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d34"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D34</span>Test-count baseline</h3><dl><dt>What</dt><dd>The baseline is whatever <code>main</code> holds when each step starts, measured the way plan 01 does; deleted tests are paired with replacements and recorded per file.</dd><dt>Why</dt><dd>A count regression is a build-phase halt.</dd><dt>Tweak</dt><dd class="tweak">An explicit, reviewed baseline reset.</dd></dl></article>
+          <article class="card dec" id="d35"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D35</span>Standing checks S1–S8</h3><dl><dt>What</dt><dd>Eight checks held at every later gate: the envelope fingerprint is unchanged; the profile modules, example, route and their tests are unchanged apart from Step 29's delegation and a few added <code>export</code> keywords; single-sheet print files are frozen; plans 01 and 02's checks still hold; the log-privacy sequence is exact; packet code never names the profile file; the citation, envelope and age-scan guards pass unchanged, apart from Step 34's narrow age-scan allowlist exception.</dd><dt>Why</dt><dd>Mechanical proof that packets never change how saved profiles are stored or recovered, and that packet text never trips a guard.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d37"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D37</span>Packet spec names</h3><dl><dt>What</dt><dd>No packet spec name ends in <code>print.spec.ts</code>; <code>packet-evidence.spec.ts</code> gets its own 6-row pin and <code>packet-order.spec.ts</code> its own 3-row pin.</dd><dt>Why</dt><dd>The CI contract's unanchored filter would count packet rows into the single-sheet print pin.</dd><dt>Tweak</dt><dd class="tweak">Anchor that filter in the same step.</dd></dl></article>
+          <article class="card dec" id="d43"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D43</span>manual:print stays disposable</h3><dl><dt>What</dt><dd>A browser test proves a packet saved through <code>manual:print</code> leaves with the harness's temporary directory.</dd><dt>Why</dt><dd>The manual print harness must stay disposable.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d47"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D47</span>Sweeps cover every shipped selection</h3><dl><dt>What</dt><dd>One documents-builder domain — every family, practice focus, Sentence variant and vocabulary, Wow variant, theme, Dry Math strand and regrouping mode, single and full fact-family sets, and every Number Bonds variant, operation set, whole bound and regrouping choice — feeds the mirror, size, verification, description and re-layout sweeps. It is built from single-axis variations per family, never a cross-product, and partitioned so the slowest test stays under 10 seconds.</dd><dt>Why</dt><dd>The shipped defaults never produce facts, required regrouping or crossing-ten Number Bonds, so a mis-bounded mirror would flag every such sheet while every gate stayed green.</dd><dt>Tweak</dt><dd class="tweak">Generate the domain from the selection schema with fast-check alone.</dd></dl></article>
+          <article class="card dec" id="d51"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D51</span>The pre-build delta check</h3><dl><dt>What</dt><dd>The Assumptions rows are restated as plans 01 and 02 leave them, each gating (a mechanical expectation) or informational (never parks). The coordinator runs the <code>git grep</code> block before invoking <code>/build-phase</code> for Step 28 as P7's plan-boundary re-check; Step 29 commits the same rows as <code>packet-delta-check.mjs</code>, which reads every file at the plan 03 base through git and calibrates each gating row.</dd><dt>Why</dt><dd>Rows pinned to plan 01's end state would park this plan spuriously, a script that re-read the working tree would fail on <code>main</code> once later steps change files, and evidence must come from a committed, calibrated script.</dd><dt>Tweak</dt><dd class="tweak">Keep the check coordinator-only.</dd></dl></article>
+          <article class="card dec" id="d53"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D53</span>git grep, never ripgrep</h3><dl><dt>What</dt><dd>The pre-build block and every Done-when search use <code>git grep</code>, <code>git ls-files</code> or PowerShell <code>Select-String</code>; patterns are single-quoted ASCII; row A0 reports a missing tool as an environment error.</dd><dt>Why</dt><dd>ripgrep is not a standalone executable on your machine, and PowerShell 5.1 mangles double quotes and non-ASCII characters passed to native commands.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d56"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D56</span>Plan 02's families in packet print evidence</h3><dl><dt>What</dt><dd>Plan 02's sheets reach packet print evidence through Step 34's placement test (a Dry Math facts sheet and a Number Bonds pictures sheet with labeled keys); their maximum-length geometry rests on plan 02's single-sheet print matrix, which packet pages reproduce exactly.</dd><dt>Why</dt><dd>The four maximum-length cells already reuse the proven boundary fixtures and are the heaviest tests; a plan 02 sheet there adds time without a new layout path.</dd><dt>Tweak</dt><dd class="tweak">Add plan 02's boundary fixtures to one maximum-length cell.</dd></dl></article>
+          <article class="card dec" id="d57"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D57</span>Copies of two private test helpers</h3><dl><dt>What</dt><dd><code>seed-stub.ts</code> and <code>packet-print-content.ts</code> copy the single-sheet print spec's private seed stub and required-content reader; the packet reader checks each key heading against the full labeled heading, and each copy is calibrated where it is first used.</dd><dt>Why</dt><dd>The single-sheet print spec is frozen (S4), and its reader requires the exact unlabeled key heading.</dd><dt>Tweak</dt><dd class="tweak">Add a label-aware option to <code>required-content.ts</code> as a recorded S4 exception.</dd></dl></article>
+          <article class="card dec" id="d-scripted-evidence"><span class="tag ruling">Coordinator ruling · changed 2026-09-29</span><h3><span class="id d-id">D-scripted-evidence</span>Evidence comes from committed scripts</h3><dl><dt>What</dt><dd>Done-when evidence comes from committed, re-runnable tests and scripts — fingerprint, size and verification tests, print, order and smoke specs, the calibration and the delta-check script — and durable records go to the evidence file.</dd><dt>Why</dt><dd>Acceptance text is advisory to reviewers, and the checkpoint is a fixed message.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+        </div>
+      </details>
+
+      <details class="group">
+        <summary>How the run is built <span class="count">· 9 defaults and rulings</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d-flags"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-flags</span>Reviewers and budget</h3><dl><dt>What</dt><dd>Steps 31–33 use full review; Steps 28–30 and 34 use deep review; every step runs in a worktree with the development start command on ports 4310 and 4311; the default iteration budget, never extended.</dd><dt>Why</dt><dd>Matches the shipped steps and plan 01.</dd><dt>Tweak</dt><dd class="tweak">Reviewer level per step.</dd></dl></article>
+          <article class="card dec" id="d-numbering"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-numbering</span>Steps 28–34</h3><dl><dt>What</dt><dd>This plan uses Steps 28–34.</dd><dt>Why</dt><dd>Issue titles never collide with plan 01 (14–20) or plan 02 (21–27).</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-pregate"><span class="tag ruling">Coordinator ruling · extended · changed 2026-09-29</span><h3><span class="id d-id">D-pregate</span>No real files in the main checkout</h3><dl><dt>What</dt><dd>The run must not begin while <code>config/children.local.json</code>, <code>config/packet-draft.local.json</code> or any sibling of either is in the main checkout, or while 4310 or 4311 is in use (metadata-only checks). You check at arming and again before any resumed or re-armed run of this plan. Within one continuous run, fictional files earlier reviewers left are listed by name and left, never a park condition; the parallel-session check is report-only.</dd><dt>Why</dt><dd>Runtime reviewers and gates run the development server from the main checkout, which from Step 30 binds both files.</dd><dt>Tweak</dt><dd class="tweak">A fixed-port fictional-data development script.</dd></dl></article>
+          <article class="card dec" id="d-pointer"><span class="tag ruling">Coordinator ruling · amended · changed 2026-09-29</span><h3><span class="id d-id">D-pointer</span>How each step's Problem starts</h3><dl><dt>What</dt><dd>Every Problem begins "Implement Step N of documentation/printable-packets-plan.md, using its Files, Produces and Done when and the appendix and DD/D entries it cites as the specification; touch further files when a gate requires it and record them in the checkpoint", followed by exactly one sentence, in one paragraph with no line breaks, backticks or double quotes.</dd><dt>Why</dt><dd><code>/build-phase</code> forwards only the Problem and the advisory Done when, and an exactly-as pointer would make reviewers count every gate-forced edit as a defect.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-foundation"><span class="tag ruling">Plan 01 coordinator ruling · relied on</span><h3><span class="id d-id">D-foundation</span>The relocated layout test</h3><dl><dt>What</dt><dd>Plan 01 moved the 1920×1080 layout check onto the temporary compiled fixture; this plan relies on that relocated test and never on the development-stack test's layout.</dd><dt>Why</dt><dd>The development-stack test no longer checks layout.</dd><dt>Tweak</dt><dd class="tweak">Per plan 01.</dd></dl></article>
+          <article class="card dec" id="d-planindex"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-planindex</span>The plan.md pointer</h3><dl><dt>What</dt><dd>The "Post-UAT feature plans" pointer at the end of <code>plan.md</code> is committed with the plans by repo-sync; nothing in this plan edits <code>plan.md</code>, and the only later planning edits are the Status lines <code>/build-phase</code> writes in the sub-plans.</dd><dt>Why</dt><dd>One canonical entry plan may point to sub-plans; the pointer moves no cited line.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-uatbackup"><span class="tag ruling">Coordinator ruling · changed 2026-09-29</span><h3><span class="id d-id">D-uatbackup</span>The retained UAT store</h3><dl><dt>What</dt><dd>The only mandatory condition on the retained attended-UAT store is that its launcher stays stopped for the whole run, and again before any resumed or re-armed run; agents never read, copy, move or delete <code>config/uat-session/</code> or the launcher's TEMP file. The dated backup is a recommended morning step (plan 01's WF-0), not a precondition.</dd><dt>Why</dt><dd>The backup is not a precondition agents can satisfy.</dd><dt>Tweak</dt><dd class="tweak">Make the backup a mandatory pre-run item.</dd></dl></article>
+          <article class="card dec" id="d-bonds-ten"><span class="tag ruling">Coordinator ruling (plan 02) · relied on</span><h3><span class="id d-id">D-bonds-ten</span>Crossing ten in Number Bonds</h3><dl><dt>What</dt><dd>Default Number Bonds pages exclude crossing-ten bonds; they appear only when the parent enables Number Bonds' own regrouping choice, kept separate from Dry Math's. This plan carries that choice through the request mirror, the sweeps and the row details. This plan's own D22 is a different decision.</dd><dt>Why</dt><dd>A crossing-ten Number Bonds sheet must verify and be described like every other shipped sheet, and the shipped defaults never produce one.</dd><dt>Tweak</dt><dd class="tweak">Per plan 02.</dd></dl></article>
+          <article class="card dec" id="d50"><span class="tag defaulted">Proposed default · changed 2026-09-29</span><h3><span class="id d-id">D50</span>Step rebalancing</h3><dl><dt>What</dt><dd>The delta-check script moves to Step 29 and the packet test infrastructure to Step 30; Step 31 shows one non-destructive interim notice for unreadable or newer packets; recovery lands in Step 32 and the deletion disclosure in Step 33; the PDF-outline reader, the placement and cancelled-print test and the packet print docs land in Step 34.</dd><dt>Why</dt><dd>The default budget is three iterations and D-flags forbid raising it, so no step may carry the whole original load.</dd><dt>Tweak</dt><dd class="tweak">Keep recovery in Step 33 and seed nine of the ten Letter/standard sheets instead.</dd></dl></article>
+        </div>
+      </details>
+    </section>
+
+    <section id="cuts" aria-labelledby="cuts-title">
+      <p class="kicker">Not in this plan</p>
+      <h2 id="cuts-title">Cut on purpose.</h2>
+      <div class="grid">
+        <article class="card">
+          <span class="tag defaulted">My cuts · flag to restore</span>
+          <h3>Deferred by default</h3>
+          <ul class="compact">
+            <li>Several saved packets, named packets, history or a packet library (D10)</li>
+            <li>A Remove-all control (D40)</li>
+            <li>Different paper or print size per sheet inside one packet (D-packet)</li>
+            <li>A printed label on child-facing pages (D24)</li>
+            <li>Keeping an old generator registered so old sheets stay printable (D46)</li>
+            <li>Printing the other sheets while one is flagged (D27)</li>
+            <li>Removing a deleted child's sheets automatically (D26)</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag ruling">Other plans own these</span>
+          <h3>Plans 01 and 02</h3>
+          <ul class="compact">
+            <li>New families, operations or generators, and any generator version bump (plan 02)</li>
+            <li>Worksheet controls, saved defaults and the profile file's shape (plan 01, with plan 02's additions)</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag retired">Outside this plan entirely</span>
+          <h3>Unchanged boundaries</h3>
+          <ul class="compact">
+            <li>Any change to the profile file's keys, values, schema version, migration or store behavior (S2, S3)</li>
+            <li>Any change to single-sheet printing, its print CSS and tokens, renderers or response-cell sizes (S4)</li>
+            <li>Browser storage, new dependencies, runtime AI, cloud services, accounts, telemetry, scheduling, sharing or asset licenses</li>
+            <li>Physical print (M1) and family pilot (M2) acceptance — human-only, never marked passed</li>
+            <li>Editing <code>plan.md</code>, plan 01's or plan 02's plan files, or the historical review records</li>
+            <li>Reading your real profile file, its backups, <code>config/uat-session/</code> or any real packet file</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="risks" aria-labelledby="risks-title">
+      <p class="kicker">Risks worth knowing</p>
+      <h2 id="risks-title">What could bite, and the built-in answer.</h2>
+      <ul class="risks">
+        <li><span class="r">A step runs out of its three iterations, and the halt parks everything after it (P7).</span><span class="a">D50 rebalanced the load across Steps 28–34; the durable file, store and API land first, so any halt leaves a durable, non-destructive state. No budget extension.</span></li>
+        <li><span class="r">The shipped plans 01 and 02 differ from what this plan assumes.</span><span class="a">The pre-build delta check re-runs 48 rows against the shipped code before Step 28; a failed gating row parks this plan for redline instead of building on a wrong assumption (D51, D53).</span></li>
+        <li><span class="r">You match a grouped key to the wrong child page.</span><span class="a">Key headings name sheet, family and printed nickname and follow sheet order; the same-title note recommends Each key after its worksheet; M1 and M2 observe the accepted limitation (D24).</span></li>
+        <li><span class="r">A deleted child's nickname and id stay in queued sheets and packet backups.</span><span class="a">Rows say "for a removed profile", the delete dialog states the count or that sheets may remain, removal is explicit, and the privacy docs give cleanup guidance (D26, Step 34).</span></li>
+        <li><span class="r">A later generator change makes an old sheet unreproducible.</span><span class="a">Only that sheet is flagged; it keeps its stored problems and can be removed or given new problems. The file itself never becomes invalid (D9, D46).</span></li>
+        <li><span class="r">Two tabs edit the packet at once.</span><span class="a">ETag preconditions: the second save conflicts, reloads once and says so, and Undo is offered only while the saved packet is the one its action produced (D17, D18).</span></li>
+        <li><span class="r">A hand-edited or hostile packet file.</span><span class="a">Nesting depth and every numeric capability are bounded before any generator runs; an over-deep file reaches backup-first recovery rather than a permanent error (D39, D54).</span></li>
+        <li><span class="r">A labeled key page overflows at maximum length.</span><span class="a">Step 33 measures every labeled key page on both papers and scales; one label-only style remedy is pre-authorized (D25).</span></li>
+        <li><span class="r">A runtime reviewer leaves a fictional packet file in the main checkout.</span><span class="a">It is gitignored and export-excluded from Step 28, reported by name and left for you; the panel stays hidden unless such a file exists (D-pregate, D28).</span></li>
+        <li><span class="r">The retained UAT launcher's working directory gains a packet file its mirror does not copy.</span><span class="a">PK-0 is your private decision before using packets with it; agents never read the launcher (D-uatbackup).</span></li>
+        <li><span class="r">A resumed run after a halt meets a real profile file you restored.</span><span class="a">Pre-run items 1–3 hold again before any resumed or re-armed run of this plan, as metadata-only checks (D-pregate).</span></li>
+      </ul>
+    </section>
+
+    <section id="reply" aria-labelledby="reply-title">
+      <p class="kicker">Give feedback</p>
+      <h2 id="reply-title">Scan, then reply in chat. IDs make it cheap.</h2>
+      <div class="feedback">
+        <p>One line per change, <code>ID -&gt; what you want</code>. Anything you don't mention lands as written — silence means the plan stands. IDs never change; a reversed row is marked "changed" with its date. D9–D57 here are this plan's rows; plans 01 and 02 use some of the same numbers for different decisions, so write <code>plan 01 D13</code> when you mean theirs.</p>
+        <div class="fb-ex" role="group" aria-label="Example replies">D-packet -&gt; allow 12 sheets                <span class="c"># tweak a default</span>
+D24 -&gt; label child pages too               <span class="c"># take a listed tweak</span>
+D23 -&gt; drop Leave out answer keys          <span class="c"># decide before Step 28</span>
+P4 -&gt; session-only packets                 <span class="c"># reopen one of your picks</span>
+Step 32 -&gt; split recovery into its own step <span class="c"># reshape the plan</span>
+heard #5 is off: I meant …                 <span class="c"># fix my read of an ask</span></div>
+        <dl class="kv">
+          <dt>Source of truth</dt><dd><code>documentation/printable-packets-plan.md</code> — this page is a view of it; its Appendix Decision Inventory lists every ID.</dd>
+          <dt>Your choices</dt><dd><code>documentation/feature-seeds/operator-decisions.md</code></dd>
+          <dt>Seed and UAT</dt><dd><code>documentation/feature-seeds/03-printable-packets.md</code> · <code>documentation/feature-seeds/README.md</code> · <code>documentation/uat-round-2-review.md</code></dd>
+          <dt>Depends on</dt><dd>Plan 01, <code>documentation/worksheet-first-plan.md</code> (Steps 14–20, issues #25–#31; its proposal is <a href="worksheet-first-proposal.html">worksheet-first-proposal.html</a>) · plan 02, <code>documentation/math-activities-plan.md</code> (Steps 21–27), built before this plan.</dd>
+          <dt>Issues</dt><dd>Steps 28–34 carry no issue numbers yet. repo-sync commits this plan and plan 02 and opens them, so replies before then need no issue re-sync; a reply that changes a step afterwards needs repo-sync again.</dd>
+          <dt>Publication 1</dt><dd>The first view of this plan, after plan review: every row of its Decision Inventory is shown here with its what, why and tweak.</dd>
+          <dt>Next</dt><dd>Fold any replies into the plan (re-running plan-review and plan-wrap if they are material), then repo-sync. The unattended run reaches Step 28 only after plan 02's full gate and the pre-build delta check.</dd>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Printable packets · proposal publication 1 · 2026-09-29 · a redline view of <code>documentation/printable-packets-plan.md</code>, which remains the source of truth.</p>
+  </footer>
+</body>
+</html>

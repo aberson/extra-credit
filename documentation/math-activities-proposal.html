@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Math Activities Proposal</title>
+  <style>
+    :root {
+      --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --size-page: 72rem;
+      --space-1: 0.35rem;
+      --space-2: 0.65rem;
+      --space-3: 1rem;
+      --space-4: 1.5rem;
+      --space-5: 2.25rem;
+      --radius: 0.75rem;
+      --border-width: 1px;
+      --bg: #f7f5ef;
+      --surface: #ffffff;
+      --surface-alt: #eef5ef;
+      --text: #18211a;
+      --muted: #4b5d50;
+      --border: #b9c6bb;
+      --hairline: #d9e1da;
+      --accent: #155d38;
+      --accent-soft: #dcefe2;
+      --picked: #235a9f;
+      --picked-soft: #e2edfa;
+      --turn: #8a4b00;
+      --turn-soft: #fbeedb;
+      --retired: #5d5d5d;
+      --retired-soft: #ececec;
+      --focus: #a83f00;
+      --shadow: 0 0.5rem 1.4rem rgb(24 33 26 / 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #111712;
+        --surface: #182019;
+        --surface-alt: #1b2b20;
+        --text: #edf4ee;
+        --muted: #b8c8ba;
+        --border: #526456;
+        --hairline: #2c3a2f;
+        --accent: #8ed8aa;
+        --accent-soft: #203f2c;
+        --picked: #99c8ff;
+        --picked-soft: #203a59;
+        --turn: #f0b872;
+        --turn-soft: #3a2a12;
+        --retired: #c4c4c4;
+        --retired-soft: #2e2e2e;
+        --focus: #ffb47a;
+        --shadow: none;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #111712;
+      --surface: #182019;
+      --surface-alt: #1b2b20;
+      --text: #edf4ee;
+      --muted: #b8c8ba;
+      --border: #526456;
+      --hairline: #2c3a2f;
+      --accent: #8ed8aa;
+      --accent-soft: #203f2c;
+      --picked: #99c8ff;
+      --picked-soft: #203a59;
+      --turn: #f0b872;
+      --turn-soft: #3a2a12;
+      --retired: #c4c4c4;
+      --retired-soft: #2e2e2e;
+      --focus: #ffb47a;
+      --shadow: none;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.6;
+      overflow-wrap: break-word;
+    }
+    a { color: var(--accent); text-underline-offset: 0.18em; }
+    a:focus-visible, summary:focus-visible {
+      outline: 0.2rem solid var(--focus);
+      outline-offset: 0.2rem;
+    }
+    .skip-link {
+      position: absolute;
+      left: var(--space-3);
+      top: -5rem;
+      z-index: 10;
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface);
+      color: var(--text);
+      border: var(--border-width) solid var(--border);
+    }
+    .skip-link:focus { top: var(--space-3); }
+    header, main, footer {
+      width: min(calc(100% - 2rem), var(--size-page));
+      margin-inline: auto;
+    }
+    header { padding-block: var(--space-5) var(--space-4); }
+    main { padding-bottom: var(--space-5); }
+    footer {
+      padding-block: var(--space-4);
+      border-top: var(--border-width) solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin: 0 0 var(--space-2); font-size: clamp(2rem, 6vw, 3.4rem); letter-spacing: -0.01em; }
+    h2 { margin: var(--space-1) 0 var(--space-2); font-size: clamp(1.4rem, 3vw, 1.9rem); }
+    h3 { margin: 0; font-size: 1.08rem; }
+    p { max-width: 76ch; }
+    .eyebrow {
+      margin: 0 0 var(--space-2);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .lede { font-size: 1.14rem; color: var(--muted); margin-top: 0; }
+    main > section { margin-top: var(--space-5); }
+    .kicker {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .section-lead { color: var(--muted); margin-top: 0; }
+    .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-block: var(--space-3);
+      padding: 0;
+      list-style: none;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2rem;
+      padding: var(--space-1) var(--space-2);
+      border: var(--border-width) solid var(--border);
+      border-radius: 99rem;
+      background: var(--surface);
+      font-weight: 650;
+      font-size: 0.92rem;
+    }
+    .pill.hot { border-color: var(--turn); color: var(--turn); background: var(--turn-soft); }
+    nav {
+      padding: var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2) var(--space-4);
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+      gap: var(--space-3);
+    }
+    .grid.wide { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); }
+    .card {
+      padding: var(--space-4);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+    .card > :first-child { margin-top: 0; }
+    .card > :last-child { margin-bottom: 0; }
+    code {
+      padding: 0.1em 0.35em;
+      border-radius: 0.3em;
+      background: var(--surface-alt);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      overflow-wrap: anywhere;
+    }
+    .tag {
+      display: inline-block;
+      margin-bottom: var(--space-2);
+      padding: 0.14rem 0.5rem;
+      border-radius: 0.35rem;
+      font-size: 0.76rem;
+      font-weight: 750;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .tag.picked { color: var(--picked); background: var(--picked-soft); }
+    .tag.defaulted { color: var(--turn); background: var(--turn-soft); }
+    .tag.ruling { color: var(--accent); background: var(--accent-soft); }
+    .tag.retired { color: var(--retired); background: var(--retired-soft); }
+    .id {
+      display: inline-block;
+      margin-right: 0.4rem;
+      padding: 0.08rem 0.4rem;
+      border: var(--border-width) solid currentColor;
+      border-radius: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.86em;
+      white-space: nowrap;
+    }
+    .p-id { color: var(--picked); }
+    .d-id { color: var(--turn); }
+
+    /* What I heard */
+    .heard { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); margin: 0; padding: 0; list-style: none; counter-reset: heard; }
+    .heard li { counter-increment: heard; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); align-items: start; }
+    .heard li::before {
+      content: counter(heard);
+      display: grid;
+      place-items: center;
+      width: 1.8rem;
+      height: 1.8rem;
+      border-radius: 99rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .ask { display: block; color: var(--muted); font-style: italic; font-size: 0.92rem; }
+    .becomes { display: block; }
+    .where { display: block; color: var(--muted); font-size: 0.84rem; font-family: var(--font-mono); }
+
+    /* Why this shape */
+    .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-3); padding: 0; list-style: none; }
+    .chip {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.45rem;
+      padding: 0.45rem 0.75rem;
+      border: var(--border-width) solid var(--border);
+      border-radius: 0.6rem;
+      background: var(--surface);
+    }
+    .chip .n { font-size: 1.2rem; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--turn); }
+    .chip .l { font-size: 0.86rem; color: var(--muted); }
+
+    /* Look first */
+    .look { border-left: 0.35rem solid var(--turn); }
+    .look h3 { margin-bottom: var(--space-2); }
+    .reply-example { display: block; margin-top: var(--space-2); font-family: var(--font-mono); font-size: 0.9rem; overflow-wrap: anywhere; }
+    .signoff { border-left: 0.35rem solid var(--picked); background: var(--surface-alt); margin-top: var(--space-3); }
+    .signoff ul { margin-bottom: 0; padding-left: 1.2rem; }
+
+    /* Timeline */
+    ol.timeline { list-style: none; margin: 0; padding: 0; }
+    ol.timeline > li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 var(--space-3); }
+    .tl-mark { display: flex; flex-direction: column; align-items: center; }
+    .tl-num {
+      display: grid;
+      place-items: center;
+      min-width: 2.4rem;
+      height: 2.4rem;
+      padding: 0 0.3rem;
+      border: 2px solid var(--accent);
+      border-radius: 99rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.86rem;
+    }
+    .tl-num.you { border-color: var(--picked); background: var(--picked-soft); color: var(--picked); }
+    .tl-line { flex: 1; width: 2px; min-height: 0.75rem; margin: 0.25rem 0; background: var(--hairline); }
+    ol.timeline > li:last-child .tl-line { display: none; }
+    .tl-body { padding-bottom: var(--space-4); min-width: 0; }
+    .tl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
+    .tl-head h3 { font-size: 1.05rem; }
+    .flag {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      padding: 0.06rem 0.4rem;
+      border-radius: 0.3rem;
+      border: var(--border-width) solid var(--border);
+      color: var(--muted);
+    }
+    .tl-body p { margin: var(--space-1) 0 0; }
+    .tl-body ul { margin: var(--space-1) 0 0; padding-left: 1.2rem; }
+    .after { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: 0.5rem; background: var(--surface-alt); }
+    .after .arw { color: var(--accent); font-weight: 750; }
+
+    /* Decisions */
+    details.group { margin-top: var(--space-3); }
+    details.group > summary {
+      cursor: pointer;
+      padding: var(--space-2) var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    details.group > summary .count { color: var(--muted); font-weight: 500; font-size: 0.92rem; }
+    details.group[open] > summary { margin-bottom: var(--space-3); }
+    .dec h3 { font-size: 1rem; margin-bottom: var(--space-2); }
+    .dec dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-2); }
+    .dec dt { font-weight: 700; font-size: 0.86rem; color: var(--muted); padding-top: 0.08rem; }
+    .dec dd { margin: 0; font-size: 0.95rem; }
+    .dec dd.tweak { color: var(--turn); }
+    .dec.retired { border-style: dashed; }
+
+    /* Cuts, risks, feedback */
+    .compact { margin: 0; padding-left: 1.2rem; }
+    .compact li { margin-block: var(--space-1); }
+    .risks { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+    .risks li { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--space-1) var(--space-4); padding: var(--space-3); border: var(--border-width) solid var(--border); border-radius: var(--radius); background: var(--surface); }
+    .risks .r { font-weight: 700; }
+    .risks .a { color: var(--muted); }
+    .feedback {
+      padding: var(--space-4);
+      border-left: 0.35rem solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--surface-alt);
+    }
+    .fb-ex {
+      margin: var(--space-3) 0;
+      padding: var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: 0.5rem;
+      background: var(--surface);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .fb-ex .c { color: var(--muted); }
+    .kv { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: var(--space-2) var(--space-3); margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: var(--border-width) solid var(--border); }
+    .kv dt { font-family: var(--font-mono); font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-top: 0.15rem; }
+    .kv dd { margin: 0; }
+    @media (max-width: 30rem) {
+      .kv, .dec dl { grid-template-columns: minmax(0, 1fr); }
+      .kv dd, .dec dd { margin-bottom: var(--space-1); }
+    }
+
+    @media print {
+      :root { --bg: #fff; --surface: #fff; --surface-alt: #f3f3f3; --text: #000; --muted: #333; --border: #777; --shadow: none; }
+      body { font-size: 10.5pt; }
+      .skip-link, nav { display: none; }
+      header, main, footer { width: 100%; }
+      .card, .risks li, ol.timeline > li { break-inside: avoid; }
+      a { color: inherit; }
+    }
+
+    /* Plan 02 additions */
+    ol.readings { margin: var(--space-2) 0 0; padding-left: 1.4rem; }
+    ol.readings li { margin-block: var(--space-1); }
+    .dep { border-left: 0.35rem solid var(--accent); }
+    .inherit { border-style: dashed; }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to proposal</a>
+  <header>
+    <p class="eyebrow">Proposal · feature plan 02 of 3 · publication 1 · issues not yet synced</p>
+    <h1>Math operations and activities</h1>
+    <p class="lede">Let a parent ask Dry Math for carrying and borrowing or for multiplication and exact division by fact family, and add one new activity, Number Bonds, without raising any quantity ceiling. An independent arithmetic checker is in place before any content changes, and every later step has to satisfy it.</p>
+    <ul class="status-line" aria-label="Proposal status">
+      <li class="pill hot">Proposal — nothing built yet</li>
+      <li class="pill">Publication 1 · 2026-09-29</li>
+      <li class="pill">Steps 21–27 · 7 code steps + manual UAT</li>
+      <li class="pill">5 operator choices (+3 inherited) · 76 agent defaults (1 resolved)</li>
+      <li class="pill">Builds on plan 01 · Steps 14–20 · issues #25–#31</li>
+    </ul>
+    <nav aria-label="Proposal sections">
+      <ul>
+        <li><a href="#heard">What I heard</a></li>
+        <li><a href="#why">Why this shape</a></li>
+        <li><a href="#look-first">Look at these first</a></li>
+        <li><a href="#timeline">Step by step</a></li>
+        <li><a href="#picked">Your choices</a></li>
+        <li><a href="#defaults">My defaults</a></li>
+        <li><a href="#cuts">Not in this plan</a></li>
+        <li><a href="#risks">Risks</a></li>
+        <li><a href="#reply">How to reply</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="heard" aria-labelledby="heard-title">
+      <p class="kicker">What I heard</p>
+      <h2 id="heard-title">Ten asks, ten deliverables.</h2>
+      <p class="section-lead">This is my reading of the requests and acceptance material in seed 02, the UAT round 2 backlog and your recorded picks. If a mapping is off, flag it first, for example <code>heard #3 is off: I meant …</code>.</p>
+      <div class="card">
+        <ol class="heard">
+          <li><span><span class="ask">"The operator requested multiplication, division …" (seed 02)</span><span class="becomes">Dry Math's practice focus gains <b>Multiplication facts</b>, <b>Division facts</b> and <b>Multiplication and division facts</b>, each drawn from the fact families the parent ticks (0s–12s). Factors run 0–12, dividends go up to 144, and division is always exact with a nonzero divisor. 3 × 4 and 4 × 3 count as different facts.</span><span class="where">Step 25 · P3, DD9, MU2</span></span></li>
+          <li><span><span class="ask">"Carrying/borrowing … plan it as an explicit capability … do not reinterpret old ignored permission flags as consent."</span><span class="becomes">A <b>Carrying and borrowing</b> choice follows the addition and subtraction focus. The options are "Without carrying or borrowing", which is the default and today's content, and "Every problem carries or borrows". Nothing turns it on for the parent.</span><span class="where">Step 24 · P6, DD8, MU1</span></span></li>
+          <li><span><span class="ask">"… more worksheet types" and "add one distinct activity rather than a large batch."</span><span class="becomes">A fifth worksheet card, <b>Number Bonds</b>: "Find the one missing number in each problem." It is the only new family in this plan.</span><span class="where">Steps 26–27 · P5, DD10, MU3</span></span></li>
+          <li><span><span class="ask">"… more representations."</span><span class="becomes">Number Bonds offers two problem styles. <b>Missing number sentences</b> use a drawn answer box, for example <code>8 + ? = 15</code> or <code>? − 3 = 5</code>. <b>Number bond pictures</b> show a whole in a top circle joined to two parts, with one part left empty to fill in. × and ÷ print at full instruction size.</span><span class="where">Steps 25–27 · D36, D41, MU5</span></span></li>
+          <li><span><span class="ask">"Do not increase quantity/ten-frame limits to accommodate symbolic products."</span><span class="becomes">Every quantity, ten-frame, Two Whats and a Wow, Count, Compare &amp; Make and Number Bonds ceiling <b>stays at 20</b>. Addition and subtraction keep their 100 ceiling, and facts get their own limits of 12 and 144, each declared once.</span><span class="where">Steps 23, 25 · DD9, D38</span></span></li>
+          <li><span><span class="ask">"Independent arithmetic oracles over boundary and zero cases, plus seeded variety."</span><span class="becomes">In <b>Step 21</b> an arithmetic checker lands that production code cannot influence. It is calibrated against known-good and known-garbage pages and already judges today's generators. Every later slice has to satisfy it.</span><span class="where">Step 21 · DD1, D9</span></span></li>
+          <li><span><span class="ask">"Availability and page-length choices agree with actual unique candidate capacity; no duplicate work or silent widening."</span><span class="becomes">If a choice can't fill the chosen length, the panel reports it as <b>unavailable</b> above Create and offers only a remedy that actually works: a wider range, more fact families, Without carrying or borrowing, or a shorter length. Problems never repeat on a page, and nothing silently widens to another operation.</span><span class="where">Steps 24–27 · DD11, D50, MU4</span></span></li>
+          <li><span><span class="ask">"Worksheet and key consume the same immutable document; … blank positions … unambiguous in monochrome print."</span><span class="becomes">The <b>key comes from the same document</b> as the worksheet. Each Number Bonds key line names the blank, for example "8 + ? = 15 (missing number: 7)". Blanks are drawn boxes and circles with measured sizes.</span><span class="where">Steps 25–27 · DD12, DD13, MU6</span></span></li>
+          <li><span><span class="ask">"Legacy profiles remain readable … New enums never make recovery overwrite a newer config."</span><span class="becomes">The saved file becomes <b>schema version 3</b> by adding fields only. Reading never writes. The first explicit save keeps a byte-identical backup of the old file, a newer file stays blocked, and a plan 01 build that meets a version 3 file refuses it instead of offering recovery.</span><span class="where">Steps 22–23 · DD5, DD15, MU7</span></span></li>
+          <li><span><span class="ask">"Preserve generator-version/seed semantics … and test older supported requests."</span><span class="becomes">A five-rule <b>generator-version policy</b> goes into <code>CONTRIBUTING.md</code>. Dry Math stays at version 1, and a committed capture shows every earlier selection still produces byte-identical content. Each new kind also commits known vectors that every later gate reproduces.</span><span class="where">Steps 21–27 · DD2, DD4, D12, D58</span></span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="why" aria-labelledby="why-title">
+      <p class="kicker">Why this shape</p>
+      <h2 id="why-title">What reading the shipped code turned up.</h2>
+      <ul class="chips" aria-label="Code findings">
+        <li class="chip"><span class="n">3</span><span class="l">copies of the carry and borrow rule (six modulo-by-10 lines in three files)</span></li>
+        <li class="chip"><span class="n">0</span><span class="l">checks that reject an unknown generation-request field today</span></li>
+        <li class="chip"><span class="n">100 / 144</span><span class="l">addition and subtraction ceiling vs the largest fact dividend</span></li>
+        <li class="chip"><span class="n">4 → 5</span><span class="l">worksheet families; every quantity ceiling stays 20</span></li>
+        <li class="chip"><span class="n">54</span><span class="l">plan 01 assumptions re-checked against shipped code before Step 21</span></li>
+      </ul>
+      <div class="grid wide">
+        <article class="card dep">
+          <h3>Built on plan 01, re-checked against what shipped</h3>
+          <p>This plan starts from the <code>main</code> that plan 01 leaves behind: <a href="worksheet-first-plan.md">worksheet-first controls</a>, Steps 14–20 and issues #25–#31. Those steps provide the worksheet-first panel, config version 2 and the practice focus. It cites plan 01 by section, never by line. Before Step 21 starts, a <b>pre-build delta check</b> checks every assumption about plan 01 (rows A1–A54) against the shipped code with <code>git grep</code>. A failing row counts as a planning defect. Plans 02 and 03 are then parked, the failing rows go into the morning summary, and the steps that depend on them come back to redline. No developer patches one mid-run.</p>
+        </article>
+        <article class="card">
+          <h3>Evidence before content</h3>
+          <p>Because the rule exists in three copies, a changed rule could leave the generator and the validator quietly disagreeing. Step 21 therefore moves the rule into one owner, adds one answer check and puts the independent checker in place, all without changing content. A committed script freezes today's content and generation requests at the step base. Code written later cannot adjust that record to fit a bug.</p>
+        </article>
+        <article class="card">
+          <h3>One saved-file bump, with version 2 frozen first</h3>
+          <p>Plan 01's fingerprint treats any new key or value as a change to the saved shape. Step 22 is a pure refactor that freezes the version 2 reader. Step 23 then lands the final version 3 in one step, so an interim file is only ever unchanged v2 or final v3. Choices that haven't been built yet are refused where they apply. They are never quietly swapped for other content.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="look-first" aria-labelledby="look-title">
+      <p class="kicker">Look at these first</p>
+      <h2 id="look-title">Three defaults with the biggest effect on a parent's page.</h2>
+      <p class="section-lead">You can skim everything else. These three decide which problems a child sees by default. I chose all of them on your behalf, and each one is open to change.</p>
+      <div class="grid">
+        <article class="card look">
+          <h3><span class="id d-id">D-bonds-ten</span>Default Number Bonds pages skip make-ten and crossing-ten</h3>
+          <p>By default, no Number Bonds problem needs carrying or borrowing, so none makes or crosses ten. Within 10, no problem uses 10 as its whole. Within 20, the only whole of 20 is 10 and 10. "Include problems that carry or borrow" adds them back. The ruling, which settled the former open D22, is recorded. Three parts of how I applied it are my reading, though, not its words:</p>
+          <ol class="readings" type="a">
+            <li>Pictures are filtered as well as sentences.</li>
+            <li>Make-ten problems count too, since 3 + 7 = 10 regroups in the ones column.</li>
+            <li>It is a separate Number Bonds setting that mirrors Dry Math's choice. It is not one shared switch.</li>
+          </ol>
+          <span class="reply-example">D-bonds-ten -&gt; confirm a, b, c</span>
+        </article>
+        <article class="card look">
+          <h3><span class="id d-id">D17</span>Carrying means every problem carries or borrows</h3>
+          <p>The regrouping choice has two options. "Without carrying or borrowing" gives today's page. "Every problem carries or borrows" makes each addition carry and each subtraction borrow at least once, never goes below zero and stays within the chosen range. There is no mixed page. Addition within 5 can't carry at all, so that choice is reported unavailable with a remedy that works.</p>
+          <span class="reply-example">D17 -&gt; add a mixed mode</span>
+        </article>
+        <article class="card look">
+          <h3><span class="id d-id">D21</span>One blank, and every number at least 1</h3>
+          <p>Wholes run from 2 to the chosen range (5, 10 or 20), every part is at least 1, and each problem has exactly one blank. A sentence can hide an addend, the starting number (<code>? − 3 = 5</code>) or the number taken away, but never the result. A picture hides a part, never the whole. The plan lists this as an open redline question.</p>
+          <span class="reply-example">D21 -&gt; allow zero parts</span>
+        </article>
+      </div>
+      <div class="card signoff" role="note" aria-labelledby="signoff-title">
+        <h3 id="signoff-title">Open for you at this redline</h3>
+        <p>The plan leaves these rows for you to confirm or tweak. If you say nothing, each default stands as written.</p>
+        <ul>
+          <li><a href="#d-bonds-ten">D-bonds-ten</a>: confirm or change readings (a), (b) and (c) above, or widen the default back to including every problem (the former <a href="#d22">D22</a> default).</li>
+          <li><a href="#d21">D21</a>: zero parts or a missing whole in pictures. Both default to no.</li>
+          <li><a href="#d17">D17</a>, <a href="#d19">D19</a>, <a href="#d20">D20</a>: a mixed regrouping mode, balanced mixed operations, and the default fact families. The defaults are no mixed mode, one even draw across all facts, and multiplication with the 2s, 5s and 10s.</li>
+          <li><a href="#d57">D57</a>: whether <code>? + 7 = 15</code> and <code>7 + ? = 15</code> count as one problem or two. The default is two.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="timeline" aria-labelledby="timeline-title">
+      <p class="kicker">What lands, step by step</p>
+      <h2 id="timeline-title">Plan 01 ships, the assumptions are re-checked, seven gated steps run, then your checks.</h2>
+      <p class="section-lead">Each step is DONE only when the full <code>npm --prefix frontend run check</code> passes, and neither test count may drop. Nothing is pushed until Step 27's gate passes. Then repo-update commits and pushes (P8), and the same unattended run moves on to plan 03 (P7). Interim builds never touch real family data.</p>
+      <ol class="timeline">
+        <li>
+          <div class="tl-mark"><div class="tl-num you" aria-hidden="true">0</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Before the run — you</h3><span class="flag">operator only</span><span class="flag">checked when the whole run is armed</span></div>
+            <ul>
+              <li>There is no <code>config/children.local.json</code> and no <code>children.local.json.*</code> copy in the main checkout, and nothing is listening on 127.0.0.1:4310 or :4311 (item 1, D-pregate).</li>
+              <li>The retained UAT launcher stays stopped for the whole three-plan run. Agents never read, copy, move or delete <code>config/uat-session/</code> or the launcher's TEMP file (item 3, D-uatbackup).</li>
+              <li>repo-sync has committed this plan, plan 03, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section. It has also created seven issues for Steps 21–27 and written each number into its step (item 4, D-planindex).</li>
+              <li>After any halt, never run an interim build against the retained store or a real file (item 5).</li>
+            </ul>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Check:</b> <code>git grep -c -E -e 'Issue:[*][*] #[0-9]+' -- documentation/math-activities-plan.md</code> reports 7, and <code>Get-NetTCPConnection -State Listen -LocalPort 4310,4311</code> finds nothing.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">Δ</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Plan boundary · pre-build delta check</h3><span class="flag">coordinator</span><span class="flag">after plan 01's push</span></div>
+            <p>Once plan 01 (Steps 14–20, issues #25–#31) passes its full gate and repo-update pushes it, the coordinator checks every row of "Assumptions from plan 01" (A1–A54) against the shipped <code>main</code>. The block uses <code>git grep</code> only and runs the same way in Windows PowerShell 5.1 and in Git Bash. A32 also re-runs plan 01's capture script with Node. This is P7's plan-boundary re-check, not a build-phase halt. The coordinator also records the item 1 metadata listing and the parallel-session check (item 2). Both only report, never block.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> if every row passes, Step 21 starts. If any row fails, plans 02 and 03 are parked, the failing rows appear in the morning summary, and the steps that depend on them come back to redline.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">21</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 21 · Oracle, content freeze, one owner each</h3><span class="flag">issue pending repo-sync</span><span class="flag">deep review</span></div>
+            <p>The independent arithmetic checker lands and already agrees with today's Dry Math and Two Whats and a Wow generators. A committed script freezes the content and generation request of every catalog selection, plus 256 sampled saved selections. Generator versions are pinned under a written rule. The three carry and borrow copies become one. One answer check replaces the Dry Math-only one, and a guard refuses the new request field until it has a meaning. No content changes.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the app looks and prints exactly as it does today. <code>node frontend/scripts/capture-arithmetic-golden.mjs --compare</code> re-captures the frozen keys and byte-compares them. <code>documentation/math-activities-evidence.md</code> begins recording each step.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">22</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 22 · Freeze version 2, make the upgrade generic</h3><span class="flag">issue pending repo-sync</span><span class="flag">deep review</span></div>
+            <p>This is a pure refactor. The version 2 schemas move verbatim into a frozen reader, and current-version names stand in for the versioned ones. The upgrade chain, backup name, notice and upgrade test learn to work from whichever version is stored. The capture script also records how plan 01's shipped build treats version 2, 3 and 4 files. It reads a v2 control and blocks v3 and v4 without offering recovery.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the app and saved file are unchanged. <code>older-build-verdicts.json</code> is committed, and <code>capture-arithmetic-golden.mjs --compare</code> reproduces both capture files.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">23</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 23 · Saved file version 3</h3><span class="flag">issue pending repo-sync</span><span class="flag">deep review</span></div>
+            <p>Version 3 lands whole: the Dry Math strand, the regrouping mode, fact families, the Number Bonds group and a fifth worksheet type, all added beside the unchanged version 2 keys. Reading a v1 or v2 file never writes to it. The first explicit save keeps one byte-identical backup named for the stored version. Every existing and sampled selection keeps identical requests and content. A saved choice that isn't built yet is refused only where it applies.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> a v2 file loads with the notice "This profile file was saved by an earlier version…". The first "Save these as worksheet defaults" leaves exactly one <code>children.local.json.v2-…bak</code>. No new controls appear yet.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">24</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 24 · Carrying and borrowing in Dry Math</h3><span class="flag">issue pending repo-sync</span><span class="flag">full review</span></div>
+            <p>A "Carrying and borrowing" radio group follows the addition and subtraction practice focus, outside More options. The independent checker, the capacity sweep and the print matrix all agree on the new content. A new compiled smoke test, <code>math-practice-smoke</code>, runs a stored v2 file through the upgrade to printing. README, PRIVACY, the educational basis and <code>CLAUDE.md</code> change in the same diff as the code.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> "Every problem carries or borrows" is available within 10 and above. For addition within 5, the panel names a wider range and adds "Choosing Without carrying or borrowing also fills this length." <code>npm --prefix frontend run check</code> now runs the smoke project.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">25</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 25 · Multiplication and division facts</h3><span class="flag">issue pending repo-sync</span><span class="flag">full review</span></div>
+            <p>The practice focus gains three fact entries and a "Fact families" group of thirteen boxes, 0s to 12s. × and ÷ print at instruction size, keys keep the existing format (<code>144 ÷ 12 = 12</code>), and every fact is checked by the fact rules alone.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> multiplication with the 2s, 5s and 10s is the default fact choice. Division for the 0s alone at Long standard reports "The chosen fact families give 12 unique facts, but this length needs 18. Choose more fact families, or a shorter length under More options."</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">26</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 26 · Number Bonds: missing number sentences</h3><span class="flag">issue pending repo-sync</span><span class="flag">full review</span></div>
+            <p>Number Bonds becomes the fifth card. Sentences within 5, 10 or 20 each show one drawn answer box. The family has its own Carrying and borrowing group, whose default leaves out make-ten and crossing-ten problems. Each key line names the missing number.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the worksheet-type group shows five cards. Within 20, a default page draws from 254 sentences per operation, and a problem like <code>8 + ? = 15</code> appears only after choosing "Include problems that carry or borrow".</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">27</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 27 · Number bond pictures</h3><span class="flag">issue pending repo-sync</span><span class="flag">full review</span></div>
+            <p>Problem style offers Missing number sentences or Number bond pictures. A picture puts the whole in the top circle and leaves one part circle empty. Each whole-and-part pair appears at most once per page. The last refusal of an unbuilt choice is removed, so every saved choice can be produced. Then repo-update commits and pushes (P8).</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the print matrix covers 100 worksheet cases and 32 key PDFs. The exact pushed commit gets Ubuntu CI evidence (M3), and plan 03 is re-checked against what shipped before it is built (P7).</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num you" aria-hidden="true">UAT</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Your checks at the end</h3><span class="flag">operator only · an agent never marks these passed</span></div>
+            <ul>
+              <li><b>MA-1:</b> only after the whole three-plan run ends, and after plan 01's recommended WF-0 backup, start the retained launcher on the last shipped build. Confirm the upgrade notice, then save once. Profiles, nicknames, interests and saved choices should be intact, with exactly one backup whose prefix is the store's version (<code>.v1-</code> or <code>.v2-</code>). Copy that backup beside your WF-0 copy.</li>
+              <li><b>MA-2:</b> review the new controls with the disposable fictional profiles. Carrying and borrowing should read as a practice choice, the Fact families help should be clear, Number Bonds should say plainly that by default no problem makes or crosses ten, and every remedy should work.</li>
+              <li><b>M1 additions:</b> physical prints in current Edge and Chrome, on Letter and A4, at standard and large. Print regrouping within 100, facts for the 3s and 12s, sentences within 20 and pictures within 20, each with its key. × and ÷ must be unmistakable, and the Dry Math line must hold a three-digit handwritten answer. M1 is the only check of that line.</li>
+              <li><b>M2 additions:</b> a family pilot choosing regrouping, fact families and both Number Bonds styles. Keep non-identifying notes on whether the labels were understood, and whether a default page without make-ten problems met expectations.</li>
+              <li><b>M3:</b> watch the exact pushed commit's Ubuntu CI run, including the new print rows.</li>
+            </ul>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>MA-2 commands, in order:</b> <code>npm --prefix frontend run build</code>, then <code>npm --prefix frontend run manual:print</code> (stop it with Ctrl+C).</span></div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="picked" aria-labelledby="picked-title">
+      <p class="kicker">Choices you already made</p>
+      <h2 id="picked-title">Your picks, which bind this plan.</h2>
+      <p class="section-lead">These were recorded on 2026-09-29 in <code>documentation/feature-seeds/operator-decisions.md</code>. You can change them, but only you can. P3, P5, P6, P7 and P8 are this plan's. P1, P2 and P4 were recorded for plans 01 and 03 and are shown dashed, together with what they mean here.</p>
+      <div class="grid">
+        <article class="card" id="p3"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P3</span>Facts 0–12, dividends through 144</h3><p>Factors 0–12, dividends through 144, parent-selected fact families, exact division only, no remainders, and a divisor that is never zero. 3 × 4 and 4 × 3 are distinct facts.</p></article>
+        <article class="card" id="p5"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P5</span>Number Bonds comes first</h3><p>The first new activity family is Number Bonds / Missing Numbers.</p></article>
+        <article class="card" id="p6"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P6</span>Carrying and borrowing, made explicit</h3><p>Carrying and borrowing is part of this plan as an explicit Dry Math capability. It is never inferred from old permission flags.</p></article>
+        <article class="card" id="p7"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P7</span>One unattended run, three plans</h3><p>Plans 01, 02 and 03 are built in dependency order, each gated on the previous plan's full gate with the default iteration budget. Each later plan is re-checked against what actually shipped before it is built, which is this plan's pre-build delta check. Any halt parks the rest.</p></article>
+        <article class="card" id="p8"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P8</span>Commit and push after each plan</h3><p>After each increment passes its full gate, repo-update commits and pushes so the exact commit gets Ubuntu CI evidence (M3).</p></article>
+        <article class="card inherit" id="p1"><span class="tag picked">Operator pick · recorded for plan 01</span><h3><span class="id p-id">P1</span>Global defaults, saved explicitly</h3><p>Worksheet choices persist only as global defaults saved through "Save these as worksheet defaults". Selections are session state, and Create never writes. <b>Here:</b> this covers the regrouping choice, fact families and Number Bonds (MU8).</p></article>
+        <article class="card inherit" id="p2"><span class="tag picked">Operator pick · recorded for plan 01</span><h3><span class="id p-id">P2</span>Age removed entirely</h3><p>Age is gone from profiles, and capability and capacity checks own availability. <b>Here:</b> no new content is gated by age, and no new document or copy adds an age word.</p></article>
+        <article class="card inherit" id="p4"><span class="tag picked">Operator pick · recorded for plan 03</span><h3><span class="id p-id">P4</span>Packets are durable local drafts</h3><p>Packets live in their own versioned, private, gitignored store, with its own ETag precondition, atomic writes, explicit recovery and release-export exclusion. <b>Here:</b> there is no packet code. Every new document stays immutable and can be re-rendered from its request, with its content frozen by committed known vectors (D58).</p></article>
+      </div>
+    </section>
+
+    <section id="defaults" aria-labelledby="defaults-title">
+      <p class="kicker">Choices I made on your behalf</p>
+      <h2 id="defaults-title">Agent defaults. Reference any ID to tweak it.</h2>
+      <p class="section-lead">Amber tags mark adopted or proposed defaults. Green tags mark coordinator rulings, made under your delegation of routine choices. The grey dashed card is a resolved row, kept so IDs never move. Every one is still an agent default and every one can be changed. Numbering starts at D9, following plan 01's pattern.</p>
+
+      <details class="group" open>
+        <summary>What a parent will see on screen and paper <span class="count">· 27 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d-bonds-ten"><span class="tag ruling">Coordinator ruling · readings to confirm</span><h3><span class="id d-id">D-bonds-ten</span>Default Number Bonds pages skip make-ten and crossing-ten</h3><dl><dt>What</dt><dd>By default, sentences and pictures leave out every problem whose missing number needs carrying or borrowing, so none makes or crosses ten. Such problems appear only after the parent chooses "Include problems that carry or borrow" under a Number Bonds "Carrying and borrowing" legend. The choice is saved as its own Number Bonds setting (Without, the default, or Included) and is never seeded from earlier settings or old flags. Counts, availability, advice and known vectors all use the chosen pool: within 10, 72 sentences per operation and 36 pictures, and within 20, 254 and 127. Readings for you to confirm: (a) pictures are filtered too; (b) make-ten problems count, since a ones column that sums to exactly 10 regroups; (c) the choice is a per-family mirror of Dry Math's, stored separately so one family's setting never changes another family's worksheet.</dd><dt>Why</dt><dd>Regrouping should appear only when the parent chooses it, the same way in every family. This resolves D22.</dd><dt>Tweak</dt><dd class="tweak">Include such problems by default (D22's earlier default), or make the enabled value require regrouping on every problem as Dry Math's does, which empties every range below 10.</dd></dl></article>
+          <article class="card dec" id="d17"><span class="tag defaulted">Proposed default · open at redline</span><h3><span class="id d-id">D17</span>Two regrouping modes, no mixed page</h3><dl><dt>What</dt><dd>"Without carrying or borrowing" keeps today's rule. "Every problem carries or borrows" means every item regroups in at least one column, stays within the chosen focus and the Dry Math ceiling of 100, and never goes negative.</dd><dt>Why</dt><dd>P6 asks for a page that practises carrying and borrowing. A mixed mode would add a third choice that nobody requested.</dd><dt>Tweak</dt><dd class="tweak">Add a mixed mode.</dd></dl></article>
+          <article class="card dec" id="d34"><span class="tag defaulted">Proposed default · derived from P6</span><h3><span class="id d-id">D34</span>Old permission flags never switch carrying on</h3><dl><dt>What</dt><dd>Earlier settings never map a stored <code>allowRegrouping: true</code> to "Every problem carries or borrows". Plan 01's stored-but-not-used disclosure stays, and the request's <code>allowRegrouping</code> stays <code>false</code>.</dd><dt>Why</dt><dd>P6: old ignored flags are not consent.</dd><dt>Tweak</dt><dd class="tweak">None. P6 decides this.</dd></dl></article>
+          <article class="card dec" id="d18"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D18</span>What belongs to a fact family</h3><dl><dt>What</dt><dd>A multiplication fact belongs to family <i>f</i> when either factor is <i>f</i>. A division fact belongs when the divisor or the answer is <i>f</i>. 0 appears as a factor inside every chosen family (5 × 0, 0 × 5). 0 ÷ 5 = 0 belongs to both the 5s and the 0s, so the 0s alone give 0 ÷ 1 … 0 ÷ 12. Nothing ever divides by 0.</dd><dt>Why</dt><dd>It is the natural inverse of your P3 families, with the zero rule stated once.</dd><dt>Tweak</dt><dd class="tweak">Leave out ×0 facts unless the 0s are chosen.</dd></dl></article>
+          <article class="card dec" id="d19"><span class="tag defaulted">Proposed default · open at redline</span><h3><span class="id d-id">D19</span>Mixed facts draw evenly from the whole pool</h3><dl><dt>What</dt><dd>"Multiplication and division facts" draws uniformly from the union of both operations, the same way mixed addition and subtraction already does.</dd><dt>Why</dt><dd>It matches today's behavior, and capacity stays a single number.</dd><dt>Tweak</dt><dd class="tweak">Balance the two operations on each page.</dd></dl></article>
+          <article class="card dec" id="d20"><span class="tag defaulted">Proposed default · open at redline</span><h3><span class="id d-id">D20</span>Thirteen family boxes, starting with 2s, 5s and 10s</h3><dl><dt>What</dt><dd>A "Fact families" group has thirteen checkboxes (0s–12s) with help text. At least one stays checked: the last checked box is disabled, with the note "Keep at least one fact family." The default is multiplication facts with the 2s, 5s and 10s.</dd><dt>Why</dt><dd>The selection is always valid, and 2s, 5s and 10s are a common first set.</dd><dt>Tweak</dt><dd class="tweak">Default to all families or to the 1s–5s, or add select-all and clear buttons.</dd></dl></article>
+          <article class="card dec" id="d21"><span class="tag defaulted">Proposed default · open at redline</span><h3><span class="id d-id">D21</span>One blank per problem, every number at least 1</h3><dl><dt>What</dt><dd>Wholes run from 2 up to the chosen range, every part is at least 1, each problem has exactly one blank, and the catalog offers within 5, 10 and 20. Sentences hide an addend, the minuend or the subtrahend, never the result. A hidden minuend asks for the whole (<code>? − 3 = 5</code>). Pictures hide a part, never the whole.</dd><dt>Why</dt><dd>Each problem gets exactly one non-trivial answer and stays distinct from Dry Math. An unknown start is a task Dry Math never poses, while a picture that shows both parts is just addition.</dd><dt>Tweak</dt><dd class="tweak">Allow zero parts or a missing whole in pictures, hide only the subtrahend in subtraction, or add a named Make 10 focus.</dd></dl></article>
+          <article class="card dec retired" id="d22"><span class="tag retired">Resolved by D-bonds-ten</span><h3><span class="id d-id">D22</span>Crossing ten in Number Bonds (formerly open)</h3><dl><dt>What</dt><dd>Default pages leave out every problem whose relation regroups under the column rule. Such problems are included only when the parent chooses to include them, and the help text and the educational-basis envelope say so. The row is now adopted through D-bonds-ten.</dd><dt>Why</dt><dd>The coordinator ruling resolves it, so no redline question or pre-run ruling remains.</dd><dt>Tweak</dt><dd class="tweak">Include such problems by default: 90 and 380 per sentence operation and 45 and 190 pictures within 10 and 20.</dd></dl></article>
+          <article class="card dec" id="d57"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D57</span>? + 7 = 15 and 7 + ? = 15 are two problems</h3><dl><dt>What</dt><dd>A sentence's identity is what it shows, so both mirrors may share a page, just as 3 + 4 and 4 + 3 already do in Dry Math and as P3 rules for 3 × 4 and 4 × 3. A bond picture's identity is different (D48).</dd><dt>Why</dt><dd>In a sentence, the position of the unknown is the task itself, and Grade 1 standards list the positions separately. A sentence is read in order.</dd><dt>Tweak</dt><dd class="tweak">Count them as one problem. That halves the addition counts to 190 within 20 when included and 127 by default.</dd></dl></article>
+          <article class="card dec" id="d48"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D48</span>A bond picture counts once, whichever side is blank</h3><dl><dt>What</dt><dd>A picture's identity is its whole and the part it shows, and the empty side is drawn from the seed after the problems are chosen. Capacity is wholeMax × (wholeMax − 1) / 2 when included, which equals the default through 9, and is 36 and 127 by default within 10 and 20.</dd><dt>Why</dt><dd>A bond showing 10 and 3 asks the same question whichever circle is empty. Counting both sides would repeat work on a page and double the reported capacity.</dd><dt>Tweak</dt><dd class="tweak">Count both blank sides as distinct problems. D52's key lines would keep them apart.</dd></dl></article>
+          <article class="card dec" id="d41"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D41</span>Sentences first, pictures the step after</h3><dl><dt>What</dt><dd>Step 26 registers Number Bonds with Missing number sentences, and Step 27 adds Number bond pictures. The default Problem style is "Missing number sentences".</dd><dt>Why</dt><dd>Each step converges within the default budget, and the default can be produced as soon as the family registers.</dd><dt>Tweak</dt><dd class="tweak">Build pictures first, or make pictures the default after Step 27.</dd></dl></article>
+          <article class="card dec" id="d23"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D23</span>Page lengths for the new work</h3><dl><dt>What</dt><dd>Sentences use 8/12/18 problems (large print 8/8/12). Pictures use 6/8/10 (large 6/6/8) in a three-column print grid.</dd><dt>Why</dt><dd>Each page fits one sheet at the fixed minimum sizes.</dd><dt>Tweak</dt><dd class="tweak">Smaller picture budgets.</dd></dl></article>
+          <article class="card dec" id="d24"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D24</span>Writing space you can measure</h3><dl><dt>What</dt><dd>The missing-number box is 14 × 9 mm (16 × 11 mm large), the bond circle is 16 mm (18 mm large), and the operator sign is at least 2 mm wide. The print tests measure each one independently and include collapse calibrations.</dd><dt>Why</dt><dd>"Enough writing space" has to be something a test can measure.</dd><dt>Tweak</dt><dd class="tweak">Larger sizes after M1.</dd></dl></article>
+          <article class="card dec" id="d36"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D36</span>× and ÷, full size and spoken</h3><dl><dt>What</dt><dd>× (U+00D7) and ÷ (U+00F7) print at instruction size in their own marked span. Screen readers hear "plus", "minus", "times" and "divided by".</dd><dt>Why</dt><dd>The signs are unambiguous in monochrome print and in speech.</dd><dt>Tweak</dt><dd class="tweak">A slash or fraction bar for division (not recommended at this level).</dd></dl></article>
+          <article class="card dec" id="d40"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D40</span>Blanks are drawn, never typed</h3><dl><dt>What</dt><dd>Number Bonds blanks are empty bordered boxes or circles, never a glyph or an underscore, and key text writes the blank as ASCII <code>?</code>. Dry Math, facts included, keeps its underscore line. Only M1 checks whether that line has room for a three-digit handwritten answer.</dd><dt>Why</dt><dd>Ubuntu CI's font fallback can't print a missing-glyph box, blanks stay measurable, and Dry Math's existing tests stay unchanged.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d52"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D52</span>Each key line names what was missing</h3><dl><dt>What</dt><dd>Examples: "8 + ? = 15 (missing number: 7)" and "Whole 15: 8 and ? (missing part: 7)". Both examples appear only on a page that includes problems that carry or borrow.</dd><dt>Why</dt><dd>Otherwise mirrored problems would print identical key lines with different answers, and plan 03's grouped keys separate a key from its sheet.</dd><dt>Tweak</dt><dd class="tweak">Draw the answer inside a box at the blank's position.</dd></dl></article>
+          <article class="card dec" id="d25"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D25</span>Number Bonds stays undecorated</h3><dl><dt>What</dt><dd>Number Bonds uses no interests, decorative art or Theme. The nickname and answer key still apply.</dd><dt>Why</dt><dd>Decoration never carries instruction, and this matches Dry Math.</dd><dt>Tweak</dt><dd class="tweak">Add Theme later.</dd></dl></article>
+          <article class="card dec" id="d51"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D51</span>Off-list saved ranges show as "Saved setting"</h3><dl><dt>What</dt><dd>The file allows any Number Bonds range from 2 to 20, but the list offers only 5, 10 and 20. A saved value outside the list shows as one selected option, such as "Saved setting: Wholes within 7", and a defaults save writes it back unchanged.</dd><dt>Why</dt><dd>The select must never show a choice other than the one generation uses.</dd><dt>Tweak</dt><dd class="tweak">Allow only the three listed values, which would cost the family its shortfall calibration cells.</dd></dl></article>
+          <article class="card dec" id="d66"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D66</span>A saved choice from a newer build is shown, not reset</h3><dl><dt>What</dt><dd>In interim builds, a saved Number Bonds type shows only the pending message above a disabled Create, with no card checked. In Step 26, a saved picture choice shows the checked Number Bonds card and a "Saved setting" option worded for pictures.</dd><dt>Why</dt><dd>The panel must never show a choice other than the saved one.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d50"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D50</span>"A shorter length" is offered only when it fills</h3><dl><dt>What</dt><dd>The shorter-length remedy appears only when some shorter length really has enough problems. Step 24 adds this check, or reuses plan 01's helper if one with exactly that meaning shipped.</dd><dt>Why</dt><dd>The old helper only proves that a shorter length needs fewer items. On its own, it would offer remedies that don't help (issue #16).</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d33"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D33</span>Every new advice sentence has a proven source</h3><dl><dt>What</dt><dd>Each new unavailable-state sentence is a declared arm. It either names a selection that reaches it or states a structural reason it can't be reached. That includes "Choosing Without carrying or borrowing also fills this length.", which is shown only when proved.</dd><dt>Why</dt><dd>Issue #16 and plan 01's whole-domain rule.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d35"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D35</span>One owner for every new word</h3><dl><dt>What</dt><dd>Appendix F of the plan owns every new string a parent sees: legends, options, help, summaries, shortfalls, titles, spoken labels, key lines, the pending message and the upgrade notice.</dd><dt>Why</dt><dd>Implementers, reviewers and plan 01's copy scan all work from one source.</dd><dt>Tweak</dt><dd class="tweak">Change the wording now or after M2.</dd></dl></article>
+          <article class="card dec" id="d-difficulty"><span class="tag defaulted">Adopted default · plan 01</span><h3><span class="id d-id">D-difficulty</span>Practice focus, no hidden multiplier</h3><dl><dt>What</dt><dd>Difficulty stays replaced by an explicit Practice focus with no multiplier.</dd><dt>Why</dt><dd>This plan's new foci extend that catalog.</dd><dt>Tweak</dt><dd class="tweak">As in plan 01.</dd></dl></article>
+          <article class="card dec" id="d-writing"><span class="tag defaulted">Adopted default · plan 01</span><h3><span class="id d-id">D-writing</span>Sentence Builder is untouched</h3><dl><dt>What</dt><dd>Sentence Builder's variants and vocabulary stay as plan 01 ships them.</dd><dt>Why</dt><dd>This plan doesn't change them, and the legacy grid covers them.</dd><dt>Tweak</dt><dd class="tweak">As in plan 01.</dd></dl></article>
+          <article class="card dec" id="d-theme"><span class="tag defaulted">Adopted default · plan 01, extended</span><h3><span class="id d-id">D-theme</span>Theme stays on two families</h3><dl><dt>What</dt><dd>Only Sentence Builder and Count, Compare &amp; Make keep an explicit Theme. Dry Math, Two Whats and a Wow, and now Number Bonds stay undecorated.</dd><dt>Why</dt><dd>Number Bonds joins the undecorated families (D25).</dd><dt>Tweak</dt><dd class="tweak">Thematic instructional symbols later.</dd></dl></article>
+          <article class="card dec" id="d-print"><span class="tag defaulted">Adopted default · plan 01</span><h3><span class="id d-id">D-print</span>No more Count/Compare print work</h3><dl><dt>What</dt><dd>This plan does no further Count/Compare print iteration.</dd><dt>Why</dt><dd>It adds print coverage only for its own surfaces.</dd><dt>Tweak</dt><dd class="tweak">As in plan 01.</dd></dl></article>
+          <article class="card dec" id="d-save"><span class="tag ruling">Coordinator ruling · plan 01, applied</span><h3><span class="id d-id">D-save</span>The defaults save writes what you see</h3><dl><dt>What</dt><dd>"Save these as worksheet defaults" writes exactly the visible selection. That now includes the four new keys, and any pending value is written back unchanged.</dd><dt>Why</dt><dd>Plan 01 DD9.</dd><dt>Tweak</dt><dd class="tweak">As in plan 01.</dd></dl></article>
+        </div>
+      </details>
+
+      <details class="group" open>
+        <summary>Your saved file, the upgrade and interim builds <span class="count">· 13 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d-schema"><span class="tag defaulted">Adopted default · plan 01, applied</span><h3><span class="id d-id">D-schema</span>A real version 3 with a version 2 reader</h3><dl><dt>What</dt><dd>Any change to the saved shape gets a real schema version with a read path for the one before. The file is rewritten only on the first explicit save, behind a byte-identical backup. Newer versions stay blocked, and recovery stays backup-first.</dd><dt>Why</dt><dd>This applies plan 01's D-schema and DD3 to version 3.</dd><dt>Tweak</dt><dd class="tweak">None within the fingerprint rule.</dd></dl></article>
+          <article class="card dec" id="d-split"><span class="tag ruling">Coordinator ruling · plan 01, applied</span><h3><span class="id d-id">D-split</span>Freeze version 2 first, then change the shape</h3><dl><dt>What</dt><dd>No step carries both a module refactor and a change to the saved shape. Step 22 freezes version 2, and Step 23 lands version 3.</dd><dt>Why</dt><dd>Each step has to converge within the default budget (P7).</dd><dt>Tweak</dt><dd class="tweak">Merge Step 22 into Step 23.</dd></dl></article>
+          <article class="card dec" id="d14"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D14</span>One bump to version 3, landed whole</h3><dl><dt>What</dt><dd>The saved shape changes once. Version 3 lands complete in Step 23, after the Step 22 freeze.</dd><dt>Why</dt><dd>An interim file is either unchanged v2 or final v3, and this plan never needs a v4.</dd><dt>Tweak</dt><dd class="tweak">One bump per slice.</dd></dl></article>
+          <article class="card dec" id="d15"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D15</span>Version 3 only adds</h3><dl><dt>What</dt><dd><code>dryMathStrand</code>, <code>dryMathRegrouping</code>, <code>dryMathFacts</code> and <code>numberBonds</code> sit beside the unchanged version 2 keys.</dd><dt>Why</dt><dd>No v2 reader moves in the heaviest step, and undoing the migration only means deleting four keys. Switching strands also never discards the other strand's choices.</dd><dt>Tweak</dt><dd class="tweak">Nest them as one <code>dryMath</code> group with strand, addSubtract and multiplyDivide.</dd></dl></article>
+          <article class="card dec" id="d16"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D16</span>Number Bonds joins the saved list first</h3><dl><dt>What</dt><dd>The saved worksheet-type list includes <code>number-bonds</code> from Step 23. The generation list gains it in Step 26, and the saved list then becomes its re-export. One narrowing guard bridges Steps 23–25.</dd><dt>Why</dt><dd>Tables keyed by every worksheet type never break before the family exists.</dd><dt>Tweak</dt><dd class="tweak">Widen the generation list in Step 23 and refuse the type in the projector.</dd></dl></article>
+          <article class="card dec" id="d30"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D30</span>A permanent version 2 test file</h3><dl><dt>What</dt><dd><code>children.v2.json</code> holds the example config's committed bytes at the Step 22 base. The example becomes v3 in Step 23 with byte-identical profile records, so the six release-audit hashes stand.</dd><dt>Why</dt><dd>It gives a permanent v2 fixture with no hash churn.</dd><dt>Tweak</dt><dd class="tweak">Keep the example at v2 until Step 27.</dd></dl></article>
+          <article class="card dec" id="d31"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D31</span>The notice matches the file it describes</h3><dl><dt>What</dt><dd>The upgrade notice text depends on the stored version. The v2 text names no age or Difficulty: "This profile file was saved by an earlier version. Your profiles and saved worksheet choices are shown unchanged; the next save updates the file and keeps a copy of the earlier file beside it."</dd><dt>Why</dt><dd>Each notice is accurate about its own file.</dd><dt>Tweak</dt><dd class="tweak">Use one generic text.</dd></dl></article>
+          <article class="card dec" id="d32"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D32</span>Current-version names keep later bumps small</h3><dl><dt>What</dt><dd>Step 22 adds unversioned aliases for the config, selection and defaults (<code>AppConfig</code>, <code>WorksheetSelection</code>, <code>WorksheetDefaults</code>, <code>emptyAppConfig()</code> and their schemas) and routes every consumer that means "current" through them. Tests assert <code>APP_CONFIG_SCHEMA_VERSION</code> instead of a literal.</dd><dt>Why</dt><dd>Step 23 then only repoints the aliases, and it and any later bump touch far fewer files.</dd><dt>Tweak</dt><dd class="tweak">Keep versioned names and literals.</dd></dl></article>
+          <article class="card dec" id="d45"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D45</span>One backup, named for the stored version</h3><dl><dt>What</dt><dd>The upgrade backup prefix always matches the stored version, <code>.v1-</code> or <code>.v2-</code>, never both. MA-1 expects exactly one backup carrying the store's version.</dd><dt>Why</dt><dd>Under P7, your retained store may still be v1 when this plan ships.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-interim"><span class="tag ruling">Coordinator ruling · plan 01, applied</span><h3><span class="id d-id">D-interim</span>Interim steps may refuse unbuilt choices</h3><dl><dt>What</dt><dd>States between steps may keep behavior that exists only for sequencing, which here means DD7's pending refusals, so that every step stays fully gated. The final step leaves none behind.</dd><dt>Why</dt><dd>Plan 01's D-interim.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d26"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D26</span>Unbuilt choices are refused only where they apply</h3><dl><dt>What</dt><dd>From Step 23, a saved choice whose slice hasn't landed is refused before any generator runs. That covers every-problem regrouping, fact entries, Number Bonds and pictures. The refusal applies only where the choice is active for the selected worksheet, shows as blocking guidance without a reset, writes the value back unchanged, and is removed slice by slice.</dd><dt>Why</dt><dd>An interim generator can't quietly fill the page with other content, and an unrelated family is never blocked.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d59"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D59</span>An unregistered saved type is refused first</h3><dl><dt>What</dt><dd>In Steps 23–25, a saved Number Bonds type takes its own path. The session and availability code refuse it with the pending message before any registration lookup, capacity probe or generator call. Step 26 deletes the path.</dd><dt>Why</dt><dd>Every production path looks up the registration before projecting, so the projection's refusal alone could never reach this type.</dd><dt>Tweak</dt><dd class="tweak">Add an arm-sweep branch that projects unregistered choices directly.</dd></dl></article>
+          <article class="card dec" id="d64"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D64</span>Plan 01's shapes are reused, not restated</h3><dl><dt>What</dt><dd>Plan 01's plan-wrap gap closures carry forward: the migration report, the golden-key rules and the session reducer. The four new selection keys join plan 01's closed group-key union. The legacy capture owns only its own key shape, family/option/length/scale/seed.</dd><dt>Why</dt><dd>Restating plan 01's shapes here would create a second owner.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+        </div>
+      </details>
+
+      <details class="group" open>
+        <summary>How the build proves itself <span class="count">· 26 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d9"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D9</span>An independent checker before any content changes</h3><dl><dt>What</dt><dd>A calibrated arithmetic oracle under <code>tests/oracles/</code> judges the shipped generators in Step 21 and each new generator in its own slice. It is independent by method (string columns, brute force, exhaustive solving) and by an import scan.</dd><dt>Why</dt><dd>Shared helpers can't see rule defects, and measurement validity requires calibration against known-good and known-garbage pages.</dd><dt>Tweak</dt><dd class="tweak">Write every future rule into the Step 21 oracle up front.</dd></dl></article>
+          <article class="card dec" id="d10"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D10</span>Today's content frozen by script</h3><dl><dt>What</dt><dd><code>capture-arithmetic-golden.mjs</code> records content and request hashes at Step 21's base ref. It covers every catalog selection at three lengths, two scales and seeds 1–8, plus a sample of 256 saved selections. The output is committed with its ref and re-compared at every later gate, and the older-build verdicts follow in Step 22. No profile record is ever committed.</dd><dt>Why</dt><dd>A capture taken after edits can encode the bug, and real saved selections are often off the catalog.</dd><dt>Tweak</dt><dd class="tweak">Rely on plan 01's Practice grid only, or commit a frozen copy of plan 01's projector instead of the sample.</dd></dl></article>
+          <article class="card dec" id="d53"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D53</span>Real saved selections, and a v2 control</h3><dl><dt>What</dt><dd>The capture samples 256 schema-valid v2 selections, off-catalog values included. Step 22's older-build capture adds a v2 control beside the v3 and v4 verdicts.</dd><dt>Why</dt><dd>Step 23 has to prove request continuity for real selections against bytes captured before its projector changed. A verdict with only one outcome can't show that the classifier tells files apart.</dd><dt>Tweak</dt><dd class="tweak">Commit a frozen test-only copy of plan 01's projector in Step 22.</dd></dl></article>
+          <article class="card dec" id="d11"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D11</span>One owner for the carry and borrow rule</h3><dl><dt>What</dt><dd><code>arithmetic.ts</code> owns the rule. Step 21 removes the three copies, and the rule keeps identical digit-by-digit meaning.</dd><dt>Why</dt><dd>The rule needs one source of truth before it becomes a parent's choice.</dd><dt>Tweak</dt><dd class="tweak">Consolidate in Step 24.</dd></dl></article>
+          <article class="card dec" id="d39"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D39</span>One answer check for every objective item</h3><dl><dt>What</dt><dd><code>answer-oracle.ts</code> replaces the Dry Math-only recomputation in Step 21 without changing any answer. Step 25 adds × and ÷, and Step 26 adds Number Bonds. Two Whats and a Wow and Count, Compare &amp; Make keep their own validators.</dd><dt>Why</dt><dd>A new item type can't compile until its answer check is decided, and moving the consumers early keeps Step 25 within budget.</dd><dt>Tweak</dt><dd class="tweak">Keep per-family recomputation, or land the dispatch in Step 25.</dd></dl></article>
+          <article class="card dec" id="d12"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D12</span>Dry Math stays generator version 1</h3><dl><dt>What</dt><dd>A five-rule version policy goes into <code>CONTRIBUTING.md</code>, pinned by a test. Bump the version when an accepted request would produce different items. A new optional request field does not bump. A projector change that remaps a saved selection needs a schema bump instead. Renderer changes never bump, and new families start at 1.</dd><dt>Why</dt><dd>Every earlier request is proved unchanged.</dd><dt>Tweak</dt><dd class="tweak">Bump Dry Math to 2 and keep 1 registered.</dd></dl></article>
+          <article class="card dec" id="d47"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D47</span>Refuse the new request field until it means something</h3><dl><dt>What</dt><dd>From Step 21, every family's validator refuses a request that carries <code>practice</code>. Step 24 narrows the refusal to the kind each family accepts.</dd><dt>Why</dt><dd>Today an unknown field is accepted and silently ignored, so D12's second rule needs this guard to hold. No content changes, because no projector emits the field yet.</dd><dt>Tweak</dt><dd class="tweak">Reword that rule instead.</dd></dl></article>
+          <article class="card dec" id="d13"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D13</span>One optional practice field in the request</h3><dl><dt>What</dt><dd>The generation request keeps version 1 and gains one optional, discriminated <code>practice</code> field. When it is absent, the request behaves as before. "Without carrying or borrowing" normalizes to no field at all, and other families refuse it.</dd><dt>Why</dt><dd>Old requests stay byte-identical, and the frozen meanings of the operation and <code>allowRegrouping</code> fields stay intact.</dd><dt>Tweak</dt><dd class="tweak">Per-family optional fields.</dd></dl></article>
+          <article class="card dec" id="d60"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D60</span>Facts are judged by fact rules only</h3><dl><dt>What</dt><dd>The Dry Math item check branches on the practice kind. Addition and subtraction keep today's bounds and regrouping rule. Facts get only the fact checks and never the 100 ceiling. Any other kind is refused.</dd><dt>Why</dt><dd>12 × 12 = 144 exceeds the addition and subtraction ceiling by design, and the shipped check would reject every valid fact.</dd><dt>Tweak</dt><dd class="tweak">A separate facts item type.</dd></dl></article>
+          <article class="card dec" id="d61"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D61</span>Pictures are refused until they exist</h3><dl><dt>What</dt><dd>In Step 26, Number Bonds accepts only sentences and refuses a picture request. Step 27 lifts that refusal, and the sentence vectors stay unchanged.</dd><dt>Why</dt><dd>A version must never accept and ignore a request field that it later gives meaning.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d65"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D65</span>One control change, one action</h3><dl><dt>What</dt><dd>From Step 25, the Dry Math practice-focus select sends one new session action, <code>dryMathPracticeChosen</code>. It sets the strand and exactly one other group, and it clears the preview once.</dd><dt>Why</dt><dd>That one choice changes two groups, and two separate dispatches would clear the preview twice.</dd><dt>Tweak</dt><dd class="tweak">A composite Dry Math practice group, which would re-cut plan 01's seeded group.</dd></dl></article>
+          <article class="card dec" id="d38"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D38</span>12 and 144 are declared once</h3><dl><dt>What</dt><dd><code>FACT_FACTOR_MAXIMUM</code> and <code>FACT_DIVIDEND_MAXIMUM</code> live once in <code>types.ts</code>, and a pin test asserts 12 and 144. A guard rejects a literal 144, a second declaration, or a bare 12 or 13 used as a bound in the fact modules and the transport.</dd><dt>Why</dt><dd>Data-shape constants need one source of truth, and a bare 12 drifts as easily as a bare 144.</dd><dt>Tweak</dt><dd class="tweak">Extend the envelope guard instead.</dd></dl></article>
+          <article class="card dec" id="d58"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D58</span>Known vectors for every new kind</h3><dl><dt>What</dt><dd>Each content slice commits known vectors under <code>tests/fixtures/math-golden/</code>, covering seeds 1–8 across catalog cells, lengths and scales, and every later gate reproduces them. A changed vector requires a generator-version bump.</dd><dt>Why</dt><dd>Steps 25 and 27 edit generators that Steps 24 and 26 built, and plan 03 regenerates packet sheets from stored requests.</dd><dt>Tweak</dt><dd class="tweak">Reuse the capture script's ref mode instead.</dd></dl></article>
+          <article class="card dec" id="d49"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D49</span>Seed ranges are sized, not guessed</h3><dl><dt>What</dt><dd>Each coverage range is sized so the expected number of missed candidates stays below 1 in 10,000. That means 400 seeds for cells of up to 400 candidates, 1,000 for the 760-sentence cell and 800 for pictures. Larger cells are proved by membership instead. Ranges are decimal counts, and long sweeps are sharded to stay under the 30 s test ceiling.</dd><dt>Why</dt><dd>A range that misses a candidate by chance makes a Done-when impossible to meet, and developers may not change the seeds.</dd><dt>Tweak</dt><dd class="tweak">Pin the smallest covering range found by one sweep at plan time.</dd></dl></article>
+          <article class="card dec" id="d42"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D42</span>This plan's frozen files live apart</h3><dl><dt>What</dt><dd>They live in <code>tests/fixtures/math-golden/</code>, with their own LF line in <code>.gitattributes</code>.</dd><dt>Why</dt><dd>Plan 01's standing check freezes <code>tests/fixtures/golden/</code>.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d43"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D43</span>Test names that avoid hidden filters</h3><dl><dt>What</dt><dd>No new spec file name ends in <code>print.spec.ts</code>. New titles avoid example ids, nicknames and interest words even as substrings, for example "writing room", never "writing space", "signature" or "whitespace".</dd><dt>Why</dt><dd>Hidden filters would change the row counts or fail the whole browser gate.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d44"><span class="tag defaulted">Adopted default · plan 01</span><h3><span class="id d-id">D44</span>Test counts measured one way</h3><dl><dt>What</dt><dd>Counts are measured as in plan 01's D44, and each step's baseline is whatever <code>main</code> holds when that step starts.</dd><dt>Why</dt><dd>build-phase gets one declared measurement.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d46"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D46</span>Each slice is proved through the real caller</h3><dl><dt>What</dt><dd>Every content slice adds a <code>src/web/generator/math-generation.test.ts</code> case that runs through <code>createWorksheetSessionForSeed</code>, the production caller. The test sits under <code>src/web</code> because that module compiles only there.</dd><dt>Why</dt><dd>New components need an integration test through their production caller (the code-quality rule), without changing any tsconfig.</dd><dt>Tweak</dt><dd class="tweak">Give <code>create-session.ts</code> <code>.js</code> imports and keep the test in <code>tests/integration</code>.</dd></dl></article>
+          <article class="card dec" id="d27"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D27</span>Each slice brings its own print rows</h3><dl><dt>What</dt><dd>Each slice adds its print fixture and updates the <code>ci-contract</code> pins in the same diff. The totals go from 84 worksheet cases and 16 key PDFs today to 100 and 32 after Step 27.</dd><dt>Why</dt><dd>Print evidence belongs to the slice that owns the renderer.</dd><dt>Tweak</dt><dd class="tweak">One print step at the end.</dd></dl></article>
+          <article class="card dec" id="d28"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D28</span>One compiled smoke that grows</h3><dl><dt>What</dt><dd><code>math-practice-smoke</code> is a single-test Playwright project (120 s), created in Step 24 and extended by every later slice. It runs a v2 file through the notice and the upgrade, then generates, keys and prints each new kind. The log-privacy calibration becomes 1/1/1/1/0/0/0.</dd><dt>Why</dt><dd>Each slice proves itself on the compiled app, and the "1 passed" check stays exact.</dd><dt>Tweak</dt><dd class="tweak">A dedicated smoke step at the end.</dd></dl></article>
+          <article class="card dec" id="d29"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D29</span>A committed evidence file</h3><dl><dt>What</dt><dd>Step 21 creates <code>documentation/math-activities-evidence.md</code>, and every step extends it. It serves as the step checkpoint and lists every file touched outside a step's Files list.</dd><dt>Why</dt><dd>The checkpoint commit is a fixed one-line message and can't carry evidence.</dd><dt>Tweak</dt><dd class="tweak">Use issue comments.</dd></dl></article>
+          <article class="card dec" id="d62"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D62</span>The upgrade check reads backup names</h3><dl><dt>What</dt><dd>The upgrade oracle takes a listing that includes file names. It checks the single backup's bytes and its <code>.v1-</code> or <code>.v2-</code> prefix.</dd><dt>Why</dt><dd>The old listing discarded names, so it couldn't reject a backup with the wrong prefix.</dd><dt>Tweak</dt><dd class="tweak">Read names in each spec, or convert profile-flow's inline v1 check.</dd></dl></article>
+          <article class="card dec" id="d54"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D54</span>New controls go through the test helper</h3><dl><dt>What</dt><dd>Plan 01's helper-routing grep stays a standing check. It is extended with every new legend and option label and calibrated by a synthetic spec line that clicks "Every problem carries or borrows".</dd><dt>Why</dt><dd>Specs click options by their own labels, so the routing rule needs a mechanical check.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d37"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D37</span>No new public error codes</h3><dl><dt>What</dt><dd>Pending and unavailable states use <code>GENERATION_CONSTRAINT_CONFLICT</code>. Invariant failures use <code>GENERATION_INVARIANT_FAILED</code>.</dd><dt>Why</dt><dd>The pin of 20 error codes stays.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-scripted-evidence"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-scripted-evidence</span>Evidence comes from scripts, not reviewers</h3><dl><dt>What</dt><dd>Done-when evidence comes from committed, re-runnable scripts and tests: the oracle, both capture scripts, the calibration and the fingerprint. The results are recorded in the evidence file.</dd><dt>Why</dt><dd>Acceptance text is advisory, and the checkpoint commit message is fixed.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-foundation"><span class="tag ruling">Coordinator ruling · settled in plan 01</span><h3><span class="id d-id">D-foundation</span>The 1920×1080 check stays on fictional data</h3><dl><dt>What</dt><dd>The development-stack test reads no layout. The 1920×1080 no-scroll check stays a standing check on the compiled fictional fixture, now with five cards.</dd><dt>Why</dt><dd>The DONE gate stays independent of any file at the real config path.</dd><dt>Tweak</dt><dd class="tweak">As in plan 01.</dd></dl></article>
+        </div>
+      </details>
+
+      <details class="group" open>
+        <summary>The unattended run and the handoffs <span class="count">· 10 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d-flags"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-flags</span>The shipped build flags</h3><dl><dt>What</dt><dd>Steps 21–23 use deep reviewers and Steps 24–27 use full reviewers. Every step runs in a worktree with the development start command on ports 4310 and 4311, and <code>--max-iter</code> is never set. Each UI step's Problem says what the landing-page screenshot can confirm, and only when the default Dry Math selection is visible (the card group in Step 26).</dd><dt>Why</dt><dd>This matches the shipped and plan 01 steps, and it keeps runtime reviewers from spending iterations on findings they can't observe.</dd><dt>Tweak</dt><dd class="tweak">Set the reviewer level per step.</dd></dl></article>
+          <article class="card dec" id="d63"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D63</span>Every step sized for three rounds</h3><dl><dt>What</dt><dd>Work is rebalanced within Steps 21–27. The older-build verdicts and the aliases move to Step 22, and the pending-panel case lands in Step 23 with its code. Step 24 takes the smoke, the profile-flow v2 case and Step 23's upgrade prose. Every step is sized for three developer-reviewer rounds, the smaller of the installed (3) and canonical (10) build-step defaults.</dd><dt>Why</dt><dd>Each step has to converge unattended, and any halt parks the rest (P7).</dd><dt>Tweak</dt><dd class="tweak">Move the selection sample to Step 22 as well, or the smoke to Step 23.</dd></dl></article>
+          <article class="card dec" id="d-numbering"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-numbering</span>Steps 21–27</h3><dl><dt>What</dt><dd>This plan numbers its steps 21–27, and plan 03 starts at 28.</dd><dt>Why</dt><dd>Issue titles never collide across plans.</dd><dt>Tweak</dt><dd class="tweak">None.</dd></dl></article>
+          <article class="card dec" id="d-pregate"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-pregate</span>No real config in the main checkout</h3><dl><dt>What</dt><dd>The run doesn't begin while <code>config/children.local.json</code> or a sibling exists in the main checkout, or while ports 4310 or 4311 are in use. The retained launcher stays stopped, and agents never open <code>config/uat-session/</code>. You check these when the whole P7 run is armed. At this plan's start, the coordinator re-runs the delta check, a metadata listing and the parallel-session check, all of which only report.</dd><dt>Why</dt><dd>Runtime lanes bind the real path in the main checkout. A fictional file that plan 01's reviewers left behind must not park plans 02 and 03, and the halt allowlist is closed.</dd><dt>Tweak</dt><dd class="tweak">Add a fixed-port development script that uses fictional data.</dd></dl></article>
+          <article class="card dec" id="d-pointer"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-pointer</span>Every Problem points at this plan</h3><dl><dt>What</dt><dd>Each Problem begins by naming this plan's sections as the specification. A developer may touch a file that a gate needs even when it is outside the Files list, and records it. Only the <code>git diff --exit-code</code> path pins are exceptions.</dd><dt>Why</dt><dd>build-phase forwards only the Problem and the Done-when.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-planindex"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-planindex</span>Keep the plan.md pointer section</h3><dl><dt>What</dt><dd>The "Post-UAT feature plans" pointer section at the end of <code>plan.md</code> is committed with the plans and stays there. No step, wrap or repo-update edits <code>plan.md</code>.</dd><dt>Why</dt><dd>One canonical entry plan may point to sub-plans without moving any cited line.</dd><dt>Tweak</dt><dd class="tweak">None within this plan. Plan 01 records the index alternative.</dd></dl></article>
+          <article class="card dec" id="d-uatbackup"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-uatbackup</span>The store backup is a morning step</h3><dl><dt>What</dt><dd>The only mandatory condition on your retained UAT store is that its launcher stays stopped for the whole run and that no agent touches it. The dated backup is plan 01's recommended WF-0, and MA-1 copies its upgrade backup beside it.</dd><dt>Why</dt><dd>Agents can't satisfy a backup precondition.</dd><dt>Tweak</dt><dd class="tweak">As in plan 01.</dd></dl></article>
+          <article class="card dec" id="d56"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D56</span>Checks are written in git grep</h3><dl><dt>What</dt><dd>The pre-build delta check and every Done-when search use <code>git grep</code> and <code>git ls-files</code>, never ripgrep. There are two exceptions: A32 runs a capture script with Node, and plan 01's helper-routing check runs <code>grep</code> in Git Bash. A failing assumption row fails P7's plan-boundary re-check and parks plans 02 and 03. It is neither a build-phase halt nor a new halt class.</dd><dt>Why</dt><dd>Ripgrep isn't a standalone executable on your machine.</dd><dt>Tweak</dt><dd class="tweak">Run the block only in the Claude Code Git Bash tool.</dd></dl></article>
+          <article class="card dec" id="d55"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D55</span>Handoff to plan 03: fit is proved at each sheet's own scale</h3><dl><dt>What</dt><dd>A document from a new family is proved to fit one page only at its own paper and scale. The policy for re-rendering a whole packet belongs to plan 03.</dd><dt>Why</dt><dd>Budgets depend on scale, so a standard Long sheet re-rendered in large print may not fit one page.</dd><dt>Tweak</dt><dd class="tweak">Add one cross-scale print row per new fixture here.</dd></dl></article>
+          <article class="card dec" id="d-packet"><span class="tag defaulted">Adopted default · plan 03</span><h3><span class="id d-id">D-packet</span>A bounded first packet</h3><dl><dt>What</dt><dd>A packet holds at most 10 sheets and uses one paper and scale throughout. Answer keys are grouped at the end by default, sheets from different children are allowed, and printing never clears the queue. <b>This plan's part:</b> keep documents immutable and renderable from their requests (D58), and prove one-page fit at their own paper and scale.</dd><dt>Why</dt><dd>It gives a bounded, predictable first packet.</dd><dt>Tweak</dt><dd class="tweak">Per-sheet layouts or interleaved keys.</dd></dl></article>
+        </div>
+      </details>
+    </section>
+
+    <section id="cuts" aria-labelledby="cuts-title">
+      <p class="kicker">Not in this plan</p>
+      <h2 id="cuts-title">Left out on purpose.</h2>
+      <div class="grid">
+        <article class="card">
+          <span class="tag picked">Follows from your picks</span>
+          <h3>Ruled out by P3, P5 and P6</h3>
+          <ul class="compact">
+            <li>Remainders, factors above 12, dividends above 144, multi-digit multiplication</li>
+            <li>A second new family: Skip Counting, Equal Groups &amp; Arrays, Place Value</li>
+            <li>Reading the old <code>allowRegrouping</code> flag as consent</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag ruling">Later plans</span>
+          <h3>Plan 03</h3>
+          <ul class="compact">
+            <li>Printable packets and their draft store (P4, D-packet)</li>
+            <li>The policy for re-rendering a sheet at another scale (D55)</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag defaulted">My cuts · flag to restore</span>
+          <h3>Deferred by default</h3>
+          <ul class="compact">
+            <li>A mixed regrouping page (D17); balanced mixed facts (D19)</li>
+            <li>Zero parts or a missing whole in pictures (D21)</li>
+            <li>Make-ten and crossing-ten problems on a default Number Bonds page (D-bonds-ten)</li>
+            <li>Negative results, fractions, word problems, free numeric entry</li>
+            <li>Decorating Dry Math or Number Bonds; thematic instructional symbols (D25, D-theme)</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag retired">Outside every plan here</span>
+          <h3>Unchanged boundaries</h3>
+          <ul class="compact">
+            <li>Every quantity, numeral, comparison, ten-frame and Two Whats and a Wow ceiling stays at 20</li>
+            <li>Existing print tokens, response sizes and instruction font sizes; new tokens are only added</li>
+            <li>New runtime dependencies, AI, cloud services, accounts, telemetry, asset licenses or public error codes (D37)</li>
+            <li>Physical print (M1) and the family pilot (M2), which stay human-only</li>
+            <li>Editing <code>plan.md</code> or plan 01; reading or changing your real config, its backups or the UAT session store</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="risks" aria-labelledby="risks-title">
+      <p class="kicker">Risks worth knowing</p>
+      <h2 id="risks-title">What could go wrong, and what already guards against it.</h2>
+      <ul class="risks">
+        <li><span class="r">Plan 01 ships a different name, test or shape than this plan assumes.</span><span class="a">The pre-build delta check runs all 54 assumption rows before Step 21. A failing row parks plans 02 and 03 and returns to redline, and no developer ever patches it mid-run (D56).</span></li>
+        <li><span class="r">Step 23 or Step 25 runs out of iterations, and the halt parks everything after it (P7).</span><span class="a">Step 22 takes the freeze, the aliases and the generic upgrade first. The answer check lands in Step 21, the upgrade prose moves to Step 24, and every step is sized for three rounds (D-split, D39, D63).</span></li>
+        <li><span class="r">The checker shares a bug with production and passes it.</span><span class="a">It uses a different method by construction, an import scan enforces the separation, and anchors come from an independent script with known-garbage calibration (DD1, D9).</span></li>
+        <li><span class="r">A refactor or a later slice quietly changes earlier content.</span><span class="a">Content and request hashes are captured by script at the base, known vectors are committed per new kind, and the version policy lives in <code>CONTRIBUTING.md</code> (D10, D58, D12).</span></li>
+        <li><span class="r">A parent expects make-ten bonds on a default Number Bonds page.</span><span class="a">The help says so in plain words, one choice adds them back, and M2 records whether parents expected them. Widening the default is a one-line tweak (D-bonds-ten).</span></li>
+        <li><span class="r">An interim build meets a saved choice it can't produce yet.</span><span class="a">The choice is refused only where it applies, shown without a reset and written back unchanged, and interim builds never touch real data (D26, D59, item 5).</span></li>
+        <li><span class="r">Runtime reviewers see a fictional file that an earlier reviewer left behind, instead of the empty state.</span><span class="a">Each UI step's Problem confirms by screenshot only when the default selection is visible, and names the specs that prove everything else (D-flags).</span></li>
+        <li><span class="r">The Dry Math answer line is too short for a three-digit handwritten answer.</span><span class="a">No automated metric can measure a text line, so M1 is the only check. Automated rows prove each row stays on one line and fits the page (D40, MU5).</span></li>
+        <li><span class="r">Ubuntu CI prints a blank as a missing-glyph box.</span><span class="a">Blanks are drawn elements, key lines write <code>?</code> in ASCII, and × and ÷ exist in every candidate font (D40, D52).</span></li>
+        <li><span class="r">Plan 03 re-renders a standard Long sheet in large print and it overflows.</span><span class="a">This plan proves fit only at each sheet's own scale and states that as a fact for plan 03 to handle (D55).</span></li>
+      </ul>
+    </section>
+
+    <section id="reply" aria-labelledby="reply-title">
+      <p class="kicker">Give feedback</p>
+      <h2 id="reply-title">Scan, then reply in chat. IDs keep replies short.</h2>
+      <div class="feedback">
+        <p>Write one line per change, as <code>ID -&gt; what you want</code>. Anything you don't mention lands as written, so silence means the plan stands. IDs never change, and a reversed row is marked "changed" with its date.</p>
+        <div class="fb-ex" role="group" aria-label="Example replies">D-bonds-ten -&gt; confirm a, b, c            <span class="c"># confirm the flagged readings</span>
+D-bonds-ten -&gt; include make-ten by default <span class="c"># take a listed tweak</span>
+D57 -&gt; count ? + 7 = 15 and 7 + ? = 15 once <span class="c"># tweak a default</span>
+P3 -&gt; stop at the 10s for now             <span class="c"># reopen one of your picks</span>
+Step 25 -&gt; split facts into two steps     <span class="c"># reshape the plan</span>
+heard #4 is off: I meant …                 <span class="c"># fix my read of an ask</span></div>
+        <dl class="kv">
+          <dt>Source of truth</dt><dd><code>documentation/math-activities-plan.md</code>. This page is a view of it, and its Appendix Decision Inventory lists every ID.</dd>
+          <dt>Builds on</dt><dd>Plan 01, <code>documentation/worksheet-first-plan.md</code> (Steps 14–20, issues #25–#31; its proposal is <code>documentation/worksheet-first-proposal.html</code>). Before Step 21, the pre-build delta check re-verifies this plan's plan 01 assumptions (A1–A54) against the shipped code.</dd>
+          <dt>Your choices</dt><dd><code>documentation/feature-seeds/operator-decisions.md</code></dd>
+          <dt>Seed and UAT</dt><dd><code>documentation/feature-seeds/02-math-activities.md</code> · <code>documentation/feature-seeds/README.md</code> · <code>documentation/uat-round-2-review.md</code></dd>
+          <dt>Issues</dt><dd>Steps 21–27 don't have issue numbers yet, so a reply now needs no issue edits. Once repo-sync creates the seven issues, any change to a step needs repo-sync again so the issues match the plan.</dd>
+          <dt>Publication 1</dt><dd>This is the first view of this plan. The Decision Inventory already held every row shown here, with IDs unchanged. This publication adds the Proposal locator and an inventory note, and marks P1, P2 and P4 as recorded for plans 01 and 03.</dd>
+          <dt>Next</dt><dd>Fold your replies into the plan and republish this same file as publication 2. If the changes are material, plan-review and plan-wrap run again. Then repo-sync commits the plans and creates the issues, and you arm the unattended run (P7).</dd>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Math operations and activities · proposal publication 1 · 2026-09-29 · a redline view of <code>documentation/math-activities-plan.md</code>, which remains the source of truth.</p>
+  </footer>
+</body>
+</html>
