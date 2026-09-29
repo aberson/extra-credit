@@ -1074,3 +1074,22 @@ completed step rail. Begin at [feature seeds](documentation/feature-seeds/README
 worksheet-first settings, math operations/activities, and printable packets.
 Age removal, worksheet-level writing/math choices, a replacement for Difficulty,
 explicit themes, multiplication/division and packets are **not yet shipped**.
+
+## Post-UAT feature plans
+
+The seeds under [documentation/feature-seeds/](documentation/feature-seeds/README.md)
+became three separate, bounded implementation plans on 2026-09-29. Each plan is
+self-contained, continues the step numbering of this document, and records its
+operator choices and agent defaults in its own Decision Inventory; the shared
+record of operator choices is
+[operator-decisions.md](documentation/feature-seeds/operator-decisions.md).
+Steps 1–13 above remain the completed historical build and are not renumbered.
+
+| Plan | Steps | Depends on |
+| --- | --- | --- |
+| [Worksheet-first controls](documentation/worksheet-first-plan.md) | 14–20 | Steps 1–13 |
+| [Math operations and activities](documentation/math-activities-plan.md) | 21–27 | Worksheet-first controls |
+| [Printable packets](documentation/printable-packets-plan.md) | 28–34 | Worksheet-first controls; built after math activities |
+
+Physical print acceptance (M1) and the family pilot (M2) remain open human
+acceptance tasks and are not closed by any of these plans.

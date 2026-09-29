@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Worksheet-first Proposal</title>
+  <style>
+    :root {
+      --font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-mono: ui-monospace, "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      --size-page: 72rem;
+      --space-1: 0.35rem;
+      --space-2: 0.65rem;
+      --space-3: 1rem;
+      --space-4: 1.5rem;
+      --space-5: 2.25rem;
+      --radius: 0.75rem;
+      --border-width: 1px;
+      --bg: #f7f5ef;
+      --surface: #ffffff;
+      --surface-alt: #eef5ef;
+      --text: #18211a;
+      --muted: #4b5d50;
+      --border: #b9c6bb;
+      --hairline: #d9e1da;
+      --accent: #155d38;
+      --accent-soft: #dcefe2;
+      --picked: #235a9f;
+      --picked-soft: #e2edfa;
+      --turn: #8a4b00;
+      --turn-soft: #fbeedb;
+      --retired: #5d5d5d;
+      --retired-soft: #ececec;
+      --focus: #a83f00;
+      --shadow: 0 0.5rem 1.4rem rgb(24 33 26 / 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #111712;
+        --surface: #182019;
+        --surface-alt: #1b2b20;
+        --text: #edf4ee;
+        --muted: #b8c8ba;
+        --border: #526456;
+        --hairline: #2c3a2f;
+        --accent: #8ed8aa;
+        --accent-soft: #203f2c;
+        --picked: #99c8ff;
+        --picked-soft: #203a59;
+        --turn: #f0b872;
+        --turn-soft: #3a2a12;
+        --retired: #c4c4c4;
+        --retired-soft: #2e2e2e;
+        --focus: #ffb47a;
+        --shadow: none;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #111712;
+      --surface: #182019;
+      --surface-alt: #1b2b20;
+      --text: #edf4ee;
+      --muted: #b8c8ba;
+      --border: #526456;
+      --hairline: #2c3a2f;
+      --accent: #8ed8aa;
+      --accent-soft: #203f2c;
+      --picked: #99c8ff;
+      --picked-soft: #203a59;
+      --turn: #f0b872;
+      --turn-soft: #3a2a12;
+      --retired: #c4c4c4;
+      --retired-soft: #2e2e2e;
+      --focus: #ffb47a;
+      --shadow: none;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 1rem;
+      line-height: 1.6;
+      overflow-wrap: break-word;
+    }
+    a { color: var(--accent); text-underline-offset: 0.18em; }
+    a:focus-visible, summary:focus-visible {
+      outline: 0.2rem solid var(--focus);
+      outline-offset: 0.2rem;
+    }
+    .skip-link {
+      position: absolute;
+      left: var(--space-3);
+      top: -5rem;
+      z-index: 10;
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface);
+      color: var(--text);
+      border: var(--border-width) solid var(--border);
+    }
+    .skip-link:focus { top: var(--space-3); }
+    header, main, footer {
+      width: min(calc(100% - 2rem), var(--size-page));
+      margin-inline: auto;
+    }
+    header { padding-block: var(--space-5) var(--space-4); }
+    main { padding-bottom: var(--space-5); }
+    footer {
+      padding-block: var(--space-4);
+      border-top: var(--border-width) solid var(--border);
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { margin: 0 0 var(--space-2); font-size: clamp(2rem, 6vw, 3.4rem); letter-spacing: -0.01em; }
+    h2 { margin: var(--space-1) 0 var(--space-2); font-size: clamp(1.4rem, 3vw, 1.9rem); }
+    h3 { margin: 0; font-size: 1.08rem; }
+    p { max-width: 76ch; }
+    .eyebrow {
+      margin: 0 0 var(--space-2);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .lede { font-size: 1.14rem; color: var(--muted); margin-top: 0; }
+    main > section { margin-top: var(--space-5); }
+    .kicker {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .section-lead { color: var(--muted); margin-top: 0; }
+    .status-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-block: var(--space-3);
+      padding: 0;
+      list-style: none;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 2rem;
+      padding: var(--space-1) var(--space-2);
+      border: var(--border-width) solid var(--border);
+      border-radius: 99rem;
+      background: var(--surface);
+      font-weight: 650;
+      font-size: 0.92rem;
+    }
+    .pill.hot { border-color: var(--turn); color: var(--turn); background: var(--turn-soft); }
+    nav {
+      padding: var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2) var(--space-4);
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+      gap: var(--space-3);
+    }
+    .grid.wide { grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); }
+    .card {
+      padding: var(--space-4);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+    .card > :first-child { margin-top: 0; }
+    .card > :last-child { margin-bottom: 0; }
+    code {
+      padding: 0.1em 0.35em;
+      border-radius: 0.3em;
+      background: var(--surface-alt);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      overflow-wrap: anywhere;
+    }
+    .tag {
+      display: inline-block;
+      margin-bottom: var(--space-2);
+      padding: 0.14rem 0.5rem;
+      border-radius: 0.35rem;
+      font-size: 0.76rem;
+      font-weight: 750;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    .tag.picked { color: var(--picked); background: var(--picked-soft); }
+    .tag.defaulted { color: var(--turn); background: var(--turn-soft); }
+    .tag.ruling { color: var(--accent); background: var(--accent-soft); }
+    .tag.retired { color: var(--retired); background: var(--retired-soft); }
+    .id {
+      display: inline-block;
+      margin-right: 0.4rem;
+      padding: 0.08rem 0.4rem;
+      border: var(--border-width) solid currentColor;
+      border-radius: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.86em;
+      white-space: nowrap;
+    }
+    .p-id { color: var(--picked); }
+    .d-id { color: var(--turn); }
+
+    /* What I heard */
+    .heard { display: grid; gap: var(--space-3); grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr)); margin: 0; padding: 0; list-style: none; counter-reset: heard; }
+    .heard li { counter-increment: heard; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); align-items: start; }
+    .heard li::before {
+      content: counter(heard);
+      display: grid;
+      place-items: center;
+      width: 1.8rem;
+      height: 1.8rem;
+      border-radius: 99rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+    .ask { display: block; color: var(--muted); font-style: italic; font-size: 0.92rem; }
+    .becomes { display: block; }
+    .where { display: block; color: var(--muted); font-size: 0.84rem; font-family: var(--font-mono); }
+
+    /* Why this shape */
+    .chips { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0 0 var(--space-3); padding: 0; list-style: none; }
+    .chip {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.45rem;
+      padding: 0.45rem 0.75rem;
+      border: var(--border-width) solid var(--border);
+      border-radius: 0.6rem;
+      background: var(--surface);
+    }
+    .chip .n { font-size: 1.2rem; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--turn); }
+    .chip .l { font-size: 0.86rem; color: var(--muted); }
+
+    /* Look first */
+    .look { border-left: 0.35rem solid var(--turn); }
+    .look h3 { margin-bottom: var(--space-2); }
+    .reply-example { display: block; margin-top: var(--space-2); font-family: var(--font-mono); font-size: 0.9rem; overflow-wrap: anywhere; }
+    .signoff { border-left: 0.35rem solid var(--picked); background: var(--surface-alt); margin-top: var(--space-3); }
+    .signoff ul { margin-bottom: 0; padding-left: 1.2rem; }
+
+    /* Timeline */
+    ol.timeline { list-style: none; margin: 0; padding: 0; }
+    ol.timeline > li { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 var(--space-3); }
+    .tl-mark { display: flex; flex-direction: column; align-items: center; }
+    .tl-num {
+      display: grid;
+      place-items: center;
+      min-width: 2.4rem;
+      height: 2.4rem;
+      padding: 0 0.3rem;
+      border: 2px solid var(--accent);
+      border-radius: 99rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.86rem;
+    }
+    .tl-num.you { border-color: var(--picked); background: var(--picked-soft); color: var(--picked); }
+    .tl-line { flex: 1; width: 2px; min-height: 0.75rem; margin: 0.25rem 0; background: var(--hairline); }
+    ol.timeline > li:last-child .tl-line { display: none; }
+    .tl-body { padding-bottom: var(--space-4); min-width: 0; }
+    .tl-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
+    .tl-head h3 { font-size: 1.05rem; }
+    .flag {
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      padding: 0.06rem 0.4rem;
+      border-radius: 0.3rem;
+      border: var(--border-width) solid var(--border);
+      color: var(--muted);
+    }
+    .tl-body p { margin: var(--space-1) 0 0; }
+    .tl-body ul { margin: var(--space-1) 0 0; padding-left: 1.2rem; }
+    .after { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: 0.5rem; background: var(--surface-alt); }
+    .after .arw { color: var(--accent); font-weight: 750; }
+
+    /* Decisions */
+    details.group { margin-top: var(--space-3); }
+    details.group > summary {
+      cursor: pointer;
+      padding: var(--space-2) var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+    details.group > summary .count { color: var(--muted); font-weight: 500; font-size: 0.92rem; }
+    details.group[open] > summary { margin-bottom: var(--space-3); }
+    .dec h3 { font-size: 1rem; margin-bottom: var(--space-2); }
+    .dec dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-2); }
+    .dec dt { font-weight: 700; font-size: 0.86rem; color: var(--muted); padding-top: 0.08rem; }
+    .dec dd { margin: 0; font-size: 0.95rem; }
+    .dec dd.tweak { color: var(--turn); }
+    .dec.retired { border-style: dashed; }
+
+    /* Cuts, risks, feedback */
+    .compact { margin: 0; padding-left: 1.2rem; }
+    .compact li { margin-block: var(--space-1); }
+    .risks { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+    .risks li { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: var(--space-1) var(--space-4); padding: var(--space-3); border: var(--border-width) solid var(--border); border-radius: var(--radius); background: var(--surface); }
+    .risks .r { font-weight: 700; }
+    .risks .a { color: var(--muted); }
+    .feedback {
+      padding: var(--space-4);
+      border-left: 0.35rem solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      background: var(--surface-alt);
+    }
+    .fb-ex {
+      margin: var(--space-3) 0;
+      padding: var(--space-3);
+      border: var(--border-width) solid var(--border);
+      border-radius: 0.5rem;
+      background: var(--surface);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .fb-ex .c { color: var(--muted); }
+    .kv { display: grid; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); gap: var(--space-2) var(--space-3); margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: var(--border-width) solid var(--border); }
+    .kv dt { font-family: var(--font-mono); font-size: 0.76rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); padding-top: 0.15rem; }
+    .kv dd { margin: 0; }
+    @media (max-width: 30rem) {
+      .kv, .dec dl { grid-template-columns: minmax(0, 1fr); }
+      .kv dd, .dec dd { margin-bottom: var(--space-1); }
+    }
+
+    @media print {
+      :root { --bg: #fff; --surface: #fff; --surface-alt: #f3f3f3; --text: #000; --muted: #333; --border: #777; --shadow: none; }
+      body { font-size: 10.5pt; }
+      .skip-link, nav { display: none; }
+      header, main, footer { width: 100%; }
+      .card, .risks li, ol.timeline > li { break-inside: avoid; }
+      a { color: inherit; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to proposal</a>
+  <header>
+    <p class="eyebrow">Proposal · feature plan 01 of 3 · publication 2 · redline folded in</p>
+    <h1>Worksheet-first controls</h1>
+    <p class="lede">Choose the work first — worksheet type, its variant, the child, then a practice focus stated in plain words — without editing a child's profile, and move the saved profile file to a new format without losing anything.</p>
+    <ul class="status-line" aria-label="Proposal status">
+      <li class="pill hot">Proposal — nothing built yet</li>
+      <li class="pill">Publication 2 · 2026-09-29</li>
+      <li class="pill">Steps 14–20 · 7 code steps + manual UAT</li>
+      <li class="pill">4 operator choices · 53 agent defaults (2 superseded)</li>
+      <li class="pill">Baseline main 5c22159 · 521 unit / 160 browser tests</li>
+    </ul>
+    <nav aria-label="Proposal sections">
+      <ul>
+        <li><a href="#heard">What I heard</a></li>
+        <li><a href="#why">Why this shape</a></li>
+        <li><a href="#look-first">Look at these first</a></li>
+        <li><a href="#timeline">Step by step</a></li>
+        <li><a href="#picked">Your choices</a></li>
+        <li><a href="#defaults">My defaults</a></li>
+        <li><a href="#cuts">Not in this plan</a></li>
+        <li><a href="#risks">Risks</a></li>
+        <li><a href="#reply">How to reply</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="heard" aria-labelledby="heard-title">
+      <p class="kicker">What I heard</p>
+      <h2 id="heard-title">Eight asks from UAT, eight deliverables.</h2>
+      <p class="section-lead">My read of the operator-requested outcomes recorded in seed 01. If a mapping is off, flag it first — for example <code>heard #4 is off: I meant …</code>.</p>
+      <div class="card">
+        <ol class="heard">
+          <li><span><span class="ask">"Make Worksheet type the major choice and use available screen space better."</span><span class="becomes">Worksheet type becomes four <b>radio cards</b>, the first and largest choice; from 60 rem the rest of the panel sits in two columns, and it stacks to one column at 320 px.</span><span class="where">Step 17 · U1, DD15</span></span></li>
+          <li><span><span class="ask">"Move Writing mode from the child profile into Sentence Builder variants."</span><span class="becomes">A per-worksheet <b>Writing activity</b>: Draw &amp; Tell, Picture Labels, Copy a Sentence, Finish a Sentence, Independent Writing — one generator, five public choices.</span><span class="where">Steps 16–17 · D-writing</span></span></li>
+          <li><span><span class="ask">"Move Math capabilities from the child profile into worksheet settings."</span><span class="becomes">A <b>Practice focus</b> on the worksheet, such as "Addition within 20" or "Quantities to 10"; profiles shrink to nickname, review date and up to five interests.</span><span class="where">Steps 16–18 · D13</span></span></li>
+          <li><span><span class="ask">"Replace the current Difficulty behavior with something more useful" — you invited recommendations.</span><span class="becomes">Difficulty and its hidden multiplier are <b>deleted</b>; the worksheet uses exactly the stated range, and Two Whats and a Wow gets an explicit <b>Statements</b> choice: Quantity pictures or Equations.</span><span class="where">Step 16 · D-difficulty</span></span></li>
+          <li><span><span class="ask">"Place the personalization checkboxes under More options."</span><span class="becomes"><b>More options</b> holds only secondary choices — Length, answer key, Personalization, Print layout — while blocking guidance always stays above Create.</span><span class="where">Step 17 · U5, U6</span></span></li>
+          <li><span><span class="ask">"Make decorative artwork visibly relate to interests."</span><span class="becomes">An explicit <b>Theme</b> — From interests, Animals, Space, Nature, Sports, Vehicles or Neutral — separate from the content checkbox; it never changes the work or the answers.</span><span class="where">Step 19 · D-theme</span></span></li>
+          <li><span><span class="ask">"Remove age unless it genuinely controls generation."</span><span class="becomes">Age is <b>removed entirely</b> (your P2): schema, editor, list, the 4–8 gate and its error code, then the public docs. Help text says the worksheets are designed for early primary practice.</span><span class="where">Steps 15 and 18 · P2</span></span></li>
+          <li><span><span class="ask">"Preserve profiles across UAT/restarts and schema changes."</span><span class="becomes">A real <b>schema version 2</b>: reading never writes, the first save keeps a byte-identical copy of the old file, older builds block instead of wiping, and a compiled upgrade-to-print smoke test proves it.</span><span class="where">Steps 14, 15 and 20 · D-schema</span></span></li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="why" aria-labelledby="why-title">
+      <p class="kicker">Why this shape</p>
+      <h2 id="why-title">What the UAT survey found underneath the controls.</h2>
+      <ul class="chips" aria-label="Survey findings">
+        <li class="chip"><span class="n">3</span><span class="l">profile fields copied into every request (writing mode, presentation band, math skills)</span></li>
+        <li class="chip"><span class="n">×0.75 / +25%</span><span class="l">hidden Difficulty rescaling of every math maximum</span></li>
+        <li class="chip"><span class="n">1</span><span class="l">silent mode switch: Confidence turns an equation-ready Wow into quantity mode</span></li>
+        <li class="chip"><span class="n">0</span><span class="l">lines of migration code today</span></li>
+      </ul>
+      <div class="grid wide">
+        <article class="card">
+          <h3>Today's work lives in the child</h3>
+          <p>The generation boundary reads the writing mode, the vocabulary band and every math limit from the stored profile, so trying Copy a Sentence today and Picture Labels tomorrow means editing the child twice. Decorative art also rides on the unrelated "use reviewed interests" content checkbox.</p>
+        </article>
+        <article class="card">
+          <h3>Editing the file in place is the dangerous path</h3>
+          <p>A shipped build that cannot strictly read a version 1 file calls it invalid and offers backup-and-replace, which rewrites the file as defaults plus one profile. A real version 2 makes every older build block with a visible, non-destructive "unsupported version" instead. That is why Step 15 bumps the version and Step 14 first freezes the version 1 reader.</p>
+        </article>
+        <article class="card">
+          <h3>Same choices, same worksheets — proven</h3>
+          <p>Step 14 captures a content fingerprint of Practice-level worksheets from 5c22159 with a committed script. Every later gate reproduces it through the new path, so removing Difficulty and profile capabilities cannot quietly change what a child gets for equivalent choices.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="look-first" aria-labelledby="look-title">
+      <p class="kicker">Look at these first</p>
+      <h2 id="look-title">Three defaults with the biggest effect on you.</h2>
+      <p class="section-lead">Everything else can wait for a skim. These change what a parent sees, what you must do before the run, or what happens to your stored settings.</p>
+      <div class="grid">
+        <article class="card look">
+          <h3><span class="id d-id">D-save</span>Saving defaults ends per-child carry-over for good</h3>
+          <p>After the upgrade, each child's old writing mode, vocabulary and math values pre-fill any choice you have not touched (D10). From Step 17, the first "Save these as worksheet defaults" writes exactly what you see as the starting choices for every child and switches carry-over off permanently. No control turns it back on; the old values stay in the file, read-only, and are never deleted.</p>
+          <span class="reply-example">D-save -&gt; keep a re-enable control</span>
+        </article>
+        <article class="card look">
+          <h3><span class="id d-id">D-pregate</span>You clear the main checkout before the run</h3>
+          <p>Every step starts the development server from the main checkout, where it reads the fixed <code>config/children.local.json</code> path; worktrees isolate only code edits. So the run may not start while that file or any <code>children.local.json.*</code> copy is there, or while anything listens on ports 4310/4311. The retained UAT launcher stays stopped for the whole three-plan run; backing up its store is now a recommended morning step, not a precondition (WF-0, D-uatbackup).</p>
+          <span class="reply-example">D-pregate -&gt; add a fictional-data dev script</span>
+        </article>
+        <article class="card look">
+          <h3><span class="id d-id">D13</span>Practice focus is a closed list</h3>
+          <p>Dry Math offers addition within 5; addition and subtraction within 10, 20, 50 and 100; addition within 20; subtraction within 20. Wow Equations offers the entries within 20; quantities go to 10 or 20. A migrated value that matches none shows once as "Earlier setting". A saved Confidence or Stretch stops applying at the upgrade, and the notice says so (D16).</p>
+          <span class="reply-example">D13 -&gt; allow custom ranges now</span>
+        </article>
+      </div>
+      <div class="card signoff" role="note" aria-labelledby="signoff-title">
+        <h3 id="signoff-title">Settled at redline — nothing left open before repo-sync</h3>
+        <p>Publication 2 folds in three redline lines. Both records that publication 1 left open are closed:</p>
+        <ul>
+          <li><a href="#d-foundation">D-foundation</a> is <b>settled</b>: the refinement is accepted as measured. The empty state pins the exact 1920×1080 viewport plus a first-screen bound, and the canonical fictional profiles case asserts only the viewport and no horizontal scroll.</li>
+          <li><a href="#d28">D28</a> is reversed by the new <a href="#d-planindex">D-planindex</a>: the pointer section at the end of <code>plan.md</code> is kept and committed with the three plans. It moves no cited line, and nothing later edits <code>plan.md</code>.</li>
+          <li>New <a href="#d-uatbackup">D-uatbackup</a>: the only mandatory pre-run condition on the retained UAT store is that its launcher stays stopped; the dated backup becomes the recommended morning step WF-0.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section id="timeline" aria-labelledby="timeline-title">
+      <p class="kicker">What lands, step by step</p>
+      <h2 id="timeline-title">You clear the way, then seven gated steps, then your checks.</h2>
+      <p class="section-lead">Every step's DONE gate is the full <code>npm --prefix frontend run check</code>, and neither test count may fall. Nothing is pushed until Step 20's gate passes; then repo-update commits and pushes (P8) and the same unattended run continues with plans 02 and 03 (P7). Interim builds are never used with real family data.</p>
+      <ol class="timeline">
+        <li>
+          <div class="tl-mark"><div class="tl-num you" aria-hidden="true">0</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Before the run — you</h3><span class="flag">operator only</span></div>
+            <ul>
+              <li>No <code>config/children.local.json</code> or <code>children.local.json.*</code> copy in the main checkout; nothing listening on 127.0.0.1:4310 or :4311.</li>
+              <li>Stop the retained UAT launcher and keep it stopped for the whole run: free ports and no retained preview process. Agents never touch <code>config/uat-session/</code> or the launcher's TEMP file (D-uatbackup).</li>
+              <li>repo-sync has committed the three plans, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section (D-planindex); <code>plan.md</code> and <code>documentation/</code> are clean.</li>
+              <li>After any halt, never run an interim build against the retained store or a real file.</li>
+            </ul>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Check:</b> <code>Test-Path config\children.local.json</code> prints False, <code>Get-ChildItem config -Name -Filter 'children.local.json*'</code> lists nothing, and <code>Get-NetTCPConnection -State Listen -LocalPort 4310,4311</code> finds nothing.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">14</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 14 · Refactor and content baseline</h3><span class="flag">deep review</span></div>
+            <p>Pure refactor: the version 1 reader is frozen in its own module, a fictional version 1 file is pinned byte for byte, the Practice content grid is captured from 5c22159, the 1920×1080 layout check moves onto a temporary fictional fixture, and every browser test routes its choices through one helper.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the app looks and saves exactly as today. <code>node frontend/scripts/capture-practice-golden.mjs 5c22159</code> prints the frozen grid, and <code>documentation/worksheet-first-evidence.md</code> starts recording each step.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">15</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 15 · Schema version 2, age removed</h3><span class="flag">deep review</span></div>
+            <p>The final saved shape lands whole and is fingerprinted. A version 1 file is read without being written; the first explicit save writes a byte-identical <code>.v1-…bak</code> copy and then upgrades; newer versions stay blocked; recovery still backs up first and says what it drops. Age leaves the schema, editor, list, generation gate and error codes.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> an old file opens with an upgrade notice and stays untouched until you save. In this interim state the profile editor still sets writing and math choices (D-interim), and Difficulty is a session-only select that starts at Practice.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">16</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 16 · Practice focus replaces Difficulty</h3><span class="flag">full review</span></div>
+            <p>Every request is built from a worksheet selection. Difficulty, the stretch confirmation and the multiplier are deleted; advice and unavailable messages name the practice focus or writing activity instead of "the profile".</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> no Difficulty control; each child's worksheet follows that child's earlier settings; the content grid still matches, so equivalent choices produce identical worksheets. The visible choice controls arrive in Step 17.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">17</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 17 · The worksheet-first panel</h3><span class="flag">full review</span></div>
+            <p>Worksheet cards, then variant, child and practice focus or vocabulary, then a summary and Create; More options collapses the secondary choices. Selections live in the session and survive profile edits, saves and in-app reloads; only the defaults action writes them (P1, D-save).</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> a parent can go from Copy a Sentence to Picture Labels, or Addition within 20 to Addition and subtraction within 100, without opening a profile. A browser page reload restores only the saved defaults.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">18</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 18 · Identity-only profiles and age-free docs</h3><span class="flag">full review</span></div>
+            <p>The profile form keeps only nickname, review date and interests, plus a read-only summary of a migrated child's earlier settings. The example config becomes identity-only, the print matrix drives choices through worksheet controls, and README, PRIVACY and the other public docs drop their age claims.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> no per-child worksheet setting is editable anywhere — P1 holds from here on — and the docs say "early primary" instead of an age band.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">19</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 19 · Explicit decorative Theme</h3><span class="flag">full review</span></div>
+            <p>A Theme select inside More options for Sentence Builder and Count, Compare &amp; Make while decorative graphics are on. It picks artwork only; Dry Math and Wow stay undecorated.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> choosing Space with art on shows reviewed space art; turning art off keeps every instructional picture and answer.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num" aria-hidden="true">20</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Step 20 · Compiled upgrade-to-print smoke</h3><span class="flag">deep review</span></div>
+            <p>On the compiled app with real routes and a temporary fictional file: a version 1 file is read unchanged, upgrades once on its first save, survives a restart, and then every worksheet-first choice drives preview, answer key and print. The log-privacy calibration gains a third leak gate on the upgrade path.</p>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> <code>npm --prefix frontend run check</code> includes the new <code>worksheet-first-smoke</code> project; repo-update commits and pushes this plan's work, and the run moves on to plan 02.</span></div>
+          </div>
+        </li>
+        <li>
+          <div class="tl-mark"><div class="tl-num you" aria-hidden="true">UAT</div><div class="tl-line"></div></div>
+          <div class="tl-body">
+            <div class="tl-head"><h3>Your checks at the end</h3><span class="flag">operator only · never marked passed by an agent</span></div>
+            <ul>
+              <li><b>WF-2:</b> review the panel with the disposable fictional profiles — no age or Difficulty anywhere, practice-focus labels state operations and range.</li>
+              <li><b>M1 additions:</b> physical prints in current Edge and Chrome, Letter and A4, standard and large, including every Sentence variant and both Wow variants; review Count/Compare comparison prompts and isolated numerals (D-print).</li>
+              <li><b>M2 additions:</b> a family pilot choosing writing activity and practice focus per child without editing profiles; non-identifying notes on whether the labels were understood.</li>
+              <li><b>M3:</b> watch the exact pushed commit's Ubuntu CI run.</li>
+              <li><b>WF-0 (recommended):</b> before you first open any build from these plans against the retained store, with its launcher still stopped, copy the store's mirror and TEMP file to a dated private backup and confirm the launcher neither deletes its TEMP directory nor validates, reseeds or rewrites the store with the old schema.</li>
+              <li><b>WF-1:</b> only after the whole three-plan run ends, start the retained launcher on the last shipped build, confirm the upgrade notice, save once, and copy the <code>.v1-…bak</code> beside your WF-0 backup.</li>
+            </ul>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>WF-2 commands, in order:</b> <code>npm --prefix frontend run build</code>, then <code>npm --prefix frontend run manual:print</code> (stop it with Ctrl+C).</span></div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="picked" aria-labelledby="picked-title">
+      <p class="kicker">Choices you already made</p>
+      <h2 id="picked-title">Your picks — binding on this plan.</h2>
+      <p class="section-lead">Recorded 2026-09-29 in <code>documentation/feature-seeds/operator-decisions.md</code>. Changeable, but only by you. P3–P6 belong to plans 02 and 03.</p>
+      <div class="grid">
+        <article class="card" id="p1"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P1</span>Global defaults, saved explicitly</h3><p>Worksheet choices (type, variant, practice focus, theme, layout) persist only as global worksheet defaults, saved through "Save these as worksheet defaults". Current selections are session state and survive profile saves. No per-child attribute recreates the old coupling, and Create never writes.</p></article>
+        <article class="card" id="p2"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P2</span>Age removed entirely</h3><p>The 4–8 generation gate goes away; capability checks own availability; help text says the content is designed for early primary. The version 1 backup written at the first version 2 save keeps the old value.</p></article>
+        <article class="card" id="p7"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P7</span>One unattended run, three plans</h3><p>This plan, then plans 02 and 03, in dependency order, each gated on the previous plan's full gate with the default iteration budget. Later plans are re-checked against what shipped. Any halt parks the remainder.</p></article>
+        <article class="card" id="p8"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P8</span>Commit and push after each plan</h3><p>After each plan's full gate, repo-update commits and pushes so the exact commit gets Ubuntu CI evidence (M3).</p></article>
+      </div>
+    </section>
+
+    <section id="defaults" aria-labelledby="defaults-title">
+      <p class="kicker">Choices I made on your behalf</p>
+      <h2 id="defaults-title">Agent defaults — reference any ID to tweak.</h2>
+      <p class="section-lead">Amber tags are adopted or proposed defaults, green tags are coordinator rulings made under your delegation of routine choices, and grey dashed cards are superseded rows kept so IDs never move. Every one is negotiable.</p>
+
+      <details class="group" open>
+        <summary>What a parent will notice <span class="count">· 19 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d-difficulty"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-difficulty</span>Practice focus replaces Difficulty</h3><dl><dt>What</dt><dd>An explicit Practice focus states operations and range, with the representation implied by the family and variant, and no multiplier. Two Whats and a Wow gains Quantity pictures / Equations.</dd><dt>Why</dt><dd>Difficulty was opaque and silently switched the Wow mode.</dd><dt>Tweak</dt><dd class="tweak">Add named warm-up catalog entries.</dd></dl></article>
+          <article class="card dec" id="d13"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D13</span>A closed practice-focus catalog</h3><dl><dt>What</dt><dd>Practice focus is a closed list derived from the unchanged reviewed presets, plus one "Earlier setting" option for a migrated value that matches nothing. No free numeric entry.</dd><dt>Why</dt><dd>Reuses reviewed presets, adds no new numbers, keeps capacity bounded, and avoids bringing the profile editor's complexity back at 320 px.</dd><dt>Tweak</dt><dd class="tweak">Custom ranges (likely plan 02).</dd></dl></article>
+          <article class="card dec" id="d16"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D16</span>What the upgrade drops from the live file</h3><dl><dt>What</dt><dd>Age and the saved Difficulty leave the live file (the backup keeps both); Theme is set from the old interests toggle; carry-over switches on when profiles exist. The upgrade notice says a saved Confidence or Stretch no longer applies.</dd><dt>Why</dt><dd>These fields have no version 2 meaning, the old art behavior is preserved, and no Difficulty setting disappears silently.</dd><dt>Tweak</dt><dd class="tweak">Map Confidence or Stretch to a narrower or wider catalog focus.</dd></dl></article>
+          <article class="card dec" id="d-writing"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-writing</span>Five writing activities over one generator</h3><dl><dt>What</dt><dd>Draw &amp; Tell, Picture Labels, Copy a Sentence, Finish a Sentence and Independent Writing, plus a plain-language vocabulary option replacing the presentation-band terminology.</dd><dt>Why</dt><dd>No new internal ids are needed, and the band lost its owner once choices left the profile.</dd><dt>Tweak</dt><dd class="tweak">Label wording, or move vocabulary into More options.</dd></dl></article>
+          <article class="card dec" id="d19"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D19</span>Vocabulary labels</h3><dl><dt>What</dt><dd>"Simpler words — for beginning readers" maps to the old preschool band and "Include longer words" to the early-primary band; the request still carries the band.</dd><dt>Why</dt><dd>Identical prompt pools and no generator change.</dd><dt>Tweak</dt><dd class="tweak">Label wording.</dd></dl></article>
+          <article class="card dec" id="d-theme"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-theme</span>An explicit Theme for two families</h3><dl><dt>What</dt><dd>Theme (From interests, the reviewed topics, Neutral) for Sentence Builder and Count, Compare &amp; Make; Dry Math and Wow stay undecorated.</dd><dt>Why</dt><dd>Art must not depend on the content checkbox.</dd><dt>Tweak</dt><dd class="tweak">Decorate Wow later, alongside thematic symbols.</dd></dl></article>
+          <article class="card dec" id="d18"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D18</span>How "From interests" resolves</h3><dl><dt>What</dt><dd>For Count, Compare &amp; Make it means the child's first reviewed interest; for Sentence Builder, the generated prompt's topic; an explicit topic or Neutral overrides both. That family's "use reviewed interests" control becomes inapplicable.</dd><dt>Why</dt><dd>That family's interests only ever drove art.</dd><dt>Tweak</dt><dd class="tweak">Resolve Sentence Builder's From interests to the first interest too.</dd></dl></article>
+          <article class="card dec" id="d42"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D42</span>Theme is inert while art is off</h3><dl><dt>What</dt><dd>With decorative graphics off, Theme is inapplicable and never reaches the request; Dry Math and Wow never carry it.</dd><dt>Why</dt><dd>An inapplicable control must never change a request (U7).</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d10"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D10</span>Earlier settings carry over until the first save</h3><dl><dt>What</dt><dd>While carry-over is on, each untouched control group follows the selected child's earlier settings; touched groups never move. A status line names what was used and any clamp, for example "stored 50, using 20". The first explicit defaults save ends carry-over permanently.</dd><dt>Why</dt><dd>Keeps each child's accustomed choices at the upgrade while honoring P1: per-child values seed only initial choices.</dd><dt>Tweak</dt><dd class="tweak">Seed once per child per session, or never seed.</dd></dl></article>
+          <article class="card dec" id="d-save"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-save</span>What the defaults save writes</h3><dl><dt>What</dt><dd>From Step 17 the save writes exactly the visible selection, seeded groups included, and turns carry-over off. Before the panel exists (Steps 15–16) the interim save passes worksheet groups through unchanged. No re-enable control ships; earlier values are retained, never deleted.</dd><dt>Why</dt><dd>You save what you see, and one rule per phase removes the contradiction the plan critique found.</dd><dt>Tweak</dt><dd class="tweak">Save only touched groups, so seeded groups revert to the base after the save.</dd></dl></article>
+          <article class="card dec" id="d39"><span class="tag defaulted">Proposed default · restated as D-save</span><h3><span class="id d-id">D39</span>Visible-selection save (plan-review wording)</h3><dl><dt>What</dt><dd>The plan-review form of the D-save rule: interim pass-through before the panel, then the visible selection with carry-over off.</dd><dt>Why</dt><dd>The saved values become global rather than per-child (P1), and nothing visible changes at the save or after a reload.</dd><dt>Tweak</dt><dd class="tweak">Save only touched groups (same axis as D-save).</dd></dl></article>
+          <article class="card dec" id="d20"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D20</span>Selections live above the profile editor</h3><dl><dt>What</dt><dd>The session selection is held at app level, the remount that discarded choices on every profile save is removed, and the worksheet type is saved with defaults.</dd><dt>Why</dt><dd>P1 requires selections to survive profile edits and saves.</dd><dt>Tweak</dt><dd class="tweak">None within P1.</dd></dl></article>
+          <article class="card dec" id="d25"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D25</span>Keep the key name "defaults"</h3><dl><dt>What</dt><dd>The top-level config key stays <code>defaults</code>.</dd><dt>Why</dt><dd>A rename adds churn across app, fixtures and specs for no contract benefit.</dd><dt>Tweak</dt><dd class="tweak">Rename to <code>worksheetDefaults</code>.</dd></dl></article>
+          <article class="card dec" id="d15"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D15</span>A visible, reversible upgrade</h3><dl><dt>What</dt><dd>The upgrade backup is named <code>children.local.json.v1-&lt;UTC&gt;-&lt;8hex&gt;.bak</code> and written through the existing exclusive routine; responses carry the stored version; an upgrade notice appears.</dd><dt>Why</dt><dd>You can see the upgrade happen and undo it from the backup.</dd><dt>Tweak</dt><dd class="tweak">Upgrade without a notice.</dd></dl></article>
+          <article class="card dec" id="d14"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D14</span>Recovery says what it drops</h3><dl><dt>What</dt><dd>Invalid-file recovery keeps today's mechanics — a byte-identical backup, then built-in defaults plus the one draft profile — and now states beforehand that other profiles, saved defaults and earlier settings stay only in the backup.</dd><dt>Why</dt><dd>Backup-first recovery is unchanged; salvaging records would add scope and a new data path.</dd><dt>Tweak</dt><dd class="tweak">Add per-record salvage as a separate later step.</dd></dl></article>
+          <article class="card dec" id="d11"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D11</span>Retire the age error code</h3><dl><dt>What</dt><dd><code>GENERATION_AGE_UNSUPPORTED</code> is retired, leaving 20 public codes; upgrade failures reuse existing codes.</dd><dt>Why</dt><dd>The code was browser-only, and age is gone.</dd><dt>Tweak</dt><dd class="tweak">Keep it reserved.</dd></dl></article>
+          <article class="card dec" id="d-print"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-print</span>No more print iteration here</h3><dl><dt>What</dt><dd>No further Count/Compare print work; comparison prompts and isolated numerals go to M1 physical review. No print CSS, token or response-cell change.</dd><dt>Why</dt><dd>The automated geometry passes, and the remaining doubts are visual.</dd><dt>Tweak</dt><dd class="tweak">Insert a focused print step before Step 20.</dd></dl></article>
+          <article class="card dec" id="d34"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D34</span>A shortfall that starves every length</h3><dl><dt>What</dt><dd>Tests use an "Earlier setting" Dry Math value (addition, maximum 1: three facts) on a fictional child built at runtime, which only the practice-focus remedy can fix.</dd><dt>Why</dt><dd>Without the age gate the closed catalog may never run short, yet the accessibility, smoke and advice checks need a reachable shortfall.</dd><dt>Tweak</dt><dd class="tweak">Add a deliberately narrow catalog entry.</dd></dl></article>
+          <article class="card dec" id="d36"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D36</span>A shortfall only Long hits</h3><dl><dt>What</dt><dd>An "Earlier setting" Wow quantity focus to 7 yields seven stems: Long at standard scale needs 8 and shows the shorter-length remedy, while Standard fills.</dd><dt>Why</dt><dd>D34 alone cannot keep the shorter-length remedy observed end to end.</dd><dt>Tweak</dt><dd class="tweak">Dry Math addition within 3 (ten facts: Short fills, Standard refused).</dd></dl></article>
+        </div>
+      </details>
+
+      <details class="group" open>
+        <summary>Data, upgrade and content safety <span class="count">· 14 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d-schema"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-schema</span>A real version 2 with a frozen version 1 reader</h3><dl><dt>What</dt><dd>The file is rewritten only on the first explicit save, behind a byte-identical <code>.v1-…bak</code>; versions above 2 are blocked; recovery stays backup-first; each child's old writing mode, band and math values ride along read-only as <code>legacyChoices</code> to seed that child's choices.</dd><dt>Why</dt><dd>Fields added in place make older builds offer destructive recovery.</dd><dt>Tweak</dt><dd class="tweak">Drop <code>legacyChoices</code>, or fold them once into <code>defaults</code>.</dd></dl></article>
+          <article class="card dec" id="d9"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D9</span>Transport parity and a shape fingerprint</h3><dl><dt>What</dt><dd>The request-validation schema imports the shared enum lists and ceilings; parity is tested exhaustively; a fingerprint pins every saved key, value range and named rule; a contributing rule requires version 3 for any change.</dd><dt>Why</dt><dd>Hand-copied lists drift, and an older version 2 build would treat a widened same-version file as invalid and offer destructive recovery.</dd><dt>Tweak</dt><dd class="tweak">Drop the fingerprint and rely on review, or block unknown enum members instead of invalidating.</dd></dl></article>
+          <article class="card dec" id="d12"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D12</span>The generation request keeps its version</h3><dl><dt>What</dt><dd>The request stays version 1 with every generator version unchanged; it drops the Difficulty option, adds the decorative topic, pins fields a family does not read, and derives the Wow mode from projected capabilities.</dd><dt>Why</dt><dd>Equivalent choices must produce identical work, and no document is persisted yet.</dd><dt>Tweak</dt><dd class="tweak">A version 2 request with an explicit mode field.</dd></dl></article>
+          <article class="card dec" id="d40"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D40</span>Other families ignore writing choices</h3><dl><dt>What</dt><dd>For every family except Sentence Builder, the writing band and mode in the request are pinned to one constant (preschool, label).</dd><dt>Why</dt><dd>Only Sentence Builder reads them; copying the Sentence choices or a child's earlier settings would make another family's request depend on them (U7).</dd><dt>Tweak</dt><dd class="tweak">Pin to the early-primary band instead.</dd></dl></article>
+          <article class="card dec" id="d17"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D17</span>When the example config changes</h3><dl><dt>What</dt><dd>The example stays byte-identical version 1 until Step 18 and is copied to a permanent version 1 test fixture in Step 14; then it becomes identity-only version 2 and the privacy audit grows to six allowed record hashes. Upgraded bytes are pinned by digest, not committed.</dd><dt>Why</dt><dd>Avoids double hash churn and keeps a permanent version 1 fixture.</dd><dt>Tweak</dt><dd class="tweak">Convert the example in Step 15.</dd></dl></article>
+          <article class="card dec" id="d21"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D21</span>Earlier settings are kept, read-only</h3><dl><dt>What</dt><dd><code>legacyChoices</code> stay verbatim and read-only after Step 18, with no "forget" action; new profiles never get them from Step 18; interim-created ones are treated exactly like migrated ones.</dd><dt>Why</dt><dd>No data loss until a documented compatibility policy exists.</dd><dt>Tweak</dt><dd class="tweak">Add a forget action.</dd></dl></article>
+          <article class="card dec" id="d-interim"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-interim</span>Interim steps keep the old editor</h3><dl><dt>What</dt><dd>Steps 15–17 keep editing legacy choices through the profile editor so every step stays usable and fully gated; Step 18 ends it, so P1 holds at the end of the last code step.</dd><dt>Why</dt><dd>Keeps every intermediate gate green without a second schema change; it is sequencing, not an exception to P1.</dd><dt>Tweak</dt><dd class="tweak">Give profiles without earlier settings a fixed base capability so the interim editor never creates them.</dd></dl></article>
+          <article class="card dec retired" id="d22"><span class="tag retired">Superseded by D-interim</span><h3><span class="id d-id">D22</span>Interim editor writes earlier settings</h3><dl><dt>What</dt><dd>During Steps 15–17 the unchanged editor writes <code>legacyChoices</code> for new profiles; Step 18 ends it.</dd><dt>Why</dt><dd>Kept every intermediate gate green without a second schema change.</dd><dt>Tweak</dt><dd class="tweak">Merge Steps 15–18, give such profiles a fixed base capability, or add a forget action.</dd></dl></article>
+          <article class="card dec" id="d31"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D31</span>Count, Compare &amp; Make refuses topic ids</h3><dl><dt>What</dt><dd>From Step 19 its validator refuses any <code>topicIds</code>, like Dry Math and Wow already do.</dd><dt>Why</dt><dd>The projector no longer emits them, the validator should accept exactly what the projector can emit, and no document is persisted before plan 03.</dd><dt>Tweak</dt><dd class="tweak">Keep accepting reviewed topic ids for legacy documents.</dd></dl></article>
+          <article class="card dec" id="d33"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D33</span>Theme derived until its control exists</h3><dl><dt>What</dt><dd>Until Step 19 adds the Theme control, every defaults save derives Theme from the interests toggle by the migration rule.</dd><dt>Why</dt><dd>An interim build then cannot save "interests off" beside interest-driven art.</dd><dt>Tweak</dt><dd class="tweak">Document the drift as a known interim state instead.</dd></dl></article>
+          <article class="card dec" id="d41"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D41</span>Test reads of old files stay read-only</h3><dl><dt>What</dt><dd>The browser-test fixture returns a seeded version 1 file migrated in memory without writing it, and fails on future or invalid files; tests that need the stored bytes read them raw.</dd><dt>Why</dt><dd>Existing specs read a seeded version 1 file before any save, and those fixtures stay as read-path coverage.</dd><dt>Tweak</dt><dd class="tweak">Require raw reads at every pre-save read.</dd></dl></article>
+          <article class="card dec" id="d32"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D32</span>Pinned files keep LF line endings</h3><dl><dt>What</dt><dd>Two root <code>.gitattributes</code> lines keep the version 1 fixture and the content grid LF on every checkout; byte and digest pins live in integration tests.</dd><dt>Why</dt><dd>Windows worktrees check text out as CRLF while CI uses LF.</dd><dt>Tweak</dt><dd class="tweak">Pin the digest of canonical parsed JSON instead of bytes.</dd></dl></article>
+          <article class="card dec" id="d30"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D30</span>Shared constants in leaf modules</h3><dl><dt>What</dt><dd>Step 14 moves the shared enum lists and field helpers into two leaf modules, the version 1 reader imports only those, and a test asserts the import direction.</dd><dt>Why</dt><dd>Two modules importing values from each other would throw at load time, and each constant keeps one source of truth.</dd><dt>Tweak</dt><dd class="tweak">Give the version 1 reader its own frozen copies, compared by a pin test.</dd></dl></article>
+          <article class="card dec" id="d27"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D27</span>The content-equivalence proof</h3><dl><dt>What</dt><dd>A committed script captures the Practice content grid from 5c22159; Step 14 commits it; a test inside <code>check</code> reproduces every hash through the current path at every gate; from Step 15 a scripted re-capture is recorded as corroboration; a deliberate one-off change must alter a hash.</dd><dt>Why</dt><dd>It proves that removing Difficulty and profile capabilities changes no content.</dd><dt>Tweak</dt><dd class="tweak">Run the re-capture only in Steps 15 and 16.</dd></dl></article>
+        </div>
+      </details>
+
+      <details class="group" open>
+        <summary>Run mechanics, privacy and evidence <span class="count">· 20 defaults</span></summary>
+        <div class="grid">
+          <article class="card dec" id="d-pregate"><span class="tag ruling">Coordinator ruling · changed at redline</span><h3><span class="id d-id">D-pregate</span>No real config in the main checkout</h3><dl><dt>What</dt><dd>The run must not begin while <code>config/children.local.json</code> or any copy of it is in the main checkout (a metadata-only check; absent at 5c22159). The retained launcher stays stopped, agents never open <code>config/uat-session/</code>, and any such file a reviewer creates during the run is reported and left for you. After a halt, the interim build is not launched against the retained store. Changed 2026-09-29: backing up the retained store is not part of this gate; it is the recommended WF-0 (D-uatbackup).</dd><dt>Why</dt><dd>Steps and post-merge gates start the development server from the main checkout, bound to the fixed real path; worktree isolation covers only code edits.</dd><dt>Tweak</dt><dd class="tweak">A fixed-port fictional-data development script (D43's tweak).</dd></dl></article>
+          <article class="card dec" id="d43"><span class="tag defaulted">Proposed default · changed at redline</span><h3><span class="id d-id">D43</span>Your pre-run items are mandatory</h3><dl><dt>What</dt><dd>No real file or copy in the main checkout; the retained store's launcher stopped for the whole run, with its backup now the recommended morning step WF-0 (changed 2026-09-29, D-uatbackup); interim builds never run against real data; agents never open failure screenshots or traces from a main-checkout gate.</dd><dt>Why</dt><dd>Those gates serve whatever file sits at the fixed path, so a failure would copy its text into screenshots, traces and reviewer prompts, and every gate rebuilds the compiled tree the launcher loads.</dd><dt>Tweak</dt><dd class="tweak">Add a fixed-port fictional-data development script and point the development-stack test at it, making the move-aside unnecessary.</dd></dl></article>
+          <article class="card dec" id="d-foundation"><span class="tag ruling">Coordinator ruling · settled</span><h3><span class="id d-id">D-foundation</span>Layout check moves to a fictional fixture</h3><dl><dt>What</dt><dd>Step 14 moves the 1920×1080 layout assertion out of the fixed development-stack test into a new test on a temporary fictional config, and scopes that test's status locator; no security assertion changes. Settled at redline 2026-09-29, refinement accepted as measured: the empty state pins the exact viewport plus a first-screen bound, and the canonical fictional profiles case asserts only the viewport and no horizontal scroll.</dd><dt>Why</dt><dd>A reviewer-created fictional file could otherwise fail a post-merge gate and park the run, and <code>npm run check</code> stays runnable for anyone with a real local file. An exact height is unsatisfiable for the canonical profiles and leaves about 10 px of headroom when empty.</dd><dt>Tweak</dt><dd class="tweak">Host the test in the foundation spec; pin the exact empty height and edit it in Steps 15 and 17; or show the generator panel only once a profile exists.</dd></dl></article>
+          <article class="card dec" id="d-flags"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-flags</span>The shipped build flags</h3><dl><dt>What</dt><dd>Steps 14, 15 and 20 use deep reviewers and Steps 16–19 full reviewers, all in worktree isolation with the development start command on ports 4310/4311. The default iteration budget is never extended.</dd><dt>Why</dt><dd>Matches the shipped data and UI steps.</dd><dt>Tweak</dt><dd class="tweak">Reviewer level per step.</dd></dl></article>
+          <article class="card dec" id="d29"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D29</span>What runtime reviewers can see</h3><dl><dt>What</dt><dd>Runtime lanes follow D-flags; Steps 16–19's runtime reviewers see only the empty landing page, so each step's Problem names what that screenshot can confirm and which compiled specs prove the rest. New live regions avoid the status role.</dd><dt>Why</dt><dd>The privacy control is the mandatory pre-run gate, and the build halt list is closed, so it cannot be a pre-flight blocker.</dd><dt>Tweak</dt><dd class="tweak">A fixed-port fictional-data development script so runtime lanes no longer depend on the pre-run gate.</dd></dl></article>
+          <article class="card dec" id="d-split"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-split</span>Refactor and schema change in separate steps</h3><dl><dt>What</dt><dd>Step 14 is a pure refactor plus two test-only moves; Step 15 lands schema version 2; the public docs' age edits land in Step 18.</dd><dt>Why</dt><dd>No single step carries both within the default budget, and a halt after Step 14 leaves a main that reads and writes version 1 exactly as today.</dd><dt>Tweak</dt><dd class="tweak">Keep the documentation edits in Step 15.</dd></dl></article>
+          <article class="card dec retired" id="d37"><span class="tag retired">Superseded by D-split</span><h3><span class="id d-id">D37</span>The plan-review split</h3><dl><dt>What</dt><dd>Kept schema version 2 in Step 14 and moved the capture, fingerprint and docs to a new Step 15; the 16–20 numbering stands.</dd><dt>Why</dt><dd>The combined step was very unlikely to converge within the default three iterations.</dd><dt>Tweak</dt><dd class="tweak">See D-split.</dd></dl></article>
+          <article class="card dec" id="d-numbering"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-numbering</span>Step numbers across the three plans</h3><dl><dt>What</dt><dd>This plan uses Steps 14–20; plan 02 starts at 21 and plan 03 at 28.</dd><dt>Why</dt><dd>Issue titles never collide.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-pointer"><span class="tag ruling">Coordinator ruling · amended</span><h3><span class="id d-id">D-pointer</span>Every step points at this plan</h3><dl><dt>What</dt><dd>Each step's Problem opens with one sentence naming this plan's sections as the specification, not an allowlist: a developer may touch an unlisted file a gate requires and records it in the step's evidence.</dd><dt>Why</dt><dd>The build forwards only the Problem and an advisory Done-when to each step.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d-scripted-evidence"><span class="tag ruling">Coordinator ruling</span><h3><span class="id d-id">D-scripted-evidence</span>Evidence comes from committed scripts</h3><dl><dt>What</dt><dd>Captures, digests and calibrations a Done-when relies on come from committed re-runnable scripts or tests, and durable records go into the committed evidence file.</dd><dt>Why</dt><dd>DONE must never depend on what a reviewer chooses to do or on the fixed checkpoint message.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
+          <article class="card dec" id="d23"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D23</span>Test counts never fall</h3><dl><dt>What</dt><dd>Each deleted age, Difficulty or stretch test is paired with replacement contract tests, per-file counts come from the listing commands, and totals never fall below the previous step (from 521 unit / 160 browser).</dd><dt>Why</dt><dd>A count regression is a build halt.</dd><dt>Tweak</dt><dd class="tweak">Allow an explicit, reviewed baseline reset.</dd></dl></article>
+          <article class="card dec" id="d24"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D24</span>The upgrade smoke gets its own project</h3><dl><dt>What</dt><dd>A single-test <code>worksheet-first-smoke</code> Playwright project (90 s), and the log-privacy calibration grows to five gates expecting exits 1, 1, 1, 0, 0 with every injected compiled file restored and hash-checked.</dd><dt>Why</dt><dd>The calibration needs the release smoke to report exactly one pass within its 59 s budget.</dd><dt>Tweak</dt><dd class="tweak">Extend the release smoke instead.</dd></dl></article>
+          <article class="card dec" id="d26"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D26</span>One browser-test helper, introduced early</h3><dl><dt>What</dt><dd>Step 14 routes every browser spec's worksheet choices and toggles through one helper, with no title, assertion or threshold change.</dd><dt>Why</dt><dd>Later layout changes edit one file instead of about ten specs, and Step 16, the broadest step, carries only intended changes.</dd><dt>Tweak</dt><dd class="tweak">Introduce it in Step 16 or Step 17.</dd></dl></article>
+          <article class="card dec" id="d28"><span class="tag defaulted">Proposed default · changed at redline</span><h3><span class="id d-id">D28</span>This plan never edits plan.md</h3><dl><dt>What</dt><dd>No step, wrap or repo-update edits <code>plan.md</code>, and this plan names the passages it supersedes. Changed 2026-09-29: the former default — revert the planning session's pointer section and keep the three-plan index in the seeds README — is reversed by <a href="#d-planindex">D-planindex</a>.</dd><dt>Why</dt><dd>53 registered citations anchor lines 30–757 of <code>plan.md</code>.</dd><dt>Tweak</dt><dd class="tweak">Add an in-place pointer with a same-diff citation-manifest update.</dd></dl></article>
+          <article class="card dec" id="d35"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D35</span>No example names in test titles</h3><dl><dt>What</dt><dd>No browser-test title, step name or console output contains an example id, nickname or interest word; from Step 17 a test checks every listed title.</dd><dt>Why</dt><dd>The browser-gate privacy oracle fails the whole gate on such output with a generic error.</dd><dt>Tweak</dt><dd class="tweak">Keep the rule without the guard.</dd></dl></article>
+          <article class="card dec" id="d38"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D38</span>A committed evidence file</h3><dl><dt>What</dt><dd><code>documentation/worksheet-first-evidence.md</code>, created in Step 14 and extended by every step, holds the suites run, both counts, per-file test changes, digests and command outputs.</dd><dt>Why</dt><dd>The checkpoint commit is a fixed one-line message, and step scratch output never lands.</dd><dt>Tweak</dt><dd class="tweak">Post the same records as issue comments instead.</dd></dl></article>
+          <article class="card dec" id="d44"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D44</span>One declared way to count tests</h3><dl><dt>What</dt><dd>The unit count is the gate's Vitest summary; the browser count is the Playwright listing total, which must equal the browser stage's pass count; neither is read from a log-privacy run.</dd><dt>Why</dt><dd><code>check</code> prints several Playwright summaries, and the build needs one declared measurement.</dd><dt>Tweak</dt><dd class="tweak">Use the Vitest listing for the unit count as well.</dd></dl></article>
+          <article class="card dec" id="d45"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D45</span>A scan for stale parent-facing copy</h3><dl><dt>What</dt><dd>A test rejects leftover Difficulty identifiers and any message text in the generator, registry, label and projection sources that names the profile, its presentation band or age.</dd><dt>Why</dt><dd>Those strings become false once choices leave the profile, and review alone missed several.</dd><dt>Tweak</dt><dd class="tweak">Extend the scan to the web components, with an allowlist for the profile editor's own copy.</dd></dl></article>
+          <article class="card dec" id="d-planindex"><span class="tag ruling">Coordinator ruling · adopted at redline</span><h3><span class="id d-id">D-planindex</span>Keep the plan.md pointer section</h3><dl><dt>What</dt><dd>The pointer section appended to the end of <code>plan.md</code> ("Post-UAT feature plans") is kept and committed with the plans by repo-sync. It adds no plan-line citation, moves no cited line and leaves Steps 1–13 untouched. Nothing later edits <code>plan.md</code>; build-phase writes its status lines in the sub-plans themselves.</dd><dt>Why</dt><dd>It follows the workspace convention that one canonical entry plan may point to sub-plans, without disturbing any registered citation.</dd><dt>Tweak</dt><dd class="tweak">Revert the append and carry the index in the seeds README instead (D28's former default).</dd></dl></article>
+          <article class="card dec" id="d-uatbackup"><span class="tag ruling">Coordinator ruling · adopted at redline</span><h3><span class="id d-id">D-uatbackup</span>The store backup is a morning step</h3><dl><dt>What</dt><dd>The only mandatory pre-run condition on the retained UAT store is that its launcher stays stopped for the whole run — verified by free ports 4310/4311 and no retained preview process — and that no agent reads, copies, moves or deletes <code>config/uat-session/</code> or the launcher's TEMP file. The dated private backup and the launcher-behavior check become the recommended WF-0, before you first open any build from these plans against the store.</dd><dt>Why</dt><dd>The backup is not a precondition agents can satisfy, so it belongs on your morning checklist rather than in the run gate.</dd><dt>Tweak</dt><dd class="tweak">Make WF-0 a mandatory pre-run item again.</dd></dl></article>
+        </div>
+      </details>
+    </section>
+
+    <section id="cuts" aria-labelledby="cuts-title">
+      <p class="kicker">Not in this plan</p>
+      <h2 id="cuts-title">Cut on purpose.</h2>
+      <div class="grid">
+        <article class="card">
+          <span class="tag picked">Follows from your picks</span>
+          <h3>Ruled out by P1 and P2</h3>
+          <ul class="compact">
+            <li>"Last used per family" or named reusable settings</li>
+            <li>Any writable per-child worksheet setting from Step 18 on</li>
+            <li>Browser storage of unsaved selections</li>
+            <li>Age anywhere in the live profile file</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag ruling">Later plans</span>
+          <h3>Plans 02 and 03</h3>
+          <ul class="compact">
+            <li>New operations, carrying/borrowing, negative results and new activity families (plan 02)</li>
+            <li>Printable packets and their own draft store (plan 03)</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag defaulted">My cuts · flag to restore</span>
+          <h3>Deferred by default</h3>
+          <ul class="compact">
+            <li>Free numeric entry for practice ranges (D13)</li>
+            <li>Per-record salvage during invalid-file recovery (D14)</li>
+            <li>A "forget earlier settings" action (D21)</li>
+            <li>More Count/Compare print iteration; any print CSS or response-cell change (D-print)</li>
+            <li>Decorating Dry Math or Wow; thematic counted symbols (D-theme)</li>
+          </ul>
+        </article>
+        <article class="card">
+          <span class="tag retired">Outside every plan here</span>
+          <h3>Unchanged boundaries</h3>
+          <ul class="compact">
+            <li>New runtime dependencies, AI, cloud services, accounts, telemetry or asset licenses</li>
+            <li>Physical print (M1) and family pilot (M2) acceptance — human-only</li>
+            <li>Editing <code>plan.md</code> beyond the committed pointer section (D-planindex), or the historical review records in <code>documentation/</code></li>
+            <li>Reading or changing your real config, its backups or the UAT session store</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="risks" aria-labelledby="risks-title">
+      <p class="kicker">Risks worth knowing</p>
+      <h2 id="risks-title">What could bite, and the built-in answer.</h2>
+      <ul class="risks">
+        <li><span class="r">Step 15 or Step 16 runs out of iterations, and the halt parks everything after it (P7).</span><span class="a">D-split and D26 moved the refactor and the spec routing into Step 14, so each step carries only intended changes. No budget extension.</span></li>
+        <li><span class="r">Real family text reaches screenshots, traces or reviewer prompts.</span><span class="a">The mandatory pre-run gate keeps the real file out of the main checkout (D-pregate, D43); agents never open main-checkout failure artifacts.</span></li>
+        <li><span class="r">Your retained UAT store is lost or rejected at its first upgrade.</span><span class="a">The launcher stays stopped for the whole run; the recommended WF-0 backs the store up before you first open any build from these plans against it; WF-1 happens only after the whole run, on the last shipped build, and you keep the <code>.v1-…bak</code>.</span></li>
+        <li><span class="r">A halt leaves an interim build in the main checkout.</span><span class="a">Never launched against real data; a halt after Step 14 still reads and writes version 1 exactly as today, and from Step 15 the saved shape is already final.</span></li>
+        <li><span class="r">Runtime reviewers only see the empty landing page.</span><span class="a">Each of Steps 16–19 says what that screenshot can confirm and which compiled specs prove the rest; a fictional-data exercise script remains the D29 tweak.</span></li>
+        <li><span class="r">A saved Confidence or Stretch quietly changes a child's range.</span><span class="a">The upgrade notice says it no longer applies and each focus uses exactly its stated range; the backup keeps the old value (D16).</span></li>
+        <li><span class="r">Untouched controls change when a migrated child is selected.</span><span class="a">Only untouched groups move, a status line explains, and the first explicit defaults save ends it (D10).</span></li>
+        <li><span class="r">Unsaved choices vanish on a browser page reload.</span><span class="a">By design under P1: no browser storage; the save action sits beside Create, and in-app reloads keep choices.</span></li>
+        <li><span class="r">Plan 02 or 03 widens a saved value in place.</span><span class="a">The fingerprint and the contributing rule force version 3 with a version 2 reader (D9).</span></li>
+        <li><span class="r">An old tab or an oversize upgrade tries to write.</span><span class="a">A stale tab's version 1 body gets 422; an upgrade over 64 KiB gets 413 before any backup. The file is unchanged either way.</span></li>
+      </ul>
+    </section>
+
+    <section id="reply" aria-labelledby="reply-title">
+      <p class="kicker">Give feedback</p>
+      <h2 id="reply-title">Scan, then reply in chat. IDs make it cheap.</h2>
+      <div class="feedback">
+        <p>One line per change, <code>ID -&gt; what you want</code>. Anything you don't mention lands as written — silence means the plan stands. IDs never change; a reversed row is marked "changed" with its date.</p>
+        <div class="fb-ex" role="group" aria-label="Example replies">D-save -&gt; keep a re-enable control      <span class="c"># tweak a default</span>
+D13 -&gt; allow custom ranges now           <span class="c"># take a listed tweak</span>
+P1 -&gt; also remember last used per family <span class="c"># reopen one of your picks</span>
+Step 16 -&gt; split into two steps          <span class="c"># reshape the plan</span>
+heard #3 is off: I meant …               <span class="c"># fix my read of an ask</span></div>
+        <dl class="kv">
+          <dt>Source of truth</dt><dd><code>documentation/worksheet-first-plan.md</code> — this page is a view of it; its Appendix Decision Inventory lists every ID.</dd>
+          <dt>Your choices</dt><dd><code>documentation/feature-seeds/operator-decisions.md</code></dd>
+          <dt>Seed and UAT</dt><dd><code>documentation/feature-seeds/01-worksheet-first.md</code> · <code>documentation/uat-round-1.md</code> · <code>documentation/uat-round-2-review.md</code></dd>
+          <dt>Issues</dt><dd>Not yet created — Steps 14–20 have blank Issue fields, so tweaks now cost no issue edits.</dd>
+          <dt>Publication 2</dt><dd>Folded in: D28 reversed by the new D-planindex; the new D-uatbackup (WF-0 is now a recommended morning step); D-foundation settled. IDs unchanged; the two new rows are appended.</dd>
+          <dt>After tweaks</dt><dd>plan-wrap, then repo-sync (commits the three plans, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section), then the unattended build-phase run for all three plans (P7).</dd>
+        </dl>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Worksheet-first controls · proposal publication 2 · 2026-09-29 · a redline view of <code>documentation/worksheet-first-plan.md</code>, which remains the source of truth.</p>
+  </footer>
+</body>
+</html>
