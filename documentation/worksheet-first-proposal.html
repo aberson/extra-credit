@@ -373,14 +373,14 @@
 <body>
   <a class="skip-link" href="#main">Skip to proposal</a>
   <header>
-    <p class="eyebrow">Proposal · feature plan 01 of 3 · publication 2 · redline folded in</p>
+    <p class="eyebrow">Proposal · feature plan 01 of 3 · publication 3 · issues synced</p>
     <h1>Worksheet-first controls</h1>
     <p class="lede">Choose the work first — worksheet type, its variant, the child, then a practice focus stated in plain words — without editing a child's profile, and move the saved profile file to a new format without losing anything.</p>
     <ul class="status-line" aria-label="Proposal status">
       <li class="pill hot">Proposal — nothing built yet</li>
-      <li class="pill">Publication 2 · 2026-09-29</li>
-      <li class="pill">Steps 14–20 · 7 code steps + manual UAT</li>
-      <li class="pill">4 operator choices · 53 agent defaults (2 superseded)</li>
+      <li class="pill">Publication 3 · 2026-09-29</li>
+      <li class="pill">Steps 14–20 · issues #25–#31 · 7 code steps + manual UAT</li>
+      <li class="pill">4 operator choices · 56 agent defaults (2 superseded)</li>
       <li class="pill">Baseline main 5c22159 · 521 unit / 160 browser tests</li>
     </ul>
     <nav aria-label="Proposal sections">
@@ -464,7 +464,7 @@
         </article>
       </div>
       <div class="card signoff" role="note" aria-labelledby="signoff-title">
-        <h3 id="signoff-title">Settled at redline — nothing left open before repo-sync</h3>
+        <h3 id="signoff-title">Settled at redline — nothing left open</h3>
         <p>Publication 2 folds in three redline lines. Both records that publication 1 left open are closed:</p>
         <ul>
           <li><a href="#d-foundation">D-foundation</a> is <b>settled</b>: the refinement is accepted as measured. The empty state pins the exact 1920×1080 viewport plus a first-screen bound, and the canonical fictional profiles case asserts only the viewport and no horizontal scroll.</li>
@@ -495,7 +495,7 @@
         <li>
           <div class="tl-mark"><div class="tl-num" aria-hidden="true">14</div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-head"><h3>Step 14 · Refactor and content baseline</h3><span class="flag">deep review</span></div>
+            <div class="tl-head"><h3>Step 14 · Refactor and content baseline</h3><span class="flag">issue #25</span><span class="flag">deep review</span></div>
             <p>Pure refactor: the version 1 reader is frozen in its own module, a fictional version 1 file is pinned byte for byte, the Practice content grid is captured from 5c22159, the 1920×1080 layout check moves onto a temporary fictional fixture, and every browser test routes its choices through one helper.</p>
             <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the app looks and saves exactly as today. <code>node frontend/scripts/capture-practice-golden.mjs 5c22159</code> prints the frozen grid, and <code>documentation/worksheet-first-evidence.md</code> starts recording each step.</span></div>
           </div>
@@ -503,7 +503,7 @@
         <li>
           <div class="tl-mark"><div class="tl-num" aria-hidden="true">15</div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-head"><h3>Step 15 · Schema version 2, age removed</h3><span class="flag">deep review</span></div>
+            <div class="tl-head"><h3>Step 15 · Schema version 2, age removed</h3><span class="flag">issue #26</span><span class="flag">deep review</span></div>
             <p>The final saved shape lands whole and is fingerprinted. A version 1 file is read without being written; the first explicit save writes a byte-identical <code>.v1-…bak</code> copy and then upgrades; newer versions stay blocked; recovery still backs up first and says what it drops. Age leaves the schema, editor, list, generation gate and error codes.</p>
             <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> an old file opens with an upgrade notice and stays untouched until you save. In this interim state the profile editor still sets writing and math choices (D-interim), and Difficulty is a session-only select that starts at Practice.</span></div>
           </div>
@@ -511,7 +511,7 @@
         <li>
           <div class="tl-mark"><div class="tl-num" aria-hidden="true">16</div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-head"><h3>Step 16 · Practice focus replaces Difficulty</h3><span class="flag">full review</span></div>
+            <div class="tl-head"><h3>Step 16 · Practice focus replaces Difficulty</h3><span class="flag">issue #27</span><span class="flag">full review</span></div>
             <p>Every request is built from a worksheet selection. Difficulty, the stretch confirmation and the multiplier are deleted; advice and unavailable messages name the practice focus or writing activity instead of "the profile".</p>
             <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> no Difficulty control; each child's worksheet follows that child's earlier settings; the content grid still matches, so equivalent choices produce identical worksheets. The visible choice controls arrive in Step 17.</span></div>
           </div>
@@ -519,7 +519,7 @@
         <li>
           <div class="tl-mark"><div class="tl-num" aria-hidden="true">17</div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-head"><h3>Step 17 · The worksheet-first panel</h3><span class="flag">full review</span></div>
+            <div class="tl-head"><h3>Step 17 · The worksheet-first panel</h3><span class="flag">issue #28</span><span class="flag">full review</span></div>
             <p>Worksheet cards, then variant, child and practice focus or vocabulary, then a summary and Create; More options collapses the secondary choices. Selections live in the session and survive profile edits, saves and in-app reloads; only the defaults action writes them (P1, D-save).</p>
             <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> a parent can go from Copy a Sentence to Picture Labels, or Addition within 20 to Addition and subtraction within 100, without opening a profile. A browser page reload restores only the saved defaults.</span></div>
           </div>
@@ -527,7 +527,7 @@
         <li>
           <div class="tl-mark"><div class="tl-num" aria-hidden="true">18</div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-head"><h3>Step 18 · Identity-only profiles and age-free docs</h3><span class="flag">full review</span></div>
+            <div class="tl-head"><h3>Step 18 · Identity-only profiles and age-free docs</h3><span class="flag">issue #29</span><span class="flag">full review</span></div>
             <p>The profile form keeps only nickname, review date and interests, plus a read-only summary of a migrated child's earlier settings. The example config becomes identity-only, the print matrix drives choices through worksheet controls, and README, PRIVACY and the other public docs drop their age claims.</p>
             <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> no per-child worksheet setting is editable anywhere — P1 holds from here on — and the docs say "early primary" instead of an age band.</span></div>
           </div>
@@ -535,7 +535,7 @@
         <li>
           <div class="tl-mark"><div class="tl-num" aria-hidden="true">19</div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-head"><h3>Step 19 · Explicit decorative Theme</h3><span class="flag">full review</span></div>
+            <div class="tl-head"><h3>Step 19 · Explicit decorative Theme</h3><span class="flag">issue #30</span><span class="flag">full review</span></div>
             <p>A Theme select inside More options for Sentence Builder and Count, Compare &amp; Make while decorative graphics are on. It picks artwork only; Dry Math and Wow stay undecorated.</p>
             <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> choosing Space with art on shows reviewed space art; turning art off keeps every instructional picture and answer.</span></div>
           </div>
@@ -543,7 +543,7 @@
         <li>
           <div class="tl-mark"><div class="tl-num" aria-hidden="true">20</div><div class="tl-line"></div></div>
           <div class="tl-body">
-            <div class="tl-head"><h3>Step 20 · Compiled upgrade-to-print smoke</h3><span class="flag">deep review</span></div>
+            <div class="tl-head"><h3>Step 20 · Compiled upgrade-to-print smoke</h3><span class="flag">issue #31</span><span class="flag">deep review</span></div>
             <p>On the compiled app with real routes and a temporary fictional file: a version 1 file is read unchanged, upgrades once on its first save, survives a restart, and then every worksheet-first choice drives preview, answer key and print. The log-privacy calibration gains a third leak gate on the upgrade path.</p>
             <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> <code>npm --prefix frontend run check</code> includes the new <code>worksheet-first-smoke</code> project; repo-update commits and pushes this plan's work, and the run moves on to plan 02.</span></div>
           </div>
@@ -609,7 +609,7 @@
       </details>
 
       <details class="group" open>
-        <summary>Data, upgrade and content safety <span class="count">· 14 defaults</span></summary>
+        <summary>Data, upgrade and content safety <span class="count">· 17 defaults</span></summary>
         <div class="grid">
           <article class="card dec" id="d-schema"><span class="tag defaulted">Adopted default</span><h3><span class="id d-id">D-schema</span>A real version 2 with a frozen version 1 reader</h3><dl><dt>What</dt><dd>The file is rewritten only on the first explicit save, behind a byte-identical <code>.v1-…bak</code>; versions above 2 are blocked; recovery stays backup-first; each child's old writing mode, band and math values ride along read-only as <code>legacyChoices</code> to seed that child's choices.</dd><dt>Why</dt><dd>Fields added in place make older builds offer destructive recovery.</dd><dt>Tweak</dt><dd class="tweak">Drop <code>legacyChoices</code>, or fold them once into <code>defaults</code>.</dd></dl></article>
           <article class="card dec" id="d9"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D9</span>Transport parity and a shape fingerprint</h3><dl><dt>What</dt><dd>The request-validation schema imports the shared enum lists and ceilings; parity is tested exhaustively; a fingerprint pins every saved key, value range and named rule; a contributing rule requires version 3 for any change.</dd><dt>Why</dt><dd>Hand-copied lists drift, and an older version 2 build would treat a widened same-version file as invalid and offer destructive recovery.</dd><dt>Tweak</dt><dd class="tweak">Drop the fingerprint and rely on review, or block unknown enum members instead of invalidating.</dd></dl></article>
@@ -625,6 +625,9 @@
           <article class="card dec" id="d32"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D32</span>Pinned files keep LF line endings</h3><dl><dt>What</dt><dd>Two root <code>.gitattributes</code> lines keep the version 1 fixture and the content grid LF on every checkout; byte and digest pins live in integration tests.</dd><dt>Why</dt><dd>Windows worktrees check text out as CRLF while CI uses LF.</dd><dt>Tweak</dt><dd class="tweak">Pin the digest of canonical parsed JSON instead of bytes.</dd></dl></article>
           <article class="card dec" id="d30"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D30</span>Shared constants in leaf modules</h3><dl><dt>What</dt><dd>Step 14 moves the shared enum lists and field helpers into two leaf modules, the version 1 reader imports only those, and a test asserts the import direction.</dd><dt>Why</dt><dd>Two modules importing values from each other would throw at load time, and each constant keeps one source of truth.</dd><dt>Tweak</dt><dd class="tweak">Give the version 1 reader its own frozen copies, compared by a pin test.</dd></dl></article>
           <article class="card dec" id="d27"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D27</span>The content-equivalence proof</h3><dl><dt>What</dt><dd>A committed script captures the Practice content grid from 5c22159; Step 14 commits it; a test inside <code>check</code> reproduces every hash through the current path at every gate; from Step 15 a scripted re-capture is recorded as corroboration; a deliberate one-off change must alter a hash.</dd><dt>Why</dt><dd>It proves that removing Difficulty and profile capabilities changes no content.</dd><dt>Tweak</dt><dd class="tweak">Run the re-capture only in Steps 15 and 16.</dd></dl></article>
+          <article class="card dec" id="d-gap-migration-report"><span class="tag defaulted">Adopted · plan-wrap gap closure</span><h3><span class="id d-id">D-gap-migration-report</span>A counts-only upgrade report</h3><dl><dt>What</dt><dd>The migration step reports counts only: the from and to versions, profiles upgraded, earlier settings carried, and whether a backup was written. Reading a version 1 file yields the report with no backup written; the first save's upgrade names the <code>.v1-…bak</code> from it and reports the backup as written. The routes never send or log it, and the migration function itself still returns the bare config.</dd><dt>Why</dt><dd>The plan named a report with no fields, producer or consumer. A counts-only result on the store's save gives the upgrade a testable outcome with no wire or log change, and the bare return keeps the golden upgraded-digest formula intact.</dd><dt>Tweak</dt><dd class="tweak">Delete the report and observe the upgrade only through the backup file and the digest.</dd></dl></article>
+          <article class="card dec" id="d-gap-golden-id"><span class="tag defaulted">Adopted · plan-wrap gap closure</span><h3><span class="id d-id">D-gap-golden-id</span>Named cells in the content grid</h3><dl><dt>What</dt><dd>Each content-grid key is record / family / length / scale / seed, for example <code>canonical-2/find-the-wow/long/large/00000003</code>. Records are named by canonical position, writing mode and band, or preset key; values are SHA-256 hashes of the content key; keys are sorted and written as two-space JSON plus LF, and the test parses every key back into its inputs.</dd><dt>Why</dt><dd>The grid is frozen after Step 14 and re-derived through two later code paths (Steps 15 and 16), so its ids must be fixed before the capture, name each cell uniquely and parseably, and hold no profile data.</dd><dt>Tweak</dt><dd class="tweak">Add a paper segment, or number records instead of naming them.</dd></dl></article>
+          <article class="card dec" id="d-gap-session-reducer"><span class="tag defaulted">Adopted · plan-wrap gap closure</span><h3><span class="id d-id">D-gap-session-reducer</span>The session state, fully specified</h3><dl><dt>What</dt><dd>The panel's session state holds the saved defaults, the profiles, the selected child, the current selection, a touched flag for each of sixteen control groups and a preview counter. Six actions have fixed payloads, each app event maps to one action (a recovery save counts as a fresh load), carry-over stays off once saved, and one function builds the save body. Until Step 19 the theme follows the interests toggle (D33).</dd><dt>Why</dt><dd>The earlier three-field state could not meet Step 17's own checks (deleting the selected child, seeding on reload, clearing a stale preview) without invented fields. A per-group map matches how earlier settings seed whole groups and is exhaustively typed, and a counter needs no reset action.</dd><dt>Tweak</dt><dd class="tweak">A set of touched field paths, or a boolean staleness flag reset by a preview-created action.</dd></dl></article>
         </div>
       </details>
 
@@ -732,16 +735,17 @@ heard #3 is off: I meant …               <span class="c"># fix my read of an a
           <dt>Source of truth</dt><dd><code>documentation/worksheet-first-plan.md</code> — this page is a view of it; its Appendix Decision Inventory lists every ID.</dd>
           <dt>Your choices</dt><dd><code>documentation/feature-seeds/operator-decisions.md</code></dd>
           <dt>Seed and UAT</dt><dd><code>documentation/feature-seeds/01-worksheet-first.md</code> · <code>documentation/uat-round-1.md</code> · <code>documentation/uat-round-2-review.md</code></dd>
-          <dt>Issues</dt><dd>Not yet created — Steps 14–20 have blank Issue fields, so tweaks now cost no issue edits.</dd>
+          <dt>Issues</dt><dd>Steps 14–20 carry issues #25–#31 (synced in 985c174). A reply that changes a step now also needs repo-sync again, so the issues match the plan.</dd>
           <dt>Publication 2</dt><dd>Folded in: D28 reversed by the new D-planindex; the new D-uatbackup (WF-0 is now a recommended morning step); D-foundation settled. IDs unchanged; the two new rows are appended.</dd>
-          <dt>After tweaks</dt><dd>plan-wrap, then repo-sync (commits the three plans, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section), then the unattended build-phase run for all three plans (P7).</dd>
+          <dt>Publication 3</dt><dd>After the plan-review autofixes, plan-wrap gap closures and issue sync (985c174, d45066d): three new plan-wrap cards (<a href="#d-gap-migration-report">D-gap-migration-report</a>, <a href="#d-gap-golden-id">D-gap-golden-id</a>, <a href="#d-gap-session-reducer">D-gap-session-reducer</a>) and issue numbers on the step timeline. Every earlier ID and card is unchanged.</dd>
+          <dt>Next</dt><dd>The operator pre-run items, then the unattended build-phase run for all three plans (P7). Any further plan change first goes back through plan-review, plan-wrap and repo-sync (which commits the three plans, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section).</dd>
         </dl>
       </div>
     </section>
   </main>
 
   <footer>
-    <p>Worksheet-first controls · proposal publication 2 · 2026-09-29 · a redline view of <code>documentation/worksheet-first-plan.md</code>, which remains the source of truth.</p>
+    <p>Worksheet-first controls · proposal publication 3 · 2026-09-29 · a redline view of <code>documentation/worksheet-first-plan.md</code>, which remains the source of truth.</p>
   </footer>
 </body>
 </html>
