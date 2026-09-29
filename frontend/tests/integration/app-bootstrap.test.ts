@@ -1,4 +1,5 @@
 import { once } from "node:events";
+import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer, type Server } from "node:net";
 import { tmpdir } from "node:os";
@@ -400,12 +401,15 @@ describe("application bootstrap", () => {
     expect(() =>
       buildApp({ configPath: "  ", securityMode: "ephemeral-test" }),
     ).toThrow("EXTRA_CREDIT_BOOTSTRAP_CONTEXT_ERROR");
-    expect(() =>
-      buildApp({
-        configPath: resolve(frontendRoot, "not-a-temporary-config.json"),
-        securityMode: "ephemeral-test",
-      }),
-    ).toThrow(BOOTSTRAP_CONTEXT_ERROR_CODE);
+    // Path-only negative inputs: no file is read or created. The checkout can
+    // itself live under TEMP during release verification, so it is not evidence
+    // that a path lies outside the allowed temporary root.
+    const outsideTemporaryRoot = resolve(tmpdir(), "..", `extra-credit-rejected-${randomUUID()}.json`);
+    for (const rejectedPath of [resolve(tmpdir()), outsideTemporaryRoot]) {
+      expect(() =>
+        buildApp({ configPath: rejectedPath, securityMode: "ephemeral-test" }),
+      ).toThrow(BOOTSTRAP_CONTEXT_ERROR_CODE);
+    }
     expect(() =>
       buildApp({
         configPath,

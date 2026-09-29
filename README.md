@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Steps 1-9 complete** — issues #1-#9 closed. Parents can create local child profiles and generate, preview, and print all four V1 worksheet families with answer keys, reviewed decorative line art, and capacity-aware worksheet options that never offer an unproducible selection. 451 tests passing, 0 type errors, 0 lint violations. Step 10 (print and pagination hardening) is next; see [plan.md](plan.md).
+> **Steps 1-12 are merged.** The accepted Windows baseline has 457 unit tests and 159 browser specs, including print geometry, accessibility, the real profile-to-print smoke, and log-privacy calibration. Step 13 adds the candidate clean-room release gate below; independent review and manual acceptance remain pending. See [plan.md](plan.md).
 
 ## V1 worksheets
 
@@ -13,7 +13,7 @@ Extra Credit is an open-source, local web application for creating personalized,
 | **Sentence Builder** | Shipped (Step 6) | Drawing, labeling, copying, sentence-frame, and independent-writing modes with reviewed word banks. |
 | **Count, Compare & Make** | Shipped (Step 8) | An age-four-friendly mix of matching, comparing, completing, and drawing quantities. |
 
-Answer keys, black-and-white line art, Letter and A4 selection, and independent toggles for nickname, interests, and decorative graphics all ship today; print and pagination hardening lands in Step 10. Personalization may change headings, reviewed vocabulary, topics, or decoration; it never changes the learning target or mathematical answer.
+Answer keys, black-and-white line art, Letter and A4 selection, and independent toggles for nickname, interests, and decorative graphics all ship today; automated print and pagination hardening is merged. Personalization may change headings, reviewed vocabulary, topics, or decoration; it never changes the learning target or mathematical answer.
 
 Profiles may be stored for ages 4–18. Worksheet generation is enabled only for ages 4–8 in V1; profiles for ages 9–18 remain editable while later content packs are reviewed.
 
@@ -124,7 +124,9 @@ npm --prefix frontend run security
 ```
 
 Tests use fictional profiles and temporary config paths; they must never read or write a real family profile.
-The clean-room `release:verify` command arrives with the public-release step.
+Run `npm --prefix frontend run release:verify` for a candidate public release. It exports current working-tree bytes (including new public files), excludes private config, recovery/download, environment, dependency, build, and orchestration files before reading them, rejects links, and audits the export. It then runs `npm ci`, installs Chromium, and runs the full `check` gate in an owned OS temporary clean room. Installation requires network access. No push occurs.
+
+Path/SHA-256 manifests, command logs and actual exits are retained under `.build-step/release-*/`. Successful clean rooms are removed; failures retain the clean room and browser artifacts, with the path and cleanup outcome recorded in `06-result.json`. The audit permits canonical fictional serialized profiles only in the example, test fixtures, and the plan appendix. Runtime source links are allowed only as non-executable comments or documentation/provenance; an external runtime URL is never approved by its domain. Physical Edge/Chrome printing (M1), the family pilot (M2), and Ubuntu live CI on the pushed commit (M3) remain separate manual acceptance.
 
 ## Data and project structure
 
@@ -164,13 +166,13 @@ A profile contains an optional nickname, age, parent-confirmed presentation band
 
 ## Roadmap
 
-The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-8 are complete; Steps 9-13 remain.
+The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-12 are merged; Step 13 is a release candidate under review.
 
 1. Application and continuous-integration foundation — complete
 2. Secure local-profile storage and setup — complete
 3. Four worksheet vertical slices — complete
-4. Reviewed line art — complete; personalization and worksheet options remain
-5. Printing, pagination, and accessibility
+4. Reviewed line art — complete, including personalization and worksheet options
+5. Printing, pagination, and accessibility - automated gates merged
 6. Release verification and public-project documentation
 7. Physical-print, family-pilot, and live-CI acceptance checks
 
@@ -178,7 +180,7 @@ Later feature plans may add Mini Missions, shapes, measurement, language and sci
 
 ## Contributing
 
-Steps 1-9 are merged. Step 10 (print and pagination hardening) is the current frontier. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
+Steps 1-12 are merged. Step 13 release verification is the current candidate. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) is the single source of truth for contribution rules: licensing, third-party material, asset rules, privacy rules, and the quality gates every pull request must pass. Read it before opening a pull request.
 

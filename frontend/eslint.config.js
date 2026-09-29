@@ -37,6 +37,7 @@ export default tseslint.config(
     files: [
       "*.{js,ts}",
       "tests/**/*.{js,mjs,ts}",
+      "scripts/**/*.mjs",
       "src/server/**/*.ts",
     ],
     languageOptions: {

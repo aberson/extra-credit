@@ -22,7 +22,8 @@
     "manual:print": "node tests/manual/print-harness.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run test:e2e && npm run test:log-privacy",
     "test:log-privacy": "node tests/e2e/log-privacy-calibration.mjs",
-    "security": "npm audit --audit-level=high"
+    "security": "npm audit --audit-level=high",
+    "release:verify": "node scripts/release-clean-room.mjs"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.2",

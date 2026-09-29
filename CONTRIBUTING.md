@@ -35,6 +35,17 @@ and all of:
 The manifest schema enforces every one of those fields, so an incomplete
 third-party row fails validation instead of shipping.
 
+The release audit currently verifies complete canonical MIT terms in that
+separate file, with the upstream copyright notice retained verbatim. Other
+licenses or modified grants fail closed until their complete terms have an
+explicit verification rule; the root project license never substitutes for them.
+
+Production HTML and SVG must contain no inline scripts, event handlers,
+embedded documents, executable URLs, or entity references. The release audit
+rejects these forms rather than attempting to interpret browser markup. The
+fixed external module tag in `frontend/src/web/index.html` loads the separately
+audited application source.
+
 ## Asset rules
 
 - All art is bundled, project-original, high-contrast, black-and-white SVG
@@ -76,7 +87,11 @@ npm --prefix frontend test
 npm --prefix frontend run test:e2e
 ```
 
-`npm --prefix frontend run check` runs all four in order. Add tests with every
+`npm --prefix frontend run check` runs all four in order, then the retained
+log-privacy calibration: injected compiled UUID leaks must fail both selectors,
+and the restored application must pass. `npm --prefix frontend run release:verify`
+exports the current tree, audits privacy and licensing, installs locked dependencies
+and Chromium in a temporary clean room, and runs that same complete gate. Add tests with every
 behavior change, and keep worksheet generation deterministic for a given
 normalized request and seed.
 
