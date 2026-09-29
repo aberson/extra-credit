@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Steps 1-12 are merged.** The accepted Windows baseline has 457 unit tests and 159 browser specs, including print geometry, accessibility, the real profile-to-print smoke, and log-privacy calibration. Step 13 adds the candidate clean-room release gate below; independent review and manual acceptance remain pending. See [plan.md](plan.md).
+> **Steps 1-13 are merged.** The accepted Windows baseline has 517 unit tests and 159 browser specs, including print geometry, accessibility, the real profile-to-print smoke, and log-privacy calibration. The clean-room release gate below has passed independent review and local verification; physical-print, family-pilot, and post-push Ubuntu acceptance remain pending. See [plan.md](plan.md).
 
 ## V1 worksheets
 
@@ -166,21 +166,21 @@ A profile contains an optional nickname, age, parent-confirmed presentation band
 
 ## Roadmap
 
-The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-12 are merged; Step 13 is a release candidate under review.
+The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-13 are merged; physical-print, family-pilot, and post-push Ubuntu acceptance remain pending.
 
 1. Application and continuous-integration foundation — complete
 2. Secure local-profile storage and setup — complete
 3. Four worksheet vertical slices — complete
 4. Reviewed line art — complete, including personalization and worksheet options
 5. Printing, pagination, and accessibility - automated gates merged
-6. Release verification and public-project documentation
+6. Release verification and public-project documentation - automated gates merged
 7. Physical-print, family-pilot, and live-CI acceptance checks
 
 Later feature plans may add Mini Missions, shapes, measurement, language and science activities, reviewed content for ages nine and older, and optional runtime AI with a fresh privacy and security review.
 
 ## Contributing
 
-Steps 1-12 are merged. Step 13 release verification is the current candidate. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
+Steps 1-13 are merged. Manual acceptance remains pending. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) is the single source of truth for contribution rules: licensing, third-party material, asset rules, privacy rules, and the quality gates every pull request must pass. Read it before opening a pull request.
 

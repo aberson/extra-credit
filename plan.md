@@ -747,7 +747,7 @@ These run unattended through `/build-phase`.
 
 - **Problem:** Prove the current working tree is a privacy-safe, license-complete, reproducible public release candidate through one clean-room gate.
 - **Type:** code
-- **Status:** PENDING
+- **Status:** DONE (2026-09-28)
 - **Issue:** #13
 - **Flags:** --reviewers deep --isolation worktree --ui --start-cmd "npm --prefix frontend run dev" --url http://127.0.0.1:4311 --ready-url http://127.0.0.1:4310/api/health
 - **Start-cmd:** `npm --prefix frontend run dev`

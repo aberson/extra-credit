@@ -380,37 +380,36 @@
           </p>
         </div>
         <div class="stamp">
-          <span class="pill">Step 13 review pending / round 2 of 10</span>
+          <span class="pill">Step 13 accepted / round 2 of 10</span>
           <p>
             Updated
-            <time datetime="2026-09-29T00:34:28Z">2026-09-29 00:34:28 UTC</time>
+            <time datetime="2026-09-29T00:56:56Z">2026-09-29 00:56:56 UTC</time>
           </p>
           <button id="print" class="print-button">Print / save PDF</button>
         </div>
       </header>
       <div class="stats">
-        <div class="stat">Accepted and merged<strong>Steps 1-12</strong></div>
-        <div class="stat">Mechanical gates passed<strong>Step 13 / round 2 of 10</strong></div>
-        <div class="stat">Unaccepted gates<strong>13 / M1-M3</strong></div>
+        <div class="stat">Accepted and merged<strong>Steps 1-13 / 13 of 16 units</strong></div>
+        <div class="stat">Accepted review<strong>Step 13 / round 2 of 10</strong></div>
+        <div class="stat">Pending operator gates<strong>M1-M3</strong></div>
       </div>
       <div class="notice">
-        <strong>Checkpoint: Step 13 round 2 mechanical gates passed; independent review pending.</strong>
+        <strong>Checkpoint: Step 13 accepted and merged; M1 physical printing next.</strong>
         <p>
-          Step 13 remains in round 2 of 10, with one review round consumed.
-          Developer final25 full check, final26 clean-room verification and
-          coordinator round 2 full check PASSED (exit 0): 517 unit tests in
-          21 files, 159 browser tests and privacy calibration exits 1 / 1 / 0.
-          Clean-room audit covered 139 files and six assets; cleanup confirmed
-          true and all 139 source hashes independently verified. The five exact
-          dependency lock patches are applied; npm audit PASSED (exit 0).
-          Development and compiled runtime captures both PASSED (exit 0).
-          Compiled cleanup exited 0; owned temporary data is absent. All 12 main
-          checkout files were restored and main is clean.
-          Next: six fresh independent round 2 code-review lenses. Their verdicts
-          remain pending; mechanical success does not establish acceptance.
-          Earlier failed reviews and dependency advisories remain historical
-          evidence below. Step 13 is unaccepted and unmerged; M1-M3 remain pending.
-          No push has occurred.
+          Step 13 was accepted after round 2 of its 10-round allowance and
+          merged at <code>447dc762f0f4953cb0ee05fbb70cc7a690d1836f</code>.
+          Six fresh independent code-review lenses PASSED: zero blockers, zero
+          nits and one informational scope note about supporting files. Source
+          audits PASSED. Main full check and main clean-room verification PASSED:
+          517 unit tests in 21 files, 159 browser tests and privacy calibration
+          exits 1 / 1 / 0. Main security audit exited 0. Clean-room audit covered
+          139 files and six assets; current source hashes were verified and
+          owned temporary data was removed. Cleanup PASSED: 3,294 evidence files
+          archived, step worktree and branch removed, no incoming work or stash.
+          Authenticated advancement was confirmed. Automated scope is complete:
+          13 of 16 inventory units accepted and merged. Next: M1 physical print
+          acceptance, followed by M2 family pilot and M3 post-push Ubuntu CI.
+          These operator gates remain pending. No push has occurred.
         </p>
         <p>
           Step 12 merged at <code>7b5a27d</code> after round 2 of its 10-round
@@ -424,7 +423,7 @@
           Evidence was archived with a hash manifest (544 files); the final
           ship check was clean, and the step worktree and branch were removed.
           Authenticated advancement was consumed. Step 13 clean-room
-          verification has passed round 2 mechanical gates; independent review is pending. M1-M3 remain pending. No push has occurred.
+          verification is accepted and merged after round 2. M1-M3 remain pending. No push has occurred.
         </p>
         <p>
           Round 1 aggregate review returned NEEDS WORK with one blocking
@@ -463,7 +462,7 @@
         <p>
           Step 10 implementation: <code>e721ca6</code>; acceptance checkpoint:
           <code>765c138</code>. Step 12 release smoke is accepted and merged; Step 13 clean-room
-          verification has passed round 2 mechanical gates and remains unaccepted. Physical printing
+          verification is accepted and merged. Physical printing
           (M1), the family pilot (M2) and pushed Ubuntu CI (M3) remain pending.
           No push has occurred. Historical failed rounds remain recorded below.
         </p>
@@ -688,13 +687,13 @@
                     <strong>Step13</strong><br />Public open-source release
                     surface
                   </td>
-                  <td>Mechanical gates passed / round 2 of 10; unaccepted</td>
+                  <td>Accepted / merged; round 2 of 10 passed</td>
                   <td>Agent<br />Step 12</td>
                   <td>
                     Working-tree clean-room release:verify, privacy/license
                     audit and complete quality suite. Live pushed CI remains
-                    M3.<br /><a href="#step13-round2-mechanical-evidence"
-                      >Full, clean-room, audit and runtime gates passed; six-lens review pending</a
+                    M3.<br /><a href="#step13-accepted-evidence"
+                      >Six lenses and main full/clean-room gates passed; merged 447dc76</a
                     >
                   </td>
                 </tr>
@@ -876,10 +875,10 @@
                 >
                   Step12</button
                 ><button
-                  class="bar review"
+                  class="bar"
                   data-detail="Step13"
                   style="grid-column: 12"
-                  aria-label="Step13: Public open-source release surface; Mechanical gates passed, round 2 of 10, unaccepted"
+                  aria-label="Step13: Public open-source release surface; Accepted and merged, round 2 of 10 passed"
                 >
                   Step13
                 </button>
@@ -926,7 +925,7 @@
               <dd id="detail-dependency">Step 12 / Agent</dd>
               <dt>Outcome</dt>
               <dd id="detail-state">
-                Mechanical gates passed / round 2 of 10; unaccepted and unmerged
+                Accepted / merged; round 2 of 10 passed
               </dd>
               <dt>Acceptance boundary</dt>
               <dd id="detail-gate">
@@ -1281,6 +1280,28 @@
                   </td>
                   <td>Run start/end unknown / reported gate outcomes only</td>
                 </tr>
+                <tr id="step13-accepted-evidence">
+                  <td>2026-09-29 00:56:56 UTC checkpoint</td>
+                  <td>
+                    Step 13 ACCEPTED after round 2 of 10; merged at
+                    <code>447dc762f0f4953cb0ee05fbb70cc7a690d1836f</code>.
+                    Six fresh code lenses PASSED: zero blockers, zero nits,
+                    one informational scope note about supporting files.
+                    Source audits PASSED. Main full check and main clean-room
+                    verification PASSED: 517 unit tests in 21 files, 159 browser
+                    tests and privacy calibration exits 1 / 1 / 0. Security
+                    audit exited 0. Clean-room release audit: 139 files, six
+                    assets, current source hashes verified, owned temporary
+                    data removed. Cleanup PASSED: 3,294 evidence files archived,
+                    step worktree and branch removed; no incoming work or stash.
+                    Authenticated advancement confirmed. Steps 1-13 accepted
+                    and merged, 13 of 16 units complete within automated scope.
+                    Next: M1 physical printing, then M2 family pilot and M3
+                    post-push Ubuntu CI. All three remain pending; no push
+                    occurred. Historical failed findings remain recorded above.
+                  </td>
+                  <td>Run start/end unknown / acceptance observed at checkpoint</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1446,9 +1467,9 @@
           label: "Public open-source release surface",
           dep: "Step 12",
           owner: "Agent",
-          state: "Mechanical gates passed / round 2 of 10; unaccepted and unmerged",
+          state: "Accepted / merged; round 2 of 10 passed",
           gate: "Working-tree clean-room release:verify, privacy/license audit and complete quality suite. Live pushed CI remains M3.",
-          evidence: "#step13-round2-mechanical-evidence",
+          evidence: "#step13-accepted-evidence",
         },
         M1: {
           id: "M1",
