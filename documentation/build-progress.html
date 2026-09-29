@@ -308,6 +308,35 @@
       .history-note {
         font-size: 13px;
       }
+      h3 {
+        font-size: 18px;
+        margin: 26px 0 6px;
+      }
+      .stat span,
+      .scope {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .scope {
+        margin-top: 4px;
+        max-width: 420px;
+      }
+      .notice dl {
+        margin: 8px 0;
+      }
+      .bar.planned {
+        background: var(--card);
+        border: 2px dashed #6f7b86;
+      }
+      .bar.drafting {
+        background: #f1eef7;
+        border: 2px dotted #6d5a8e;
+      }
+      .bar.gate {
+        background: #e3eef6;
+        border-color: #225f80;
+      }
       @media (max-width: 700px) {
         #inventory table,
         #inventory tbody,
@@ -374,97 +403,78 @@
           <div class="eyebrow">Extra Credit / build program</div>
           <h1>Built is a milestone.<br />Accepted is a gate.</h1>
           <p class="muted">
-            Projection of the <a href="../plan.md">canonical plan</a>. Complete
-            inventory through release and operator acceptance. No release
-            acceptance is claimed.
+            Projection of the <a href="../plan.md">canonical plan</a> (Steps
+            1-13 and manual gates M1-M3) and the
+            <a href="worksheet-first-plan.md">worksheet-first controls plan</a>
+            (Steps 14-20; redline surface:
+            <a href="worksheet-first-proposal.html">worksheet-first proposal</a>).
+            Complete inventory through the three post-UAT plans and operator
+            acceptance. No release or family acceptance is claimed.
           </p>
         </div>
         <div class="stamp">
-          <span class="pill">Step 13 accepted / round 2 of 10</span>
+          <span class="pill">Plan 01 planned / plan-expedite running</span>
           <p>
             Updated
-            <time datetime="2026-09-29T00:56:56Z">2026-09-29 00:56:56 UTC</time>
+            <time datetime="2026-09-29T06:07:22-07:00">2026-09-29 06:07:22 PDT</time>
+            (America/Los_Angeles)
           </p>
           <button id="print" class="print-button">Print / save PDF</button>
         </div>
       </header>
       <div class="stats">
-        <div class="stat">Accepted and merged<strong>Steps 1-13 / 13 of 16 units</strong></div>
-        <div class="stat">Accepted review<strong>Step 13 / round 2 of 10</strong></div>
-        <div class="stat">Pending operator gates<strong>M1-M3</strong></div>
+        <div class="stat">
+          Accepted and merged<strong>Steps 1-13</strong
+          ><span>UAT rounds 1-2 shipped at 5c22159</span>
+        </div>
+        <div class="stat">
+          Operator gates<strong>M3 satisfied for 5c22159</strong
+          ><span>M1 and M2 open; WF-0 to WF-2 not started</span>
+        </div>
+        <div class="stat">
+          Planned / drafting<strong>Steps 14-20 planned</strong
+          ><span>Plans 02-03 drafting (Steps 21-34)</span>
+        </div>
       </div>
-      <div class="notice">
-        <strong>Checkpoint: Step 13 accepted and merged; M1 physical printing next.</strong>
+      <div class="notice" id="checkpoint">
+        <strong>Checkpoint: plan 01 worksheet-first controls planned; plan-expedite running.</strong>
+        <dl>
+          <dt>Recorded</dt>
+          <dd>
+            <time datetime="2026-09-29T06:07:22-07:00">2026-09-29 06:07:22 PDT</time>, America/Los_Angeles
+            (2026-09-29 13:07:22 UTC)
+          </dd>
+          <dt>Accepted inventory (unchanged)</dt>
+          <dd>
+            Steps 1-13 accepted and merged (Step 13 at <code>447dc76</code>).
+            UAT rounds 1-2 shipped at <code>5c22159</code>. M3 satisfied for
+            <code>5c22159</code> only: the push-triggered <code>ci.yml</code> run
+            on <code>main</code> at that exact commit succeeded
+            (<a href="#uat-5c22159-evidence">observed</a>). M1 physical print
+            and M2 family pilot remain open.
+          </dd>
+          <dt>Active work</dt>
+          <dd>
+            Plan 01 worksheet-first controls: planned, redlined (proposal
+            publication 2), plan-expedite running (review/wrap/issue sync);
+            plans 02 and 03 drafting.
+          </dd>
+          <dt>Next action</dt>
+          <dd>
+            <code>/build-phase --plan documentation/worksheet-first-plan.md</code>
+            after plan-expedite returns READY and the plan's operator pre-run
+            items 1-3 hold.
+          </dd>
+          <dt>Finite allowance</dt>
+          <dd>
+            Default 3 iterations per step, no extensions (D-flags). Any halt
+            parks the remaining steps and plans (P7).
+          </dd>
+        </dl>
         <p>
-          Step 13 was accepted after round 2 of its 10-round allowance and
-          merged at <code>447dc762f0f4953cb0ee05fbb70cc7a690d1836f</code>.
-          Six fresh independent code-review lenses PASSED: zero blockers, zero
-          nits and one informational scope note about supporting files. Source
-          audits PASSED. Main full check and main clean-room verification PASSED:
-          517 unit tests in 21 files, 159 browser tests and privacy calibration
-          exits 1 / 1 / 0. Main security audit exited 0. Clean-room audit covered
-          139 files and six assets; current source hashes were verified and
-          owned temporary data was removed. Cleanup PASSED: 3,294 evidence files
-          archived, step worktree and branch removed, no incoming work or stash.
-          Authenticated advancement was confirmed. Automated scope is complete:
-          13 of 16 inventory units accepted and merged. Next: M1 physical print
-          acceptance, followed by M2 family pilot and M3 post-push Ubuntu CI.
-          These operator gates remain pending. No push has occurred.
-        </p>
-        <p>
-          Step 12 merged at <code>7b5a27d</code> after round 2 of its 10-round
-          allowance. The canonical six-code-lens review PASSED with zero
-          findings. Developer, coordinator and main post-merge full gates
-          PASSED, each with 457 unit tests and 159 browser tests. Privacy
-          calibration retained the expected exits 1 / 1 / 0. Coordinator
-          dedicated CI smoke PASSED in 8.133 seconds.
-          Separate development and compiled UI captures PASSED: three canonical
-          profiles, eight-item A4 large worksheet and matching answer-key IDs.
-          Evidence was archived with a hash manifest (544 files); the final
-          ship check was clean, and the step worktree and branch were removed.
-          Authenticated advancement was consumed. Step 13 clean-room
-          verification is accepted and merged after round 2. M1-M3 remain pending. No push has occurred.
-        </p>
-        <p>
-          Round 1 aggregate review returned NEEDS WORK with one blocking
-          test-quality finding: the log oracle checked fixed example profile
-          IDs while the UI created random IDs, so an ID-only server log could
-          evade the assertion. This was missing oracle coverage, not an observed
-          security incident. The other five lenses passed and source audit was
-          clean. Prior full gates, dedicated CI smoke and runtime captures passed;
-          that evidence and the failed review remain in the observed timeline.
-        </p>
-        <p>
-          Step 11 merged at <code>1f30ce4</code>. All eight fresh independent
-          reviews passed with zero findings and 18 runtime confirmations.
-          Developer attempt 2, coordinator and main post-merge full
-          <code>npm run check</code> gates PASSED (exit 0): lint, three
-          TypeScript projects, 457 unit tests in 20 files and 158 Playwright
-          tests each. Source audit is clean. Evidence was archived and hash
-          checked (493 files, 28 MB); the step worktree and branch were removed.
-          Authenticated advancement was consumed. Step 11 used
-          one of its 10 allowed review rounds.
-          The unchanged desktop foundation regression passed focused attempt 7
-          after removing the line-height override and reducing the control
-          minimum from 44px to 36px. Full attempt 1's height failure and the
-          repair history remain below.
-        </p>
-        <p>
-          Step 10 was accepted and merged after round 5 of its approved 10-round
-          allowance, retaining the first three. Round 5 passed all eight
-          independent reviews with zero findings.
-          Developer, coordinator and main post-merge checks passed: lint, three
-          TypeScript projects, 457 Vitest tests in 20 files and 145 Playwright tests.
-          The exact seed 00000005 regression now prints one page. The evidence
-          includes 100 print-matrix surfaces, 960 real ordering observations and
-          separately labeled synthetic stress and upper-v1 Wow probes.
-        </p>
-        <p>
-          Step 10 implementation: <code>e721ca6</code>; acceptance checkpoint:
-          <code>765c138</code>. Step 12 release smoke is accepted and merged; Step 13 clean-room
-          verification is accepted and merged. Physical printing
-          (M1), the family pilot (M2) and pushed Ubuntu CI (M3) remain pending.
-          No push has occurred. Historical failed rounds remain recorded below.
+          No completion percentage is claimed. Planned and drafting rows have
+          not started and carry no evidence. Earlier step checkpoints, including
+          held and failed rounds, remain in the observed timeline.
         </p>
       </div>
       <nav class="tabs" role="tablist" aria-label="Progress views">
@@ -502,14 +512,17 @@
         <div class="card">
           <h2>Complete inventory</h2>
           <p>
-            16 stable units. Accepted scope is each step's gate; merged
-            implementation does not establish physical, family or live-CI
-            acceptance.
+            28 stable rows: 13 accepted steps, 7 planned plan 01 steps (Steps
+            14-20), 2 grouped draft plans covering Steps 21-34, and six operator
+            gates (M1-M3, WF-0 to WF-2). Accepted scope is each step's gate;
+            merged implementation does not establish physical, family or
+            live-CI acceptance for later commits. Planned rows have no evidence
+            yet.
           </p>
           <div class="controls">
             <label for="search">Filter inventory</label
             ><input id="search" type="search" /><button id="reset">Reset</button
-            ><span id="count" role="status">All 16 units shown</span>
+            ><span id="count" role="status">All 28 units shown</span>
           </div>
           <div class="scroll">
             <table>
@@ -699,39 +712,208 @@
                 </tr>
                 <tr data-unit="M1" id="unit-M1">
                   <td><strong>M1</strong><br />Physical print acceptance</td>
-                  <td>Pending</td>
-                  <td>Operator<br />Step13 (includes Step10)</td>
+                  <td>Open / pending</td>
+                  <td>Operator<br />Step13 (includes Step10); plan 01 additions after Step 20</td>
                   <td>
                     Physical Letter/A4 output in Edge and Chrome; all families,
                     both Wow variants, standard/large and separate keys. Record
-                    non-sensitive printer/browser observations.<br /><a
-                      href="../plan.md"
-                      >Plan gate / no acceptance observed</a
+                    non-sensitive printer/browser observations. Plan 01 adds one
+                    page per Sentence variant (both vocabulary options), Dry
+                    Math within 100 with its key, Count/Compare to 20 with Theme
+                    Space and with art off, and review of comparison prompts and
+                    isolated numerals (D-print).<br /><a href="../plan.md"
+                      >Plan gate</a
                     >
+                    / <a href="worksheet-first-plan.md">plan 01 additions</a> / no
+                    acceptance observed
                   </td>
                 </tr>
                 <tr data-unit="M2" id="unit-M2">
                   <td><strong>M2</strong><br />Short family usability pilot</td>
-                  <td>Pending</td>
-                  <td>Operator<br />M1</td>
+                  <td>Open / pending</td>
+                  <td>Operator<br />M1; plan 01 additions after Step 20</td>
                   <td>
                     Capability-aligned pilot and non-identifying observations.
                     Current pilot covers ages four and six; age eight has
-                    fixture-based acceptance only.<br /><a href="../plan.md"
-                      >Plan gate / no acceptance observed</a
+                    fixture-based acceptance only. Plan 01 adds a pilot choosing
+                    writing activity and practice focus per child without
+                    editing profiles, recording whether the Vocabulary,
+                    Statements and practice-focus labels are understood.<br /><a
+                      href="../plan.md"
+                      >Plan gate</a
                     >
+                    / <a href="worksheet-first-plan.md">plan 01 additions</a> / no
+                    acceptance observed
                   </td>
                 </tr>
                 <tr data-unit="M3" id="unit-M3">
                   <td><strong>M3</strong><br />Live GitHub Actions smoke</td>
-                  <td>Pending</td>
-                  <td>Operator<br />M2 / repo-update commit/push</td>
+                  <td>Satisfied for 5c22159; recurs per pushed commit</td>
+                  <td>Operator<br />repo-update commit/push of the exact commit</td>
                   <td>
                     Successful push-triggered ci.yml on exact pushed HEAD and
                     branch, including mandatory Ubuntu print geometry and POSIX
-                    gates.<br /><a href="../plan.md"
-                      >Plan gate / no acceptance observed</a
+                    gates. Satisfied only for <code>5c22159</code>; plan 01's
+                    pushed commit and each later plan's need their own run.<br /><a
+                      href="#uat-5c22159-evidence"
+                      >Observed ci.yml success on 5c22159</a
                     >
+                  </td>
+                </tr>
+                <tr data-unit="Step14" id="unit-Step14">
+                  <td>
+                    <strong>Step14</strong><br />Config module leaves, frozen v1 read path and content baseline<span
+                      class="scope"
+                      >Pure refactor: config enums, fields and v1 schemas move to leaf modules; v1 fixture bytes pinned; 5c22159 golden Practice content-key capture committed; 1920&#xd7;1080 layout check moved to the compiled fixture; one Playwright worksheet-controls helper. No persisted-shape or runtime change.</span
+                    >
+                  </td>
+                  <td>Planned</td>
+                  <td>build-phase developer + deep code reviewers (--reviewers deep)<br />none (Steps 1-13 merged)</td>
+                  <td>
+                    Full <code>npm --prefix frontend run check</code> gate plus Done when: legacy-v1, config-module-graph and migrate-fixture tests; golden capture byte-equal and --compare exit 0; empty no-behavior-change diff; development-stack and 1920&#xd7;1080 relocation; helper-routing grep with 161 listed specs; Vitest &#x2265; 521 and Playwright &#x2265; 161; release:verify exit 0.<br />Evidence: none yet. <a href="worksheet-first-plan.md">Plan 01 Step 14</a>
+                  </td>
+                </tr>
+                <tr data-unit="Step15" id="unit-Step15">
+                  <td>
+                    <strong>Step15</strong><br />Config schema v2 with lossless v1 upgrade and age-free profiles<span
+                      class="scope"
+                      >Persist schemaVersion 2 in its fingerprinted shape; read v1 without writing and upgrade only on the first explicit save behind a byte-identical v1 backup; newer versions stay blocked; age removed from profiles, generation and public codes (P2).</span
+                    >
+                  </td>
+                  <td>Planned</td>
+                  <td>build-phase developer + deep code reviewers (--reviewers deep)<br />Step 14</td>
+                  <td>
+                    Full <code>npm --prefix frontend run check</code> gate plus Done when: migrate (&#x2265; 200 fast-check configs), config-store, real-Fastify config-upgrade round trip, schema-parity (20 public codes), shape fingerprint with five calibration variants, release-audit, editor and options tests, Playwright profile-flow, release-smoke, accessibility, print and log-privacy (exits 1/1/0), golden continuity, limit-labels; counts &#x2265; Step 14; release:verify exit 0.<br />Evidence: none yet. <a href="worksheet-first-plan.md">Plan 01 Step 15</a>
+                  </td>
+                </tr>
+                <tr data-unit="Step16" id="unit-Step16">
+                  <td>
+                    <strong>Step16</strong><br />Practice focus replaces Difficulty in generation<span
+                      class="scope"
+                      >Every generation request is built from a worksheet selection through the sole projection boundary; Difficulty, its stretch confirmation and hidden multiplier are deleted; equivalent choices keep identical content; each child follows its earlier settings.</span
+                    >
+                  </td>
+                  <td>Planned</td>
+                  <td>build-phase developer + full code and runtime reviewers (--reviewers full)<br />Step 15</td>
+                  <td>
+                    Full <code>npm --prefix frontend run check</code> gate plus Done when: golden grid through the selection path and --compare exit 0; project-request exactness and &#x2265; 200-run property; generator known vectors unchanged (all generatorVersions 1); limit-labels arm catalogue; availability equals generation in every catalog cell; earlier-settings mapping; plan-citation and envelope guards; Playwright replacements; interim defaults save; copy and import scans; counts &#x2265; Step 15.<br />Evidence: none yet. <a href="worksheet-first-plan.md">Plan 01 Step 16</a>
+                  </td>
+                </tr>
+                <tr data-unit="Step17" id="unit-Step17">
+                  <td>
+                    <strong>Step17</strong><br />Worksheet-first panel with session-held selections<span
+                      class="scope"
+                      >A parent chooses worksheet type, variant, child and practice focus, in that order, in a responsive panel; selections are session state that survives profile edits, saves and reloads and is saved only by the explicit worksheet-defaults action (P1, D-save).</span
+                    >
+                  </td>
+                  <td>Planned</td>
+                  <td>build-phase developer + full code and runtime reviewers (--reviewers full)<br />Step 16</td>
+                  <td>
+                    Full <code>npm --prefix frontend run check</code> gate plus Done when: worksheet-session tests; panel and App-level save tests; compiled worksheet-choices spec; accessibility (six axe tag groups, keyboard path, 1280 and 320 px, 200% text); print path diff empty with 84 worksheet cases and 16 key PDFs; e2e-title-privacy; 1920&#xd7;1080 layout; counts &#x2265; Step 16.<br />Evidence: none yet. <a href="worksheet-first-plan.md">Plan 01 Step 17</a>
+                  </td>
+                </tr>
+                <tr data-unit="Step18" id="unit-Step18">
+                  <td>
+                    <strong>Step18</strong><br />Identity-only profiles, age-free documentation and worksheet-driven print evidence<span
+                      class="scope"
+                      >The profile is reduced to nickname, review date and interests with a read-only earlier-settings summary; the example, print matrix and browser tests take choices from worksheet controls; remaining public age claims are removed.</span
+                    >
+                  </td>
+                  <td>Planned</td>
+                  <td>build-phase developer + full code and runtime reviewers (--reviewers full)<br />Step 17</td>
+                  <td>
+                    Full <code>npm --prefix frontend run check</code> gate plus Done when: identity-only ProfileEditor; v2 example in schema-parity and migrate-fixture; release-audit with exactly six canonical hashes; print.spec 84 worksheet cases and 16 key PDFs over identity-only profiles; no profile-driven choice greps; profile-flow; age-docs scan with calibration; counts &#x2265; Step 17; release:verify exit 0.<br />Evidence: none yet. <a href="worksheet-first-plan.md">Plan 01 Step 18</a>
+                  </td>
+                </tr>
+                <tr data-unit="Step19" id="unit-Step19">
+                  <td>
+                    <strong>Step19</strong><br />Explicit decorative Theme<span
+                      class="scope"
+                      >Sentence Builder and Count, Compare &amp; Make artwork is chosen by an explicit Theme, independent of instructional interest use, and never alters work or answers (D-theme).</span
+                    >
+                  </td>
+                  <td>Planned</td>
+                  <td>build-phase developer + full code and runtime reviewers (--reviewers full)<br />Step 18</td>
+                  <td>
+                    Full <code>npm --prefix frontend run check</code> gate plus Done when: theme resolution table and properties in project-request; generator and registry invariants; graphics.spec assets, neutral fallback, art-off content equality and identical panel geometry at Letter/A4 standard/large; v1 continuity; axe with Theme shown; counts &#x2265; Step 18.<br />Evidence: none yet. <a href="worksheet-first-plan.md">Plan 01 Step 19</a>
+                  </td>
+                </tr>
+                <tr data-unit="Step20" id="unit-Step20">
+                  <td>
+                    <strong>Step20</strong><br />Compiled upgrade-to-print smoke<span
+                      class="scope"
+                      >On the compiled app with real routes and a real temporary file, a fictional v1 file is read unchanged, upgrades once on the first save and survives a restart; every worksheet-first choice then drives preview, answer key and print.</span
+                    >
+                  </td>
+                  <td>Planned</td>
+                  <td>build-phase developer + deep code reviewers (--reviewers deep)<br />Step 19</td>
+                  <td>
+                    Full <code>npm --prefix frontend run check</code> gate plus Done when: smoke passes in CI mode within 90 s (one byte-identical backup, strict v2, restart, per-choice previews, one-page prints, no non-loopback request or console/server error, clean logs); upgrade-oracle test; test:log-privacy exits 1/1/1/0/0; release:verify exit 0; counts &#x2265; Step 19.<br />Evidence: none yet. <a href="worksheet-first-plan.md">Plan 01 Step 20</a>
+                  </td>
+                </tr>
+                <tr data-unit="Plan02" id="unit-Plan02">
+                  <td>
+                    <strong>Plan02</strong><br />Math operations and activities (Steps 21-27, grouped)<span
+                      class="scope"
+                      >Seven steps: independent arithmetic oracle, version-generic read path and schema v3, carrying and borrowing in Dry Math (P6), multiplication and exact division by fact family with factors 0-12 (P3), and the Number Bonds / Missing Numbers family (P5).</span
+                    >
+                  </td>
+                  <td>Drafting; plan not reviewed, not started</td>
+                  <td>Planning session, then build-phase developer + reviewers<br />Plan 01 full gate and its repo-update push (P7, P8); re-checked against what shipped</td>
+                  <td>
+                    Each step's full check gate and Done when, fixed once the plan is reviewed; its own repo-update push, then M3 for that exact commit.<br />Evidence: none yet. <a href="math-activities-plan.md">Draft plan 02</a>
+                  </td>
+                </tr>
+                <tr data-unit="Plan03" id="unit-Plan03">
+                  <td>
+                    <strong>Plan03</strong><br />Printable packets (Steps 28-34, grouped)<span
+                      class="scope"
+                      >Seven steps: durable private local packet drafts with ETag precondition, atomic writes, explicit recovery and release-export exclusion (P4); up to 10 sheets, one packet-wide layout and grouped answer keys (D-packet); compiled packet smoke.</span
+                    >
+                  </td>
+                  <td>Drafting; plan not reviewed, not started</td>
+                  <td>Planning session, then build-phase developer + reviewers<br />Plan 01; built after Plan 02's full gate and push (P7, P8)</td>
+                  <td>
+                    Each step's full check gate and Done when, fixed once the plan is reviewed; its repo-update push ends the unattended run, then M3 for that exact commit.<br />Evidence: none yet. <a href="printable-packets-plan.md">Draft plan 03</a>
+                  </td>
+                </tr>
+                <tr data-unit="WF0" id="unit-WF0">
+                  <td>
+                    <strong>WF0</strong><br />Retained-store dated private backup (recommended)<span
+                      class="scope"
+                      >Morning-checklist action from the plan 01 Manual UAT bundle (D-uatbackup); not a run precondition.</span
+                    >
+                  </td>
+                  <td>Recommended operator action; not started</td>
+                  <td>Operator<br />End of the whole run, launcher still stopped; before WF-1</td>
+                  <td>
+                    A dated private copy of the retained attended-UAT store exists outside the repository, and the launcher is confirmed not to delete its working copy or rewrite it with the v1 schema. Agents never read, copy or move it.<br />Evidence: none yet (operator only). <a href="worksheet-first-plan.md">Plan 01 Manual UAT bundle</a>
+                  </td>
+                </tr>
+                <tr data-unit="WF1" id="unit-WF1">
+                  <td>
+                    <strong>WF1</strong><br />Retained-store upgrade on the last shipped build<span
+                      class="scope"
+                      >Start the retained launcher against the last shipped build, confirm the upgrade notice, then make one explicit save.</span
+                    >
+                  </td>
+                  <td>Pending operator gate; not started</td>
+                  <td>Operator<br />Whole P7 run ended (last repo-update or a parking halt); WF-0 recommended first</td>
+                  <td>
+                    Profiles, nicknames and interests intact; earlier settings seed each child until the first defaults save; exactly one v1 backup beside the live file, copied beside the WF-0 backup; nothing reset or reseeded. A later plan that changes the persisted shape states its own upgrade row.<br />Evidence: none yet (operator only). <a href="worksheet-first-plan.md">Plan 01 Manual UAT bundle</a>
+                  </td>
+                </tr>
+                <tr data-unit="WF2" id="unit-WF2">
+                  <td>
+                    <strong>WF2</strong><br />On-screen worksheet-first panel review<span
+                      class="scope"
+                      >Build, then run manual:print with the disposable fictional profiles and review the panel on screen.</span
+                    >
+                  </td>
+                  <td>Pending operator gate; not started</td>
+                  <td>Operator<br />Plan 01 build-phase complete (Step 20)</td>
+                  <td>
+                    Worksheet type reads as the primary choice, practice-focus labels state operations and range, More options hides only secondary choices, and no age or Difficulty appears anywhere.<br />Evidence: none yet (operator only). <a href="worksheet-first-plan.md">Plan 01 Manual UAT bundle</a>
                   </td>
                 </tr>
               </tbody>
@@ -751,15 +933,20 @@
           <p>
             Illustrative dependency waves,
             <strong>not dates or durations</strong>. Branches after Step 4 join
-            at Step 9. Final operator gates are sequential: Step 13, then M1,
-            then M2, then repo-update commit/push, then M3. On a narrow screen,
-            scroll the chart horizontally. Select any bar by mouse or Tab then
-            Enter/Space.
+            at Step 9. The original operator gates follow Step 13: M1, then M2;
+            M3 is satisfied for the pushed UAT commit 5c22159 and recurs for
+            each later pushed commit. On a narrow screen, scroll the chart
+            horizontally. Select any bar by mouse or Tab then Enter/Space.
           </p>
           <p class="legend">
-            <span>Green: accepted / merged</span
-            ><span>Amber: active or built / unaccepted</span><span>Gray: pending</span>
+            <span>Green: accepted / merged / satisfied</span
+            ><span>Amber: active or built / unaccepted</span
+            ><span>Gray: pending operator gate</span
+            ><span>Dashed: planned, not started</span
+            ><span>Dotted: plan drafting</span
+            ><span>Blue: join gate (repo-update push)</span>
           </p>
+          <h3>Steps 1-13 and original manual gates</h3>
           <div class="scroll">
             <div class="gantt">
               <div class="ghead">
@@ -908,37 +1095,183 @@
               <div class="lane">
                 <strong>Push / live CI</strong
                 ><button
-                  class="bar pending"
+                  class="bar"
                   data-detail="M3"
                   style="grid-column: 13"
-                  aria-label="M3: Live GitHub Actions smoke; Pending"
+                  aria-label="M3: Live GitHub Actions smoke; Satisfied for 5c22159; recurs per pushed commit"
                 >
                   M3
                 </button>
               </div>
             </div>
           </div>
+          <h3 id="post-uat-gantt">Post-UAT run: planned sequence</h3>
+          <p>
+            <strong>Planned sequence, not measured elapsed time.</strong> Columns
+            show dependency order only. Under P7 one unattended run builds plan
+            01, then plan 02, then plan 03; each plan's full gate precedes its
+            own repo-update commit/push (P8), and M3 then checks that exact
+            commit. WF-2 and the plan 01 additions to M1 and M2 follow plan 01's
+            build-phase; WF-0 and then WF-1 follow the end of the whole run.
+            Any halt parks the remainder.
+          </p>
+          <div class="scroll">
+            <div class="gantt">
+              <div class="ghead">
+                <span>Lane</span><span>14</span><span>15</span><span>16</span
+                ><span>17</span><span>18</span><span>19</span><span>20</span
+                ><span>Push 01</span><span>21-27</span><span>Push 02</span
+                ><span>28-34</span><span>Run end</span>
+              </div>
+              <div class="lane">
+                <strong>Plan 01 code</strong
+                ><button
+                  class="bar planned"
+                  data-detail="Step14"
+                  style="grid-column: 2"
+                  aria-label="Step14: Config module leaves, frozen v1 read path and content baseline; Planned"
+                >
+                  Step14
+                </button><button
+                  class="bar planned"
+                  data-detail="Step15"
+                  style="grid-column: 3"
+                  aria-label="Step15: Config schema v2 with lossless v1 upgrade and age-free profiles; Planned"
+                >
+                  Step15
+                </button><button
+                  class="bar planned"
+                  data-detail="Step16"
+                  style="grid-column: 4"
+                  aria-label="Step16: Practice focus replaces Difficulty in generation; Planned"
+                >
+                  Step16
+                </button><button
+                  class="bar planned"
+                  data-detail="Step17"
+                  style="grid-column: 5"
+                  aria-label="Step17: Worksheet-first panel with session-held selections; Planned"
+                >
+                  Step17
+                </button><button
+                  class="bar planned"
+                  data-detail="Step18"
+                  style="grid-column: 6"
+                  aria-label="Step18: Identity-only profiles, age-free documentation and worksheet-driven print evidence; Planned"
+                >
+                  Step18
+                </button><button
+                  class="bar planned"
+                  data-detail="Step19"
+                  style="grid-column: 7"
+                  aria-label="Step19: Explicit decorative Theme; Planned"
+                >
+                  Step19
+                </button><button
+                  class="bar planned"
+                  data-detail="Step20"
+                  style="grid-column: 8"
+                  aria-label="Step20: Compiled upgrade-to-print smoke; Planned"
+                >
+                  Step20
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Join gates</strong
+                ><button
+                  class="bar gate"
+                  data-detail="RU01"
+                  style="grid-column: 9"
+                  aria-label="Join gate: repo-update push after plan 01; Planned"
+                >
+                  Push 01
+                </button><button
+                  class="bar gate"
+                  data-detail="RU02"
+                  style="grid-column: 11"
+                  aria-label="Join gate: repo-update push after plan 02; Planned"
+                >
+                  Push 02
+                </button><button
+                  class="bar gate"
+                  data-detail="RU03"
+                  style="grid-column: 13"
+                  aria-label="Join gate: repo-update push after plan 03, run end; Planned"
+                >
+                  Push 03
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Plan 02</strong
+                ><button
+                  class="bar drafting"
+                  data-detail="Plan02"
+                  style="grid-column: 10"
+                  aria-label="Plan02: Math operations and activities, Steps 21-27; Drafting"
+                >
+                  Plan02
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Plan 03</strong
+                ><button
+                  class="bar drafting"
+                  data-detail="Plan03"
+                  style="grid-column: 12"
+                  aria-label="Plan03: Printable packets, Steps 28-34; Drafting"
+                >
+                  Plan03
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Operator UAT</strong
+                ><button
+                  class="bar pending"
+                  data-detail="WF2"
+                  style="grid-column: 9"
+                  aria-label="WF2: On-screen worksheet-first panel review; Pending"
+                >
+                  WF-2
+                </button><button
+                  class="bar pending"
+                  data-detail="WF0"
+                  style="grid-column: 13"
+                  aria-label="WF0: Retained-store dated private backup; Recommended"
+                >
+                  WF-0
+                </button>
+              </div>
+              <div class="lane">
+                <strong>Retained store</strong
+                ><button
+                  class="bar pending"
+                  data-detail="WF1"
+                  style="grid-column: 13"
+                  aria-label="WF1: Retained-store upgrade on the last shipped build, after WF-0; Pending"
+                >
+                  WF-1
+                </button>
+              </div>
+            </div>
+          </div>
           <div class="detail" aria-live="polite">
-            <h3 id="detail-title">Step13 / Public open-source release surface</h3>
+            <h3 id="detail-title">Step14 / Config module leaves, frozen v1 read path and content baseline</h3>
             <dl>
               <dt>Dependency / owner</dt>
-              <dd id="detail-dependency">Step 12 / Agent</dd>
+              <dd id="detail-dependency">none (Steps 1-13 merged) / build-phase developer + deep code reviewers (--reviewers deep)</dd>
               <dt>Outcome</dt>
-              <dd id="detail-state">
-                Accepted / merged; round 2 of 10 passed
-              </dd>
+              <dd id="detail-state">Planned</dd>
               <dt>Acceptance boundary</dt>
-              <dd id="detail-gate">
-                Working-tree clean-room release:verify, privacy/license audit and
-                complete quality suite. Live pushed CI remains M3.
-              </dd>
+              <dd id="detail-gate">Pure refactor: config enums, fields and v1 schemas move to leaf modules; v1 fixture bytes pinned; 5c22159 golden Practice content-key capture committed; 1920&#xd7;1080 layout check moved to the compiled fixture; one Playwright worksheet-controls helper. No persisted-shape or runtime change. Full npm --prefix frontend run check gate plus Done when: legacy-v1, config-module-graph and migrate-fixture tests; golden capture byte-equal and --compare exit 0; empty no-behavior-change diff; development-stack and 1920&#xd7;1080 relocation; helper-routing grep with 161 listed specs; Vitest &#x2265; 521 and Playwright &#x2265; 161; release:verify exit 0. Evidence: none yet.</dd>
             </dl>
           </div>
           <p>
             Failed manual acceptance returns to the owning step and its complete
             downstream closure through Step 13, then affected manual gates
             repeat. Failed M3 also requires another commit/push and exact-commit
-            verification.
+            verification. In the post-UAT run a failed step gate halts
+            build-phase and parks every later step and plan (P7); no interim
+            build is used with real family data.
           </p>
         </div>
       </section>
@@ -1302,6 +1635,54 @@
                   </td>
                   <td>Run start/end unknown / acceptance observed at checkpoint</td>
                 </tr>
+                <tr id="uat-5c22159-evidence">
+                  <td>
+                    2026-09-29 03:21:48 UTC commit <code>5c22159</code>
+                    (2026-09-28 20:21:48 PDT)<br />ci.yml run created 03:22:28
+                    UTC, completed 03:30:42 UTC
+                  </td>
+                  <td>
+                    UAT rounds 1-2 shipped at <code>5c22159</code> ("feat: refine
+                    worksheet UAT and seed the next feature plans"): expanded Dry
+                    Math presets, profile and copy simplification, independent
+                    product review and print cleanup
+                    (<a href="uat-round-1.md">UAT round 1</a>,
+                    <a href="uat-round-2-review.md">round 2 review</a>). The
+                    <a href="../plan.md">plan's post-build UAT checkpoint</a>
+                    records the first UAT full Windows check at 521 unit tests and
+                    160 browser specs plus privacy calibration, and the later
+                    focused presentation check at 20 unit tests and 109 browser
+                    checks. The push-triggered <code>ci.yml</code> run on
+                    <code>main</code> at exactly <code>5c22159</code> completed
+                    with conclusion success: M3 satisfied for that commit only.
+                    M1 and M2 remain open.
+                  </td>
+                  <td>
+                    UAT work start/end unknown / CI run created and completed as
+                    reported by GitHub
+                  </td>
+                </tr>
+                <tr id="plan01-planning-evidence">
+                  <td>
+                    2026-09-29 planning session<br />Commit <code>511570d</code>
+                    2026-09-29 05:33:53 PDT (12:33:53 UTC)
+                  </td>
+                  <td>
+                    Plan 01 worksheet-first controls authored (Steps 14-20 plus a
+                    phase-end Manual UAT bundle), adversarially critiqued with
+                    coordinator rulings recorded, and redlined; proposal
+                    publication 2 folds in the redline. Operator choices P1-P8
+                    and adopted defaults are recorded in
+                    <a href="feature-seeds/operator-decisions.md">operator decisions</a>.
+                    Committed at <code>511570d</code> "docs: add the
+                    worksheet-first controls plan and operator decisions" with the
+                    <a href="worksheet-first-plan.md">plan</a>, the
+                    <a href="worksheet-first-proposal.html">proposal</a> and the
+                    canonical plan's post-UAT pointer section. Planning only: no
+                    plan 01 step had started and no gate had run.
+                  </td>
+                  <td>Session start/end unknown / commit time only</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1474,29 +1855,164 @@
         M1: {
           id: "M1",
           label: "Physical print acceptance",
-          dep: "Step13 (includes Step10)",
+          dep: "Step13 (includes Step10); plan 01 additions after Step 20",
           owner: "Operator",
-          state: "Pending",
-          gate: "Physical Letter/A4 output in Edge and Chrome; all families, both Wow variants, standard/large and separate keys. Record non-sensitive printer/browser observations.",
+          state: "Open / pending",
+          gate: "Physical Letter/A4 output in Edge and Chrome; all families, both Wow variants, standard/large and separate keys. Record non-sensitive printer/browser observations. Plan 01 adds one page per Sentence variant (both vocabulary options), Dry Math within 100 with its key, Count/Compare to 20 with Theme Space and with art off, and review of comparison prompts and isolated numerals (D-print).",
           evidence: "../plan.md",
         },
         M2: {
           id: "M2",
           label: "Short family usability pilot",
-          dep: "M1",
+          dep: "M1; plan 01 additions after Step 20",
           owner: "Operator",
-          state: "Pending",
-          gate: "Capability-aligned pilot and non-identifying observations. Current pilot covers ages four and six; age eight has fixture-based acceptance only.",
+          state: "Open / pending",
+          gate: "Capability-aligned pilot and non-identifying observations. Current pilot covers ages four and six; age eight has fixture-based acceptance only. Plan 01 adds a pilot choosing writing activity and practice focus per child without editing profiles, recording whether the Vocabulary, Statements and practice-focus labels are understood.",
           evidence: "../plan.md",
         },
         M3: {
           id: "M3",
           label: "Live GitHub Actions smoke",
-          dep: "M2 / repo-update commit/push",
+          dep: "repo-update commit/push of the exact commit",
           owner: "Operator",
-          state: "Pending",
-          gate: "Successful push-triggered ci.yml on exact pushed HEAD and branch, including mandatory Ubuntu print geometry and POSIX gates.",
-          evidence: "../plan.md",
+          state: "Satisfied for 5c22159; recurs per pushed commit",
+          gate: "Successful push-triggered ci.yml on exact pushed HEAD and branch, including mandatory Ubuntu print geometry and POSIX gates. Satisfied only for 5c22159; plan 01's pushed commit and each later plan's need their own run.",
+          evidence: "#uat-5c22159-evidence",
+        },
+        Step14: {
+          id: "Step14",
+          label: "Config module leaves, frozen v1 read path and content baseline",
+          dep: "none (Steps 1-13 merged)",
+          owner: "build-phase developer + deep code reviewers (--reviewers deep)",
+          state: "Planned",
+          gate: "Pure refactor: config enums, fields and v1 schemas move to leaf modules; v1 fixture bytes pinned; 5c22159 golden Practice content-key capture committed; 1920\u00d71080 layout check moved to the compiled fixture; one Playwright worksheet-controls helper. No persisted-shape or runtime change. Full npm --prefix frontend run check gate plus Done when: legacy-v1, config-module-graph and migrate-fixture tests; golden capture byte-equal and --compare exit 0; empty no-behavior-change diff; development-stack and 1920\u00d71080 relocation; helper-routing grep with 161 listed specs; Vitest \u2265 521 and Playwright \u2265 161; release:verify exit 0. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        Step15: {
+          id: "Step15",
+          label: "Config schema v2 with lossless v1 upgrade and age-free profiles",
+          dep: "Step 14",
+          owner: "build-phase developer + deep code reviewers (--reviewers deep)",
+          state: "Planned",
+          gate: "Persist schemaVersion 2 in its fingerprinted shape; read v1 without writing and upgrade only on the first explicit save behind a byte-identical v1 backup; newer versions stay blocked; age removed from profiles, generation and public codes (P2). Full npm --prefix frontend run check gate plus Done when: migrate (\u2265 200 fast-check configs), config-store, real-Fastify config-upgrade round trip, schema-parity (20 public codes), shape fingerprint with five calibration variants, release-audit, editor and options tests, Playwright profile-flow, release-smoke, accessibility, print and log-privacy (exits 1/1/0), golden continuity, limit-labels; counts \u2265 Step 14; release:verify exit 0. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        Step16: {
+          id: "Step16",
+          label: "Practice focus replaces Difficulty in generation",
+          dep: "Step 15",
+          owner: "build-phase developer + full code and runtime reviewers (--reviewers full)",
+          state: "Planned",
+          gate: "Every generation request is built from a worksheet selection through the sole projection boundary; Difficulty, its stretch confirmation and hidden multiplier are deleted; equivalent choices keep identical content; each child follows its earlier settings. Full npm --prefix frontend run check gate plus Done when: golden grid through the selection path and --compare exit 0; project-request exactness and \u2265 200-run property; generator known vectors unchanged (all generatorVersions 1); limit-labels arm catalogue; availability equals generation in every catalog cell; earlier-settings mapping; plan-citation and envelope guards; Playwright replacements; interim defaults save; copy and import scans; counts \u2265 Step 15. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        Step17: {
+          id: "Step17",
+          label: "Worksheet-first panel with session-held selections",
+          dep: "Step 16",
+          owner: "build-phase developer + full code and runtime reviewers (--reviewers full)",
+          state: "Planned",
+          gate: "A parent chooses worksheet type, variant, child and practice focus, in that order, in a responsive panel; selections are session state that survives profile edits, saves and reloads and is saved only by the explicit worksheet-defaults action (P1, D-save). Full npm --prefix frontend run check gate plus Done when: worksheet-session tests; panel and App-level save tests; compiled worksheet-choices spec; accessibility (six axe tag groups, keyboard path, 1280 and 320 px, 200% text); print path diff empty with 84 worksheet cases and 16 key PDFs; e2e-title-privacy; 1920\u00d71080 layout; counts \u2265 Step 16. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        Step18: {
+          id: "Step18",
+          label: "Identity-only profiles, age-free documentation and worksheet-driven print evidence",
+          dep: "Step 17",
+          owner: "build-phase developer + full code and runtime reviewers (--reviewers full)",
+          state: "Planned",
+          gate: "The profile is reduced to nickname, review date and interests with a read-only earlier-settings summary; the example, print matrix and browser tests take choices from worksheet controls; remaining public age claims are removed. Full npm --prefix frontend run check gate plus Done when: identity-only ProfileEditor; v2 example in schema-parity and migrate-fixture; release-audit with exactly six canonical hashes; print.spec 84 worksheet cases and 16 key PDFs over identity-only profiles; no profile-driven choice greps; profile-flow; age-docs scan with calibration; counts \u2265 Step 17; release:verify exit 0. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        Step19: {
+          id: "Step19",
+          label: "Explicit decorative Theme",
+          dep: "Step 18",
+          owner: "build-phase developer + full code and runtime reviewers (--reviewers full)",
+          state: "Planned",
+          gate: "Sentence Builder and Count, Compare & Make artwork is chosen by an explicit Theme, independent of instructional interest use, and never alters work or answers (D-theme). Full npm --prefix frontend run check gate plus Done when: theme resolution table and properties in project-request; generator and registry invariants; graphics.spec assets, neutral fallback, art-off content equality and identical panel geometry at Letter/A4 standard/large; v1 continuity; axe with Theme shown; counts \u2265 Step 18. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        Step20: {
+          id: "Step20",
+          label: "Compiled upgrade-to-print smoke",
+          dep: "Step 19",
+          owner: "build-phase developer + deep code reviewers (--reviewers deep)",
+          state: "Planned",
+          gate: "On the compiled app with real routes and a real temporary file, a fictional v1 file is read unchanged, upgrades once on the first save and survives a restart; every worksheet-first choice then drives preview, answer key and print. Full npm --prefix frontend run check gate plus Done when: smoke passes in CI mode within 90 s (one byte-identical backup, strict v2, restart, per-choice previews, one-page prints, no non-loopback request or console/server error, clean logs); upgrade-oracle test; test:log-privacy exits 1/1/1/0/0; release:verify exit 0; counts \u2265 Step 19. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        Plan02: {
+          id: "Plan02",
+          label: "Math operations and activities (Steps 21-27, grouped)",
+          dep: "Plan 01 full gate and its repo-update push (P7, P8); re-checked against what shipped",
+          owner: "Planning session, then build-phase developer + reviewers",
+          state: "Drafting; plan not reviewed, not started",
+          gate: "Seven steps: independent arithmetic oracle, version-generic read path and schema v3, carrying and borrowing in Dry Math (P6), multiplication and exact division by fact family with factors 0-12 (P3), and the Number Bonds / Missing Numbers family (P5). Each step's full check gate and Done when, fixed once the plan is reviewed; its own repo-update push, then M3 for that exact commit. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        Plan03: {
+          id: "Plan03",
+          label: "Printable packets (Steps 28-34, grouped)",
+          dep: "Plan 01; built after Plan 02's full gate and push (P7, P8)",
+          owner: "Planning session, then build-phase developer + reviewers",
+          state: "Drafting; plan not reviewed, not started",
+          gate: "Seven steps: durable private local packet drafts with ETag precondition, atomic writes, explicit recovery and release-export exclusion (P4); up to 10 sheets, one packet-wide layout and grouped answer keys (D-packet); compiled packet smoke. Each step's full check gate and Done when, fixed once the plan is reviewed; its repo-update push ends the unattended run, then M3 for that exact commit. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        WF0: {
+          id: "WF0",
+          label: "Retained-store dated private backup (recommended)",
+          dep: "End of the whole run, launcher still stopped; before WF-1",
+          owner: "Operator",
+          state: "Recommended operator action; not started",
+          gate: "Morning-checklist action from the plan 01 Manual UAT bundle (D-uatbackup); not a run precondition. A dated private copy of the retained attended-UAT store exists outside the repository, and the launcher is confirmed not to delete its working copy or rewrite it with the v1 schema. Agents never read, copy or move it. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        WF1: {
+          id: "WF1",
+          label: "Retained-store upgrade on the last shipped build",
+          dep: "Whole P7 run ended (last repo-update or a parking halt); WF-0 recommended first",
+          owner: "Operator",
+          state: "Pending operator gate; not started",
+          gate: "Start the retained launcher against the last shipped build, confirm the upgrade notice, then make one explicit save. Profiles, nicknames and interests intact; earlier settings seed each child until the first defaults save; exactly one v1 backup beside the live file, copied beside the WF-0 backup; nothing reset or reseeded. A later plan that changes the persisted shape states its own upgrade row. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        WF2: {
+          id: "WF2",
+          label: "On-screen worksheet-first panel review",
+          dep: "Plan 01 build-phase complete (Step 20)",
+          owner: "Operator",
+          state: "Pending operator gate; not started",
+          gate: "Build, then run manual:print with the disposable fictional profiles and review the panel on screen. Worksheet type reads as the primary choice, practice-focus labels state operations and range, More options hides only secondary choices, and no age or Difficulty appears anywhere. Evidence: none yet.",
+          evidence: "none yet",
+        },
+        RU01: {
+          id: "Join gate",
+          label: "repo-update push after plan 01",
+          dep: "Step 20 full gate",
+          owner: "Coordinator (repo-update)",
+          state: "Planned join gate",
+          gate: "Commit and push the exact plan 01 commit (P8); M3 then watches that commit's ci.yml run on Ubuntu 24.04. WF-2 and the plan 01 additions to M1 and M2 become runnable. Plan 02 starts only after this gate.",
+          evidence: "none yet",
+        },
+        RU02: {
+          id: "Join gate",
+          label: "repo-update push after plan 02",
+          dep: "Plan 02 full gate",
+          owner: "Coordinator (repo-update)",
+          state: "Planned join gate",
+          gate: "Commit and push the exact plan 02 commit (P8), then M3 for that commit. Plan 03 starts only after this gate.",
+          evidence: "none yet",
+        },
+        RU03: {
+          id: "Join gate",
+          label: "repo-update push after plan 03 (run end)",
+          dep: "Plan 03 full gate",
+          owner: "Coordinator (repo-update)",
+          state: "Planned join gate",
+          gate: "Commit and push the exact plan 03 commit (P8), then M3 for that commit. This ends the whole unattended run; WF-0 and then WF-1 may follow.",
+          evidence: "none yet",
         },
       };
       document.querySelectorAll("[data-detail]").forEach((b) =>
@@ -1511,6 +2027,7 @@
         }),
       );
       const search = document.getElementById("search");
+      const totalUnits = document.querySelectorAll("[data-unit]").length;
       function filter() {
         let n = 0;
         for (const row of document.querySelectorAll("[data-unit]")) {
@@ -1519,7 +2036,10 @@
             .includes(search.value.toLowerCase().trim());
           if (!row.hidden) n++;
         }
-        document.getElementById("count").textContent = n + " of 16 units shown";
+        document.getElementById("count").textContent =
+          n === totalUnits
+            ? "All " + totalUnits + " units shown"
+            : n + " of " + totalUnits + " units shown";
       }
       search.addEventListener("input", filter);
       document.getElementById("reset").addEventListener("click", () => {
