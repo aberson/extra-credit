@@ -12,10 +12,7 @@ import {
   isHealthResponse,
   type HealthResponse,
 } from "../shared/api/health";
-import {
-  emptyAppConfigV2,
-  themeFromInterests,
-} from "../shared/config/defaults";
+import { emptyAppConfigV2 } from "../shared/config/defaults";
 import {
   AppConfigV2Schema,
   type AppConfigV2,
@@ -41,10 +38,12 @@ import {
   type GenerationSelection,
   type WorksheetSession,
 } from "./generator/create-session";
+import { GeneratorControls } from "./generator/GeneratorControls";
 import {
-  GeneratorControls,
-  type ShownWorksheetDefaults,
-} from "./generator/GeneratorControls";
+  defaultsForSave,
+  worksheetSessionReducer,
+  type WorksheetPanelAction,
+} from "./generator/worksheet-session";
 import { PrintView } from "./print/PrintView";
 
 const DOCUMENT_TITLE = "Extra Credit Worksheet";
@@ -132,6 +131,8 @@ interface ProfileControllerState {
 
 interface ActiveGeneration {
   readonly authority: number;
+  /** The worksheet session's preview epoch this page was created at. */
+  readonly previewEpoch: number;
   readonly selection: GenerationSelection;
   readonly session: WorksheetSession;
 }
@@ -310,11 +311,10 @@ function profileControllerReducer(
     }
     /**
      * A worksheet-defaults write: same file, same ETag round trip, but the
-     * profile revision does NOT move. Everything keyed on that revision - the
-     * generator panel and the open profile editor - stays mounted with the
-     * parent's selections intact, because nothing about a child profile
-     * changed. The open editor is re-stamped with the new ETag so its own save
-     * is not stranded behind a precondition this write just superseded.
+     * profile revision does NOT move, because nothing about a child profile
+     * changed: the profile list keyed on that revision stays mounted. The open
+     * editor is re-stamped with the new ETag so its own save is not stranded
+     * behind a precondition this write just superseded.
      *
      * The confirmation belongs to the panel that holds the button, beside the
      * failure message its own retry already reads: there it appears where the
@@ -349,9 +349,8 @@ function profileControllerReducer(
     }
     /**
      * Adopts a re-read after a superseded defaults write. The stale ETag is
-     * what failed, so the fix is to carry the current one - not to renumber
-     * the revision, which would unmount the control holding the parent's
-     * selections and the message telling them what happened.
+     * what failed, so the fix is to carry the current config and ETag; the
+     * profile revision stays where it is.
      */
     case "refresh-authority": {
       if (!operationMatches(state.operation, action.operation)) {
@@ -550,6 +549,35 @@ export function App() {
   } = profileController;
   const operationPending = operation !== null;
   const readPending = operation?.kind === "read";
+  /**
+   * The parent's worksheet selection (DD8): held here, above the profile
+   * editor, so profile edits, saves, cancelled edits and in-app reloads keep
+   * it. It is `null` until the first ready config read.
+   */
+  const [worksheetSession, dispatchWorksheet] = useReducer(
+    worksheetSessionReducer,
+    null,
+  );
+  const worksheetSessionStartedRef = useRef(false);
+
+  /**
+   * Hands a ready config read to the worksheet session: the first one (and a
+   * recovery save, which replaces the whole file) starts the session, and
+   * every later read moves only the groups the parent has not changed.
+   */
+  const adoptSessionConfig = useCallback(
+    (config: AppConfigV2, restart: boolean): void => {
+      const type =
+        restart || !worksheetSessionStartedRef.current ? "loaded" : "reloaded";
+      worksheetSessionStartedRef.current = true;
+      dispatchWorksheet({
+        type,
+        defaults: config.defaults,
+        profiles: config.profiles,
+      });
+    },
+    [],
+  );
 
   const invalidateGenerationAuthority = useCallback((): void => {
     generationAuthorityRef.current += 1;
@@ -609,9 +637,12 @@ export function App() {
         operation: completedOperation,
         outcome,
       });
+      if (outcome.kind === "ready") {
+        adoptSessionConfig(outcome.config, false);
+      }
       return true;
     },
-    [],
+    [adoptSessionConfig],
   );
 
   const adoptWriteOutcome = useCallback(
@@ -619,6 +650,7 @@ export function App() {
       completedOperation: ProfileOperation,
       saved: LoadedConfig,
       message: string,
+      recoverySave: boolean,
     ): boolean => {
       if (!operationMatches(operationRef.current, completedOperation)) {
         return false;
@@ -631,13 +663,26 @@ export function App() {
         operation: completedOperation,
         saved,
       });
+      if (recoverySave) {
+        // The recovery save replaced the whole file, so the session starts over.
+        adoptSessionConfig(saved.config, true);
+      } else {
+        dispatchWorksheet({
+          type: "profilesChanged",
+          profiles: saved.config.profiles,
+        });
+      }
       return true;
     },
-    [],
+    [adoptSessionConfig],
   );
 
   const adoptDefaultsWriteOutcome = useCallback(
-    (completedOperation: ProfileOperation, saved: LoadedConfig): boolean => {
+    (
+      completedOperation: ProfileOperation,
+      saved: LoadedConfig,
+      writtenDefaults: AppConfigV2["defaults"],
+    ): boolean => {
       if (!operationMatches(operationRef.current, completedOperation)) {
         return false;
       }
@@ -648,6 +693,7 @@ export function App() {
         operation: completedOperation,
         saved,
       });
+      dispatchWorksheet({ type: "defaultsSaved", defaults: writtenDefaults });
       return true;
     },
     [],
@@ -753,6 +799,7 @@ export function App() {
           mutation,
           saved,
           existingIndex === -1 ? "Profile saved locally." : "Profile updated locally.",
+          profileState.kind === "recovery",
         )
       ) {
         throw new ConfigApiError(
@@ -815,41 +862,40 @@ export function App() {
       operation: refresh,
       storedSchemaVersion: outcome.storedSchemaVersion,
     });
+    adoptSessionConfig(outcome.config, false);
   }
 
   /**
-   * Writes the generator's option choices back as the stored defaults.
+   * Writes the visible worksheet selection as the stored defaults.
    *
    * Defaults live beside the profiles in the one local file, so this walks the
    * same ETag-guarded round trip a profile write does and passes the existing
    * `profiles` array through untouched: saving defaults must never edit, drop
    * or reorder a child profile. It claims the file under the `defaults`
-   * operation kind, which is what keeps the generated preview and the parent's
-   * child/family selection alive across the write.
+   * operation kind, which is what keeps the generated preview alive across
+   * the write.
    *
-   * Before the worksheet-first panel exists this is DD9's pre-panel rule
-   * (D-save): it writes only the fields the panel shows, derives `theme` from
-   * `useInterests` by the migration rule (D33), and passes every worksheet
-   * group and `useEarlierChildSettings` through unchanged, so it never writes
-   * a group derived from a child's earlier settings.
+   * DD9's defaults-save rule (D-save): the body is exactly the visible
+   * selection, seeded groups included, with `useEarlierChildSettings: false`
+   * (`defaultsForSave`), so the first explicit save ends seeding for good. The
+   * same object is handed to the session as `defaultsSaved`.
    */
-  async function saveGenerationDefaults(
-    shown: ShownWorksheetDefaults,
-  ): Promise<void> {
-    if (profileState.kind !== "ready" || operationRef.current !== null) {
+  async function saveGenerationDefaults(): Promise<void> {
+    if (
+      profileState.kind !== "ready" ||
+      operationRef.current !== null ||
+      worksheetSession === null
+    ) {
       throw new ConfigApiError(
         "CONFIG_IO_ERROR",
         "Profiles are not ready to change.",
         503,
       );
     }
+    const writtenDefaults = defaultsForSave(worksheetSession);
     const nextConfig = AppConfigV2Schema.parse({
       ...profileState.config,
-      defaults: {
-        ...profileState.config.defaults,
-        ...shown,
-        theme: themeFromInterests(shown.useInterests),
-      },
+      defaults: writtenDefaults,
     });
     const write = beginProfileOperation("defaults");
     if (write === undefined) {
@@ -863,7 +909,7 @@ export function App() {
       const saved = await saveConfig(nextConfig, {
         ...(profileState.etag === undefined ? {} : { etag: profileState.etag }),
       });
-      if (!adoptDefaultsWriteOutcome(write, saved)) {
+      if (!adoptDefaultsWriteOutcome(write, saved, writtenDefaults)) {
         throw new ConfigApiError(
           "CONFIG_CONFLICT",
           "A newer profile operation superseded this save.",
@@ -901,6 +947,7 @@ export function App() {
           mutation,
           saved,
           "Profile deleted from the live local file.",
+          false,
         )
       ) {
         throw new ConfigApiError(
@@ -964,6 +1011,7 @@ export function App() {
   function generateWorksheet(
     selection: GenerationSelection,
     renderedAuthority: number,
+    renderedPreviewEpoch: number,
   ): void {
     if (
       generationActionRef.current ||
@@ -998,6 +1046,7 @@ export function App() {
       setGenerationFailed(false);
       setActiveGeneration({
         authority: renderedAuthority,
+        previewEpoch: renderedPreviewEpoch,
         selection: currentSelection,
         session: generated.session,
       });
@@ -1024,7 +1073,8 @@ export function App() {
       makeAnotherExhausted ||
       profileState.kind !== "ready" ||
       operationRef.current !== null ||
-      activeGeneration.authority !== generationAuthorityRef.current
+      activeGeneration.authority !== generationAuthorityRef.current ||
+      activeGeneration.previewEpoch !== worksheetSession?.previewEpoch
     ) {
       return;
     }
@@ -1054,6 +1104,7 @@ export function App() {
       if (alternative.status === "changed") {
         setActiveGeneration({
           authority: activeGeneration.authority,
+          previewEpoch: activeGeneration.previewEpoch,
           selection: currentSelection,
           session: alternative.session,
         });
@@ -1083,12 +1134,22 @@ export function App() {
       ? profileState.config
       : undefined;
   const renderedGenerationAuthority = generationAuthority;
+  // A page is shown only while nothing it was built from has changed: the
+  // generation authority covers profile operations, and the session's preview
+  // epoch rises once for every selection change, child switch, profile change
+  // and in-app reload, so each rise takes the page down.
   const visibleActiveGeneration =
     activeGeneration !== null &&
     profileState.kind === "ready" &&
-    activeGeneration.authority === renderedGenerationAuthority
+    activeGeneration.authority === renderedGenerationAuthority &&
+    activeGeneration.previewEpoch === worksheetSession?.previewEpoch
       ? activeGeneration
       : null;
+
+  function changeWorksheetSelection(action: WorksheetPanelAction): void {
+    dispatchWorksheet(action);
+    clearGeneration();
+  }
 
   return (
     <main ref={workspaceRef} className="app-shell" style={shellStyle}>
@@ -1273,17 +1334,19 @@ export function App() {
                           : "Reload saved profiles"}
                     </button>
                   </div>
-                  {profileState.kind === "ready" && (
+                  {profileState.kind === "ready" && worksheetSession !== null && (
                     <GeneratorControls
-                      key={`generator-${profileState.revision}`}
-                      defaults={profileState.config.defaults}
                       disabled={operationPending || generationBusy}
+                      onChange={changeWorksheetSelection}
                       onGenerate={(selection) =>
-                        generateWorksheet(selection, renderedGenerationAuthority)
+                        generateWorksheet(
+                          selection,
+                          renderedGenerationAuthority,
+                          worksheetSession.previewEpoch,
+                        )
                       }
-                      onInputsChanged={clearGeneration}
                       onSaveDefaults={saveGenerationDefaults}
-                      profiles={profileState.config.profiles}
+                      session={worksheetSession}
                     />
                   )}
                   {generationMessage !== null && (

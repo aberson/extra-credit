@@ -506,11 +506,10 @@ test("renders quantity, Statements-fallback and equation Wow pages through the c
   await expect(
     page.getByText("Saved profiles reloaded from the local file."),
   ).toBeVisible();
-  const worksheetSelect = controls(page).worksheetType();
   const createButton = page.getByRole("button", { name: "Create worksheet" });
-  await expect(worksheetSelect).toBeEnabled();
+  await expect(controls(page).worksheetCard("find-the-wow")).toBeEnabled();
   await expect(
-    worksheetSelect.locator('option[value="find-the-wow"]'),
+    controls(page).worksheetCardLabel("find-the-wow"),
   ).toHaveText("Math — Two Whats and a Wow");
   await chooseWorksheet(page, "find-the-wow");
 

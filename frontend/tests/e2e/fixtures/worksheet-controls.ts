@@ -1,11 +1,19 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
+import { SENTENCE_VOCABULARY_LABELS } from "../../../src/shared/config/practice-focus.ts";
+import type {
+  FindTheWowVariant,
+  SentenceVocabulary,
+  WritingMode,
+} from "../../../src/shared/config/schema.ts";
 import type {
   PaperSize,
   PrintScale,
   WorksheetLength,
   WorksheetType,
 } from "../../../src/shared/worksheet/types.ts";
+import { FIND_THE_WOW_VARIANT_LABELS } from "../../../src/worksheets/find-the-wow/definition.ts";
+import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../../src/worksheets/sentence-builder/definition.ts";
 
 /**
  * The one Playwright helper for worksheet choices and for the nickname,
@@ -19,8 +27,21 @@ import type {
  */
 
 export interface WorksheetControls {
+  /** The "Worksheet type" radio-card group. */
   readonly worksheetType: () => Locator;
+  /** One worksheet-type radio card's input. */
+  readonly worksheetCard: (worksheetType: WorksheetType) => Locator;
+  /** One worksheet-type card's visible title. */
+  readonly worksheetCardLabel: (worksheetType: WorksheetType) => Locator;
+  /** The "Writing activity" radio group (Sentence Builder). */
+  readonly writingActivity: () => Locator;
+  /** The "Statements" radio group (Two Whats and a Wow). */
+  readonly statements: () => Locator;
   readonly child: () => Locator;
+  readonly practiceFocus: () => Locator;
+  /** The "Vocabulary" radio group (Sentence Builder). */
+  readonly vocabulary: () => Locator;
+  readonly moreOptions: () => Locator;
   readonly length: () => Locator;
   readonly paperSize: () => Locator;
   readonly printScale: () => Locator;
@@ -28,12 +49,22 @@ export interface WorksheetControls {
   readonly interests: () => Locator;
   readonly graphics: () => Locator;
   readonly answerKey: () => Locator;
+  readonly create: () => Locator;
 }
 
 export function controls(page: Page): WorksheetControls {
+  const worksheetType = () => page.getByRole("group", { name: "Worksheet type", exact: true });
   return {
-    worksheetType: () => page.getByRole("combobox", { name: "Worksheet type" }),
+    worksheetType,
+    worksheetCard: (type) => worksheetType().locator(`input[type="radio"][value="${type}"]`),
+    worksheetCardLabel: (type) =>
+      worksheetType().locator(`[id="worksheet-type-${type}-title"]`),
+    writingActivity: () => page.getByRole("group", { name: "Writing activity", exact: true }),
+    statements: () => page.getByRole("group", { name: "Statements", exact: true }),
     child: () => page.getByRole("combobox", { name: "Child profile" }),
+    practiceFocus: () => page.getByRole("combobox", { name: "Practice focus", exact: true }),
+    vocabulary: () => page.getByRole("group", { name: "Vocabulary", exact: true }),
+    moreOptions: () => page.locator("summary").filter({ hasText: /^More options$/u }),
     length: () => page.getByRole("combobox", { name: "Length", exact: true }),
     paperSize: () => page.getByRole("combobox", { name: "Paper size" }),
     printScale: () => page.getByRole("combobox", { name: "Print scale" }),
@@ -41,11 +72,12 @@ export function controls(page: Page): WorksheetControls {
     interests: () => page.getByLabel("Use reviewed interests in worksheet content"),
     graphics: () => page.getByLabel("Include decorative graphics"),
     answerKey: () => page.getByLabel("Include a parent answer key"),
+    create: () => page.getByRole("button", { name: "Create worksheet", exact: true }),
   };
 }
 
 function moreOptions(page: Page): { readonly details: Locator; readonly summary: Locator } {
-  const summary = page.locator("summary").filter({ hasText: /^More options$/u });
+  const summary = controls(page).moreOptions();
   return { details: page.locator("details").filter({ has: summary }), summary };
 }
 
@@ -58,16 +90,55 @@ export async function openMoreOptions(page: Page): Promise<void> {
   await expect(details).toHaveAttribute("open", "");
 }
 
+/** Checks one worksheet-type radio card. */
 export async function chooseWorksheet(page: Page, worksheetType: WorksheetType): Promise<void> {
-  const select = controls(page).worksheetType();
-  await select.selectOption(worksheetType);
-  await expect(select).toHaveValue(worksheetType);
+  const card = controls(page).worksheetCard(worksheetType);
+  await card.check();
+  await expect(card).toBeChecked();
 }
 
 export async function chooseChild(page: Page, profileId: string): Promise<void> {
   const select = controls(page).child();
   await select.selectOption(profileId);
   await expect(select).toHaveValue(profileId);
+}
+
+/**
+ * Checks one variant: a Sentence Builder writing activity or a Two Whats and
+ * a Wow statements kind, by its visible label.
+ */
+export async function chooseVariant(
+  page: Page,
+  variant: WritingMode | FindTheWowVariant,
+): Promise<void> {
+  const radio =
+    variant === "quantity" || variant === "equation"
+      ? controls(page).statements().getByRole("radio", {
+          name: FIND_THE_WOW_VARIANT_LABELS[variant],
+          exact: true,
+        })
+      : controls(page).writingActivity().getByRole("radio", {
+          name: SENTENCE_BUILDER_VARIANT_LABELS[variant],
+          exact: true,
+        });
+  await radio.check();
+  await expect(radio).toBeChecked();
+}
+
+/** Chooses a practice focus by its visible label, for example "Addition within 20". */
+export async function choosePracticeFocus(page: Page, label: string): Promise<void> {
+  const select = controls(page).practiceFocus();
+  await select.selectOption({ label });
+  await expect(select.locator("option:checked")).toHaveText(label);
+}
+
+export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabulary): Promise<void> {
+  const radio = controls(page).vocabulary().getByRole("radio", {
+    name: SENTENCE_VOCABULARY_LABELS[vocabulary],
+    exact: true,
+  });
+  await radio.check();
+  await expect(radio).toBeChecked();
 }
 
 export async function chooseLength(page: Page, length: WorksheetLength): Promise<void> {
@@ -100,11 +171,12 @@ async function setToggle(control: Locator, checked: boolean): Promise<void> {
   await expect(control).toBeChecked({ checked });
 }
 
-/** The personalization checkboxes, each only when given. */
+/** The personalization checkboxes under More options, each only when given. */
 export async function setPersonalization(
   page: Page,
   choices: { readonly nickname?: boolean; readonly interests?: boolean; readonly graphics?: boolean },
 ): Promise<void> {
+  await openMoreOptions(page);
   const named = controls(page);
   if (choices.nickname !== undefined) {
     await setToggle(named.nickname(), choices.nickname);

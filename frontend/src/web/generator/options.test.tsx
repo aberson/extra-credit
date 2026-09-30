@@ -2,8 +2,13 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { createElement } from "react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  createElement,
+  useEffect,
+  useReducer,
+  type Dispatch,
+} from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -21,7 +26,10 @@ import {
 } from "../../shared/config/earlier-settings";
 import {
   PRACTICE_FOCUS_CATALOG,
+  SENTENCE_VOCABULARY_LABELS,
+  describePracticeFocus,
   presentationBandForVocabulary,
+  type PracticeFocusKind,
 } from "../../shared/config/practice-focus";
 import {
   PRINT_SCALES,
@@ -40,6 +48,7 @@ import {
 } from "../../shared/worksheet/registry";
 import type { WorksheetGeneratorV1 } from "../../shared/worksheet/types";
 import {
+  SENTENCE_BUILDER_VARIANT_LABELS,
   getSentenceBuilderBankSize,
   getSentenceBuilderCapabilitySupport,
 } from "../../worksheets/sentence-builder/definition";
@@ -50,10 +59,13 @@ import {
   type GenerationSelection,
 } from "./create-session";
 import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
+import { FIND_THE_WOW_VARIANT_LABELS } from "../../worksheets/find-the-wow/definition";
+import { GeneratorControls } from "./GeneratorControls";
 import {
-  GeneratorControls,
-  type ShownWorksheetDefaults,
-} from "./GeneratorControls";
+  worksheetSessionReducer,
+  type WorksheetPanelAction,
+  type WorksheetSessionAction,
+} from "./worksheet-session";
 
 /*
  * Step 9 owns the worksheet-option contract, and two accepted findings that
@@ -428,42 +440,118 @@ function capacityMessage(context: WorksheetControlContextV2): string {
   return support.capacity.message;
 }
 
+/** The layout and personalization fields a fixture may preset in the saved defaults. */
+type ShownDefaults = Pick<
+  WorksheetDefaultsV2,
+  | "useDisplayName"
+  | "useInterests"
+  | "includeDecorativeGraphics"
+  | "length"
+  | "includeAnswerKey"
+  | "paperSize"
+  | "printScale"
+>;
+
 /**
  * The stored version 2 defaults the panel starts from, carrying the given
- * shown fields; `theme` follows `useInterests` as every interim save derives it.
+ * shown fields; `theme` follows `useInterests` as every save derives it.
+ * Seeding is on, as a migrated file has it, so each fixture child's earlier
+ * settings reach the panel.
  */
 function storedDefaults(
-  shown: Partial<ShownWorksheetDefaults> = {},
+  shown: Partial<ShownDefaults> = {},
+  useEarlierChildSettings = true,
 ): WorksheetDefaultsV2 {
   const base = emptyAppConfigV2().defaults;
   const merged = { ...base, ...shown };
-  return { ...merged, theme: themeFromInterests(merged.useInterests) };
+  return {
+    ...merged,
+    theme: themeFromInterests(merged.useInterests),
+    useEarlierChildSettings,
+  };
+}
+
+interface PanelHarnessProps {
+  readonly defaults: WorksheetDefaultsV2;
+  readonly profiles: readonly ChildProfileV2[];
+  readonly onChange?: (action: WorksheetPanelAction) => void;
+  readonly onDispatch?: (dispatch: Dispatch<WorksheetSessionAction>) => void;
+  readonly onGenerate?: (generation: GenerationSelection) => void;
+  readonly onSaveDefaults?: () => Promise<void>;
+}
+
+/**
+ * The controlled panel over the production session reducer, as App holds it:
+ * one `loaded` builds the session and every panel change is dispatched.
+ */
+function PanelHarness({
+  defaults,
+  onChange,
+  onDispatch,
+  onGenerate,
+  onSaveDefaults,
+  profiles,
+}: PanelHarnessProps) {
+  const [session, dispatch] = useReducer(worksheetSessionReducer, null, () =>
+    worksheetSessionReducer(null, { type: "loaded", defaults, profiles }),
+  );
+  useEffect(() => {
+    onDispatch?.(dispatch);
+  }, [dispatch, onDispatch]);
+  if (session === null) {
+    return null;
+  }
+  return createElement(GeneratorControls, {
+    session,
+    onChange: (action) => {
+      onChange?.(action);
+      dispatch(action);
+    },
+    onGenerate: onGenerate ?? (() => undefined),
+    onSaveDefaults: onSaveDefaults ?? (async () => undefined),
+  });
+}
+
+function renderPanel(props: PanelHarnessProps): void {
+  render(createElement(PanelHarness, props));
+}
+
+/** The worksheet-type radio card for one family, by its visible title. */
+function worksheetCard(worksheetType: RegisteredWorksheetType): HTMLElement {
+  return screen.getByRole("radio", {
+    name: getWorksheetRegistration(worksheetType).displayName,
+  });
+}
+
+function chooseWorksheet(worksheetType: RegisteredWorksheetType): void {
+  const card = worksheetCard(worksheetType);
+  if (!(card as HTMLInputElement).checked) {
+    fireEvent.click(card);
+  }
+  expect(card).toBeChecked();
+}
+
+function openMoreOptions(): void {
+  for (const details of document.querySelectorAll("details")) {
+    details.open = true;
+  }
 }
 
 function renderControls(
   profile: CapabilityProfileV1,
   worksheetType: RegisteredWorksheetType,
-  shown: Partial<ShownWorksheetDefaults> = {},
-  onSaveDefaults: (
-    defaults: ShownWorksheetDefaults,
-  ) => Promise<void> = async () => {},
+  shown: Partial<ShownDefaults> = {},
+  onSaveDefaults: () => Promise<void> = async () => {},
 ): { readonly onGenerate: ReturnType<typeof vi.fn> } {
   const onGenerate = vi.fn();
-  render(
-    createElement(GeneratorControls, {
-      defaults: storedDefaults(shown),
-      onGenerate,
-      onInputsChanged: vi.fn(),
-      onSaveDefaults,
-      profiles: [profileWithLegacyChoices(profile)],
-    }),
-  );
-  fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
-    target: { value: worksheetType },
+  renderPanel({
+    defaults: storedDefaults(shown),
+    onGenerate,
+    onSaveDefaults,
+    profiles: [profileWithLegacyChoices(profile)],
   });
-  for (const details of document.querySelectorAll("details")) {
-    details.open = true;
-  }
+  chooseWorksheet(worksheetType);
+  openMoreOptions();
   return { onGenerate };
 }
 
@@ -596,8 +684,8 @@ describe("capacity-aware availability (issue #14)", () => {
       }
     }
 
-    // The same verdict reaches the parent BEFORE the click: the panel applies
-    // the child's earlier settings itself and disables Create.
+    // The same verdict reaches the parent BEFORE the click: the seeded session
+    // applies the child's earlier settings and the panel disables Create.
     const { onGenerate } = renderControls(d36QuantityProfile, "find-the-wow", {
       length: "long",
     });
@@ -794,7 +882,7 @@ describe("capacity-aware availability (issue #14)", () => {
     const cases: readonly {
       readonly profile: CapabilityProfileV1;
       readonly worksheetType: RegisteredWorksheetType;
-      readonly shown: Partial<ShownWorksheetDefaults>;
+      readonly shown: Partial<ShownDefaults>;
       readonly message: string;
     }[] = [
       {
@@ -1374,53 +1462,21 @@ describe("stored capabilities Version 1 keeps but never uses", () => {
 });
 
 describe("stored generation defaults", () => {
-  test("saving stores the parent's raw choices and mutates no child profile", async () => {
-    const before = structuredClone(independentProfile);
-    const onSaveDefaults = vi.fn(async (defaults: ShownWorksheetDefaults) => {
-      void defaults;
+  test("the save button asks the host once and passes nothing", async () => {
+    // The host builds the save body from its own session state
+    // (`defaultsForSave`, pinned in worksheet-session.test.ts); the panel only
+    // asks for the save.
+    const onSaveDefaults = vi.fn(async (...args: unknown[]) => {
+      void args;
     });
-    renderControls(
-      independentProfile,
-      "sentence-builder",
-      { includeAnswerKey: true, printScale: "standard" },
-      onSaveDefaults,
-    );
-    fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
-      target: { value: "large" },
-    });
+    renderControls(independentProfile, "sentence-builder", {}, onSaveDefaults);
     fireEvent.click(
       screen.getByRole("button", { name: "Save these as worksheet defaults" }),
     );
-    await screen.findByRole("button", {
-      name: "Save these as worksheet defaults",
-    });
+    await screen.findByText("Worksheet defaults saved locally.");
 
-    // One save, one call, carrying only the fields this panel shows. Sentence
-    // Builder normalizes the answer key away at request time; the STORED
-    // default keeps the parent's visible choice, so reselecting a family that
-    // shows it finds it unchanged. No worksheet group, theme or Difficulty is
-    // part of what the panel hands over.
     expect(onSaveDefaults).toHaveBeenCalledTimes(1);
-    const saved = onSaveDefaults.mock.calls[0]?.[0];
-    expect(saved).toEqual({
-      useDisplayName: true,
-      useInterests: true,
-      includeDecorativeGraphics: true,
-      length: "standard",
-      includeAnswerKey: true,
-      paperSize: "letter",
-      printScale: "large",
-    });
-    expect(Object.keys(saved ?? {}).sort()).toEqual([
-      "includeAnswerKey",
-      "includeDecorativeGraphics",
-      "length",
-      "paperSize",
-      "printScale",
-      "useDisplayName",
-      "useInterests",
-    ]);
-    expect(independentProfile).toEqual(before);
+    expect(onSaveDefaults.mock.calls[0]).toEqual([]);
   });
 
   test("the save confirmation lands in this panel and retires when a choice changes", async () => {
@@ -1437,8 +1493,8 @@ describe("stored generation defaults", () => {
     );
     // The panel's own <section> is the whole component, so `closest` on it is
     // satisfied by anything this component renders - including the top of the
-    // panel, ~900px above the button, which is the defect being fixed. The
-    // slot holding the button is the smallest node that means "beside it".
+    // panel, far above the button, which is the defect being fixed. The slot
+    // holding the button is the smallest node that means "beside it".
     const saveButton = screen.getByRole("button", {
       name: "Save these as worksheet defaults",
     });
@@ -1458,47 +1514,42 @@ describe("stored generation defaults", () => {
     ).toBeNull();
   });
 
-  test("a save that changes no child profile keeps the parent's selection", async () => {
-    // The panel must survive a defaults write. `App` proves the real thing in
-    // `tests/e2e/options.spec.ts`; this pins the control's half of it - a
-    // fresh `defaults` object arriving as a prop must not reset the child or
-    // the family, neither of which is a stored default.
+  test("an in-app reload keeps the parent's child and worksheet type", () => {
+    // The panel's half of an in-app reload: reloaded defaults arriving
+    // through the session must not reset the child or the family, and they do
+    // move a group the parent has not changed.
     const second: CapabilityProfileV1 = {
       ...preschoolQuantityProfile,
       id: "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
       displayName: "Private Second Child",
     };
-    const { rerender } = render(
-      createElement(GeneratorControls, {
-        defaults: storedDefaults(),
-        onGenerate: vi.fn(),
-        onInputsChanged: vi.fn(),
-        onSaveDefaults: async () => {},
-        profiles: [independentProfile, second].map(profileWithLegacyChoices),
-      }),
-    );
+    let dispatch: Dispatch<WorksheetSessionAction> | undefined;
+    const profiles = [independentProfile, second].map(profileWithLegacyChoices);
+    renderPanel({
+      defaults: storedDefaults(),
+      onDispatch: (next) => {
+        dispatch = next;
+      },
+      profiles,
+    });
     fireEvent.change(screen.getByRole("combobox", { name: "Child profile" }), {
       target: { value: second.id },
     });
-    fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
-      target: { value: "count-compare-make" },
-    });
+    chooseWorksheet("count-compare-make");
 
-    rerender(
-      createElement(GeneratorControls, {
+    act(() => {
+      dispatch?.({
+        type: "reloaded",
         defaults: storedDefaults({ length: "long" }),
-        onGenerate: vi.fn(),
-        onInputsChanged: vi.fn(),
-        onSaveDefaults: async () => {},
-        profiles: [independentProfile, second].map(profileWithLegacyChoices),
-      }),
-    );
+        profiles,
+      });
+    });
     expect(screen.getByRole("combobox", { name: "Child profile" })).toHaveValue(
       second.id,
     );
-    expect(
-      screen.getByRole("combobox", { name: "Worksheet type" }),
-    ).toHaveValue("count-compare-make");
+    expect(worksheetCard("count-compare-make")).toBeChecked();
+    openMoreOptions();
+    expect(screen.getByRole("combobox", { name: "Length" })).toHaveValue("long");
   });
 
   test("a profile removed under the panel falls back to a real option", () => {
@@ -1507,30 +1558,45 @@ describe("stored generation defaults", () => {
       id: "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
       displayName: "Private Second Child",
     };
-    const { rerender } = render(
-      createElement(GeneratorControls, {
-        defaults: storedDefaults(),
-        onGenerate: vi.fn(),
-        onInputsChanged: vi.fn(),
-        onSaveDefaults: async () => {},
-        profiles: [independentProfile, second].map(profileWithLegacyChoices),
-      }),
-    );
+    let dispatch: Dispatch<WorksheetSessionAction> | undefined;
+    renderPanel({
+      defaults: storedDefaults(),
+      onDispatch: (next) => {
+        dispatch = next;
+      },
+      profiles: [independentProfile, second].map(profileWithLegacyChoices),
+    });
     fireEvent.change(screen.getByRole("combobox", { name: "Child profile" }), {
       target: { value: second.id },
     });
-    rerender(
-      createElement(GeneratorControls, {
-        defaults: storedDefaults(),
-        onGenerate: vi.fn(),
-        onInputsChanged: vi.fn(),
-        onSaveDefaults: async () => {},
+    act(() => {
+      dispatch?.({
+        type: "profilesChanged",
         profiles: [independentProfile].map(profileWithLegacyChoices),
-      }),
-    );
+      });
+    });
     expect(screen.getByRole("combobox", { name: "Child profile" })).toHaveValue(
       independentProfile.id,
     );
+  });
+
+  test("a failed save shows its alert in the slot and keeps the selection", async () => {
+    renderControls(independentProfile, "dry-math", {}, async () => {
+      throw new Error("fixture failure");
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Length" }), {
+      target: { value: "short" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save these as worksheet defaults" }),
+    );
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "The worksheet defaults could not be saved. Nothing was changed.",
+    );
+    expect(alert.closest("[data-defaults-slot]")).not.toBeNull();
+    expect(screen.queryByText("Worksheet defaults saved locally.")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Length" })).toHaveValue("short");
   });
 });
 
@@ -1561,18 +1627,13 @@ describe("age-free generator introduction and child choice", () => {
   test("each child is listed by nickname, or as Profile N without one", () => {
     const { displayName: _unused, ...unnamed } = independentProfile;
     void _unused;
-    render(
-      createElement(GeneratorControls, {
-        defaults: storedDefaults(),
-        onGenerate: vi.fn(),
-        onInputsChanged: vi.fn(),
-        onSaveDefaults: async () => {},
-        profiles: [
-          profileWithLegacyChoices(preschoolQuantityProfile),
-          profileWithLegacyChoices(unnamed),
-        ],
-      }),
-    );
+    renderPanel({
+      defaults: storedDefaults(),
+      profiles: [
+        profileWithLegacyChoices(preschoolQuantityProfile),
+        profileWithLegacyChoices(unnamed),
+      ],
+    });
     const options = [...screen.getByRole("combobox", { name: "Child profile" }).querySelectorAll("option")];
     expect(options.map((option) => option.textContent)).toEqual([
       "Private Quantity Child",
@@ -1589,18 +1650,8 @@ describe("age-free generator introduction and child choice", () => {
       worksheetType: RegisteredWorksheetType,
     ): GenerationSelection => {
       const onGenerate = vi.fn();
-      render(
-        createElement(GeneratorControls, {
-          defaults: storedDefaults(),
-          onGenerate,
-          onInputsChanged: vi.fn(),
-          onSaveDefaults: async () => {},
-          profiles: [profile],
-        }),
-      );
-      fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
-        target: { value: worksheetType },
-      });
+      renderPanel({ defaults: storedDefaults(), onGenerate, profiles: [profile] });
+      chooseWorksheet(worksheetType);
       const create = screen.getByRole("button", { name: "Create worksheet" });
       expect(create, worksheetType).toBeEnabled();
       expect(document.getElementById("generation-unavailable")).toBeNull();
@@ -1656,5 +1707,360 @@ describe("age-free generator introduction and child choice", () => {
       ).toHaveValue("long");
       cleanup();
     }
+  });
+});
+
+/* Controlled-panel contract tests, rendered over the production session reducer. */
+describe("worksheet-first panel", () => {
+  /** A child with a nickname and equations, so every control can appear. */
+  const nicknamed = profileWithLegacyChoices(independentProfile);
+
+  /** Asserts that each element precedes the next in document order. */
+  function expectDocumentOrder(elements: readonly (Element | null)[]): void {
+    for (const [index, element] of elements.entries()) {
+      expect(element, `element ${index}`).not.toBeNull();
+      const next = elements[index + 1];
+      if (element !== null && next !== undefined && next !== null) {
+        expect(
+          element.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING,
+          `element ${index} precedes element ${index + 1}`,
+        ).toBeTruthy();
+      }
+    }
+  }
+
+  function panelControl(name: string): Element | null {
+    return document.querySelector(`[data-panel-control="${name}"]`);
+  }
+
+  test("the choices run worksheet type, variant, child, focus or vocabulary, summary, then Create", () => {
+    const create = (): HTMLElement =>
+      screen.getByRole("button", { name: "Create worksheet" });
+    const summary = (): Element | null =>
+      document.querySelector("[data-selection-summary]");
+
+    renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
+    chooseWorksheet("find-the-wow");
+    expectDocumentOrder([
+      panelControl("worksheet-type"),
+      screen.getByRole("group", { name: "Statements" }),
+      screen.getByRole("combobox", { name: "Child profile" }),
+      screen.getByRole("combobox", { name: "Practice focus" }),
+      summary(),
+      create(),
+    ]);
+    expect(summary()?.textContent).toMatch(/This selection creates/u);
+
+    chooseWorksheet("sentence-builder");
+    expectDocumentOrder([
+      panelControl("worksheet-type"),
+      screen.getByRole("group", { name: "Writing activity" }),
+      screen.getByRole("combobox", { name: "Child profile" }),
+      screen.getByRole("group", { name: "Vocabulary" }),
+      summary(),
+      create(),
+    ]);
+    expect(screen.queryByRole("combobox", { name: "Practice focus" })).toBeNull();
+
+    // A family without a variant goes straight from the cards to the child.
+    chooseWorksheet("dry-math");
+    expect(screen.queryByRole("group", { name: "Statements" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Writing activity" })).toBeNull();
+    expectDocumentOrder([
+      panelControl("worksheet-type"),
+      screen.getByRole("combobox", { name: "Child profile" }),
+      screen.getByRole("combobox", { name: "Practice focus" }),
+      summary(),
+      create(),
+    ]);
+  });
+
+  test("the four worksheet types are radio cards with a one-line description", () => {
+    renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
+    const cards = screen.getAllByRole("radio").filter(
+      (radio) => radio.getAttribute("name") === "worksheet-type",
+    );
+    expect(cards.map((card) => card.getAttribute("value"))).toEqual([
+      ...REGISTERED_WORKSHEET_IDS,
+    ]);
+    for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
+      const card = worksheetCard(worksheetType);
+      const description = document.getElementById(
+        card.getAttribute("aria-describedby") ?? "",
+      );
+      expect(description?.textContent ?? "", worksheetType).not.toBe("");
+      expect(card.closest("fieldset")?.querySelector("legend")?.textContent).toBe(
+        "Worksheet type",
+      );
+    }
+  });
+
+  test("More options holds exactly Length, the answer key, Personalization and Print layout", () => {
+    renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
+    chooseWorksheet("count-compare-make");
+    const details = document.querySelector("details");
+    expect(details).not.toBeNull();
+    const groups = [...(details?.querySelectorAll("[data-more-options-group]") ?? [])];
+    expect(groups.map((group) => group.querySelector("legend")?.textContent)).toEqual([
+      "Length",
+      "Answer key",
+      "Personalization",
+      "Print layout",
+    ]);
+    // Every control inside More options belongs to one of those groups, and
+    // they are exactly these controls.
+    const controlsInside = [
+      ...(details?.querySelectorAll("input, select, textarea, button") ?? []),
+    ];
+    expect(
+      controlsInside.every((control) => control.closest("[data-more-options-group]") !== null),
+    ).toBe(true);
+    expect(
+      controlsInside.map(
+        (control) =>
+          control.getAttribute("aria-label") ??
+          control.closest("label")?.textContent?.trim() ??
+          "",
+      ),
+    ).toEqual([
+      "Length",
+      "Include a parent answer key",
+      "Put the nickname in the worksheet header",
+      "Use reviewed interests in worksheet content",
+      "Include decorative graphics",
+      "Paper size",
+      "Print scale",
+    ]);
+    // Nothing that belongs to the primary block is hidden in there.
+    for (const name of ["Child profile", "Practice focus"]) {
+      expect(screen.getByRole("combobox", { name }).closest("details")).toBeNull();
+    }
+    expect(worksheetCard("dry-math").closest("details")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Create worksheet" }).closest("details"),
+    ).toBeNull();
+  });
+
+  test("every blocking message sits outside More options and describes Create", () => {
+    const expectBlocking = (): void => {
+      const messages = [...document.querySelectorAll("[data-blocking-message]")];
+      expect(messages.length).toBeGreaterThan(0);
+      const create = screen.getByRole("button", { name: "Create worksheet" });
+      expect(create).toBeDisabled();
+      const describedBy = (create.getAttribute("aria-describedby") ?? "").split(/\s+/u);
+      for (const message of messages) {
+        expect(message.closest("details")).toBeNull();
+        expect(describedBy).toContain(message.id);
+        // Visible while More options stays collapsed.
+        expect(message).toBeVisible();
+      }
+      expect(document.querySelector("details")?.open).toBe(false);
+    };
+
+    // No saved child yet.
+    renderPanel({ defaults: storedDefaults(), profiles: [] });
+    expectBlocking();
+    expect(screen.getByText("Add and save a profile before creating a worksheet.")).toBeVisible();
+    cleanup();
+
+    // A capacity shortfall (the D34 earlier setting).
+    renderPanel({
+      defaults: storedDefaults(),
+      profiles: [profileWithLegacyChoices(d34DryMathProfile)],
+    });
+    expectBlocking();
+    expect(document.querySelector("[data-capacity-conflict]")?.textContent).toMatch(
+      /^This practice focus provides 3 unique facts/u,
+    );
+    cleanup();
+
+    // Calibration: a producible selection has no blocking message and no
+    // description on Create.
+    renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
+    expect(document.querySelector("[data-blocking-message]")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Create worksheet" }),
+    ).not.toHaveAttribute("aria-describedby");
+  });
+
+  test("practice-focus option labels are describePracticeFocus, plus one Earlier setting option when needed", () => {
+    const optionLabels = (): string[] =>
+      [
+        ...screen
+          .getByRole("combobox", { name: "Practice focus" })
+          .querySelectorAll("option"),
+      ].map((option) => option.textContent ?? "");
+    const catalogLabels = (kind: PracticeFocusKind): string[] =>
+      PRACTICE_FOCUS_CATALOG[kind].map((option) =>
+        describePracticeFocus(kind, option.focus),
+      );
+
+    // The saved defaults match catalog entries, so no extra option shows.
+    renderPanel({ defaults: storedDefaults({}, false), profiles: [nicknamed] });
+    expect(optionLabels()).toEqual(catalogLabels("dry-math"));
+    chooseWorksheet("count-compare-make");
+    expect(optionLabels()).toEqual(catalogLabels("count-compare-make"));
+    chooseWorksheet("find-the-wow");
+    expect(optionLabels()).toEqual(catalogLabels("find-the-wow-quantity"));
+    fireEvent.click(screen.getByRole("radio", { name: "Equations" }));
+    expect(optionLabels()).toEqual(catalogLabels("find-the-wow-equation"));
+    cleanup();
+
+    // A seeded value outside the catalog adds exactly one Earlier setting
+    // option, selected and worded by the same function.
+    renderPanel({ defaults: storedDefaults(), profiles: [profileWithLegacyChoices(beyondV1Profile)] });
+    const seededDryMath = selectionFor("dry-math", beyondV1Profile).dryMath;
+    expect(optionLabels()).toEqual([
+      `Earlier setting: ${describePracticeFocus("dry-math", seededDryMath)}`,
+      ...catalogLabels("dry-math"),
+    ]);
+    expect(screen.getByRole("combobox", { name: "Practice focus" })).toHaveValue(
+      "earlier-setting",
+    );
+  });
+
+  test("each control change dispatches exactly one session action", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    const second = profileWithLegacyChoices({
+      ...preschoolQuantityProfile,
+      id: "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
+      displayName: "Private Second Child",
+    });
+    renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed, second] });
+    openMoreOptions();
+
+    const expectOne = (expected: WorksheetPanelAction, perform: () => void): void => {
+      onChange.mockClear();
+      perform();
+      expect(onChange.mock.calls).toEqual([[expected]]);
+    };
+    const choose = (name: string, value: string): void => {
+      fireEvent.change(screen.getByRole("combobox", { name }), { target: { value } });
+    };
+
+    expectOne({ type: "changed", group: "worksheetType", value: "find-the-wow" }, () =>
+      fireEvent.click(worksheetCard("find-the-wow")),
+    );
+    expectOne({ type: "changed", group: "findTheWow.variant", value: "quantity" }, () =>
+      fireEvent.click(screen.getByRole("radio", { name: FIND_THE_WOW_VARIANT_LABELS.quantity })),
+    );
+    const quantityFocus = PRACTICE_FOCUS_CATALOG["find-the-wow-quantity"][0]!;
+    expectOne(
+      { type: "changed", group: "findTheWow.quantity", value: quantityFocus.focus },
+      () => choose("Practice focus", quantityFocus.id),
+    );
+    expectOne({ type: "childSelected", childId: second.id }, () =>
+      choose("Child profile", second.id),
+    );
+    expectOne({ type: "changed", group: "worksheetType", value: "sentence-builder" }, () =>
+      fireEvent.click(worksheetCard("sentence-builder")),
+    );
+    expectOne(
+      { type: "changed", group: "sentenceBuilder.variant", value: "independent" },
+      () =>
+        fireEvent.click(
+          screen.getByRole("radio", { name: SENTENCE_BUILDER_VARIANT_LABELS.independent }),
+        ),
+    );
+    expectOne(
+      { type: "changed", group: "sentenceBuilder.vocabulary", value: "all-words" },
+      () =>
+        fireEvent.click(
+          screen.getByRole("radio", { name: SENTENCE_VOCABULARY_LABELS["all-words"] }),
+        ),
+    );
+    expectOne({ type: "changed", group: "worksheetType", value: "dry-math" }, () =>
+      fireEvent.click(worksheetCard("dry-math")),
+    );
+    const dryMathFocus = PRACTICE_FOCUS_CATALOG["dry-math"][0]!;
+    expectOne({ type: "changed", group: "dryMath", value: dryMathFocus.focus }, () =>
+      choose("Practice focus", dryMathFocus.id),
+    );
+    expectOne({ type: "changed", group: "worksheetType", value: "count-compare-make" }, () =>
+      fireEvent.click(worksheetCard("count-compare-make")),
+    );
+    const countFocus = PRACTICE_FOCUS_CATALOG["count-compare-make"][1]!;
+    expectOne({ type: "changed", group: "countCompareMake", value: countFocus.focus }, () =>
+      choose("Practice focus", countFocus.id),
+    );
+    expectOne({ type: "changed", group: "length", value: "short" }, () =>
+      choose("Length", "short"),
+    );
+    expectOne({ type: "changed", group: "includeAnswerKey", value: false }, () =>
+      fireEvent.click(screen.getByLabelText("Include a parent answer key")),
+    );
+    expectOne({ type: "changed", group: "useInterests", value: false }, () =>
+      fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content")),
+    );
+    expectOne({ type: "changed", group: "includeDecorativeGraphics", value: false }, () =>
+      fireEvent.click(screen.getByLabelText("Include decorative graphics")),
+    );
+    expectOne({ type: "changed", group: "useDisplayName", value: false }, () =>
+      fireEvent.click(screen.getByLabelText("Put the nickname in the worksheet header")),
+    );
+    expectOne({ type: "changed", group: "paperSize", value: "a4" }, () =>
+      choose("Paper size", "a4"),
+    );
+    expectOne({ type: "changed", group: "printScale", value: "large" }, () =>
+      choose("Print scale", "large"),
+    );
+  });
+
+  test("the save slot holds no control but the save button and explains the end of seeding", () => {
+    renderControls(independentProfile, "dry-math");
+    const slot = screen
+      .getByRole("button", { name: "Save these as worksheet defaults" })
+      .closest("[data-defaults-slot]");
+    expect(slot).not.toBeNull();
+    const interactive = [
+      ...(slot?.querySelectorAll(
+        "button, input, select, textarea, a[href], summary, [tabindex]",
+      ) ?? []),
+    ];
+    expect(interactive.map((element) => element.textContent)).toEqual([
+      "Save these as worksheet defaults",
+    ]);
+    expect(slot?.textContent).toContain(
+      "Saving makes these the starting choices for every child. Children's earlier settings stay in the file but will no longer be used as starting points.",
+    );
+    cleanup();
+
+    // With seeding already off, there is nothing to end and no note.
+    renderPanel({
+      defaults: storedDefaults({}, false),
+      profiles: [profileWithLegacyChoices(independentProfile)],
+    });
+    expect(document.querySelector("[data-earlier-settings-save-note]")).toBeNull();
+  });
+
+  test("a polite line names the earlier settings in use, and only while they are in use", () => {
+    renderControls(independentProfile, "find-the-wow");
+    const region = document.querySelector("[data-earlier-settings-status]");
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).not.toHaveAttribute("role");
+    const seeded = selectionFor("find-the-wow", independentProfile);
+    expect(document.querySelector("[data-earlier-settings-used]")?.textContent).toBe(
+      `Starting from ${independentProfile.displayName}'s earlier settings: Statements: Equations; Practice focus: ${describePracticeFocus(
+        "find-the-wow-equation",
+        seeded.findTheWow.equation,
+      )}.`,
+    );
+    // Changing one of those groups takes it off the line.
+    fireEvent.click(screen.getByRole("radio", { name: "Quantity pictures" }));
+    expect(document.querySelector("[data-earlier-settings-used]")?.textContent).toBe(
+      `Starting from ${independentProfile.displayName}'s earlier settings: Practice focus: ${describePracticeFocus(
+        "find-the-wow-quantity",
+        seeded.findTheWow.quantity,
+      )}.`,
+    );
+    cleanup();
+
+    // Seeding off: the same child supplies nothing and the line is empty.
+    renderPanel({
+      defaults: storedDefaults({}, false),
+      profiles: [profileWithLegacyChoices(independentProfile)],
+    });
+    expect(document.querySelector("[data-earlier-settings-used]")).toBeNull();
+    expect(document.querySelector("[data-earlier-settings-status]")?.textContent).toBe("");
   });
 });

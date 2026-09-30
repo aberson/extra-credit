@@ -1,9 +1,13 @@
+import { worksheetSelectionOf } from "../../src/shared/config/defaults.ts";
+import { selectionFromEarlierSettings } from "../../src/shared/config/earlier-settings.ts";
 import { classifyStoredConfig } from "../../src/shared/config/migrate.ts";
 import type {
   AppConfigV1,
   AppConfigV2,
   ChildProfileV1,
   GenerationDefaultsV1,
+  WorksheetDefaultsV2,
+  WorksheetSelectionV2,
 } from "../../src/shared/config/schema.ts";
 import { expect, test } from "./fixtures/app-server.ts";
 import {
@@ -68,6 +72,27 @@ function upgraded(profiles: readonly ChildProfileV1[]): AppConfigV2 {
     throw new Error("The in-spec version 1 fixture did not classify as legacy.");
   }
   return classified.config;
+}
+
+/**
+ * What "Save these as worksheet defaults" writes while nothing but `changes`
+ * has been touched: the visible selection, which is the selected child's
+ * earlier settings over the saved defaults, with seeding turned off (D-save).
+ */
+function savedVisibleSelection(
+  config: AppConfigV2,
+  childIndex: number,
+  changes: Partial<WorksheetSelectionV2>,
+): WorksheetDefaultsV2 {
+  const legacy = config.profiles[childIndex]?.legacyChoices;
+  if (legacy === undefined) {
+    throw new Error("The in-spec child carries no earlier settings.");
+  }
+  return {
+    ...selectionFromEarlierSettings(legacy, worksheetSelectionOf(config.defaults)).selection,
+    ...changes,
+    useEarlierChildSettings: false,
+  };
 }
 
 const profiles = [
@@ -252,14 +277,18 @@ test("saved worksheet defaults reload without changing a child profile", async (
     "the confirmation must share the button's left edge",
   ).toBeLessThanOrEqual(SUBPIXEL_SLACK * 2);
 
+  // The save writes what the parent sees: the first child's earlier settings,
+  // seeded into every untouched group, plus the four changes, with seeding off.
   const saved = await appServer.readConfig();
-  expect(saved.defaults).toEqual({
-    ...upgraded(profiles).defaults,
-    length: "long",
-    printScale: "large",
-    paperSize: "a4",
-    includeAnswerKey: false,
-  });
+  expect(saved.defaults).toEqual(
+    savedVisibleSelection(upgraded(profiles), 0, {
+      length: "long",
+      printScale: "large",
+      paperSize: "a4",
+      includeAnswerKey: false,
+    }),
+  );
+  expect(saved.defaults.useEarlierChildSettings).toBe(false);
   expect(JSON.stringify(saved.profiles)).toBe(seededProfiles);
 
   await page.reload();
@@ -273,6 +302,11 @@ test("saved worksheet defaults reload without changing a child profile", async (
   );
   await expect(controls(page).paperSize()).toHaveValue("a4");
   await expect(controls(page).answerKey()).not.toBeChecked();
+  // The Dry Math focus the save wrote, the first child's earlier setting,
+  // comes back after the reload.
+  await expect(controls(page).practiceFocus().locator("option:checked")).toHaveText(
+    "Earlier setting: Addition and subtraction within 25",
+  );
 });
 
 test("saving defaults keeps the generated page and the parent's selection", async ({
@@ -285,11 +319,12 @@ test("saving defaults keeps the generated page and the parent's selection", asyn
     page.getByRole("heading", { name: "Distinctive Private Riley" }),
   ).toBeVisible();
 
-  // Neither of these two is the value the panel initialises to, so a remount
-  // is visible as a silent switch back to Jordan and Dry Math - which is what
-  // a parent would then press Create on.
+  // The second child is not the session's starting child, so a session reset
+  // by the save would show as a silent switch back to the first child. After
+  // the save the stored worksheet type is this one, so only the child tells a
+  // reset apart.
   const childSelect = controls(page).child();
-  const familySelect = controls(page).worksheetType();
+  const familyCard = controls(page).worksheetCard("count-compare-make");
   await chooseChild(page, profiles[1].id);
   await chooseWorksheet(page, "count-compare-make");
 
@@ -312,7 +347,7 @@ test("saving defaults keeps the generated page and the parent's selection", asyn
   expect(await preview.innerText()).toBe(printedBefore);
   await expect(page.getByRole("button", { name: "Make another" })).toBeVisible();
   await expect(childSelect).toHaveValue(profiles[1].id);
-  await expect(familySelect).toHaveValue("count-compare-make");
+  await expect(familyCard).toBeChecked();
 
   const saved = await appServer.readConfig();
   expect(saved.profiles).toEqual(upgraded(profiles).profiles);
@@ -360,7 +395,9 @@ test("a superseded defaults save refreshes instead of stranding the control", as
   await save.click();
   await expect(page.getByText("Worksheet defaults saved locally.")).toBeVisible();
   const saved = await appServer.readConfig();
-  expect(saved.defaults).toEqual({ ...upgraded(renamed).defaults, printScale: "large" });
+  expect(saved.defaults).toEqual(
+    savedVisibleSelection(upgraded(renamed), 0, { printScale: "large" }),
+  );
   expect(saved.profiles).toEqual(upgraded(renamed).profiles);
 });
 
@@ -415,7 +452,7 @@ test("a superseded defaults save takes the stale worksheet down with it", async 
   ).toBeVisible();
 
   const childSelect = controls(page).child();
-  const familySelect = controls(page).worksheetType();
+  const familyCard = controls(page).worksheetCard("count-compare-make");
   await chooseChild(page, profiles[1].id);
   await chooseWorksheet(page, "count-compare-make");
   await openMoreOptions(page);
@@ -467,9 +504,9 @@ test("a superseded defaults save takes the stale worksheet down with it", async 
   await expect(preview).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Make another" })).toHaveCount(0);
 
-  // The panel is not remounted: the selections and the retry survive the drop.
+  // The session is not reset: the selections and the retry survive the drop.
   await expect(childSelect).toHaveValue(profiles[1].id);
-  await expect(familySelect).toHaveValue("count-compare-make");
+  await expect(familyCard).toBeChecked();
   await expect(controls(page).printScale()).toHaveValue(
     "large",
   );
@@ -480,6 +517,11 @@ test("a superseded defaults save takes the stale worksheet down with it", async 
   await save.click();
   await expect(page.getByText("Worksheet defaults saved locally.")).toBeVisible();
   const saved = await appServer.readConfig();
-  expect(saved.defaults).toEqual({ ...upgraded(superseded).defaults, printScale: "large" });
+  expect(saved.defaults).toEqual(
+    savedVisibleSelection(upgraded(superseded), 1, {
+      worksheetType: "count-compare-make",
+      printScale: "large",
+    }),
+  );
   expect(saved.profiles).toEqual(upgraded(superseded).profiles);
 });

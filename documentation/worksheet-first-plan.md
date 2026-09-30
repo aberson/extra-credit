@@ -693,6 +693,7 @@ Every step's Problem begins with the same pointer to this file (D-pointer), beca
   5. **`accessibility.spec.ts` and the print path:** the six axe tag groups report zero violations with More options closed and open and on the upgrade notice; a keyboard-only path reaches the cards, variant, child, focus, More options and Create with visible focus; at 1280 px the four cards share one top coordinate and at 320 CSS px they stack with no horizontal scroll; 200% text keeps every label; blocking guidance stays visible while More options is collapsed; the Step 14 "compiled 1920×1080 layout" test passes with its assertions unchanged; `print.spec.ts` passes all 84 worksheet cases and 16 key PDFs through the updated helper with no change under `frontend/src/web/print`, `tokens.css` or `tests/fixtures/print`.
   6. **Full gate:** after merge, build-phase runs `npm --prefix frontend run check` once in the main checkout; Vitest and Playwright counts must not fall below the previous step's.
 - **Depends on:** Step 16
+- **Status:** DONE (2026-09-30)
 
 ### Step 18: Identity-only profiles, age-free documentation, worksheet-driven print evidence and the blocked classifier state
 

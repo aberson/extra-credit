@@ -300,12 +300,11 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
     page.getByText("Saved profiles reloaded from the local file."),
   ).toBeVisible();
 
-  const worksheetSelect = controls(page).worksheetType();
   const createButton = page.getByRole("button", { name: "Create worksheet" });
   const preview = page.getByLabel("Worksheet preview");
 
   await expect(
-    worksheetSelect.locator('option[value="sentence-builder"]'),
+    controls(page).worksheetCardLabel("sentence-builder"),
   ).toHaveText("Sentence Builder");
   await chooseWorksheet(page, "sentence-builder");
   await openMoreOptions(page);

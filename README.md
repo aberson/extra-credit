@@ -15,6 +15,8 @@ Extra Credit is an open-source, local web application for creating personalized,
 
 Answer keys, black-and-white line art, Letter and A4 selection, and independent toggles for nickname, interests, and decorative graphics all ship today; automated print and pagination hardening is merged. Personalization may change headings, reviewed vocabulary, topics, or decoration; it never changes the learning target or mathematical answer.
 
+**Worksheet-first controls.** The worksheet panel asks for the work first: the worksheet type (four cards), its variant where one exists (Sentence Builder's writing activity, or Two Whats and a Wow's Quantity pictures or Equations statements), the child, and then a practice focus that states its operations and range in words, such as "Addition within 20" or "Quantities to 10"; Sentence Builder asks for its vocabulary instead. Length, the answer key, personalization, and print layout sit under More options. Whether a worksheet can be created depends only on these choices, never on which child is selected. The choices are session state: profile edits, profile saves, and in-app reloads keep them, a browser page reload starts again from the saved defaults, and Create or Make another never writes the local file. Only **Save these as worksheet defaults** stores them, as one set of starting choices for every child. A file saved by an earlier version keeps each child's earlier writing mode, vocabulary band, and math values; they supply that child's starting choices until the first defaults save, which ends that for good.
+
 Profiles may be stored for ages 4–18. Worksheet generation is enabled only for ages 4–8 in V1; profiles for ages 9–18 remain editable while later content packs are reviewed.
 
 ## Privacy boundary

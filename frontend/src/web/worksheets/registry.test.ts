@@ -3,7 +3,7 @@
 import "@testing-library/jest-dom/vitest";
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { createElement } from "react";
+import { createElement, useReducer } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
@@ -65,10 +65,8 @@ import {
   makeAnotherWorksheetSession,
   type GenerationSelection,
 } from "../generator/create-session";
-import {
-  GeneratorControls,
-  type ShownWorksheetDefaults,
-} from "../generator/GeneratorControls";
+import { GeneratorControls } from "../generator/GeneratorControls";
+import { worksheetSessionReducer } from "../generator/worksheet-session";
 import { WorksheetPreview } from "../preview/WorksheetPreview";
 import { AnswerKeyView } from "../print/AnswerKeyView";
 import { PrintView } from "../print/PrintView";
@@ -117,7 +115,16 @@ const quantityProfile: CapabilityProfileV1 = {
 };
 
 /** The layout and personalization choices every fixture starts from. */
-const layout: ShownWorksheetDefaults = {
+const layout: Pick<
+  WorksheetSelectionV2,
+  | "useDisplayName"
+  | "useInterests"
+  | "includeDecorativeGraphics"
+  | "length"
+  | "includeAnswerKey"
+  | "paperSize"
+  | "printScale"
+> = {
   useDisplayName: false,
   useInterests: false,
   includeDecorativeGraphics: false,
@@ -153,8 +160,9 @@ const stored = profileWithLegacyChoices;
 
 /**
  * The selection a child's earlier settings describe over the built-in
- * defaults and this suite's layout: the mapping `GeneratorControls` applies,
- * which reproduces the version 1 Practice content (`practice-golden.test.ts`).
+ * defaults and this suite's layout: the mapping the worksheet session applies
+ * while seeding is on, which reproduces the version 1 Practice content
+ * (`practice-golden.test.ts`).
  */
 function selectionOf(
   sourceProfile: CapabilityProfileV1,
@@ -325,31 +333,57 @@ function withOwnFocusMaximum(
   }
 }
 
-function renderControls(
-  sourceProfile: CapabilityProfileV1,
-  worksheetType: RegisteredWorksheetType,
-  overrides: Partial<ShownWorksheetDefaults> = {},
-): void {
-  const shown = { ...layout, ...overrides };
-  render(
-    createElement(GeneratorControls, {
+/**
+ * The controlled panel over the production session reducer, seeded from one
+ * child's earlier settings as a migrated file has it.
+ */
+function SeededPanel({
+  sourceProfile,
+  overrides,
+}: {
+  readonly sourceProfile: CapabilityProfileV1;
+  readonly overrides: Partial<typeof layout>;
+}) {
+  const [session, dispatch] = useReducer(worksheetSessionReducer, null, () => {
+    const shown = { ...layout, ...overrides };
+    return worksheetSessionReducer(null, {
+      type: "loaded",
       defaults: {
         ...emptyAppConfigV2().defaults,
         ...shown,
         theme: themeFromInterests(shown.useInterests),
+        useEarlierChildSettings: true,
       },
-      onGenerate: vi.fn(),
-      onInputsChanged: vi.fn(),
-      onSaveDefaults: vi.fn(async () => {}),
       profiles: [stored(sourceProfile)],
-    }),
-  );
-  for (const details of document.querySelectorAll("details")) {
-    details.open = true;
-  }
-  fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
-    target: { value: worksheetType },
+    });
   });
+  return session === null
+    ? null
+    : createElement(GeneratorControls, {
+        session,
+        onChange: dispatch,
+        onGenerate: vi.fn(),
+        onSaveDefaults: vi.fn(async () => {}),
+      });
+}
+
+/** The worksheet-type radio card for one family, by its visible title. */
+function worksheetCard(worksheetType: RegisteredWorksheetType): HTMLElement {
+  return screen.getByRole("radio", {
+    name: getWorksheetRegistration(worksheetType).displayName,
+  });
+}
+
+function renderControls(
+  sourceProfile: CapabilityProfileV1,
+  worksheetType: RegisteredWorksheetType,
+  overrides: Partial<typeof layout> = {},
+): void {
+  render(createElement(SeededPanel, { sourceProfile, overrides }));
+  const card = worksheetCard(worksheetType);
+  if (!(card as HTMLInputElement).checked) {
+    fireEvent.click(card);
+  }
   for (const details of document.querySelectorAll("details")) {
     details.open = true;
   }
@@ -815,10 +849,7 @@ describe("worksheet choices in the generator panel", () => {
       renderControls(profile, worksheetType);
       // The panel really rendered this family's controls, so an empty or
       // failed render cannot satisfy the absence checks below.
-      expect(
-        screen.getByRole("combobox", { name: "Worksheet type" }),
-        worksheetType,
-      ).toHaveValue(worksheetType);
+      expect(worksheetCard(worksheetType), worksheetType).toBeChecked();
       expect(
         screen.getByRole("combobox", { name: "Print scale" }),
         worksheetType,
@@ -842,7 +873,7 @@ describe("worksheet choices in the generator panel", () => {
     }
   });
 
-  test("the panel applies each child's earlier settings itself and discloses what it adjusts", () => {
+  test("a seeded session shows each child's earlier settings and the panel discloses what it adjusts", () => {
     // The saved default Statements variant is Quantity pictures, so Equations
     // can only come from the equation-capable child's earlier settings.
     expect(DEFAULT_WORKSHEET_DEFAULTS_V2.findTheWow.variant).toBe("quantity");

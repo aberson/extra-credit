@@ -278,12 +278,11 @@ test("renders Count, Compare & Make through the compiled UI", async ({
     page.getByText("Saved profiles reloaded from the local file."),
   ).toBeVisible();
 
-  const worksheetSelect = controls(page).worksheetType();
   const createButton = page.getByRole("button", { name: "Create worksheet" });
   const preview = page.getByLabel("Worksheet preview");
 
   await expect(
-    worksheetSelect.locator('option[value="count-compare-make"]'),
+    controls(page).worksheetCardLabel("count-compare-make"),
   ).toHaveText("Count, Compare & Make");
   await chooseWorksheet(page, "count-compare-make");
   await openMoreOptions(page);

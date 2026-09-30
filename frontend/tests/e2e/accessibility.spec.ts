@@ -5,7 +5,7 @@ import type { Locator, Page } from "@playwright/test";
 import type { AppConfigV1 } from "../../src/shared/config/schema.js";
 import { acceptanceConfig } from "../fixtures/print/matrix.js";
 import { expect, test } from "./fixtures/app-server.js";
-import { chooseChild, chooseWorksheet } from "./fixtures/worksheet-controls.js";
+import { chooseChild, chooseWorksheet, controls, openMoreOptions } from "./fixtures/worksheet-controls.js";
 
 const evidenceRoot = fileURLToPath(new URL("../../../.build-step/accessibility-evidence/", import.meta.url));
 const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
@@ -180,7 +180,7 @@ for (const state of states) {
   });
 }
 
-async function tabTo(page: Page, target: Locator): Promise<void> {
+async function tabTo(page: Page, target: Locator, key: "Tab" | "Shift+Tab" = "Tab"): Promise<void> {
   for (let attempt = 0; attempt < 80; attempt++) {
     if (await target.evaluate((el) => el === el.ownerDocument.activeElement)) {
       const focus = await target.evaluate((el) => {
@@ -191,7 +191,7 @@ async function tabTo(page: Page, target: Locator): Promise<void> {
       expect(focus.width).toBeGreaterThanOrEqual(2);
       return;
     }
-    await page.keyboard.press("Tab");
+    await page.keyboard.press(key);
   }
   throw new Error("Keyboard could not reach the named control.");
 }
@@ -320,4 +320,144 @@ test("compiled 1920×1080 layout: empty first screen fits and no state scrolls h
   const restored = await viewportMetrics(page);
   expect(restored.scrollWidth).toBe(restored.clientWidth);
   expect(restored.clientWidth).toBe(1_920);
+});
+
+/**
+ * A fictional version 1 file whose one child can create every family, so the
+ * upgrade notice shows above a producible worksheet-first panel. Migration
+ * turns seeding on.
+ */
+const upgradeNoticeConfig: AppConfigV1 = {
+  ...narrowDryMathConfig,
+  profiles: narrowDryMathConfig.profiles.map((profile) => ({
+    ...profile,
+    displayName: "Fictional Upgrade",
+    mathSkills: {
+      ...profile.mathSkills,
+      understandsEquality: true,
+      operations: ["addition", "subtraction"],
+      operandMax: 10,
+      resultMax: 10,
+    },
+  })),
+};
+
+async function expectAxeClean(page: Page): Promise<void> {
+  expect((await new AxeBuilder({ page }).withTags(tags).analyze()).violations).toEqual([]);
+}
+
+test("worksheet-first panel: axe is clean with More options closed and open, beside the upgrade notice", async ({ appServer, page }) => {
+  test.setTimeout(60_000);
+  await appServer.seedConfig(upgradeNoticeConfig);
+  await page.goto(appServer.origin);
+  await expect(page.locator("[data-upgrade-notice] p")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create a practice worksheet" })).toBeVisible();
+  const details = page.locator("details").filter({ has: controls(page).moreOptions() });
+  await expect(details).not.toHaveAttribute("open", "");
+  await expectAxeClean(page);
+
+  await openMoreOptions(page);
+  await expectAxeClean(page);
+  for (const family of ["find-the-wow", "sentence-builder", "count-compare-make"] as const) {
+    await chooseWorksheet(page, family);
+    await expectAxeClean(page);
+  }
+});
+
+test("worksheet-first panel: keyboard reaches the cards, variant, child, focus, More options and Create with visible focus", async ({ appServer, page }) => {
+  await appServer.seedConfig(upgradeNoticeConfig);
+  await page.goto(appServer.origin);
+  await expect(page.getByRole("heading", { name: "Create a practice worksheet" })).toBeVisible();
+  const panel = controls(page);
+
+  // The checked card is the group's one tab stop; arrow keys move the choice.
+  await tabTo(page, panel.worksheetCard("dry-math"));
+  await page.keyboard.press("ArrowRight");
+  await expect(panel.worksheetCard("find-the-wow")).toBeChecked();
+  await expect(panel.worksheetCard("find-the-wow")).toBeFocused();
+
+  const equations = panel.statements().getByRole("radio", { name: "Equations", exact: true });
+  const quantities = panel.statements().getByRole("radio", { name: "Quantity pictures", exact: true });
+  await tabTo(page, equations);
+  await page.keyboard.press("ArrowLeft");
+  await expect(quantities).toBeChecked();
+  await expect(quantities).toBeFocused();
+
+  await tabTo(page, panel.child());
+  await tabTo(page, panel.practiceFocus());
+  await tabTo(page, panel.create());
+  await tabTo(page, panel.moreOptions());
+  await page.keyboard.press("Enter");
+  await expect(page.locator("details").filter({ has: panel.moreOptions() })).toHaveAttribute("open", "");
+  await tabTo(page, panel.length());
+
+  await tabTo(page, panel.create(), "Shift+Tab");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Preview and print" })).toBeFocused();
+  await expect(page.getByLabel("Worksheet preview").locator('[data-wow-mode="quantity"]')).not.toHaveCount(0);
+});
+
+test("worksheet-first panel: the four cards share a row at 1280 px and stack at 320 px without horizontal scroll", async ({ appServer, page }) => {
+  await appServer.seedConfig(upgradeNoticeConfig);
+  await page.setViewportSize({ width: 1_280, height: 900 });
+  await page.goto(appServer.origin);
+  const cards = page.locator(".worksheet-type-card");
+  await expect(cards).toHaveCount(4);
+  const wide = await cards.evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect()).map(({ top, left }) => ({ top, left })),
+  );
+  expect(new Set(wide.map(({ top }) => Math.round(top))).size).toBe(1);
+  expect(wide.map(({ left }) => left)).toEqual([...wide.map(({ left }) => left)].sort((a, b) => a - b));
+  await assertNoOverflow(page);
+
+  await page.setViewportSize({ width: 320, height: 900 });
+  const narrow = await cards.evaluateAll((elements) =>
+    elements.map((element) => element.getBoundingClientRect()).map(({ top, bottom, left }) => ({ top, bottom, left })),
+  );
+  expect(new Set(narrow.map(({ left }) => Math.round(left))).size).toBe(1);
+  for (let index = 1; index < narrow.length; index++) {
+    expect(narrow[index]!.top).toBeGreaterThanOrEqual(narrow[index - 1]!.bottom);
+  }
+  await openMoreOptions(page);
+  await assertNoOverflow(page);
+});
+
+test("worksheet-first panel: 200% text keeps every label and blocking guidance stays outside collapsed More options", async ({ appServer, page }) => {
+  await appServer.seedConfig(upgradeNoticeConfig);
+  await page.setViewportSize({ width: 1_280, height: 900 });
+  await page.goto(appServer.origin);
+  await chooseWorksheet(page, "sentence-builder");
+  await openMoreOptions(page);
+  // Text-only labels: legends, card titles, the summary and the buttons.
+  const labels = [
+    "Worksheet type", "Dry Math", "Math — Two Whats and a Wow", "Sentence Builder", "Count, Compare & Make",
+    "Writing activity", "Vocabulary", "Create worksheet", "More options", "Length",
+    "Personalization", "Print layout", "Save these as worksheet defaults",
+  ];
+  const panel = page.getByRole("region", { name: "Create a practice worksheet" });
+  const before = await panel.innerText();
+  for (const label of [...labels, "Child profile", "Paper size", "Print scale"]) expect(before).toContain(label);
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  for (const label of labels) {
+    await expect(panel.getByText(label, { exact: true }).first()).toBeVisible();
+  }
+  for (const control of [controls(page).child(), controls(page).length(), controls(page).paperSize(), controls(page).printScale()]) {
+    await expect(control).toBeVisible();
+  }
+  await assertNoOverflow(page);
+
+  // A shortfall's guidance sits above Create, outside the collapsed More options.
+  await appServer.seedConfig(narrowDryMathConfig);
+  await page.goto(appServer.origin);
+  await expect(page.getByRole("heading", { name: "Create a practice worksheet" })).toBeVisible();
+  const details = page.locator("details").filter({ has: controls(page).moreOptions() });
+  await expect(details).not.toHaveAttribute("open", "");
+  const conflict = page.locator("[data-capacity-conflict]");
+  await expect(conflict).toBeVisible();
+  await expect(conflict.locator("xpath=ancestor::details")).toHaveCount(0);
+  const conflictId = await conflict.getAttribute("id");
+  expect(conflictId).not.toBeNull();
+  await expect(controls(page).create()).toHaveAttribute("aria-describedby", conflictId!);
+  await expect(controls(page).create()).toBeDisabled();
+  await expectAxeClean(page);
 });

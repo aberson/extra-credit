@@ -9,4 +9,68 @@
   :focus-visible { outline: 3px solid #174e9b; outline-offset: 3px; }
   [tabindex="-1"]:focus { outline: 3px solid #174e9b; outline-offset: 3px; }
   .profile-actions { flex-wrap: wrap; }
+
+  /*
+   * The worksheet-first panel. The worksheet-type cards span the panel: one
+   * column below 36rem, two across from 36rem and four across from 60rem.
+   * Below the cards the rest of the primary block and More options sit side
+   * by side from 60rem, and in DOM order in one column below it.
+   */
+  .worksheet-panel { display: grid; gap: 1rem; margin-top: 1.5rem; }
+  .worksheet-panel > h2, .worksheet-panel > p { margin: 0; }
+  .worksheet-type-cards {
+    border: 0;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(0, 1fr);
+    margin: 0;
+    padding: 0;
+  }
+  .worksheet-type-cards > legend {
+    font-size: 1.1rem;
+    font-weight: 750;
+    margin-bottom: 0.5rem;
+    padding: 0;
+  }
+  .worksheet-type-card {
+    align-items: start;
+    background: #ffffff;
+    border: 2px solid #b8c3d1;
+    border-radius: 0.9rem;
+    column-gap: 0.6rem;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 0.85rem 0.9rem;
+    row-gap: 0.3rem;
+  }
+  .worksheet-type-card:has(input:checked) { background: #eef4fc; border-color: #174e9b; }
+  .worksheet-type-card > input { margin: 0.3rem 0 0; }
+  .worksheet-type-card__title { font-size: 1.1rem; font-weight: 750; }
+  .worksheet-type-card__description { color: #3f4b5e; grid-column: 2; }
+  .worksheet-panel__columns { align-items: start; display: grid; gap: 1rem; }
+  .worksheet-panel__primary, .worksheet-panel__secondary { display: grid; gap: 0.9rem; }
+  .worksheet-panel__primary > button { justify-self: start; }
+  .worksheet-choice-group {
+    border: 1px solid #d3dae3;
+    border-radius: 0.6rem;
+    display: grid;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0.6rem 0.8rem 0.75rem;
+  }
+  .worksheet-choice-group > legend { font-weight: 700; padding: 0 0.3rem; }
+  .worksheet-field { display: grid; gap: 0.3rem; }
+  .worksheet-blocking { background: #fff5e8; margin: 0; padding: 0.75rem; }
+  .worksheet-more-options__groups { display: grid; gap: 0.75rem; padding: 0.75rem 0; }
+  .worksheet-defaults-slot { display: grid; gap: 0.4rem; justify-items: start; }
+  .worksheet-defaults-slot > p { margin: 0; }
+
+  @media (min-width: 36rem) {
+    .worksheet-type-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (min-width: 60rem) {
+    .worksheet-type-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .worksheet-panel__columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  }
 }

@@ -1,78 +1,85 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
-import { themeFromInterests, worksheetSelectionOf } from "../../shared/config/defaults";
 import {
   describeEarlierSettingDisclosure,
-  selectionForChild,
+  type EarlierSettingsGroup,
 } from "../../shared/config/earlier-settings";
-import type {
-  ChildProfileV2,
-  WorksheetDefaultsV2,
-  WorksheetSelectionV2,
+import {
+  EARLIER_SETTING_OPTION_ID,
+  PRACTICE_FOCUS_CATALOG,
+  SENTENCE_VOCABULARY_LABELS,
+  describePracticeFocus,
+  matchPracticeFocusOption,
+  type PracticeFocusKind,
+  type PracticeFocusOption,
+  type PracticeFocusValues,
+} from "../../shared/config/practice-focus";
+import {
+  FIND_THE_WOW_VARIANTS,
+  SENTENCE_VOCABULARY_OPTIONS,
+  WRITING_MODES,
+  type ChildProfileV2,
+  type WorksheetSelectionV2,
 } from "../../shared/config/schema";
 import {
   REGISTERED_WORKSHEET_IDS,
   getWorksheetRegistration,
   type RegisteredWorksheetType,
-  type WorksheetApplicableControlsV1,
   type WorksheetCapabilitySupportV1,
   type WorksheetControlContextV2,
   type WorksheetRegistrationV1,
 } from "../../shared/worksheet/registry";
+import { FIND_THE_WOW_VARIANT_LABELS } from "../../worksheets/find-the-wow/definition";
+import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
 import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
 import type { GenerationSelection } from "./create-session";
-
-/**
- * The defaults fields this interim panel shows and saves (DD9's pre-panel
- * rule, D-save). The host passes every worksheet group and the seeding flag
- * through unchanged and derives `theme` from `useInterests` (D33).
- */
-export type ShownWorksheetDefaults = Pick<
-  WorksheetDefaultsV2,
-  | "useDisplayName"
-  | "useInterests"
-  | "includeDecorativeGraphics"
-  | "length"
-  | "includeAnswerKey"
-  | "paperSize"
-  | "printScale"
->;
+import {
+  earlierSettingsInUse,
+  groupChanged,
+  selectedChild,
+  type WorksheetGroupKey,
+  type WorksheetGroupValue,
+  type WorksheetPanelAction,
+  type WorksheetSessionState,
+} from "./worksheet-session";
 
 interface GeneratorControlsProps {
-  readonly defaults: WorksheetDefaultsV2;
+  /** The App-held session: the visible selection and what it was seeded from. */
+  readonly session: WorksheetSessionState;
   readonly disabled?: boolean;
-  readonly onGenerate: (selection: GenerationSelection) => void;
-  readonly onInputsChanged: () => void;
+  /** Receives exactly one `childSelected` or `changed` action per control change. */
+  readonly onChange: (action: WorksheetPanelAction) => void;
+  readonly onGenerate: (generation: GenerationSelection) => void;
   /**
-   * Persists the parent's current option choices as the stored defaults.
+   * Saves the visible selection as the worksheet defaults. The host builds the
+   * body from its own session state (`defaultsForSave`).
    *
    * Required rather than optional so a host that renders these controls
    * without wiring the local configuration round trip fails to compile: a
    * silently unwired save would look exactly like a working one until a parent
    * reloaded and found nothing kept.
    */
-  readonly onSaveDefaults: (defaults: ShownWorksheetDefaults) => Promise<void>;
-  readonly profiles: readonly ChildProfileV2[];
+  readonly onSaveDefaults: () => Promise<void>;
 }
 
-const NO_APPLICABLE_CONTROLS: WorksheetApplicableControlsV1 = {
-  useDisplayName: false,
-  useInterests: false,
-  includeDecorativeGraphics: false,
-  practiceFocus: false,
-  variant: false,
-  vocabulary: false,
-  length: false,
-  includeAnswerKey: false,
-  paperSize: false,
-  printScale: false,
-};
+/** One line under each worksheet-type card title. */
+const WORKSHEET_DESCRIPTIONS = {
+  "dry-math": "Addition and subtraction facts written with numbers and symbols.",
+  "find-the-wow": "Three statements per group; the child circles the one that is true.",
+  "sentence-builder": "One prompt to draw, label, copy or write about.",
+  "count-compare-make": "Match, compare, complete and draw quantities without symbols.",
+} as const satisfies Record<RegisteredWorksheetType, string>;
 
-const WORKSHEET_OPTIONS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
+const WORKSHEET_CARDS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
   id: worksheetId,
   label: getWorksheetRegistration(worksheetId).displayName,
+  description: WORKSHEET_DESCRIPTIONS[worksheetId],
 }));
+
+/** The ids the unavailable and capacity messages carry; Create names whichever shows. */
+const UNAVAILABLE_MESSAGE_ID = "generation-unavailable";
+const CAPACITY_MESSAGE_ID = "generation-capacity";
 
 /** Each child by nickname, or as "Profile N" when it has none (U3). */
 function profileLabel(profile: ChildProfileV2, index: number): string {
@@ -93,181 +100,324 @@ function worksheetAvailability(
   return registration.controls.getCapabilitySupport(context);
 }
 
+/** The practice focus the chosen family and variant read, and the group it lives in. */
+type FocusControl = {
+  readonly [TKind in PracticeFocusKind]: {
+    readonly kind: TKind;
+    readonly group: FocusGroupOf[TKind];
+    readonly value: PracticeFocusValues[TKind];
+  };
+}[PracticeFocusKind];
+
+interface FocusGroupOf {
+  readonly "dry-math": "dryMath";
+  readonly "find-the-wow-quantity": "findTheWow.quantity";
+  readonly "find-the-wow-equation": "findTheWow.equation";
+  readonly "count-compare-make": "countCompareMake";
+}
+
+function focusControlFor(selection: WorksheetSelectionV2): FocusControl | undefined {
+  switch (selection.worksheetType) {
+    case "dry-math":
+      return { kind: "dry-math", group: "dryMath", value: selection.dryMath };
+    case "find-the-wow":
+      return selection.findTheWow.variant === "equation"
+        ? {
+            kind: "find-the-wow-equation",
+            group: "findTheWow.equation",
+            value: selection.findTheWow.equation,
+          }
+        : {
+            kind: "find-the-wow-quantity",
+            group: "findTheWow.quantity",
+            value: selection.findTheWow.quantity,
+          };
+    case "count-compare-make":
+      return {
+        kind: "count-compare-make",
+        group: "countCompareMake",
+        value: selection.countCompareMake,
+      };
+    case "sentence-builder":
+      return undefined;
+  }
+}
+
+function focusCatalog(
+  kind: PracticeFocusKind,
+): readonly PracticeFocusOption<PracticeFocusKind>[] {
+  return PRACTICE_FOCUS_CATALOG[kind];
+}
+
+/** The label of the extra option a focus outside the catalog shows. */
+function earlierSettingOptionLabel(control: FocusControl): string {
+  return `Earlier setting: ${describePracticeFocus(control.kind, control.value)}`;
+}
+
+/** The earlier-settings groups this worksheet type shows, in panel order. */
+function groupsShownFor(
+  selection: WorksheetSelectionV2,
+): readonly EarlierSettingsGroup[] {
+  switch (selection.worksheetType) {
+    case "dry-math":
+      return ["dryMath"];
+    case "find-the-wow":
+      return [
+        "findTheWow.variant",
+        selection.findTheWow.variant === "equation"
+          ? "findTheWow.equation"
+          : "findTheWow.quantity",
+      ];
+    case "sentence-builder":
+      return ["sentenceBuilder.variant", "sentenceBuilder.vocabulary"];
+    case "count-compare-make":
+      return ["countCompareMake"];
+  }
+}
+
+/** How the status line names one seeded group's visible value. */
+function describeSeededGroup(
+  group: EarlierSettingsGroup,
+  selection: WorksheetSelectionV2,
+): string {
+  switch (group) {
+    case "dryMath":
+      return `Practice focus: ${describePracticeFocus("dry-math", selection.dryMath)}`;
+    case "findTheWow.variant":
+      return `Statements: ${FIND_THE_WOW_VARIANT_LABELS[selection.findTheWow.variant]}`;
+    case "findTheWow.quantity":
+      return `Practice focus: ${describePracticeFocus("find-the-wow-quantity", selection.findTheWow.quantity)}`;
+    case "findTheWow.equation":
+      return `Practice focus: ${describePracticeFocus("find-the-wow-equation", selection.findTheWow.equation)}`;
+    case "sentenceBuilder.variant":
+      return `Writing activity: ${SENTENCE_BUILDER_VARIANT_LABELS[selection.sentenceBuilder.variant]}`;
+    case "sentenceBuilder.vocabulary":
+      return `Vocabulary: ${SENTENCE_VOCABULARY_LABELS[selection.sentenceBuilder.vocabulary]}`;
+    case "countCompareMake":
+      return `Practice focus: ${describePracticeFocus("count-compare-make", selection.countCompareMake)}`;
+  }
+}
+
+/** A native radio group in a fieldset, so arrow keys work with no extra script. */
+function RadioGroup<TValue extends string>({
+  disabled,
+  legend,
+  name,
+  onSelect,
+  options,
+  value,
+}: {
+  readonly disabled: boolean;
+  readonly legend: string;
+  readonly name: string;
+  readonly onSelect: (value: TValue) => void;
+  readonly options: readonly { readonly value: TValue; readonly label: string }[];
+  readonly value: TValue;
+}) {
+  return (
+    <fieldset className="worksheet-choice-group" data-panel-control={name}>
+      <legend>{legend}</legend>
+      {options.map((option) => (
+        <label key={option.value}>
+          <input
+            checked={value === option.value}
+            disabled={disabled}
+            name={name}
+            onChange={() => onSelect(option.value)}
+            type="radio"
+            value={option.value}
+          />{" "}
+          {option.label}
+        </label>
+      ))}
+    </fieldset>
+  );
+}
+
+function Checkbox({
+  checked,
+  disabled,
+  label,
+  onToggle,
+}: {
+  readonly checked: boolean;
+  readonly disabled: boolean;
+  readonly label: string;
+  readonly onToggle: (checked: boolean) => void;
+}) {
+  return (
+    <label>
+      <input
+        checked={checked}
+        disabled={disabled}
+        onChange={(event) => onToggle(event.currentTarget.checked)}
+        type="checkbox"
+      />{" "}
+      {label}
+    </label>
+  );
+}
+
+function OptionGroup({
+  children,
+  legend,
+  name,
+}: {
+  readonly children: ReactNode;
+  readonly legend: string;
+  readonly name: string;
+}) {
+  return (
+    <fieldset className="worksheet-choice-group" data-more-options-group={name}>
+      <legend>{legend}</legend>
+      {children}
+    </fieldset>
+  );
+}
+
+/**
+ * The worksheet-first panel: worksheet type, its variant, the child and the
+ * practice focus, then the summary, any blocking guidance and Create. More options holds only Length, the answer key, Personalization and
+ * Print layout. The panel is controlled: every choice lives in the App
+ * session, so it survives profile edits, saves and in-app reloads.
+ */
 export function GeneratorControls({
-  defaults,
   disabled = false,
+  onChange,
   onGenerate,
-  onInputsChanged,
   onSaveDefaults,
-  profiles,
+  session,
 }: GeneratorControlsProps) {
-  const [requestedProfileId, setProfileId] = useState(profiles[0]?.id ?? "");
-  const [worksheetType, setWorksheetType] = useState<RegisteredWorksheetType>(
-    defaults.worksheetType,
-  );
-  const [useDisplayName, setUseDisplayName] = useState(defaults.useDisplayName);
-  const [useInterests, setUseInterests] = useState(defaults.useInterests);
-  const [includeDecorativeGraphics, setIncludeDecorativeGraphics] = useState(
-    defaults.includeDecorativeGraphics,
-  );
-  const [length, setLength] = useState(defaults.length);
-  const [includeAnswerKey, setIncludeAnswerKey] = useState(
-    defaults.includeAnswerKey,
-  );
-  const [paperSize, setPaperSize] = useState(defaults.paperSize);
-  const [printScale, setPrintScale] = useState(defaults.printScale);
   const [savingDefaults, setSavingDefaults] = useState(false);
   const [defaultsError, setDefaultsError] = useState<string | null>(null);
-  const [defaultsSaved, setDefaultsSaved] = useState(false);
+  // The preview epoch the last successful save confirmed. A defaults save never
+  // raises the epoch and every other selection change does, so the
+  // confirmation retires as soon as the visible choices move past what was
+  // saved.
+  const [savedAtEpoch, setSavedAtEpoch] = useState<number | null>(null);
 
-  /**
-   * The parent's pick, falling back to the first profile when it is no longer
-   * in the list.
-   *
-   * The panel outlives a defaults write and a stale-ETag refresh, either of
-   * which can hand it a `profiles` array a concurrently-edited file changed
-   * under it. Resolving the id here rather than resetting state on remount is
-   * what lets the selection survive a write that changed no child profile,
-   * while a genuinely deleted profile still degrades to a real option instead
-   * of leaving the select bound to a value it has no `<option>` for.
-   */
-  const profileId = profiles.some(({ id }) => id === requestedProfileId)
-    ? requestedProfileId
-    : (profiles[0]?.id ?? "");
-  const selectedProfile = useMemo(
-    () => profiles.find((profile) => profile.id === profileId),
-    [profileId, profiles],
-  );
-  const baseSelection = useMemo(() => worksheetSelectionOf(defaults), [defaults]);
-  // Interim (Step 16): the saved defaults with the selected child's earlier
-  // settings applied to every group they cover. The visible worksheet-level
-  // choices, the seeding flag and touched-state logic arrive together with the
-  // worksheet-first panel.
-  const earlierSettings = useMemo(
-    () => selectionForChild(selectedProfile, baseSelection),
-    [baseSelection, selectedProfile],
-  );
-  // Memoized on its own values because the capacity verdict inside
+  const { profiles, selection } = session;
+  const selectedProfile = selectedChild(session);
+  // Memoized on the selection because the capacity verdict inside
   // `getCapabilitySupport` enumerates a family's whole candidate collection.
-  // That is the right unit to measure in, and it is far too much work to redo
-  // on every re-render.
-  const selection: WorksheetSelectionV2 = useMemo(
-    () => ({
-      ...earlierSettings.selection,
-      worksheetType,
-      useDisplayName,
-      useInterests,
-      includeDecorativeGraphics,
-      includeAnswerKey,
-      length,
-      paperSize,
-      printScale,
-      theme: themeFromInterests(useInterests),
-    }),
-    [
-      earlierSettings,
-      includeAnswerKey,
-      includeDecorativeGraphics,
-      length,
-      paperSize,
-      printScale,
-      useDisplayName,
-      useInterests,
-      worksheetType,
-    ],
-  );
   const controlContext: WorksheetControlContextV2 = useMemo(
     () => ({ selection }),
     [selection],
   );
-  const selectedRegistration = getWorksheetRegistration(worksheetType);
+  const worksheetType = selection.worksheetType;
+  const registration = getWorksheetRegistration(worksheetType);
   const availability = useMemo(
     () =>
       worksheetAvailability(
         selectedProfile,
-        getWorksheetRegistration(worksheetType),
+        getWorksheetRegistration(controlContext.selection.worksheetType),
         controlContext,
       ),
-    [controlContext, selectedProfile, worksheetType],
+    [controlContext, selectedProfile],
   );
   const capacity = availability.available ? availability.capacity : undefined;
   const capacityShortfall =
     capacity !== undefined && !capacity.sufficient ? capacity.message : undefined;
   const producible = availability.available && capacityShortfall === undefined;
-  const applicableControls =
-    selectedProfile === undefined
-      ? NO_APPLICABLE_CONTROLS
-      : selectedRegistration.controls.getApplicableControls(controlContext);
-  const effectiveUnit =
-    selectedProfile === undefined
-      ? undefined
-      : selectedRegistration.controls.getEffectiveUnit(controlContext);
+  const blockingMessageId = !availability.available
+    ? UNAVAILABLE_MESSAGE_ID
+    : capacityShortfall !== undefined
+      ? CAPACITY_MESSAGE_ID
+      : undefined;
+  const applicable = registration.controls.getApplicableControls(controlContext);
+  const effectiveUnit = registration.controls.getEffectiveUnit(controlContext);
   const unitLabel =
-    effectiveUnit?.count === 1
-      ? effectiveUnit.singularLabel
-      : effectiveUnit?.pluralLabel;
-  // What the selected child's earlier settings store but this version clamps
-  // or never uses. It describes the child's stored values, not this family's
-  // page, so it shows whichever worksheet is chosen.
-  const earlierSettingDisclosures = earlierSettings.disclosures.map(
+    effectiveUnit.count === 1 ? effectiveUnit.singularLabel : effectiveUnit.pluralLabel;
+  const focusControl = applicable.practiceFocus
+    ? focusControlFor(selection)
+    : undefined;
+  const focusOptionId =
+    focusControl === undefined
+      ? undefined
+      : matchPracticeFocusOption(focusControl.kind, focusControl.value);
+
+  const inUse = earlierSettingsInUse(session);
+  const shownGroups = groupsShownFor(selection);
+  const seededShown =
+    inUse === undefined
+      ? []
+      : inUse.groups.filter((group) => shownGroups.includes(group));
+  const earlierSettingDisclosures = (inUse?.disclosures ?? []).map(
     describeEarlierSettingDisclosure,
   );
-  const hasMoreOptions =
-    applicableControls.length ||
-    applicableControls.includeAnswerKey ||
-    applicableControls.paperSize ||
-    applicableControls.printScale;
+  const seededChildLabel =
+    inUse === undefined
+      ? undefined
+      : profileLabel(inUse.child, profiles.indexOf(inUse.child));
+  const seedingNoteShown =
+    session.base.useEarlierChildSettings &&
+    profiles.some(({ legacyChoices }) => legacyChoices !== undefined);
 
-  function changed(change: () => void): void {
-    change();
+  const showNickname =
+    applicable.useDisplayName && selectedProfile?.displayName !== undefined;
+  const hasPersonalization =
+    showNickname || applicable.useInterests || applicable.includeDecorativeGraphics;
+  const hasPrintLayout = applicable.paperSize || applicable.printScale;
+  const hasMoreOptions =
+    applicable.length ||
+    applicable.includeAnswerKey ||
+    hasPersonalization ||
+    hasPrintLayout;
+
+  function change<K extends WorksheetGroupKey>(
+    group: K,
+    value: WorksheetGroupValue[K],
+  ): void {
+    if (disabled) {
+      return;
+    }
     setDefaultsError(null);
-    // The confirmation describes the selection that was saved, so a changed
-    // selection retires it: otherwise "saved" sits beside choices the parent
-    // has since changed and not saved, with nothing telling the two apart.
-    setDefaultsSaved(false);
-    onInputsChanged();
+    onChange(groupChanged(group, value));
+  }
+
+  function selectChild(childId: string): void {
+    if (disabled) {
+      return;
+    }
+    setDefaultsError(null);
+    onChange({ type: "childSelected", childId });
+  }
+
+  function chooseFocus(optionId: string): void {
+    if (focusControl === undefined || optionId === EARLIER_SETTING_OPTION_ID) {
+      return;
+    }
+    const option = focusCatalog(focusControl.kind).find(({ id }) => id === optionId);
+    if (option === undefined) {
+      return;
+    }
+    // The option belongs to the same kind as the control, so its focus has
+    // exactly the shape of the group it replaces.
+    change(
+      focusControl.group,
+      option.focus as WorksheetGroupValue[typeof focusControl.group],
+    );
   }
 
   function effectiveUnitForLength(
     nextLength: WorksheetSelectionV2["length"],
-  ): number | undefined {
-    return selectedProfile === undefined
-      ? undefined
-      : selectedRegistration.controls.getEffectiveUnit({
-          selection: { ...selection, length: nextLength },
-        }).count;
-  }
-
-  /**
-   * The parent's own visible choices, before any family normalization.
-   *
-   * Stored defaults deliberately keep the RAW selections: the sole projection
-   * boundary canonicalizes whatever a family hides at request time, so storing
-   * a projected value here would let a stored default silently rewrite an
-   * identical visible selection under a different family.
-   */
-  function shownDefaults(): ShownWorksheetDefaults {
-    return {
-      useDisplayName,
-      useInterests,
-      includeDecorativeGraphics,
-      length,
-      includeAnswerKey,
-      paperSize,
-      printScale,
-    };
+  ): number {
+    return registration.controls.getEffectiveUnit({
+      selection: { ...selection, length: nextLength },
+    }).count;
   }
 
   async function saveDefaults(): Promise<void> {
     if (disabled || savingDefaults) {
       return;
     }
+    const epochAtSave = session.previewEpoch;
     setSavingDefaults(true);
     setDefaultsError(null);
-    setDefaultsSaved(false);
+    setSavedAtEpoch(null);
     try {
-      await onSaveDefaults(shownDefaults());
-      setDefaultsSaved(true);
+      await onSaveDefaults();
+      setSavedAtEpoch(epochAtSave);
     } catch (error) {
       setDefaultsError(
         // A superseded write is the one failure with a next step: the host has
@@ -292,270 +442,344 @@ export function GeneratorControls({
   }
 
   return (
-    <section aria-labelledby="generator-title" style={{ marginTop: "1.5rem" }}>
+    <section aria-labelledby="generator-title" className="worksheet-panel">
       <h2 id="generator-title">Create a practice worksheet</h2>
       <p data-early-primary-help="true">{EARLY_PRIMARY_HELP_TEXT}</p>
       <p>
         Generation stays in this browser tab and uses only local deterministic
         code.
       </p>
-      <div style={{ display: "grid", gap: "0.9rem", maxWidth: "42rem" }}>
-        <label>
-          Child profile
-          <select
-            aria-label="Child profile"
-            disabled={disabled || profiles.length === 0}
-            onChange={(event) =>
-              changed(() => setProfileId(event.currentTarget.value))
-            }
-            value={profileId}
-          >
-            {profiles.length === 0 && <option value="">No saved profiles</option>}
-            {profiles.map((profile, index) => (
-              <option key={profile.id} value={profile.id}>
-                {profileLabel(profile, index)}
-              </option>
-            ))}
-          </select>
-        </label>
 
-        <label>
-          Worksheet type
-          <select
-            aria-describedby={!availability.available ? "generation-unavailable" : undefined}
-            aria-label="Worksheet type"
-            disabled={disabled}
-            onChange={(event) =>
-              changed(() =>
-                setWorksheetType(
-                  event.currentTarget.value as RegisteredWorksheetType,
-                ),
-              )
-            }
-            value={worksheetType}
-          >
-            {WORKSHEET_OPTIONS.map(({ id, label }) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+      <fieldset className="worksheet-type-cards" data-panel-control="worksheet-type">
+        <legend>Worksheet type</legend>
+        {WORKSHEET_CARDS.map(({ id, label, description }) => (
+          <label className="worksheet-type-card" key={id}>
+            <input
+              aria-describedby={`worksheet-type-${id}-description`}
+              aria-labelledby={`worksheet-type-${id}-title`}
+              checked={worksheetType === id}
+              disabled={disabled}
+              name="worksheet-type"
+              onChange={() => change("worksheetType", id)}
+              type="radio"
+              value={id}
+            />
+            <span className="worksheet-type-card__title" id={`worksheet-type-${id}-title`}>
+              {label}
+            </span>
+            <span
+              className="worksheet-type-card__description"
+              id={`worksheet-type-${id}-description`}
+            >
+              {description}
+            </span>
+          </label>
+        ))}
+      </fieldset>
 
-        {!availability.available && (
-          <p id="generation-unavailable" aria-live="polite" style={{ background: "#fff5e8", padding: "0.75rem" }}>
-            {availability.message}
-          </p>
-        )}
+      <div className="worksheet-panel__columns">
+        <div className="worksheet-panel__primary">
+          {applicable.variant && worksheetType === "find-the-wow" && (
+            <RadioGroup
+              disabled={disabled}
+              legend="Statements"
+              name="find-the-wow-variant"
+              onSelect={(variant) => change("findTheWow.variant", variant)}
+              options={FIND_THE_WOW_VARIANTS.map((variant) => ({
+                value: variant,
+                label: FIND_THE_WOW_VARIANT_LABELS[variant],
+              }))}
+              value={selection.findTheWow.variant}
+            />
+          )}
+          {applicable.variant && worksheetType === "sentence-builder" && (
+            <RadioGroup
+              disabled={disabled}
+              legend="Writing activity"
+              name="sentence-builder-variant"
+              onSelect={(variant) => change("sentenceBuilder.variant", variant)}
+              options={WRITING_MODES.map((variant) => ({
+                value: variant,
+                label: SENTENCE_BUILDER_VARIANT_LABELS[variant],
+              }))}
+              value={selection.sentenceBuilder.variant}
+            />
+          )}
 
-        {availability.available && availability.statusMessage !== undefined && (
-          <p aria-live="polite">{availability.statusMessage}</p>
-        )}
+          <label className="worksheet-field" data-panel-control="child">
+            Child profile
+            <select
+              aria-label="Child profile"
+              disabled={disabled || profiles.length === 0}
+              onChange={(event) => selectChild(event.currentTarget.value)}
+              value={selectedProfile?.id ?? ""}
+            >
+              {profiles.length === 0 && <option value="">No saved profiles</option>}
+              {profiles.map((profile, index) => (
+                <option key={profile.id} value={profile.id}>
+                  {profileLabel(profile, index)}
+                </option>
+              ))}
+            </select>
+          </label>
 
-        {capacityShortfall !== undefined && (
-          <p
-            aria-live="polite"
-            id="generation-capacity"
-            data-capacity-conflict="true"
-            style={{ background: "#fff5e8", padding: "0.75rem" }}
-          >
-            {capacityShortfall}
-          </p>
-        )}
-
-        {applicableControls.useDisplayName &&
-          selectedProfile?.displayName !== undefined && (
-            <label>
-              <input
-                checked={useDisplayName}
+          {focusControl !== undefined && focusOptionId !== undefined && (
+            <label className="worksheet-field" data-panel-control="practice-focus">
+              Practice focus
+              <select
+                aria-label="Practice focus"
                 disabled={disabled}
-                onChange={(event) =>
-                  changed(() => setUseDisplayName(event.currentTarget.checked))
-                }
-                type="checkbox"
-              />{" "}
-              Put the nickname in the worksheet header
+                onChange={(event) => chooseFocus(event.currentTarget.value)}
+                value={focusOptionId}
+              >
+                {focusOptionId === EARLIER_SETTING_OPTION_ID && (
+                  <option value={EARLIER_SETTING_OPTION_ID}>
+                    {earlierSettingOptionLabel(focusControl)}
+                  </option>
+                )}
+                {focusCatalog(focusControl.kind).map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </label>
           )}
-
-        {applicableControls.useInterests && (
-          <label>
-            <input
-              checked={useInterests}
+          {applicable.vocabulary && (
+            <RadioGroup
               disabled={disabled}
-              onChange={(event) =>
-                changed(() => setUseInterests(event.currentTarget.checked))
-              }
-              type="checkbox"
-            />{" "}
-            Use reviewed interests in worksheet content
-          </label>
-        )}
+              legend="Vocabulary"
+              name="sentence-builder-vocabulary"
+              onSelect={(vocabulary) => change("sentenceBuilder.vocabulary", vocabulary)}
+              options={SENTENCE_VOCABULARY_OPTIONS.map((vocabulary) => ({
+                value: vocabulary,
+                label: SENTENCE_VOCABULARY_LABELS[vocabulary],
+              }))}
+              value={selection.sentenceBuilder.vocabulary}
+            />
+          )}
 
-        {applicableControls.includeDecorativeGraphics && (
-          <label>
-            <input
-              checked={includeDecorativeGraphics}
-              disabled={disabled}
-              onChange={(event) =>
-                changed(() =>
-                  setIncludeDecorativeGraphics(event.currentTarget.checked),
-                )
-              }
-              type="checkbox"
-            />{" "}
-            Include decorative graphics
-          </label>
-        )}
+          {/*
+            A polite live region deliberately without role="status" (DD17), so
+            it adds no status region beside the health line. It stays mounted
+            so a change in what the earlier settings supply is announced.
+          */}
+          <div aria-live="polite" data-earlier-settings-status="true">
+            {seededChildLabel !== undefined && seededShown.length > 0 && (
+              <p data-earlier-settings-used="true">
+                {`Starting from ${seededChildLabel}'s earlier settings: ${seededShown
+                  .map((group) => describeSeededGroup(group, selection))
+                  .join("; ")}.`}
+              </p>
+            )}
+            {earlierSettingDisclosures.length > 0 && (
+              <p data-earlier-settings-disclosure="true">
+                Earlier settings this version adjusts or does not use:{" "}
+                {earlierSettingDisclosures.join(" ")}
+              </p>
+            )}
+          </div>
 
-        {earlierSettingDisclosures.length > 0 && (
-          <p data-earlier-settings-disclosure="true">
-            Earlier settings this version adjusts or does not use:{" "}
-            {earlierSettingDisclosures.join(" ")}
-          </p>
-        )}
+          <div data-selection-summary="true">
+            {availability.available && availability.statusMessage !== undefined && (
+              <p aria-live="polite">{availability.statusMessage}</p>
+            )}
+            {producible && (
+              <p aria-live="polite">
+                This selection creates {effectiveUnit.count} unique {unitLabel} on
+                one practice page.
+              </p>
+            )}
+          </div>
 
-        {hasMoreOptions && (
-          <details>
-            <summary>More options</summary>
-            <div style={{ display: "grid", gap: "0.75rem", padding: "0.75rem 0" }}>
-              {applicableControls.length && (
-                <label>
-                  Length
-                  <select
-                    aria-label="Length"
-                    disabled={disabled}
-                    onChange={(event) =>
-                      changed(() =>
-                        setLength(
-                          event.currentTarget.value as WorksheetSelectionV2["length"],
-                        ),
-                      )
-                    }
-                    value={length}
-                  >
-                    <option value="short">
-                      Short · {effectiveUnitForLength("short")} {unitLabel}
-                    </option>
-                    <option value="standard">
-                      Standard · {effectiveUnitForLength("standard")} {unitLabel}
-                    </option>
-                    <option value="long">
-                      Long · {effectiveUnitForLength("long")} {unitLabel}
-                    </option>
-                  </select>
-                </label>
-              )}
-
-              {applicableControls.includeAnswerKey && (
-                <label>
-                  <input
-                    checked={includeAnswerKey}
-                    disabled={disabled}
-                    onChange={(event) =>
-                      changed(() =>
-                        setIncludeAnswerKey(event.currentTarget.checked),
-                      )
-                    }
-                    type="checkbox"
-                  />{" "}
-                  Include a parent answer key
-                </label>
-              )}
-
-              <div role="group" aria-label="Print layout" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 12rem), 1fr))", gap: "0.75rem" }}>
-              {applicableControls.paperSize && (
-                <label>
-                  Paper size
-                  <select
-                    aria-label="Paper size"
-                    disabled={disabled}
-                    onChange={(event) =>
-                      changed(() =>
-                        setPaperSize(
-                          event.currentTarget
-                            .value as WorksheetSelectionV2["paperSize"],
-                        ),
-                      )
-                    }
-                    value={paperSize}
-                  >
-                    <option value="letter">US Letter</option>
-                    <option value="a4">A4</option>
-                  </select>
-                </label>
-              )}
-
-              {applicableControls.printScale && (
-                <label>
-                  Print scale
-                  <select
-                    aria-label="Print scale"
-                    disabled={disabled}
-                    onChange={(event) =>
-                      changed(() =>
-                        setPrintScale(
-                          event.currentTarget
-                            .value as WorksheetSelectionV2["printScale"],
-                        ),
-                      )
-                    }
-                    value={printScale}
-                  >
-                    <option value="standard">Standard</option>
-                    <option value="large">Large</option>
-                  </select>
-                </label>
-              )}
-              </div>
-            </div>
-          </details>
-        )}
-
-        {producible && effectiveUnit !== undefined && unitLabel !== undefined && (
-          <p aria-live="polite">
-            This selection creates {effectiveUnit.count} unique {unitLabel} on
-            one practice page.
-          </p>
-        )}
-
-        <button
-          aria-describedby={!availability.available ? "generation-unavailable" : capacityShortfall !== undefined ? "generation-capacity" : undefined}
-          disabled={disabled || !producible}
-          onClick={submit}
-          type="button"
-        >
-          Create worksheet
-        </button>
-
-        {/*
-          The save button, its explanation, its confirmation and its failure
-          message are ONE slot. The confirmation used to render in the global
-          profiles status line far above the button, so the click produced no
-          visible change near the pointer; `data-defaults-slot` is the hook the
-          unit test and `tests/e2e/options.spec.ts` assert that placement with,
-          because "somewhere in this panel" is satisfied by the top of the page.
-        */}
-        <div data-defaults-slot="true">
-          <button
-            disabled={disabled || savingDefaults}
-            onClick={() => void saveDefaults()}
-            type="button"
-          >
-            {savingDefaults
-              ? "Saving worksheet defaults…"
-              : "Save these as worksheet defaults"}
-          </button>
-          <p>
-            Worksheet defaults are stored beside the profiles in the same local
-            file and change no child profile.
-          </p>
-          {defaultsSaved && (
-            <p aria-live="polite" role="status">
-              Worksheet defaults saved locally.
+          {!availability.available && (
+            <p
+              aria-live="polite"
+              className="worksheet-blocking"
+              data-blocking-message="true"
+              id={UNAVAILABLE_MESSAGE_ID}
+            >
+              {availability.message}
             </p>
           )}
-          {defaultsError !== null && <p role="alert">{defaultsError}</p>}
+          {capacityShortfall !== undefined && (
+            <p
+              aria-live="polite"
+              className="worksheet-blocking"
+              data-blocking-message="true"
+              data-capacity-conflict="true"
+              id={CAPACITY_MESSAGE_ID}
+            >
+              {capacityShortfall}
+            </p>
+          )}
+
+          <button
+            aria-describedby={blockingMessageId}
+            disabled={disabled || !producible}
+            onClick={submit}
+            type="button"
+          >
+            Create worksheet
+          </button>
+        </div>
+
+        <div className="worksheet-panel__secondary">
+          {hasMoreOptions && (
+            <details>
+              <summary>More options</summary>
+              <div className="worksheet-more-options__groups">
+                {applicable.length && (
+                  <OptionGroup legend="Length" name="length">
+                    <select
+                      aria-label="Length"
+                      disabled={disabled}
+                      onChange={(event) =>
+                        change(
+                          "length",
+                          event.currentTarget.value as WorksheetSelectionV2["length"],
+                        )
+                      }
+                      value={selection.length}
+                    >
+                      <option value="short">
+                        Short · {effectiveUnitForLength("short")} {unitLabel}
+                      </option>
+                      <option value="standard">
+                        Standard · {effectiveUnitForLength("standard")} {unitLabel}
+                      </option>
+                      <option value="long">
+                        Long · {effectiveUnitForLength("long")} {unitLabel}
+                      </option>
+                    </select>
+                  </OptionGroup>
+                )}
+
+                {applicable.includeAnswerKey && (
+                  <OptionGroup legend="Answer key" name="answer-key">
+                    <Checkbox
+                      checked={selection.includeAnswerKey}
+                      disabled={disabled}
+                      label="Include a parent answer key"
+                      onToggle={(checked) => change("includeAnswerKey", checked)}
+                    />
+                  </OptionGroup>
+                )}
+
+                {hasPersonalization && (
+                  <OptionGroup legend="Personalization" name="personalization">
+                    {showNickname && (
+                      <Checkbox
+                        checked={selection.useDisplayName}
+                        disabled={disabled}
+                        label="Put the nickname in the worksheet header"
+                        onToggle={(checked) => change("useDisplayName", checked)}
+                      />
+                    )}
+                    {applicable.useInterests && (
+                      <Checkbox
+                        checked={selection.useInterests}
+                        disabled={disabled}
+                        label="Use reviewed interests in worksheet content"
+                        onToggle={(checked) => change("useInterests", checked)}
+                      />
+                    )}
+                    {applicable.includeDecorativeGraphics && (
+                      <Checkbox
+                        checked={selection.includeDecorativeGraphics}
+                        disabled={disabled}
+                        label="Include decorative graphics"
+                        onToggle={(checked) =>
+                          change("includeDecorativeGraphics", checked)
+                        }
+                      />
+                    )}
+                  </OptionGroup>
+                )}
+
+                {hasPrintLayout && (
+                  <OptionGroup legend="Print layout" name="print-layout">
+                    {applicable.paperSize && (
+                      <label className="worksheet-field">
+                        Paper size
+                        <select
+                          aria-label="Paper size"
+                          disabled={disabled}
+                          onChange={(event) =>
+                            change(
+                              "paperSize",
+                              event.currentTarget
+                                .value as WorksheetSelectionV2["paperSize"],
+                            )
+                          }
+                          value={selection.paperSize}
+                        >
+                          <option value="letter">US Letter</option>
+                          <option value="a4">A4</option>
+                        </select>
+                      </label>
+                    )}
+                    {applicable.printScale && (
+                      <label className="worksheet-field">
+                        Print scale
+                        <select
+                          aria-label="Print scale"
+                          disabled={disabled}
+                          onChange={(event) =>
+                            change(
+                              "printScale",
+                              event.currentTarget
+                                .value as WorksheetSelectionV2["printScale"],
+                            )
+                          }
+                          value={selection.printScale}
+                        >
+                          <option value="standard">Standard</option>
+                          <option value="large">Large</option>
+                        </select>
+                      </label>
+                    )}
+                  </OptionGroup>
+                )}
+              </div>
+            </details>
+          )}
+
+          {/*
+            The save button, its explanation, its confirmation and its failure
+            message are ONE slot, so the confirmation lands beside the button
+            that produced it; `data-defaults-slot` is the hook the unit test
+            and `tests/e2e/options.spec.ts` assert that placement with. The
+            slot holds no other control: seeding has no re-enable (D10).
+          */}
+          <div className="worksheet-defaults-slot" data-defaults-slot="true">
+            <button
+              disabled={disabled || savingDefaults}
+              onClick={() => void saveDefaults()}
+              type="button"
+            >
+              {savingDefaults
+                ? "Saving worksheet defaults…"
+                : "Save these as worksheet defaults"}
+            </button>
+            <p>
+              Worksheet defaults are stored beside the profiles in the same local
+              file and change no child profile.
+            </p>
+            {seedingNoteShown && (
+              <p data-earlier-settings-save-note="true">
+                Saving makes these the starting choices for every child.
+                Children&apos;s earlier settings stay in the file but will no
+                longer be used as starting points.
+              </p>
+            )}
+            {savedAtEpoch !== null && savedAtEpoch === session.previewEpoch && (
+              <p aria-live="polite" role="status">
+                Worksheet defaults saved locally.
+              </p>
+            )}
+            {defaultsError !== null && <p role="alert">{defaultsError}</p>}
+          </div>
         </div>
       </div>
     </section>

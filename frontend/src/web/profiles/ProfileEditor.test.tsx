@@ -20,6 +20,7 @@ import {
   worksheetSelectionOf,
 } from "../../shared/config/defaults";
 import { selectionFromEarlierSettings } from "../../shared/config/earlier-settings";
+import { describePracticeFocus } from "../../shared/config/practice-focus";
 import {
   MathSkillsV1Schema,
   type AppConfigV2,
@@ -1527,13 +1528,17 @@ describe("App worksheet authority across a defaults save", () => {
 
 /**
  * Stubs the local API for the App-level cases below: health, a session token,
- * one config read and a PUT that echoes the saved body back at version 2.
+ * config reads and a PUT that echoes the saved body back at version 2. The
+ * first read returns `loaded`; each later read returns the next of `reloads`,
+ * and the last one again once they run out.
  */
 function stubConfigApi(
   loaded: AppConfigV2,
   storedSchemaVersion: StoredSchemaVersion,
+  reloads: readonly AppConfigV2[] = [],
 ): { readonly puts: AppConfigV2[] } {
   const puts: AppConfigV2[] = [];
+  let reads = 0;
   vi.stubGlobal(
     "fetch",
     vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1552,7 +1557,10 @@ function stubConfigApi(
         });
       }
       if (url.endsWith("/api/config") && method === "GET") {
-        return configResponse(loaded, '"etag-loaded"', storedSchemaVersion);
+        reads += 1;
+        const config =
+          reads === 1 ? loaded : (reloads[Math.min(reads, reloads.length + 1) - 2] ?? loaded);
+        return configResponse(config, `"etag-read-${reads}"`, storedSchemaVersion);
       }
       if (url.endsWith("/api/config") && method === "PUT") {
         const config = JSON.parse(String(init?.body)) as AppConfigV2;
@@ -1575,64 +1583,38 @@ function migratedConfig(): AppConfigV2 {
 }
 
 describe("App over a file an earlier version saved", () => {
-  test("the interim defaults save passes every worksheet group and the seeding flag through", async () => {
-    // Worksheet groups a built-in rebuild could never produce, so writing
-    // DEFAULT values, or anything derived from a child's earlier settings,
-    // instead of passing them through is visible in the PUT body.
+  test("saving defaults writes the visible selection, seeded groups included, and ends seeding", async () => {
+    // Saved worksheet groups a child's earlier settings never produce, so a
+    // save that passed the stored groups through, instead of writing what the
+    // parent sees, is visible in the PUT body.
     const loaded = migratedConfig();
     loaded.defaults = {
       ...loaded.defaults,
-      worksheetType: "find-the-wow",
       dryMath: { operations: ["addition"], operandMax: 7, resultMax: 9 },
-      findTheWow: {
-        variant: "equation",
-        quantity: { countingMax: 4, numeralMax: 6 },
-        equation: { operations: ["subtraction"], operandMax: 11, resultMax: 3 },
-      },
-      sentenceBuilder: { variant: "draw-and-tell", vocabulary: "simpler-words" },
       countCompareMake: { countingMax: 5, numeralMax: 6, compareMax: 7 },
     };
     const before = structuredClone(loaded);
-    // The child the parent selects covers every worksheet group with earlier
-    // settings that differ from the saved defaults, so a save that wrote the
-    // selected child's values instead of passing the defaults through would
-    // change every group below.
-    const selectedChild = canonicalAvery;
-    const childSelection = selectionFromEarlierSettings(
+    const selectedChild = canonicalMorgan;
+    const seeded = selectionFromEarlierSettings(
       selectedChild.legacyChoices!,
       worksheetSelectionOf(loaded.defaults),
     ).selection;
-    for (const group of [
-      "dryMath",
-      "findTheWow",
-      "sentenceBuilder",
-      "countCompareMake",
-    ] as const) {
-      expect(childSelection[group], group).not.toEqual(loaded.defaults[group]);
-    }
+    // Non-vacuity: the untouched Dry Math group the parent sees is the
+    // child's earlier setting, not the saved default.
+    expect(seeded.dryMath).not.toEqual(loaded.defaults.dryMath);
     const { puts } = stubConfigApi(loaded, 1);
 
     render(<App />);
     expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
-    fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
-      target: { value: "sentence-builder" },
-    });
-    // The first child's earlier writing activity is on the panel, and
-    // selecting the second child replaces it with hers: the panel really
-    // follows the selected child rather than the saved Draw & Tell default.
+    const shownFocus = (): string | undefined =>
+      (screen.getByRole("combobox", { name: "Practice focus" }) as HTMLSelectElement)
+        .selectedOptions[0]?.textContent ?? undefined;
+    expect(shownFocus()).toBe(describePracticeFocus("dry-math", seeded.dryMath));
     expect(
-      screen.getByText("Writing activity for Sentence Builder: Finish a Sentence."),
+      screen.getByText(
+        "Saving makes these the starting choices for every child. Children's earlier settings stay in the file but will no longer be used as starting points.",
+      ),
     ).toBeVisible();
-    fireEvent.change(screen.getByRole("combobox", { name: "Child profile" }), {
-      target: { value: selectedChild.id },
-    });
-    expect(
-      screen.getByText("Writing activity for Sentence Builder: Independent Writing."),
-    ).toBeVisible();
-    expect(
-      screen.queryByText("Writing activity for Sentence Builder: Draw & Tell."),
-    ).toBeNull();
-    fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content"));
     for (const details of window.document.querySelectorAll("details")) {
       details.open = true;
     }
@@ -1646,23 +1628,372 @@ describe("App over a file an earlier version saved", () => {
 
     expect(puts).toHaveLength(1);
     const saved = puts[0]!;
-    for (const group of [
-      "worksheetType",
-      "dryMath",
-      "findTheWow",
-      "sentenceBuilder",
-      "countCompareMake",
-    ] as const) {
-      expect(saved.defaults[group], group).toEqual(before.defaults[group]);
-    }
-    expect(saved.defaults.useEarlierChildSettings).toBe(true);
-    expect(saved.defaults.useInterests).toBe(false);
-    // Until the Theme control exists, the saved theme follows interests (D33).
-    expect(saved.defaults.theme).toBe("neutral");
-    expect(saved.defaults.printScale).toBe("large");
+    expect(saved.defaults).toEqual({
+      ...seeded,
+      printScale: "large",
+      useEarlierChildSettings: false,
+    });
     expect(saved.defaults).not.toHaveProperty("difficulty");
     expect(saved.profiles).toEqual(before.profiles);
     expect(saved.schemaVersion).toBe(2);
+    // Nothing visible changed at the save, and there is no seeding left to end.
+    expect(shownFocus()).toBe(describePracticeFocus("dry-math", seeded.dryMath));
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toHaveValue("large");
+    expect(
+      window.document.querySelector("[data-earlier-settings-save-note]"),
+    ).toBeNull();
+  });
+
+  test("a profile save or a cancelled edit after a control change keeps the selection", async () => {
+    const { puts } = stubConfigApi(migratedConfig(), 2);
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+    fireEvent.click(screen.getByRole("radio", { name: "Sentence Builder" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Draw & Tell" }));
+    for (const details of window.document.querySelectorAll("details")) {
+      details.open = true;
+    }
+    fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
+      target: { value: "large" },
+    });
+
+    const expectSelectionKept = (): void => {
+      expect(screen.getByRole("radio", { name: "Sentence Builder" })).toBeChecked();
+      expect(screen.getByRole("radio", { name: "Draw & Tell" })).toBeChecked();
+      for (const details of window.document.querySelectorAll("details")) {
+        details.open = true;
+      }
+      expect(screen.getByRole("combobox", { name: "Print scale" })).toHaveValue("large");
+    };
+
+    // A cancelled edit writes nothing and keeps every choice.
+    await user.click(screen.getByRole("button", { name: "Edit Morgan" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expectSelectionKept();
+    expect(puts).toHaveLength(0);
+
+    // A saved edit keeps every changed choice, and the panel lists the saved
+    // profile.
+    await user.click(screen.getByRole("button", { name: "Edit Morgan" }));
+    const nickname = screen.getByRole("textbox", { name: "Nickname (optional)" });
+    await user.clear(nickname);
+    await user.type(nickname, "Morgan renamed");
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
+    expect(await screen.findByRole("heading", { name: "Morgan renamed" })).toBeVisible();
+    expect(puts).toHaveLength(1);
+    expectSelectionKept();
+    expect(screen.getByRole("radio", { name: "Include longer words" })).toBeChecked();
+    const child = screen.getByRole("combobox", { name: "Child profile" }) as HTMLSelectElement;
+    expect(child.selectedOptions[0]?.textContent).toBe("Morgan renamed");
+  });
+
+  test("a profile delete clears the preview and keeps the selection", async () => {
+    const { puts } = stubConfigApi(configWithProfiles([canonicalMorgan, canonicalAvery]), 2);
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+    for (const details of window.document.querySelectorAll("details")) {
+      details.open = true;
+    }
+    fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
+      target: { value: "large" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create worksheet" }));
+    expect(screen.getByLabelText("Worksheet preview")).toBeVisible();
+
+    // A mutation that never opens the editor: the other child is deleted.
+    await user.click(screen.getByRole("button", { name: "Delete Avery" }));
+    await user.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "Confirm delete" }),
+    );
+    await waitFor(() => expect(screen.queryByRole("heading", { name: "Avery" })).toBeNull());
+    expect(puts).toHaveLength(1);
+    expect(puts[0]?.profiles.map(({ id }) => id)).toEqual([canonicalMorgan.id]);
+    expect(screen.queryByLabelText("Worksheet preview")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make another" })).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Child profile" })).toHaveValue(
+      canonicalMorgan.id,
+    );
+    expect(
+      [
+        ...screen.getByRole("combobox", { name: "Child profile" }).querySelectorAll("option"),
+      ].map((option) => option.textContent),
+    ).toEqual(["Morgan"]);
+    for (const details of window.document.querySelectorAll("details")) {
+      details.open = true;
+    }
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toHaveValue("large");
+  });
+
+  test("Reload saved profiles keeps changed choices and the chosen child while untouched ones follow the reloaded defaults", async () => {
+    const first = configWithProfiles([canonicalMorgan, canonicalAvery]);
+    const reloaded: AppConfigV2 = {
+      ...first,
+      defaults: { ...first.defaults, length: "long", printScale: "standard", paperSize: "a4" },
+    };
+    const { puts } = stubConfigApi(first, 2, [reloaded]);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+    for (const details of window.document.querySelectorAll("details")) {
+      details.open = true;
+    }
+    fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
+      target: { value: "large" },
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Child profile" }), {
+      target: { value: canonicalAvery.id },
+    });
+    expect(screen.getByRole("combobox", { name: "Length" })).toHaveValue("standard");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload saved profiles" }));
+    await waitFor(() =>
+      expect(screen.getByRole("combobox", { name: "Paper size" })).toHaveValue("a4"),
+    );
+    // The untouched groups moved to the reloaded defaults...
+    expect(screen.getByRole("combobox", { name: "Length" })).toHaveValue("long");
+    // ...while the changed choice and the chosen child stayed.
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toHaveValue("large");
+    expect(screen.getByRole("combobox", { name: "Child profile" })).toHaveValue(
+      canonicalAvery.id,
+    );
+    expect(puts).toHaveLength(0);
+  });
+
+  test("an invalid-file recovery save on a fresh session builds the worksheet panel over the replacement file", async () => {
+    const puts: AppConfigV2[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        if (url.endsWith("/api/health")) {
+          return new Response(JSON.stringify({ status: "ok", version: "0.1.0" }), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/session")) {
+          return new Response(JSON.stringify({ token: "fixture-token" }), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/config") && method === "GET") {
+          return new Response(
+            JSON.stringify({
+              error: {
+                code: "CONFIG_INVALID",
+                message: "The saved profile file is invalid. It was left unchanged.",
+              },
+            }),
+            {
+              headers: { "Content-Type": "application/json", ETag: '"sha256-fixture"' },
+              status: 409,
+            },
+          );
+        }
+        if (url.endsWith("/api/config") && method === "PUT") {
+          const config = JSON.parse(String(init?.body)) as AppConfigV2;
+          puts.push(config);
+          return configResponse(config, '"etag-recovered"');
+        }
+        throw new Error("Unexpected request in the recovery-save test.");
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    expect(
+      await screen.findByRole("heading", { name: "The saved profile file needs attention" }),
+    ).toBeVisible();
+    // No panel while the file needs recovery.
+    expect(screen.queryByRole("button", { name: "Create worksheet" })).toBeNull();
+    await user.type(
+      screen.getByRole("textbox", { name: "Nickname (optional)" }),
+      "Recovered child",
+    );
+    await user.click(screen.getByRole("radio", { name: "Quantities to 10" }));
+    await user.click(
+      screen.getByRole("checkbox", { name: /I understand that Back up invalid file and replace/ }),
+    );
+    await user.click(screen.getByRole("button", { name: "Back up invalid file and replace" }));
+
+    expect(await screen.findByRole("heading", { name: "Recovered child" })).toBeVisible();
+    expect(puts).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Create worksheet" })).toBeEnabled();
+    expect(screen.getByRole("combobox", { name: "Child profile" })).toHaveValue(
+      puts[0]?.profiles[0]?.id,
+    );
+  });
+
+  test("an invalid-file recovery save after a started session starts the selection over", async () => {
+    const puts: AppConfigV2[] = [];
+    let configReads = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method ?? "GET";
+        if (url.endsWith("/api/health")) {
+          return new Response(JSON.stringify({ status: "ok", version: "0.1.0" }), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/session")) {
+          return new Response(JSON.stringify({ token: "fixture-token" }), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/config") && method === "GET") {
+          configReads += 1;
+          if (configReads === 1) {
+            return configResponse(
+              configWithProfiles([canonicalMorgan, canonicalAvery]),
+              '"etag-valid"',
+            );
+          }
+          return new Response(
+            JSON.stringify({
+              error: {
+                code: "CONFIG_INVALID",
+                message: "The saved profile file is invalid. It was left unchanged.",
+              },
+            }),
+            {
+              headers: { "Content-Type": "application/json", ETag: '"sha256-fixture"' },
+              status: 409,
+            },
+          );
+        }
+        if (url.endsWith("/api/config") && method === "PUT") {
+          const config = JSON.parse(String(init?.body)) as AppConfigV2;
+          puts.push(config);
+          return configResponse(config, '"etag-recovered"');
+        }
+        throw new Error("Unexpected request in the started-session recovery test.");
+      }),
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+    // A touched group away from the replacement file's default.
+    for (const details of window.document.querySelectorAll("details")) {
+      details.open = true;
+    }
+    fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
+      target: { value: "large" },
+    });
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toHaveValue("large");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload saved profiles" }));
+    expect(
+      await screen.findByRole("heading", { name: "The saved profile file needs attention" }),
+    ).toBeVisible();
+    await user.type(
+      screen.getByRole("textbox", { name: "Nickname (optional)" }),
+      "Recovered child",
+    );
+    await user.click(screen.getByRole("radio", { name: "Quantities to 10" }));
+    await user.click(
+      screen.getByRole("checkbox", { name: /I understand that Back up invalid file and replace/ }),
+    );
+    await user.click(screen.getByRole("button", { name: "Back up invalid file and replace" }));
+
+    expect(await screen.findByRole("heading", { name: "Recovered child" })).toBeVisible();
+    expect(puts).toHaveLength(1);
+    expect(puts[0]?.defaults.printScale).toBe("standard");
+    expect(screen.getByRole("combobox", { name: "Child profile" })).toHaveValue(
+      puts[0]?.profiles[0]?.id,
+    );
+    for (const details of window.document.querySelectorAll("details")) {
+      details.open = true;
+    }
+    // The recovery save starts the session over, so the touched group is back
+    // to the replacement file's default.
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toHaveValue("standard");
+  });
+
+  test("each control change clears the preview and Create writes nothing", async () => {
+    const { puts } = stubConfigApi(configWithProfiles([canonicalMorgan, canonicalAvery]), 2);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+
+    const preview = (): HTMLElement | null => screen.queryByLabelText("Worksheet preview");
+    const createAndExpectPreview = (): void => {
+      fireEvent.click(screen.getByRole("button", { name: "Create worksheet" }));
+      expect(preview()).not.toBeNull();
+      expect(screen.getByRole("button", { name: "Make another" })).toBeVisible();
+    };
+    const openMoreOptions = (): void => {
+      for (const details of window.document.querySelectorAll("details")) {
+        details.open = true;
+      }
+    };
+    const changes: readonly [string, () => void][] = [
+      ["worksheet type", () => fireEvent.click(screen.getByRole("radio", { name: "Math — Two Whats and a Wow" }))],
+      ["statements", () => fireEvent.click(screen.getByRole("radio", { name: "Equations" }))],
+      [
+        "practice focus",
+        () =>
+          fireEvent.change(screen.getByRole("combobox", { name: "Practice focus" }), {
+            target: { value: "addition-within-20" },
+          }),
+      ],
+      [
+        "child",
+        () =>
+          fireEvent.change(screen.getByRole("combobox", { name: "Child profile" }), {
+            target: { value: canonicalAvery.id },
+          }),
+      ],
+      ["writing worksheet type", () => fireEvent.click(screen.getByRole("radio", { name: "Sentence Builder" }))],
+      ["writing activity", () => fireEvent.click(screen.getByRole("radio", { name: "Independent Writing" }))],
+      ["vocabulary", () => fireEvent.click(screen.getByRole("radio", { name: "Include longer words" }))],
+      ["quantity worksheet type", () => fireEvent.click(screen.getByRole("radio", { name: "Count, Compare & Make" }))],
+      [
+        "length",
+        () => {
+          openMoreOptions();
+          fireEvent.change(screen.getByRole("combobox", { name: "Length" }), {
+            target: { value: "short" },
+          });
+        },
+      ],
+      ["answer key", () => fireEvent.click(screen.getByLabelText("Include a parent answer key"))],
+      ["nickname", () => fireEvent.click(screen.getByLabelText("Put the nickname in the worksheet header"))],
+      ["interests", () => fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content"))],
+      ["graphics", () => fireEvent.click(screen.getByLabelText("Include decorative graphics"))],
+      [
+        "paper",
+        () =>
+          fireEvent.change(screen.getByRole("combobox", { name: "Paper size" }), {
+            target: { value: "a4" },
+          }),
+      ],
+      [
+        "scale",
+        () =>
+          fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
+            target: { value: "large" },
+          }),
+      ],
+    ];
+    createAndExpectPreview();
+    for (const [control, change] of changes) {
+      openMoreOptions();
+      change();
+      expect(preview(), control).toBeNull();
+      expect(screen.queryByRole("button", { name: "Make another" }), control).toBeNull();
+      expect(screen.queryByText(/^Worksheet ready with/u), control).toBeNull();
+      // A page created after the change stays on screen.
+      createAndExpectPreview();
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Make another" }));
+    expect(preview()).not.toBeNull();
+    // Create and Make another never write the config file.
+    expect(puts).toHaveLength(0);
   });
 
   test("shows the upgrade notice for a version 1 file until the first save upgrades it", async () => {
