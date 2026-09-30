@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Extra Credit Plan Trim</title>
+<style>
+  /* Layout: one reading column (68ch) with full-bleed tables; a summary strip of the four figures that drive the decision, then the review in its original order, then what was adopted. */
+  :root {
+    --bg: #F6F8F7;
+    --surface: #FFFFFF;
+    --surface-2: #EEF2F0;
+    --ink: #1A2422;
+    --muted: #5B6A66;
+    --line: #D6DEDA;
+    --accent: #0E6B60;
+    --accent-ink: #FFFFFF;
+    --cut: #A33A2C;
+    --cut-bg: #F7E6E2;
+    --simplify: #8E6512;
+    --simplify-bg: #F7EED9;
+    --keep: #2E7A49;
+    --keep-bg: #E1F0E5;
+    --merge: #2F5F9E;
+    --merge-bg: #E2EAF6;
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0F1514; --surface: #161E1C; --surface-2: #1E2826; --ink: #E4EBE8; --muted: #97A6A1; --line: #2A3633;
+      --accent: #4EC2AE; --accent-ink: #0F1514;
+      --cut: #E38B7C; --cut-bg: #3A2320; --simplify: #D9AE55; --simplify-bg: #3A2F17; --keep: #7FCB96; --keep-bg: #1D3426; --merge: #8FB4E8; --merge-bg: #1E2C40;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0F1514; --surface: #161E1C; --surface-2: #1E2826; --ink: #E4EBE8; --muted: #97A6A1; --line: #2A3633;
+    --accent: #4EC2AE; --accent-ink: #0F1514;
+    --cut: #E38B7C; --cut-bg: #3A2320; --simplify: #D9AE55; --simplify-bg: #3A2F17; --keep: #7FCB96; --keep-bg: #1D3426; --merge: #8FB4E8; --merge-bg: #1E2C40;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.55; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding-block: 32px 64px; padding-inline: clamp(16px, 4vw, 40px); }
+  header.top { display: grid; gap: 14px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-family: var(--display); font-weight: 700; font-size: clamp(30px, 4.5vw, 46px); line-height: 1.05; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+  .lede { max-width: 68ch; margin: 0; font-size: 17px; color: var(--ink); }
+  .meta { color: var(--muted); font-size: 14px; margin: 0; }
+  .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 24px; }
+  .fig { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 4px; }
+  .fig .n { font-family: var(--display); font-weight: 600; font-size: 28px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .fig .n small { font-size: 15px; font-weight: 500; color: var(--muted); }
+  .fig .l { font-size: 13px; color: var(--muted); }
+  nav.toc { margin-top: 28px; padding: 14px 18px; background: var(--surface-2); border-radius: 8px; }
+  nav.toc ol { margin: 6px 0 0; padding-left: 20px; columns: 2; column-gap: 32px; font-size: 15px; }
+  nav.toc li { break-inside: avoid; margin: 2px 0; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover, nav.toc a:focus-visible { text-decoration: underline; }
+  main { display: grid; gap: 44px; margin-top: 40px; }
+  section > h2 { font-family: var(--display); font-weight: 600; font-size: 26px; line-height: 1.15; margin: 0 0 12px; text-wrap: balance; padding-top: 8px; border-top: 3px solid var(--accent); display: inline-block; }
+  section h3 { font-family: var(--display); font-weight: 600; font-size: 20px; margin: 28px 0 8px; text-wrap: balance; }
+  section h4 { font-family: var(--display); font-weight: 600; font-size: 16px; margin: 20px 0 6px; }
+  p, li { max-width: 72ch; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+  code { font-family: var(--mono); font-size: 0.9em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+  .verdict { background: var(--surface); border-left: 4px solid var(--accent); padding: 12px 16px; margin: 12px 0 18px; border-radius: 0 6px 6px 0; }
+  .verdict p { margin: 0; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); margin: 12px 0 8px; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--display); font-weight: 600; font-size: 13px; letter-spacing: 0.02em; background: var(--surface-2); position: sticky; top: env(safe-area-inset-top, 0px); }
+  tr:last-child td { border-bottom: none; }
+  td.loc { font-family: var(--mono); font-size: 12.5px; color: var(--muted); min-width: 170px; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .chip { display: inline-block; font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .chip.cut { color: var(--cut); background: var(--cut-bg); }
+  .chip.simplify { color: var(--simplify); background: var(--simplify-bg); }
+  .chip.keep { color: var(--keep); background: var(--keep-bg); }
+  .chip.merge { color: var(--merge); background: var(--merge-bg); }
+  .chip.drop { color: var(--cut); background: var(--cut-bg); }
+  .note { font-size: 14px; color: var(--muted); }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .panel h4 { margin-top: 0; }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 640px) { nav.toc ol { columns: 1; } .fig .n { font-size: 24px; } }
+  @media print { .wrap { max-width: none; padding: 0; } th { position: static; } .tablewrap { border: none; } nav.toc { display: none; } }
+  @media (prefers-reduced-motion: no-preference) { a { transition: color .15s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Extra Credit · plans 01–03 · read-only review, 2026-09-29 · adopted 2026-09-30</div>
+    <h1>Extra Credit Plan Trim</h1>
+    <p class="lede">A parent-facing local worksheet app was being built under plans sized for a multi-tenant service. This review weighs each guard, gate and ceremony in the three post-UAT plans against the app's real risks, separates plan content from pipeline settings, and records the lean path the operator adopted.</p>
+    <p class="meta">Sources: <code>CLAUDE.md</code>, <code>plan.md</code>, the three plans under <code>documentation/</code>, <code>feature-seeds/</code>, <code>worksheet-first-evidence.md</code>, the build-step and build-phase skill cores, and the local <code>.build-step/step14..16</code> artifacts. No file under <code>config/</code> was opened.</p>
+    <div class="figures" aria-label="Key figures">
+      <div class="fig"><div class="n">18 <small>→ 9 steps</small></div><div class="l">Remaining steps before and after the trim (11 if durable packets stay)</div></div>
+      <div class="fig"><div class="n">27 h <small>→ 8–10 h</small></div><div class="l">Machine time at the observed 1.2–2 h per step</div></div>
+      <div class="fig"><div class="n">132k <small>vs 17.6k words</small></div><div class="l">Three feature plans vs the 13-step plan that built v1</div></div>
+      <div class="fig"><div class="n">109 s <small>→ 181 s</small></div><div class="l">Vitest run time after three steps (521 → 768 tests)</div></div>
+    </div>
+    <nav class="toc" aria-label="Contents">
+      <div class="eyebrow">Contents</div>
+      <ol>
+        <li><a href="#state">State of the run</a></li>
+        <li><a href="#plan01">Plan 01: worksheet-first controls</a></li>
+        <li><a href="#plan02">Plan 02: math activities</a></li>
+        <li><a href="#plan03">Plan 03: printable packets</a></li>
+        <li><a href="#sources">Two cost sources</a></li>
+        <li><a href="#keep">What must stay</a></li>
+        <li><a href="#lean">Lean path</a></li>
+        <li><a href="#top5">Top five changes</a></li>
+        <li><a href="#adopted">What was adopted on 2026-09-30</a></li>
+      </ol>
+    </nav>
+  </header>
+
+  <main>
+    <section id="state">
+      <h2>State of the run</h2>
+      <ul>
+        <li>Steps 14, 15 and 16 are committed locally at <code>c75e047</code>, <code>29808e7</code> and <code>a6caf68</code>. Nothing is pushed. Step 17 is next.</li>
+        <li>Wall clock between checkpoints: Step 15 took 1 h 58 min, Step 16 took 1 h 13 min. Eighteen steps remained, so 22 to 36 hours at that pace.</li>
+        <li>Suite growth after three steps: Vitest 521 → 768 tests and 109 s → 181 s; Playwright 160 → 162 specs and 4.4 → 6.7 min. Every later gate pays for every guard added earlier. Plan 02 added 16 print rows and 16 key PDFs; plan 03 about 20 PDFs including 112 maximum-length packet pages.</li>
+        <li>Where rounds went: Step 14's third iteration did no code work. It re-ran <code>release:verify</code> and re-derived per-file test counts because the evidence file quoted a stale number. Step 16's eight-reviewer round returned 1 medium and 16 low findings; the three runtime reviewers "confirmed" 18 items from the empty landing page.</li>
+      </ul>
+    </section>
+
+    <section id="plan01">
+      <h2>Plan 01: worksheet-first controls (Steps 14–20)</h2>
+      <div class="verdict"><p><strong>Verdict.</strong> Scope fits: the operator asked for exactly this, and P1/P2 are sound. Rigor does not fit. Of 57 Done-when items roughly 40% are guards, digests, calibrations or bookkeeping, and of 58 Decision rows only about 15 describe product behavior. Most of the heavy machinery works around pipeline properties (fixed one-line checkpoint message, advisory <code>--acceptance</code>, the test-count halt class, the browser-gate privacy oracle) rather than product risk.</p></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Location</th><th>What it demands</th><th>Why disproportionate</th><th>Recommendation</th><th>Risk of cutting</th></tr></thead>
+        <tbody>
+          <tr><td class="loc">Step 14 Done-when 4; D27; §7 standing checks 1, 4</td><td>524-line capture script exporting ref 5c22159 into TEMP, junctioning <code>node_modules</code>, emitting a 1,392-cell SHA-256 grid; <code>--compare</code> re-run at every later gate</td><td>The enforced proof is <code>practice-golden.test.ts</code>, already in <code>check</code>. D27 itself calls <code>--compare</code> advisory corroboration. Round 1 of Step 14 spent its findings on this script's process handling</td><td><span class="chip simplify">simplify</span> Keep the test and grid; retire the gate-time compare</td><td>None</td></tr>
+          <tr><td class="loc">Step 14 DW2, Step 16 DW10; D30</td><td><code>config-module-graph.test.ts</code>: AST scan of import directions with synthetic calibration</td><td>A module cycle throws at import and fails the first test that loads the module</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 14 DW3; Step 15 DW1; D32</td><td>Byte SHA of the v1 fixture, golden upgraded digest, <code>.gitattributes</code> eol ceremony recorded in evidence</td><td>Pins guard against a fixture edit that git already shows</td><td><span class="chip simplify">simplify</span> Compare parsed JSON</td><td>None</td></tr>
+          <tr><td class="loc">Step 15 DW5; D9; E5</td><td><code>config-shape-fingerprint.test.ts</code> (345 lines) with five synthetic variants that must fail with the exact v3 message</td><td>Threat is an older build offering recovery on a same-version file it cannot parse. Remote for a single-user app. Worse, it forces plans 02 and 03 to bump the schema for additive enum members</td><td><span class="chip simplify">simplify</span> Adopt D9's tweak: classifier blocks, never invalidates, unknown keys or members</td><td>Low; recovery is already explicit and backup-first</td></tr>
+          <tr><td class="loc">Header D44; D23; D38</td><td>Evidence file per step with counts by declared command and per-file deleted/added test listings</td><td>Pure ledger; cost a full iteration in Step 14; exists because the checkpoint message is fixed to one line</td><td><span class="chip cut">cut</span> Counts in the checkpoint body</td><td>The count halt still fires on the numbers</td></tr>
+          <tr><td class="loc">Step 16 DW4, DW5</td><td>Three separate 156-cell sweeps asserting availability equals generation</td><td>Same invariant three times; tripled Vitest time in Step 16</td><td><span class="chip merge">merge</span> Keep <code>shipped-profile-options.test.ts</code></td><td>None</td></tr>
+          <tr><td class="loc">Step 16 DW10; D45</td><td><code>parent-copy-scan.test.ts</code> wording linter</td><td>Misses <code>src/web</code> where the wording lives; review catches this class</td><td><span class="chip cut">cut</span></td><td>Low</td></tr>
+          <tr><td class="loc">Step 17 DW6; D35</td><td><code>e2e-title-privacy.test.ts</code></td><td>Exists because the browser-gate oracle fails with a generic error; a five-line oracle fix removes the need</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 18 DW7</td><td><code>age-docs-scan.test.ts</code></td><td>A one-time doc edit turned into a permanent suite member</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 20; D24</td><td>New Playwright project, oracle module, third log-privacy gate, SHA of compiled files</td><td><code>release-smoke.spec.ts</code> already is the compiled smoke; D24's own tweak says extend it</td><td><span class="chip merge">merge</span> One case in release-smoke inside Step 18</td><td>Low</td></tr>
+          <tr><td class="loc">§7 preamble; D-flags; D29</td><td><code>--reviewers full</code> with <code>--ui</code> on Steps 16–19; <code>--ui</code> on <code>deep</code> steps with no reader</td><td>Every Problem admits the screenshots show only the empty landing page</td><td><span class="chip simplify">simplify</span> <code>--reviewers code</code>, no <code>--ui</code></td><td>None</td></tr>
+          <tr><td class="loc">Steps 14, 15, 18, 20</td><td><code>release:verify</code> four times</td><td>Each is a second full suite; the clean room protects the release, which happens once per plan</td><td><span class="chip simplify">simplify</span> Once per plan</td><td>None</td></tr>
+          <tr><td class="loc">Pre-run items 1–4; D-pregate; D43</td><td>Move the real config out of the checkout for the run, launcher stopped, interim dist never used, stray-file summary</td><td>All because the reviewers' dev server binds the canonical path; D43's own tweak (a fixture dev script) removes the ceremony</td><td><span class="chip simplify">simplify</span> No runtime lanes; one pre-run item</td><td>None; privacy improves</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="plan02">
+      <h2>Plan 02: math activities (Steps 21–27)</h2>
+      <div class="verdict"><p><strong>Verdict.</strong> Scope fits: P3, P5 and P6 are what the operator asked for. But three of seven steps ship no feature. Steps 22 and 23 replay Steps 14 and 15 wholesale purely because plan 01's fingerprint rule forbids adding <code>multiplication</code> to an enum in place. Step 21 builds a second golden-capture system beside plan 01's. Steps 24–27 carry per-slice vectors files with capture modes, sweeps sized by a coverage formula (seeds to 1,000; 3 × 8,191 subsets), pending-choice machinery that Step 27 deletes again, and runtime reviewers on a page that "shows nothing this step asks reviewers to confirm". Totals: 82 Done-when items, 35 with synthetic-failure counterparts, 28 evidence rows, 55 assumption grep rows.</p></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Location</th><th>What it demands</th><th>Why disproportionate</th><th>Recommendation</th><th>Risk</th></tr></thead>
+        <tbody>
+          <tr><td class="loc">Steps 22, 23; D14; D-split L854</td><td>Pure-refactor freeze of v2 with aliases through ~41 files, then v3 schema, migration, backup, fingerprint re-pin, PUT-only-v3</td><td>Two steps to add four optional keys and one enum member; D-split's own tweak says merge them; with a block-unknown classifier no bump is needed</td><td><span class="chip drop">drop</span> Fields land as optional v2 keys in 24–26</td><td>Low</td></tr>
+          <tr><td class="loc">Step 21 DW5; DD2; D10; D53</td><td><code>capture-arithmetic-golden.mjs</code>, 256-selection sample, <code>--compare</code> at every gate</td><td>Third freeze of the same content</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 22 DW8; D63</td><td><code>--older-build</code> verdicts of plan 01's pushed build</td><td>Proves a shipped, unchanged commit</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 21 DW1, DW3; DD1; DD3</td><td>Oracle with an AST independence scan; <code>% 10</code> linter</td><td>The oracle is good as a plain helper; the scans guard three ten-line functions</td><td><span class="chip simplify">simplify</span> Keep the oracle; cut both scans</td><td>None</td></tr>
+          <tr><td class="loc">Step 21 DW6; D12 · DW4; D47</td><td>Generator-version pin test; <code>practice</code>-member refusal guard</td><td>Known vectors already fail on an unbumped change; DD4 calls the accepted member harmless</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 23 DW10–11; DD7; D59; D61</td><td>Pending-choice refusal, unregistered-type path, arm flip-flops, a refusal added in 26 and lifted in 27</td><td>Exists only because the whole v3 shape lands before any feature</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Steps 24–27 last DW; D58</td><td>Four committed vectors files with capture modes, CI refusal, SHA pins</td><td>Inline known vectors in <code>generator.test.ts</code> do the same job</td><td><span class="chip simplify">simplify</span></td><td>None</td></tr>
+          <tr><td class="loc">Steps 25–27 sweeps; D49</td><td>3 × 8,191 subsets, unions over seeds to 1,000, ≥500 fast-check subsets, shard durations</td><td>A coverage formula for stochastic services applied to finite enumerators whose pool the capacity check already counts</td><td><span class="chip simplify">simplify</span> Boundary cases plus one ~200-run property per family</td><td>Low</td></tr>
+          <tr><td class="loc">Step 25 DW9; D38</td><td>AST guard on literal 12, 13, 144</td><td>A second literal-hunting scanner as a test</td><td><span class="chip cut">cut</span></td><td>Low</td></tr>
+          <tr><td class="loc">Step 24 DW9–10; D28</td><td>New <code>math-practice-smoke</code> project and log-privacy gate 4</td><td>Third compiled smoke project</td><td><span class="chip merge">merge</span> into <code>release-smoke.spec.ts</code></td><td>None</td></tr>
+          <tr><td class="loc">Header; Assumptions A1–A55</td><td>55 grep rows re-verifying plan 01's shape, several "never failed"</td><td>One-time sanity check as a permanent artifact</td><td><span class="chip simplify">simplify</span> Ten-line checklist</td><td>None</td></tr>
+          <tr><td class="loc">Steps 26 / 27; D41</td><td>Sentences and pictures as separate full steps</td><td>Split for the iteration budget, not the product</td><td><span class="chip keep">keep</span> 26; 27 optional</td><td>Pictures may slip</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="plan03">
+      <h2>Plan 03: printable packets (Steps 28–34)</h2>
+      <div class="verdict"><p><strong>Verdict.</strong> Scope is inflated by P4. The seed calls session-only "the smaller first milestone"; P4 chose a durable, versioned, ETag-guarded, backup-first second store. That one choice drives Steps 28, 29 and 30 entirely (strict request mirror, verify-by-regeneration, envelope fingerprint, depth bound tested at four layers, a shared file-safety core extracted from the profile store, a store-independence matrix, eleven new error codes) and about half the Done-when of Steps 31–34. Beyond P4, the plan commits a 48-row planning delta-check script, prints the four maximum-length layouts twice under two page-order oracles, and re-runs every security mutation against the new route in two methods and two modes. Of 67 Decision rows about 16 are product behavior.</p></div>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Location</th><th>What it demands</th><th>Why disproportionate</th><th>Recommendation</th><th>Risk</th></tr></thead>
+        <tbody>
+          <tr><td class="loc">P4; header L29; DD2–DD4; Steps 29–30</td><td>Second gitignored versioned store with cap, ETags, atomic replace, recovery, export exclusion, audit, own route</td><td>A packet is a list of (request, seed) pairs that regenerate deterministically; durability is convenience, not safety</td><td><span class="chip drop">drop</span> Session-only queue first (P9)</td><td>Queue lost on reload, as the seed proposed</td></tr>
+          <tr><td class="loc">Step 28 DW3; DD5; D14; D47</td><td>Strict hand-kept copy of the request type with two-way assignability</td><td>Defends against the parent hand-editing their own file on a loopback machine</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 28 DW1–2; Step 29 DW3; Step 30 DW1; D54</td><td>Depth limit 64; 100,000-level nesting rejected at four layers</td><td>Same invariant four times against a threat that does not apply</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 29 DW1; DD3; D13</td><td>Extract the config store's mechanics into a shared module keeping <code>load()</code>/<code>save()</code> byte-identical</td><td>Refactoring a working store to share code with a store that should not exist</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 29 DW6; §5 L145; D51</td><td><code>packet-delta-check.mjs</code> with a mutation-calibration mode</td><td>The plan admits the coordinator already runs the same block</td><td><span class="chip cut">cut</span></td><td>None</td></tr>
+          <tr><td class="loc">Step 30 DW3</td><td>Every security mutation re-run against the new route in two methods and two modes</td><td>The global <code>/api/</code> preHandler already applies</td><td><span class="chip simplify">simplify</span> One registration assertion</td><td>None</td></tr>
+          <tr><td class="loc">Step 30 DW7; DD7; L17</td><td>Packet record detectors with no allowlist, forcing runtime-built JSON everywhere</td><td>Self-inflicted; <code>PROFILE_RECORD</code> already covers the sensitive shape</td><td><span class="chip cut">cut</span></td><td>Low</td></tr>
+          <tr><td class="loc">Step 28 DW3–6; Steps 31–32; D47</td><td>Documents builder feeding five full-domain sweeps with duration records</td><td>Five exhaustive sweeps for a 10-sheet queue</td><td><span class="chip simplify">simplify</span></td><td>Low</td></tr>
+          <tr><td class="loc">Step 33 DW3; Step 34 DW3; D32; D56</td><td>Four 14-page layouts printed twice under two page-order oracles</td><td>Same invariant twice on the heaviest tests in the plan</td><td><span class="chip simplify">simplify</span> Two layouts, one oracle</td><td>Low</td></tr>
+          <tr><td class="loc">Step 32; DD10–11; D21</td><td>Relayout searching lengths for identical items; all-or-nothing batch; ETag-guarded undo</td><td>D21's tweak: paper only, since paper never changes items</td><td><span class="chip simplify">simplify</span></td><td>No scale change after adding</td></tr>
+          <tr><td class="loc">Step 34 DW2; D30; DD4 anchors</td><td>Ten log-privacy gates; a fourth smoke project; compiled route must hold the ETag line "with twelve leading spaces"</td><td>A harness substring match dictating production indentation</td><td><span class="chip merge">merge</span> into release-smoke</td><td>None</td></tr>
+          <tr><td class="loc">D57; S4</td><td>Copies of frozen print helpers, each calibrated</td><td>A freeze rule creating duplicate code</td><td><span class="chip cut">cut</span> Export the helpers</td><td>None</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="sources">
+      <h2>Two cost sources</h2>
+      <div class="two">
+        <div class="panel">
+          <h4>(a) Plan content</h4>
+          <ul>
+            <li>Full <code>check</code> as every step's DONE gate in a fresh worktree. The skills require only typecheck, lint and test; the plans made the gate build + Vitest + compiled Playwright + calibration, and the skills then run it up to four times.</li>
+            <li><code>release:verify</code> per step: 4 + 3 + 4 clean-room runs.</li>
+            <li>Evidence files, per-file test listings, consumer tables, grep-hit verdicts.</li>
+            <li>Golden captures and freezes: plan 01's compare at every gate, plan 02's second capture system, plan 03's documents-builder sweeps.</li>
+            <li>Guards: module-graph, three fingerprints, copy scan, title guard, docs scan, literal scans, version pin, request mirror, depth-bound quadruplication, standing checks S1–S8.</li>
+            <li>Calibration demanded on every evidence row; right for measurement tools, wasted on wording and import scans.</li>
+            <li>Schema bumps forced by the fingerprint rule (plan 02 Steps 22–23; plan 03 Step 28).</li>
+            <li>Three plans, 132k words, for one product iteration.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>(b) Pipeline ceremony (workflow settings)</h4>
+          <ul>
+            <li>Orchestrator re-runs typecheck/lint/test after the developer already did, every iteration (build-step Step 4).</li>
+            <li>build-step post-merge full suite <em>and</em> build-phase §2f full suite, back to back.</li>
+            <li><code>full</code> lane = 8 reviewers with a dev-server lifecycle; <code>--ui</code> starts the server even for <code>deep</code>. "NOT OBSERVED counts as medium" pushes landing-page steps to an extra round.</li>
+            <li>Fixed one-line checkpoint message and shell-forwarded <code>--acceptance</code> caused D-pointer, D38, D-scripted-evidence.</li>
+            <li>Test-count regression as a halt class caused D23's pair-every-deletion rule.</li>
+            <li>Default <code>--max-iter</code> 3 drove step splits (D-split, D41, D50).</li>
+          </ul>
+          <p class="note">Rule of thumb: anything whose justification cites build-step or build-phase behavior is pipeline ceremony leaking into the plan. Fix the pipeline once.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="keep">
+      <h2>What must stay, and the minimum mechanism for each</h2>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Protected property</th><th>Minimum mechanism (keep)</th><th>Exists?</th><th>Safe to drop</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Real profile file never read, copied, logged or committed</strong></td><td>Root <code>.gitignore</code> + release-tree exclusion; <code>PROFILE_RECORD</code> audit on the real export; every test injects a TEMP path; the two existing log-privacy gates; pre-run "ports free, file absent (metadata)"</td><td>Yes</td><td>Title guard, age-docs scan, log gates 3–6, file-moving pre-run ceremony, packet record detectors</td></tr>
+          <tr><td><strong>Lossless migration with backup</strong></td><td><code>migrate.test.ts</code> property; <code>config-store.test.ts</code> injected-io proof of backup before replace; <code>config-upgrade.test.ts</code> real-Fastify round trip with restart; one <code>profile-flow.spec.ts</code> case; classifier blocks unknown-member files</td><td>Yes (Step 15), plus the block-unknown state</td><td>Fingerprint variants, digest pins, upgrade-oracle module, dedicated smoke project, older-build verdicts, frozen legacy-v2</td></tr>
+          <tr><td><strong>Loopback security boundary</strong></td><td>Existing <code>security.test.ts</code>; global <code>/api/</code> preHandler; <code>bodyLimit</code>; <code>no-store</code>; 20-code pin</td><td>Yes</td><td>Per-route mutation matrices, per-route body limits, eleven packet codes</td></tr>
+          <tr><td><strong>Deterministic content</strong></td><td>Per-family known-vector tests; <code>generatorVersion</code> constants; <code>practice-golden.test.ts</code> with its committed grid</td><td>Yes (Steps 4–7, 14)</td><td>Capture scripts at gates, second capture system, vectors files, version pin, request mirror, verify-by-regeneration sweeps</td></tr>
+          <tr><td><strong>Exact answer agreement</strong></td><td><code>validateWorksheetInvariants</code>; one immutable document for both renderers; plan 02's oracle as a plain helper</td><td>Yes (Step 5)</td><td>AST independence scan, duplicate DOM compares, tampered-key calibrations in every spec</td></tr>
+          <tr><td><strong>Print legibility</strong></td><td>Existing 100-surface matrix; one new row per new family; M1 physical printing</td><td>Yes (Step 10)</td><td>4 rows + 4 keys per slice, duplicated max-length set, 0.5 px UI-assembled cell</td></tr>
+          <tr><td><strong>Availability never offers an unproducible selection</strong></td><td><code>shipped-profile-options.test.ts</code> through the production caller; <code>limit-labels.test.ts</code> arm catalogue</td><td>Yes (Steps 9, 16)</td><td>The two duplicate 156-cell sweeps</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="lean">
+      <h2>Lean path</h2>
+      <p>Two prerequisite changes, made once: the classifier blocks instead of invalidates a current-version file with unknown keys or members (lands in Step 18), and no agent-started server binds the canonical config path (runtime lanes are off; a fixture dev script is the way to turn them back on).</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Step</th><th>Decision</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td class="num">17 Panel</td><td><span class="chip keep">keep</span></td><td><code>--reviewers code</code>, no <code>--ui</code>; drop the title guard</td></tr>
+          <tr><td class="num">18 Identity-only profiles, docs, print matrix</td><td><span class="chip keep">keep</span></td><td>Absorbs Step 20's upgrade case as one release-smoke test; adds the blocked classifier state; drops the docs scan</td></tr>
+          <tr><td class="num">19 Theme</td><td><span class="chip keep">keep</span></td><td>Trim the resolution table to four meaningful cases</td></tr>
+          <tr><td class="num">20 Compiled smoke</td><td><span class="chip drop">drop</span></td><td>Folded into 18</td></tr>
+          <tr><td class="num">21 Oracle, freeze, consolidation</td><td><span class="chip drop">drop</span></td><td>Oracle helper and regrouping consolidation fold into 24</td></tr>
+          <tr><td class="num">22 Version-generic read path</td><td><span class="chip drop">drop</span></td><td>Needs the blocked classifier</td></tr>
+          <tr><td class="num">23 Schema v3</td><td><span class="chip drop">drop</span></td><td>Fields land as optional v2 keys in 24–26</td></tr>
+          <tr><td class="num">24 Carrying / borrowing</td><td><span class="chip keep">keep</span></td><td>Inline vectors; boundary + one property; no new smoke project</td></tr>
+          <tr><td class="num">25 Multiplication / division</td><td><span class="chip keep">keep</span></td><td>Drop the constants scan and shard recording</td></tr>
+          <tr><td class="num">26 Number Bonds sentences</td><td><span class="chip keep">keep</span></td><td></td></tr>
+          <tr><td class="num">27 Number Bonds pictures</td><td><span class="chip simplify">optional</span></td><td>Built last, only if time remains</td></tr>
+          <tr><td class="num">28–30 Draft contract, store, API</td><td><span class="chip drop">drop</span></td><td>P4 revisited (P9)</td></tr>
+          <tr><td class="num">31 Add to packet</td><td><span class="chip keep">keep</span></td><td>Session queue: add, list, remove, reorder, cap 10, no duplicates; absorbs 32 with paper-only layout</td></tr>
+          <tr><td class="num">32 Edit, relayout, recover</td><td><span class="chip merge">merge</span></td><td>Into 31; no recovery panel or undo</td></tr>
+          <tr><td class="num">33 Preview and print once</td><td><span class="chip keep">keep</span></td><td>Two max-length layouts; one release-smoke case</td></tr>
+          <tr><td class="num">34 Smoke, outline oracle, calibration</td><td><span class="chip drop">drop</span></td><td>Folded into 33</td></tr>
+        </tbody>
+      </table></div>
+      <p><strong>Realistic count: 9 steps</strong> (17, 18, 19, 24, 25, 26, 31, 33, optional 27), down from 18.</p>
+      <h4>Per-step settings</h4>
+      <ul>
+        <li><code>--reviewers code --isolation worktree</code> for all steps. Runtime reviewers only with a committed fictional-data exercise script that shows the feature.</li>
+        <li>Developer and orchestrator iterate on the narrow suites the step names. One full <code>npm run check</code> per step, post-merge, owned by build-phase §2f.</li>
+        <li><code>release:verify</code> once per plan, inside <code>/repo-update</code>.</li>
+        <li>At most 6 Done-when items per step, each naming behavior and its test file. Calibration only for print geometry and log privacy. No evidence file.</li>
+        <li>Iteration budget stays 3. Run plan by plan with the operator's screen review between plans.</li>
+      </ul>
+      <h4>P rows revisited</h4>
+      <ul>
+        <li><strong>P4</strong> durable drafts → session-only first (the biggest lever).</li>
+        <li><strong>P7</strong> one unattended chain over three plans → plan by plan, since a halt anywhere parks everything and the operator has not yet seen Step 17's panel.</li>
+        <li><strong>P8</strong> push after each plan: keep. P1, P2, P3, P5, P6 stand.</li>
+      </ul>
+    </section>
+
+    <section id="top5">
+      <h2>Top five changes by time saved</h2>
+      <p class="note">Baseline: about 27 hours for the remaining 18 steps at the observed pace, with a full <code>check</code> at 10–12 minutes.</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>#</th><th>Change</th><th>Saving</th><th>Basis</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><strong>Gate consolidation</strong>: one full check per step post-merge; narrow suites for iterations; release:verify once per plan</td><td class="num">6–7 h</td><td>A step ran 4–5 full suites plus release:verify on half the steps; about 40 min saved per step</td></tr>
+          <tr><td class="num">2</td><td><strong>Revisit P4</strong> to a session-only packet queue</td><td class="num">5–6 h</td><td>Removes Steps 28–30 and half the Done-when of 31–34</td></tr>
+          <tr><td class="num">3</td><td><strong>Drop the v3 bump</strong> via the block-unknown classifier</td><td class="num">3–4 h</td><td>Two full steps plus interim code added and removed across 23–27</td></tr>
+          <tr><td class="num">4</td><td><strong><code>--reviewers code</code></strong> instead of full/deep with <code>--ui</code></td><td class="num">3 h</td><td>Saves the server lifecycle and 3 reviewers per iteration and the NOT OBSERVED medium</td></tr>
+          <tr><td class="num">5</td><td><strong>Strip evidence and guard content</strong> from Done-when</td><td class="num">3–4 h</td><td>Step 14 lost a full iteration to the ledger; each guard costs 15–30 min plus its share of every later gate</td></tr>
+        </tbody>
+      </table></div>
+      <p>Together these bring the remaining work to roughly 8–10 hours of machine time, most of it in the seven steps that ship a feature.</p>
+    </section>
+
+    <section id="adopted">
+      <h2>What was adopted on 2026-09-30</h2>
+      <p>The operator instructed that the proposed changes be incorporated. The record lives in <code>documentation/feature-seeds/operator-decisions.md</code> under "Lean revision", and each plan carries a precedence block under its title.</p>
+      <div class="two">
+        <div class="panel">
+          <h4>New operator choices</h4>
+          <ul>
+            <li><strong>P9.</strong> Packets are a session-only queue in React state; closing or reloading the page loses it, and the panel says so. Supersedes P4.</li>
+            <li><strong>P10.</strong> Plans build one at a time, each followed by <code>/repo-update</code> and the operator's screen review. Supersedes P7's single chain; P8 unchanged.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h4>Lean-revision rulings</h4>
+          <ul>
+            <li>Plan 01 builds 17, 18, 19; plan 02 builds 24, 25, 26 and optionally 27; plan 03 builds 31 and 33. Dropped steps keep their headings and issue numbers with <code>Status: SKIPPED</code>.</li>
+            <li>Every kept step: <code>--reviewers code --isolation worktree</code>; one full gate per step; <code>release:verify</code> once per plan.</li>
+            <li>Step 18 adds the <code>blocked</code> classifier state; additive fields land at schemaVersion 2; no v3, no packet store.</li>
+            <li>No evidence files, ledgers, capture compares, new AST/grep guards, fingerprint re-pins, or new smoke projects. One release-smoke case per feature. Known vectors inline.</li>
+            <li>Single pre-run item: ports free, launcher stopped, config file absent (metadata check).</li>
+            <li>Issues #31–#34 to be closed as superseded at their plan's <code>/repo-update</code>; plan 03 syncs issues for Steps 31 and 33 only.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>Review performed read-only on 2026-09-29 against local commits c75e047, 29808e7 and a6caf68; lean revision applied to the plans on 2026-09-30. No profile data, real or fictional, appears in this document.</footer>
+</div>
+</body>
+</html>
