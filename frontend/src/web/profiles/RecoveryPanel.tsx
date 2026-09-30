@@ -82,9 +82,9 @@ export function RecoveryPanel({
           </label>
 
           <hr style={{ border: 0, borderTop: "1px solid #d8c59e", margin: "0.9rem 0" }} />
-          <p>
-            Optional draft download: the file contains the nickname, broad
-            interests, and capabilities currently entered in this form. Store it
+          <p data-draft-download-copy="true">
+            Optional draft download: the file contains the nickname, review
+            date, and broad interests currently entered in this form. Store it
             somewhere private and delete it manually when no longer needed. The
             app never downloads the invalid raw file or starts a download by itself.
           </p>

@@ -129,7 +129,12 @@ type CurrentConfigState =
       readonly etag: string;
     }
   | {
-      readonly kind: "future-version";
+      /**
+       * A file a newer build wrote: a higher version, or the current version
+       * with keys or value-list members this build does not know. Never
+       * rewritten and never offered recovery.
+       */
+      readonly kind: "unsupported-version";
       readonly etag: string;
     }
   | {
@@ -231,7 +236,7 @@ export class ConfigStore {
         throw new ConfigStoreFailure(CONFIG_STORE_ERROR_CODES.unsafeFile);
       case "too-large":
         throw new ConfigStoreFailure(CONFIG_STORE_ERROR_CODES.tooLarge);
-      case "future-version":
+      case "unsupported-version":
         throw new ConfigStoreFailure(
           CONFIG_STORE_ERROR_CODES.versionUnsupported,
           state.etag,
@@ -294,7 +299,7 @@ export class ConfigStore {
       if (state.kind === "too-large") {
         throw new ConfigStoreFailure(CONFIG_STORE_ERROR_CODES.tooLarge);
       }
-      if (state.kind === "future-version") {
+      if (state.kind === "unsupported-version") {
         throw new ConfigStoreFailure(
           CONFIG_STORE_ERROR_CODES.versionUnsupported,
           state.etag,
@@ -466,7 +471,8 @@ export class ConfigStore {
     const classified = classifyStoredConfig(parsed);
     switch (classified.kind) {
       case "future":
-        return { kind: "future-version", etag };
+      case "blocked":
+        return { kind: "unsupported-version", etag };
       case "invalid":
         return { kind: "invalid", bytes, etag };
       case "current":

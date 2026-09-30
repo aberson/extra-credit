@@ -720,6 +720,7 @@ Every step's Problem begins with the same pointer to this file (D-pointer), beca
   5. **`profile-flow.spec.ts` and `release-smoke.spec.ts`:** create and edit show only identity fields, and saving a profile while Copy a Sentence and Dry Math within 100 are selected keeps both selections; a `seedRaw` of `children.v1.json` shows `EarlierSettingsSummary` read-only for a migrated profile, and a nickname save leaves its `legacyChoices` deep-equal with the one `.v1-` backup inside the temporary directory; the new compiled upgrade-to-print case passes with every assertion listed in Produces; `npm --prefix frontend run test:log-privacy` reports exits 1, 1, 0 with the count oracle reading the project's listed count.
   6. **Full gate:** after merge, build-phase runs `npm --prefix frontend run check` once in the main checkout; Vitest and Playwright counts must not fall below the previous step's.
 - **Depends on:** Step 17
+- **Status:** DONE (2026-09-30)
 
 ### Step 19: Explicit decorative Theme
 

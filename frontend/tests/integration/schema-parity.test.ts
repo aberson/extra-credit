@@ -12,7 +12,10 @@ import {
   PUBLIC_ERROR_CODES,
   zodIntegerBounds,
 } from "../../src/server/transport-schemas.js";
-import { emptyAppConfigV2 } from "../../src/shared/config/defaults.js";
+import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  emptyAppConfigV2,
+} from "../../src/shared/config/defaults.js";
 import {
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
@@ -480,7 +483,7 @@ describe("AppConfigV2 schema and composed transport parity", () => {
 
   test.each([
     "frontend/src/server/transport-schemas.ts",
-    "frontend/src/web/profiles/MathSkillsEditor.tsx",
+    "frontend/src/web/profiles/EarlierSettingsSummary.tsx",
   ])("%s never restates a frozen legacy ceiling as a literal", async (relativePath) => {
     const ceilings = new Set(LEGACY_INTEGER_FIELDS.map((field) => frozenBounds(field).maximum));
     const file = resolve(repositoryRoot, relativePath);
@@ -543,12 +546,34 @@ describe("AppConfigV2 schema and composed transport parity", () => {
   });
 });
 
-describe("the frozen version 1 read path", () => {
-  test("parses the committed fictional example and pins exact presets", async () => {
-    const example = JSON.parse(
+describe("the committed fictional example", () => {
+  async function readExample(): Promise<unknown> {
+    return JSON.parse(
       await readFile(resolve(repositoryRoot, "config/children.example.json"), "utf8"),
     ) as unknown;
-    const parsed = AppConfigV1Schema.parse(example);
+  }
+
+  test("parses as version 2 in both layers, with no legacyChoices and the built-in defaults", async () => {
+    const example = await readExample();
+    expect(await transportAccepts(example)).toBe(true);
+    const parsed = AppConfigV2Schema.parse(example);
+    expect(parsed.schemaVersion).toBe(2);
+    expect(parsed.profiles).toHaveLength(3);
+    for (const profile of parsed.profiles) {
+      expect(profile).not.toHaveProperty("legacyChoices");
+      expect(Object.keys(profile).sort()).toEqual(["displayName", "id", "interests", "reviewedOn"]);
+    }
+    expect(parsed.defaults).toEqual(DEFAULT_WORKSHEET_DEFAULTS_V2);
+    expect(AppConfigV1Schema.safeParse(example).success).toBe(false);
+  });
+});
+
+describe("the frozen version 1 read path", () => {
+  test("parses the committed fictional v1 fixture and pins exact presets", async () => {
+    const fixture = JSON.parse(
+      await readFile(resolve(repositoryRoot, "frontend/tests/fixtures/config/children.v1.json"), "utf8"),
+    ) as unknown;
+    const parsed = AppConfigV1Schema.parse(fixture);
     expect(parsed.profiles).toEqual([
       {
         id: "d2c05a44-73ad-4fa0-a4b3-9db5c5f6e321",
@@ -692,10 +717,10 @@ describe("the frozen version 1 read path", () => {
   test("the frozen v1 schema refuses a version 2 body, and the v2 schema a version 1 body", async () => {
     const v2 = validConfig();
     expect(AppConfigV1Schema.safeParse(v2).success).toBe(false);
-    const example = JSON.parse(
-      await readFile(resolve(repositoryRoot, "config/children.example.json"), "utf8"),
+    const fixture = JSON.parse(
+      await readFile(resolve(repositoryRoot, "frontend/tests/fixtures/config/children.v1.json"), "utf8"),
     ) as unknown;
-    expect(zodAccepts(example)).toBe(false);
-    expect(await transportAccepts(example)).toBe(false);
+    expect(zodAccepts(fixture)).toBe(false);
+    expect(await transportAccepts(fixture)).toBe(false);
   });
 });

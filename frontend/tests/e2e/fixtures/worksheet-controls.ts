@@ -1,9 +1,13 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
-import { SENTENCE_VOCABULARY_LABELS } from "../../../src/shared/config/practice-focus.ts";
+import {
+  SENTENCE_VOCABULARY_LABELS,
+  describePracticeFocus,
+} from "../../../src/shared/config/practice-focus.ts";
 import type {
   FindTheWowVariant,
   SentenceVocabulary,
+  WorksheetSelectionV2,
   WritingMode,
 } from "../../../src/shared/config/schema.ts";
 import type {
@@ -139,6 +143,45 @@ export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabular
   });
   await radio.check();
   await expect(radio).toBeChecked();
+}
+
+/**
+ * The practice choices of a whole worksheet selection, in panel order: the
+ * worksheet type, its variant where one exists, then the practice focus (by
+ * its `describePracticeFocus` label) or, for Sentence Builder, the vocabulary.
+ * The selection's other fields are left to the functions below.
+ */
+export async function chooseWorksheetChoices(
+  page: Page,
+  selection: WorksheetSelectionV2,
+): Promise<void> {
+  await chooseWorksheet(page, selection.worksheetType);
+  switch (selection.worksheetType) {
+    case "dry-math":
+      await choosePracticeFocus(page, describePracticeFocus("dry-math", selection.dryMath));
+      return;
+    case "find-the-wow": {
+      const { variant, quantity, equation } = selection.findTheWow;
+      await chooseVariant(page, variant);
+      await choosePracticeFocus(
+        page,
+        variant === "equation"
+          ? describePracticeFocus("find-the-wow-equation", equation)
+          : describePracticeFocus("find-the-wow-quantity", quantity),
+      );
+      return;
+    }
+    case "sentence-builder":
+      await chooseVariant(page, selection.sentenceBuilder.variant);
+      await chooseVocabulary(page, selection.sentenceBuilder.vocabulary);
+      return;
+    case "count-compare-make":
+      await choosePracticeFocus(
+        page,
+        describePracticeFocus("count-compare-make", selection.countCompareMake),
+      );
+      return;
+  }
 }
 
 export async function chooseLength(page: Page, length: WorksheetLength): Promise<void> {

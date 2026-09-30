@@ -47,6 +47,15 @@ import {
 import { PrintView } from "./print/PrintView";
 
 const DOCUMENT_TITLE = "Extra Credit Worksheet";
+/**
+ * What the blocked state says for `CONFIG_VERSION_UNSUPPORTED`: the server
+ * answers it for a higher schema version and for a current-version file
+ * carrying keys or values this build does not know, both written by a newer
+ * build.
+ */
+export const NEWER_VERSION_MESSAGE =
+  "This profile file was saved by a newer version of this app, so this version cannot open it. The file was left unchanged.";
+
 const HEALTH_REQUEST_TIMEOUT_MS = 500;
 const HEALTH_RETRY_DELAYS_MS = [150, 300, 600] as const;
 
@@ -1163,9 +1172,9 @@ export function App() {
               Extra Credit Worksheet
             </h1>
             <h2 style={{ fontSize: "1.2rem", margin: "0.55rem 0 0" }}>Family profiles</h2>
-            <p style={{ color: "#566278", lineHeight: 1.5, margin: "0.7rem 0 0", maxWidth: "40rem" }}>
-              Confirm reusable capabilities for thoughtful printable practice while
-              keeping family details on this computer.
+            <p data-page-intro="true" style={{ color: "#566278", lineHeight: 1.5, margin: "0.7rem 0 0", maxWidth: "40rem" }}>
+              Choose the practice for each printable worksheet while keeping
+              family details on this computer.
             </p>
           </div>
           <div className={`health health--${health.kind}`} style={{ ...healthBaseStyle, ...healthStateStyles[health.kind] }}>
@@ -1208,11 +1217,26 @@ export function App() {
         {health.kind === "ready" && profileState.kind === "blocked" && (
           <section aria-labelledby="blocked-title">
             <h2 id="blocked-title">Saved profiles could not be opened</h2>
-            <p role="alert">{profileState.message}</p>
-            <p>
-              The file was left unchanged. Stop the app and use the manual
-              configuration guidance before retrying; this state cannot be recovered automatically.
-            </p>
+            {profileState.errorCode === "CONFIG_VERSION_UNSUPPORTED" ? (
+              <>
+                <p data-newer-version-message="true" role="alert">
+                  {NEWER_VERSION_MESSAGE}
+                </p>
+                <p>
+                  This version never changes or replaces it and offers no
+                  recovery. Open it with the newer version of Extra Credit, or
+                  stop the app and use the manual configuration guidance.
+                </p>
+              </>
+            ) : (
+              <>
+                <p role="alert">{profileState.message}</p>
+                <p>
+                  The file was left unchanged. Stop the app and use the manual
+                  configuration guidance before retrying; this state cannot be recovered automatically.
+                </p>
+              </>
+            )}
             <button
               disabled={operationPending}
               onClick={() => {

@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
 
-import { worksheetSelectionOf } from "../../src/shared/config/defaults.js";
+import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../../src/shared/config/defaults.js";
 import {
   profileWithLegacyChoices,
   selectionForChild,
@@ -21,13 +24,18 @@ import {
   getWorksheetRegistration,
 } from "../../src/shared/worksheet/registry.js";
 import type { WorksheetType } from "../../src/shared/worksheet/types.js";
-import { acceptanceConfig } from "../fixtures/profiles.js";
+import {
+  acceptanceConfig,
+  isIdentityOnlyProfile,
+  migratedV1FixtureConfig,
+} from "../fixtures/profiles.js";
 
 /*
  * The capacity guard for issue #14, run over the choices a parent is really
  * shipped rather than over fixtures written to pass: every catalog practice
- * focus, the shipped example children's earlier settings, and the two declared
- * Earlier-setting shortfall sources. In every cell the control's verdict and
+ * focus and variant on the shipped defaults, the canonical children's earlier
+ * settings from the permanent v1 fixture, and the two declared Earlier-setting
+ * shortfall sources. In every cell the control's verdict and
  * the real generator must agree: offered exactly when it produces, and a
  * refusal's message exactly the generator's. The shipped example is repository
  * data, so this lives where a test may read it - the web project builds without
@@ -252,11 +260,63 @@ describe("the declared Earlier-setting shortfall sources", () => {
 });
 
 describe("shipped example profiles", () => {
-  test("never offer a selection the generator would reject", () => {
+  /** Every family's shipped-default selection, one per variant and vocabulary. */
+  function shippedDefaultSelections(): readonly { readonly name: string; readonly selection: WorksheetSelectionV2 }[] {
+    return [
+      { name: "dry-math", selection: { ...base, worksheetType: "dry-math" } },
+      ...(["quantity", "equation"] as const).map((variant) => ({
+        name: `find-the-wow ${variant}`,
+        selection: {
+          ...base,
+          worksheetType: "find-the-wow" as const,
+          findTheWow: { ...base.findTheWow, variant },
+        },
+      })),
+      ...WRITING_MODES.flatMap((variant) =>
+        SENTENCE_VOCABULARY_OPTIONS.map((vocabulary) => ({
+          name: `sentence-builder ${variant} ${vocabulary}`,
+          selection: {
+            ...base,
+            worksheetType: "sentence-builder" as const,
+            sentenceBuilder: { variant, vocabulary },
+          },
+        })),
+      ),
+      { name: "count-compare-make", selection: { ...base, worksheetType: "count-compare-make" } },
+    ];
+  }
+
+  test("the shipped defaults never offer a selection the generator would reject, for every example child", () => {
+    // The example ships identity-only children and the built-in defaults, so
+    // the defaults alone decide every child's first selection.
+    expect(acceptanceConfig.defaults).toEqual(DEFAULT_WORKSHEET_DEFAULTS_V2);
+    expect(acceptanceConfig.profiles.every(isIdentityOnlyProfile)).toBe(true);
+    const offered: string[] = [];
+    const refusals: string[] = [];
+    for (const { name, selection } of shippedDefaultSelections()) {
+      for (const profile of acceptanceConfig.profiles) {
+        expect(childSelection(profile, selection.worksheetType)).toEqual({
+          ...base,
+          worksheetType: selection.worksheetType,
+        });
+        for (const { where, verdict } of sweepLayouts(`${name} ${profile.id}`, selection, profile)) {
+          (verdict.offered ? offered : refusals).push(where);
+        }
+      }
+    }
+    expect(new Set(shippedDefaultSelections().map(({ selection }) => selection.worksheetType))).toEqual(
+      new Set(REGISTERED_WORKSHEET_IDS),
+    );
+    expect(offered.length).toBeGreaterThan(0);
+    expect(refusals).toEqual([]);
+  });
+
+  test("the canonical children's earlier settings never offer a selection the generator would reject", () => {
     const offered: string[] = [];
     const refusals: string[] = [];
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
-      for (const profile of acceptanceConfig.profiles) {
+      for (const profile of migratedV1FixtureConfig.profiles) {
+        expect(profile.legacyChoices).toBeDefined();
         const selection = childSelection(profile, worksheetType);
         for (const { where, verdict } of sweepLayouts(
           `${worksheetType} ${profile.id}`,
@@ -270,13 +330,13 @@ describe("shipped example profiles", () => {
 
     // A sweep that offers nothing proves nothing.
     expect(offered.length).toBeGreaterThan(0);
-    // The shipped children's earlier settings starve no cell: the Step 9
+    // The canonical children's earlier settings starve no cell: the Step 9
     // confidence refusal this file used to pin was produced by Difficulty,
     // which no longer exists.
     expect(refusals).toEqual([]);
-    // Every profile in the shipped file must still reach the offered side, so
-    // a data edit cannot leave one silently unusable in every family.
-    for (const { id } of acceptanceConfig.profiles) {
+    // Every canonical child must still reach the offered side, so a data edit
+    // cannot leave one silently unusable in every family.
+    for (const { id } of migratedV1FixtureConfig.profiles) {
       expect(`${id} offered ${offered.some((where) => where.includes(id))}`).toBe(
         `${id} offered true`,
       );

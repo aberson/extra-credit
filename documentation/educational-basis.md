@@ -24,9 +24,10 @@ study, and not any kind of test.
 - **No intervention claim.** The Institute of Education Sciences practice
   guides cited below bound the shape of reviewed examples. They do not make
   Extra Credit an intervention, and it must not be used as one.
-- **No placement claim.** Ages 4–8 select setup suggestions only. Age never
-  asserts a grade, a placement, a readiness verdict, or a reading or maths
-  level. The parent's explicit worksheet choices, not age, decide what is
+- **No placement claim.** Extra Credit's worksheets are designed for early
+  primary practice, and nothing about a child selects or limits them. No
+  choice asserts a grade, a placement, a readiness verdict, or a reading or
+  maths level. The parent's explicit worksheet choices decide what is
   generated.
 - **No mastery claim.** A completed page records that a child did that page.
   It does not establish that any skill is learned, retained, or transferred.
@@ -43,7 +44,7 @@ Every generated page, in every family, stays inside one fixed envelope:
 
 | Bound | Value |
 |---|---|
-| Supported ages | 4 through 8. A profile outside that range stays saved and editable, and generation returns `GENERATION_AGE_UNSUPPORTED`. |
+| Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, and length). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
 | Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100; every quantity, numeral, operand, and result in the other families stays at most 20. |
 | Sign | Nonnegative. No generated result is below zero. |
 | Regrouping | None. No generated addition carries and no generated subtraction borrows. |
@@ -88,15 +89,16 @@ pictures or Equations. Each variant has its own practice focus.
 ### `count-compare-make` — Count, Compare & Make
 
 Counting, comparing, completing, and drawing groups, with no symbolic
-arithmetic required anywhere. This is the age-four-friendly path.
+arithmetic required anywhere. This is the path for a child who is just
+beginning to count.
 
 - Counting a group, matching a numeral to a quantity, comparing two groups as
   greater than, less than, or equal, and building a group to a requested count:
   [Common Core Kindergarten Counting and Cardinality](https://www.thecorestandards.org/Math/Content/K/CC/).
 - Concrete and pictorial quantity work before symbols, and structured
   arrangements such as ten-frames: [IES Teaching Math to Young Children](https://ies.ed.gov/ncee/wwc/practiceguide/18).
-- Wide developmental variation at these ages, which is why the parent's
-  worksheet choices rather than age decide the generated work:
+- Wide developmental variation among young children, which is why the
+  parent's worksheet choices decide the generated work:
   [Head Start Early Learning Outcomes Framework](https://headstart.gov/interactive-head-start-early-learning-outcomes-framework-ages-birth-five)
   and [NAEYC Developmentally Appropriate Practice](https://www.naeyc.org/resources/position-statements/dap/core-considerations).
 - Accepting a drawn response as a legitimate way to show an answer:
@@ -135,7 +137,7 @@ independent-writing page.
 
 ## Cross-cutting sources
 
-- Developmental range and individual variation across ages 4–8:
+- Developmental range and individual variation among young children:
   [Head Start Early Learning Outcomes Framework](https://headstart.gov/interactive-head-start-early-learning-outcomes-framework-ages-birth-five)
   and [NAEYC Developmentally Appropriate Practice](https://www.naeyc.org/resources/position-statements/dap/core-considerations).
 - Adult-chosen rather than adaptive difficulty, and the parent's role in

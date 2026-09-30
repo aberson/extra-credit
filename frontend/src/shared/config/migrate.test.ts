@@ -367,6 +367,114 @@ describe("stored-version classification", () => {
   });
 });
 
+/*
+ * A current-version file a newer build wrote after adding a key or a value-list
+ * member at the same version. Each input is a runtime copy of a valid v2
+ * config with one edit, so the edit alone decides the result.
+ */
+describe("the blocked classification of additive current-version changes", () => {
+  type Editable = {
+    [key: string]: unknown;
+    profiles: Record<string, unknown>[];
+    defaults: Record<string, unknown> & {
+      dryMath: Record<string, unknown> & { operations: unknown[] };
+    };
+  };
+  const base = migrateConfigV1ToV2(
+    AppConfigV1Schema.parse(fictionalV1([fictionalProfile(1), fictionalProfile(2)])),
+  );
+  const edited = (edit: (config: Editable) => void): unknown => {
+    const copy = structuredCloneJson(base) as unknown as Editable;
+    edit(copy);
+    return copy;
+  };
+
+  test("the unedited copy is current, so each edit below is the only change", () => {
+    expect(classifyStoredConfig(edited(() => undefined)).kind).toBe("current");
+  });
+
+  test.each([
+    ["an unknown top-level key", (config: Editable) => {
+      config.packets = [];
+    }],
+    ["an unknown profile key", (config: Editable) => {
+      config.profiles[1]!.favoriteColor = "green";
+    }],
+    ["an unknown key inside a profile's earlier math values", (config: Editable) => {
+      const legacy = config.profiles[0]!.legacyChoices as { mathSkills: Record<string, unknown> };
+      legacy.mathSkills.allowRemainders = false;
+    }],
+    ["an unknown enum member in defaults", (config: Editable) => {
+      config.defaults.worksheetType = "number-bonds";
+    }],
+    ["an unknown enum member inside a defaults array", (config: Editable) => {
+      config.defaults.dryMath.operations = ["addition", "multiplication"];
+    }],
+    ["an unknown key beside an unknown member", (config: Editable) => {
+      config.defaults.numberBonds = { wholeMax: 10 };
+      config.defaults.worksheetType = "number-bonds";
+    }],
+  ] as const)("%s classifies as blocked", (_label, edit) => {
+    expect(classifyStoredConfig(edited(edit))).toEqual({ kind: "blocked" });
+  });
+
+  test.each([
+    ["a wrong type for a known key", (config: Editable) => {
+      config.defaults.useInterests = "yes";
+    }],
+    ["a number where a value-list member belongs", (config: Editable) => {
+      config.defaults.worksheetType = 5;
+    }],
+    ["a missing required key", (config: Editable) => {
+      delete config.defaults.theme;
+    }],
+    ["a value above a known bound", (config: Editable) => {
+      config.defaults.dryMath = { operations: ["addition"], operandMax: 101, resultMax: 10 };
+    }],
+    ["an unknown key beside a wrong type", (config: Editable) => {
+      config.packets = [];
+      config.defaults.useInterests = "yes";
+    }],
+    ["an unknown key beside a failing field refinement", (config: Editable) => {
+      config.profiles[0]!.favoriteColor = "green";
+      config.profiles[0]!.reviewedOn = "2026-02-30";
+    }],
+    ["an unknown member that fills an operations array past its cap", (config: Editable) => {
+      config.defaults.dryMath.operations = ["addition", "subtraction", "multiplication"];
+    }],
+    ["an unknown top-level key hiding duplicate profile ids", (config: Editable) => {
+      config.packets = [];
+      config.profiles[1]!.id = config.profiles[0]!.id;
+    }],
+  ] as const)("%s still classifies as invalid", (_label, edit) => {
+    expect(classifyStoredConfig(edited(edit))).toEqual({ kind: "invalid" });
+  });
+
+  test("mirror: duplicate profile ids alone are invalid, and an unknown key alone is blocked", () => {
+    expect(classifyStoredConfig(edited((config) => {
+      config.profiles[1]!.id = config.profiles[0]!.id;
+    }))).toEqual({ kind: "invalid" });
+    expect(classifyStoredConfig(edited((config) => {
+      config.packets = [];
+    }))).toEqual({ kind: "blocked" });
+  });
+
+  test("an unknown key or member at version 1 stays invalid, never blocked", () => {
+    const withKey = structuredCloneJson(v1ForBlocked()) as unknown as Record<string, unknown>;
+    withKey.packets = [];
+    expect(classifyStoredConfig(withKey)).toEqual({ kind: "invalid" });
+    const withMember = structuredCloneJson(v1ForBlocked()) as unknown as {
+      defaults: Record<string, unknown>;
+    };
+    withMember.defaults.difficulty = "extra-stretch";
+    expect(classifyStoredConfig(withMember)).toEqual({ kind: "invalid" });
+  });
+});
+
+function v1ForBlocked(): AppConfigV1 {
+  return fictionalV1([fictionalProfile(3)]);
+}
+
 describe("the built-in version 2 defaults", () => {
   test("take every practice focus from MATH_PRESETS", () => {
     const within10 = MATH_PRESETS["early-primary-within-10"].mathSkills;

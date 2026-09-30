@@ -3,9 +3,15 @@ import { fileURLToPath } from "node:url";
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import type { AppConfigV1 } from "../../src/shared/config/schema.js";
-import { acceptanceConfig } from "../fixtures/print/matrix.js";
+import { acceptanceConfig, formerChoices } from "../fixtures/print/matrix.js";
 import { expect, test } from "./fixtures/app-server.js";
-import { chooseChild, chooseWorksheet, controls, openMoreOptions } from "./fixtures/worksheet-controls.js";
+import {
+  chooseChild,
+  chooseWorksheet,
+  chooseWorksheetChoices,
+  controls,
+  openMoreOptions,
+} from "./fixtures/worksheet-controls.js";
 
 const evidenceRoot = fileURLToPath(new URL("../../../.build-step/accessibility-evidence/", import.meta.url));
 const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
@@ -205,18 +211,22 @@ test("keyboard-only profile creation reaches preview with visible focus", async 
   await expect(page.getByRole("heading", { name: "Set up a profile" })).toBeFocused();
   await tabTo(page, page.getByRole("textbox", { name: "Nickname (optional)" }));
   await page.keyboard.type("Keyboard Morgan");
-  // No age field and no suggestion: the parent picks the preset by keyboard.
+  // Identity fields only: no age, preset or writing-mode control to pass.
   await expect(page.getByRole("spinbutton", { name: /\bages?\b/iu })).toHaveCount(0);
-  await tabTo(page, page.getByRole("radio", { name: "Quantities to 10" }));
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
-  const chosenPreset = page.getByRole("radio", { name: "Early primary within 10" });
-  await expect(chosenPreset).toBeChecked();
-  await expect(chosenPreset).toBeFocused();
+  const form = page.getByRole("form", { name: "Set up a profile" });
+  await expect(form.getByRole("radio")).toHaveCount(0);
+  await expect(form.getByRole("combobox")).toHaveCount(0);
   await tabTo(page, page.getByRole("button", { name: "Save profile", exact: true }));
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Choose a profile to update" })).toBeFocused();
   expect((await appServer.readConfig()).profiles[0]?.displayName).toBe("Keyboard Morgan");
+  // The practice focus is a worksheet choice, changed by keyboard in the panel.
+  const practiceFocus = controls(page).practiceFocus();
+  const startingFocus = await practiceFocus.inputValue();
+  await tabTo(page, practiceFocus);
+  await page.keyboard.press("ArrowDown");
+  await expect(practiceFocus).not.toHaveValue(startingFocus);
+  await expect(practiceFocus).toBeFocused();
   await tabTo(page, page.getByRole("button", { name: "Create worksheet", exact: true }));
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Preview and print" })).toBeFocused();
@@ -232,7 +242,9 @@ for (const family of ["find-the-wow", "sentence-builder", "count-compare-make"] 
     await appServer.seedConfig(acceptanceConfig);
     await page.goto(appServer.origin);
     await chooseChild(page, acceptanceConfig.profiles[1]!.id);
-    await chooseWorksheet(page, family);
+    // The choices this child's earlier settings supplied before the example
+    // became identity-only, now made through the worksheet controls.
+    await chooseWorksheetChoices(page, { ...formerChoices(1), worksheetType: family });
     await page.getByRole("button", { name: "Create worksheet", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Preview and print" })).toBeFocused();
     expect((await new AxeBuilder({ page }).withTags(tags).analyze()).violations).toEqual([]);

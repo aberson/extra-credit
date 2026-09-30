@@ -39,9 +39,13 @@ npm --prefix frontend run test:e2e -- print.spec.ts
 ```
 
 `tests/e2e/print.spec.ts` drives the compiled app through the existing ephemeral
-server fixture. It loads the three fictional profiles from
-`config/children.example.json`, edits boundary data through the real profile UI,
-and pins only the random seed. The browser must reproduce the real generator's
+server fixture. It loads the three identity-only fictional profiles from
+`config/children.example.json` and pins only the random seed. Each matrix row
+edits only the nickname (and, for Sentence Builder rows, the interests) through
+the real profile UI, makes every worksheet choice through the worksheet controls
+(type, variant, practice focus or vocabulary, length, paper, and scale), and
+after the profile save reads the stored file back and requires every profile to
+stay identity-only. The browser must reproduce the real generator's
 items, prompts, banks, and answers. Count/Compare compares every rendered item's
 activity, quantities, choices, and target with the boundary document, including
 the quantity-20 cases. No manufactured worksheet is injected into React.
@@ -70,9 +74,9 @@ overflow in both DOM geometry and an actual multi-page PDF.
 
 | Fixture | Maximum effective work (standard / large) | Boundary content |
 | --- | --- | --- |
-| Dry Math | 18 / 12 problems | Age-eight within-20 profile |
-| Quantity Wow | 8 / 6 groups | Canonical quantities-to-10 profile |
-| Equation Wow | 8 / 6 groups | Age-eight within-20 profile |
+| Dry Math | 18 / 12 problems | Practice focus Addition and subtraction within 20 |
+| Quantity Wow | 8 / 6 groups | Quantity pictures, practice focus Quantities to 10 |
+| Equation Wow | 8 / 6 groups | Equations, practice focus Addition and subtraction within 20 |
 | Count, Compare & Make | 10 / 8 items | All four subtypes; each reaches quantity 20, including complete/draw frames |
 | Draw-and-tell | One prompt | Longest curated prompt; canonical hidden standard length |
 | Copy-with-model | One prompt | Longest curated prompt and its required model; canonical hidden standard length |
@@ -81,7 +85,10 @@ overflow in both DOM geometry and an actual multi-page PDF.
 | Independent (two fixtures) | 10 / 8 bank words | Longest prompt; independently, the widest idea bank |
 
 Every worksheet includes the exact wide-Unicode nickname `"界".repeat(40)`.
-Writing-mode and interest edits use only fictional Morgan. Fixture construction
+Sentence Builder rows choose their writing activity and the Include longer
+words vocabulary, and edit only fictional Morgan's interests. Each math row's practice focus
+equals the one its canonical child's earlier settings supplied before the
+example became identity-only. Fixture construction
 searches bounded real generator outputs for the longest prompt or the complete
 set of longest bank entries; a missing match fails rather than falling back.
 
@@ -148,9 +155,9 @@ and the executable's URL reporting and graceful process-side shutdown. Test-only
 For the Windows physical-print acceptance (M1), use current Microsoft Edge and
 Google Chrome. In each browser, create each worksheet family, exercise both paper
 sizes and print scales, and inspect Print Preview before printing representative
-sheets. For writing modes, edit fictional Morgan's **Writing mode** and save.
-For dense pages, choose **Long** in **More options** and use fictional Avery for
-within-20 math. Verify one worksheet page, one key page where offered, readable
+sheets. For Sentence Builder, choose each **Writing activity** in the worksheet
+panel. For dense pages, choose **Long** in **More options** and the practice
+focus **Addition and subtraction within 20**. Verify one worksheet page, one key page where offered, readable
 text, complete groups and writing areas, visible instructional marks with
 decoration off, and no parent controls or browser headers/footers on paper.
 Record browser version, printer/driver, paper, scale, and observations. Automated

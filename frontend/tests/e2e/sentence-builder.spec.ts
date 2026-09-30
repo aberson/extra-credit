@@ -1,97 +1,89 @@
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 
+import { DEFAULT_WORKSHEET_DEFAULTS_V2 } from "../../src/shared/config/defaults.ts";
 import type {
-  ChildProfileV1,
-  GenerationDefaultsV1,
+  AppConfigV2,
+  SentenceVocabulary,
+  WritingMode,
 } from "../../src/shared/config/schema.ts";
 import { expect, test } from "./fixtures/app-server.ts";
 import {
   chooseChild,
   chooseLength,
   choosePrintLayout,
+  chooseVariant,
+  chooseVocabulary,
   chooseWorksheet,
   controls,
   openMoreOptions,
   setPersonalization,
 } from "./fixtures/worksheet-controls.ts";
 
-const defaults: GenerationDefaultsV1 = {
-  useDisplayName: false,
-  useInterests: true,
-  includeDecorativeGraphics: true,
-  difficulty: "practice",
-  length: "standard",
-  includeAnswerKey: true,
-  paperSize: "letter",
-  printScale: "standard",
-};
-
-const sharedMathSkills: ChildProfileV1["mathSkills"] = {
-  countingMax: 10,
-  numeralMax: 10,
-  compareMax: 10,
-  representations: ["quantities"],
-  understandsEquality: false,
-  operations: [],
-  operandMax: 0,
-  resultMax: 0,
-  allowRegrouping: false,
-  allowNegativeResults: false,
-};
-
+/**
+ * Identity-only fictional children, each paired with the writing activity and
+ * vocabulary the spec chooses for it through the worksheet controls.
+ */
 const profiles = [
   {
     id: "11111111-1111-4111-8111-111111111111",
     displayName: "Distinctive Private Avery",
-    ageYears: 4,
-    presentationBand: "preschool",
     reviewedOn: "2026-08-22",
-    mathSkills: sharedMathSkills,
-    writingMode: "draw-and-tell",
     interests: ["Distinctive Private Dinosaurs"],
+    writingMode: "draw-and-tell",
+    vocabulary: "simpler-words",
   },
   {
     id: "22222222-2222-4222-8222-222222222222",
     displayName: "Distinctive Private Blake",
-    ageYears: 5,
-    presentationBand: "preschool",
     reviewedOn: "2026-08-22",
-    mathSkills: sharedMathSkills,
-    writingMode: "label",
     interests: ["Space"],
+    writingMode: "label",
+    vocabulary: "simpler-words",
   },
   {
     id: "33333333-3333-4333-8333-333333333333",
     displayName: "Distinctive Private Casey",
-    ageYears: 6,
-    presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
-    mathSkills: sharedMathSkills,
-    writingMode: "copy-with-model",
     interests: ["Distinctive Private Unicorns"],
+    writingMode: "copy-with-model",
+    vocabulary: "all-words",
   },
   {
     id: "44444444-4444-4444-8444-444444444444",
     displayName: "Distinctive Private Devon",
-    ageYears: 7,
-    presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
-    mathSkills: sharedMathSkills,
-    writingMode: "sentence-frame",
     interests: ["Animals"],
+    writingMode: "sentence-frame",
+    vocabulary: "all-words",
   },
   {
     id: "55555555-5555-4555-8555-555555555555",
     displayName: "Distinctive Private Ellis",
-    ageYears: 8,
-    presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
-    mathSkills: sharedMathSkills,
-    writingMode: "independent",
     interests: ["Nature"],
+    writingMode: "independent",
+    vocabulary: "all-words",
   },
-] as const satisfies readonly ChildProfileV1[];
+] as const satisfies readonly {
+  readonly id: string;
+  readonly displayName: string;
+  readonly reviewedOn: string;
+  readonly interests: readonly string[];
+  readonly writingMode: WritingMode;
+  readonly vocabulary: SentenceVocabulary;
+}[];
+
+const seededConfig: AppConfigV2 = {
+  schemaVersion: 2,
+  profiles: profiles.map(({ id, displayName, reviewedOn, interests }) => ({
+    id,
+    displayName,
+    reviewedOn,
+    interests: [...interests],
+  })),
+  defaults: { ...DEFAULT_WORKSHEET_DEFAULTS_V2, useDisplayName: false },
+};
 
 interface DomSheet {
   readonly bankWords: readonly string[];
@@ -266,11 +258,7 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
   page,
 }) => {
   test.setTimeout(120_000);
-  await appServer.seedConfig({
-    schemaVersion: 1,
-    profiles: [...profiles],
-    defaults,
-  });
+  await appServer.seedConfig(seededConfig);
   await page.addInitScript(() => {
     const browser = globalThis as unknown as { __extraCreditFixedSeed?: number };
     browser.__extraCreditFixedSeed = 1;
@@ -317,6 +305,8 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
     }
     await chooseChild(page, profileFixture.id);
     await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
+    await chooseVariant(page, writingMode);
+    await chooseVocabulary(page, profileFixture.vocabulary);
     await expect(
       page.getByText(
         `Writing activity for Sentence Builder: ${VARIANT_LABELS[writingMode]}.`,

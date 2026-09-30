@@ -4,47 +4,65 @@ import { appendFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import { PDFDocument } from "pdf-lib";
 
-import { MATH_PRESETS } from "../../src/shared/config/math-presets.js";
-import type { ChildProfileV2, WritingMode } from "../../src/shared/config/schema.js";
-import { acceptanceConfig } from "../fixtures/profiles.js";
+import { AppConfigV2Schema, type ChildProfileV2 } from "../../src/shared/config/schema.js";
+import {
+  acceptanceConfig,
+  childrenV1FixtureBytes,
+  isIdentityOnlyProfile,
+  migratedV1FixtureConfig,
+} from "../fixtures/profiles.js";
 import { expect, test } from "./fixtures/app-server.js";
-import { chooseChild, chooseWorksheet, openMoreOptions } from "./fixtures/worksheet-controls.js";
+import {
+  chooseChild,
+  choosePracticeFocus,
+  chooseVariant,
+  chooseVocabulary,
+  chooseWorksheet,
+  controls,
+  openMoreOptions,
+  setAnswerKey,
+} from "./fixtures/worksheet-controls.js";
 
 const families = ["dry-math", "find-the-wow", "sentence-builder", "count-compare-make"] as const;
 
-/** The preset radio whose expansion equals a canonical child's earlier settings. */
-const PRESET_LABELS = {
-  "quantities-to-10": "Quantities to 10",
-  "early-primary-within-10": "Early primary within 10",
-  "early-primary-within-20": "Early primary within 20",
-} as const;
-
-function presetLabel(profile: ChildProfileV2): string {
-  const legacy = profile.legacyChoices;
-  const match = (Object.keys(PRESET_LABELS) as (keyof typeof PRESET_LABELS)[]).find(
-    (key) =>
-      JSON.stringify(MATH_PRESETS[key].mathSkills) === JSON.stringify(legacy?.mathSkills) &&
-      MATH_PRESETS[key].presentationBand === legacy?.presentationBand,
-  );
-  if (match === undefined) throw new Error("No preset matches the canonical earlier settings.");
-  return PRESET_LABELS[match];
-}
-
-/** The earlier writing mode a stored profile carries in its `legacyChoices`. */
-function writingModeOf(profile: ChildProfileV2): WritingMode {
-  const mode = profile.legacyChoices?.writingMode;
-  if (mode === undefined) throw new Error("A canonical profile carried no earlier writing mode.");
-  return mode;
-}
+/**
+ * The one explicit unavailable state (D34): a fictional child built here whose
+ * earlier Dry Math setting is addition with operand and result maxima of 1.
+ * Its three facts fill no length, so while seeding is on and its Dry Math
+ * group is untouched, Create stays disabled with the practice-focus remedy.
+ * No UI can create earlier settings, so this child is seeded.
+ */
+const shortfallChild: ChildProfileV2 = {
+  id: "d3400000-0000-4000-8000-000000000034",
+  displayName: "Fictional Shortfall",
+  reviewedOn: "2026-09-01",
+  interests: [],
+  legacyChoices: {
+    presentationBand: "preschool",
+    writingMode: "label",
+    mathSkills: {
+      countingMax: 10,
+      numeralMax: 10,
+      compareMax: 10,
+      representations: ["quantities", "equations"],
+      understandsEquality: false,
+      operations: ["addition"],
+      operandMax: 1,
+      resultMax: 1,
+      allowRegrouping: false,
+      allowNegativeResults: false,
+    },
+  },
+};
 
 async function createProfile(page: Page, profile: ChildProfileV2): Promise<void> {
   await page.getByRole("button", { name: /^(Create first profile|Add profile)$/u }).click();
-  await page.getByRole("textbox", { name: "Nickname (optional)" }).fill(profile.displayName ?? "");
-  // No age field exists: the parent chooses the preset explicitly.
+  // The form holds only identity fields: no age, preset or writing mode.
   await expect(page.getByRole("spinbutton", { name: "Age in years" })).toHaveCount(0);
   await expect(page.getByLabel(/\bages?\b/iu)).toHaveCount(0);
-  await page.getByRole("radio", { name: presetLabel(profile), exact: true }).check();
-  await page.getByRole("combobox", { name: "Writing mode" }).selectOption(writingModeOf(profile));
+  const form = page.locator('form[aria-labelledby="profile-editor-title"]');
+  await expect(form.locator("input, select, textarea")).toHaveCount(3);
+  await page.getByRole("textbox", { name: "Nickname (optional)" }).fill(profile.displayName ?? "");
   await page.getByLabel("Reviewed on").fill(profile.reviewedOn);
   await page.getByRole("textbox", { name: /Broad interests/ }).fill(profile.interests.join(", "));
   const saved = page.waitForResponse((response) =>
@@ -84,6 +102,15 @@ async function staticProbe(origin: string, path: string): Promise<{ status: numb
   });
 }
 
+/** Appends saved profile values to the harness's private evidence file, never to output. */
+async function recordPrivateValues(profiles: readonly ChildProfileV2[]): Promise<void> {
+  const privacyEvidencePath = process.env.EXTRA_CREDIT_E2E_PRIVACY_EVIDENCE;
+  if (!privacyEvidencePath) throw new Error("The smoke requires the private harness evidence channel.");
+  const values = profiles.flatMap(({ id, displayName, interests }) => [id, displayName, ...interests])
+    .filter((value): value is string => typeof value === "string" && value.length > 0);
+  await appendFile(privacyEvidencePath, `${JSON.stringify(values)}\n`, "utf8");
+}
+
 test("compiled release profile-to-print and privacy gate", async ({ appServer, page, context }, testInfo) => {
   const started = performance.now();
   const consoleMessages: string[] = [];
@@ -101,38 +128,33 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   page.on("download", (download) => downloads.push(download.suggestedFilename()));
   page.on("websocket", (socket) => sockets.push(socket.url()));
 
-  // Only the empty container is seeded. Every profile and subsequent edit uses
-  // the real UI, session token, ETag routes, and atomic temporary-file storage.
-  await appServer.seedConfig({ ...acceptanceConfig, profiles: [] });
+  // Only the container and the one child no UI can create are seeded: the
+  // shortfall child's earlier settings, with seeding on. Every other profile
+  // and subsequent edit uses the real UI, session token, ETag routes, and
+  // atomic temporary-file storage.
+  await appServer.seedConfig({
+    ...acceptanceConfig,
+    profiles: [shortfallChild],
+    defaults: { ...acceptanceConfig.defaults, useEarlierChildSettings: true },
+  });
+  await recordPrivateValues([shortfallChild]);
   await page.goto(appServer.origin);
   for (const profile of acceptanceConfig.profiles) await createProfile(page, profile);
   const saved = await appServer.readConfig();
-  const privacyEvidencePath = process.env.EXTRA_CREDIT_E2E_PRIVACY_EVIDENCE;
-  if (!privacyEvidencePath) throw new Error("The smoke requires the private harness evidence channel.");
-  async function recordPrivateValues(profiles: readonly ChildProfileV2[]): Promise<void> {
-    const values = profiles.flatMap(({ id, displayName, interests }) => [id, displayName, ...interests])
-      .filter((value): value is string => typeof value === "string" && value.length > 0);
-    await appendFile(privacyEvidencePath!, `${JSON.stringify(values)}\n`, "utf8");
-  }
   await recordPrivateValues(saved.profiles);
-  expect(saved.profiles).toHaveLength(3);
-  for (const [index, profile] of saved.profiles.entries()) {
-    // Production cryptographic IDs remain real; canonical fields are unchanged.
+  expect(saved.profiles).toHaveLength(4);
+  expect(saved.profiles[0]).toEqual(shortfallChild);
+  const created = saved.profiles.slice(1);
+  for (const [index, profile] of created.entries()) {
+    // Production cryptographic IDs remain real; canonical fields are unchanged,
+    // and a created profile is identity-only.
     expect({ ...profile, id: acceptanceConfig.profiles[index]?.id }).toEqual(acceptanceConfig.profiles[index]);
     expect(profile.id).toMatch(/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/u);
+    expect(isIdentityOnlyProfile(profile)).toBe(true);
   }
-  expect(new Set(saved.profiles.map(({ id }) => id)).size).toBe(3);
+  expect(new Set(created.map(({ id }) => id)).size).toBe(3);
   await page.reload();
   const create = page.getByRole("button", { name: "Create worksheet", exact: true });
-
-  async function editWriting(profile: ChildProfileV2, mode: WritingMode): Promise<void> {
-    await page.getByRole("button", { name: `Edit ${profile.displayName}` }).click();
-    await page.getByRole("combobox", { name: "Writing mode" }).selectOption(mode);
-    await page.getByRole("button", { name: "Save profile", exact: true }).click();
-    await expect(page.getByRole("heading", { name: profile.displayName ?? "", exact: true })).toBeVisible();
-    // Earlier capabilities are read from the stored `legacyChoices`.
-    expect((await appServer.readConfig()).profiles.find(({ id }) => id === profile.id)?.legacyChoices?.writingMode).toBe(mode);
-  }
 
   /** The profile list and the generator panel never name age (U3). */
   async function expectAgeFreeRegions(): Promise<void> {
@@ -149,6 +171,9 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   async function generate(profile: ChildProfileV2, family: typeof families[number], variant?: string): Promise<void> {
     await chooseChild(page, profile.id);
     await chooseWorksheet(page, family);
+    if (family === "sentence-builder" || family === "find-the-wow") {
+      await chooseVariant(page, variant as Parameters<typeof chooseVariant>[1]);
+    }
     await create.click();
     const preview = page.getByLabel("Worksheet preview");
     await expect(preview).toHaveAttribute("data-worksheet-type", family);
@@ -201,59 +226,52 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
     }
   }
 
-  const [young, middle, oldest] = saved.profiles;
+  const [young, middle, oldest] = created;
   if (young === undefined || middle === undefined || oldest === undefined) throw new Error("Canonical fixture missing.");
   await expectAgeFreeRegions();
-  // Dry Math implies its equations representation, so the quantities-only
-  // child generates it at the saved default's practice focus.
+
+  // The one unavailable state: the seeded shortfall child's earlier Dry Math
+  // setting cannot fill any length, so Create is disabled with the
+  // practice-focus remedy, and no preview appears.
+  await chooseChild(page, shortfallChild.id);
+  await chooseWorksheet(page, "dry-math");
+  await expect(create).toBeDisabled();
+  await expect(page.locator("[data-capacity-conflict]")).toHaveText(
+    /^This practice focus provides 3 unique facts, but this length needs \d+\. Choose a practice focus with a wider results range\.$/u,
+  );
+  await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
+
+  // An identity-only child starts from the saved defaults, so Dry Math
+  // generates at the default practice focus.
   await generate(young, "dry-math");
   await expect(page.getByText(/Dry Math needs/)).toHaveCount(0);
   await generate(young, "count-compare-make");
   await generate(young, "find-the-wow", "quantity");
   for (const mode of ["draw-and-tell", "label", "copy-with-model"] as const) {
-    await editWriting(young, mode);
     await generate(young, "sentence-builder", mode);
   }
-  await editWriting(young, writingModeOf(young));
   await generate(middle, "sentence-builder", "sentence-frame");
   await generate(middle, "dry-math");
-  // Equation-only earlier settings without confirmed equality seed no
-  // Statements variant, so Two Whats and a Wow keeps the saved default,
-  // Quantity pictures, and never generates symbolic statements.
-  await page.getByRole("button", { name: `Edit ${middle.displayName}` }).click();
-  await page.getByRole("radio", { name: "Custom capabilities", exact: true }).check();
-  await expect(page.getByRole("checkbox", { name: "quantities", exact: true })).toBeVisible();
-  await page.getByRole("checkbox", { name: "quantities", exact: true }).uncheck();
-  await page.getByRole("checkbox", { name: "Parent confirms understanding of equality", exact: true }).uncheck();
-  await page.getByRole("button", { name: "Save profile", exact: true }).click();
-  await chooseChild(page, middle.id);
-  expect((await appServer.readConfig()).profiles.find(({ id }) => id === middle.id)?.legacyChoices?.mathSkills).toMatchObject({
-    representations: ["equations"], understandsEquality: false,
-  });
   await generate(middle, "find-the-wow", "quantity");
   await expect(page.getByText(/Two Whats and a Wow needs/)).toHaveCount(0);
-  await page.getByRole("button", { name: `Edit ${middle.displayName}` }).click();
-  await page.getByRole("radio", { name: "Early primary within 10", exact: true }).check();
-  await page.getByRole("button", { name: "Save profile", exact: true }).click();
   await generate(oldest, "dry-math");
   await generate(oldest, "count-compare-make");
   await generate(oldest, "sentence-builder", "independent");
   await generate(oldest, "find-the-wow", "equation");
-  // No Difficulty control exists; the quantities-only canonical child gets the
-  // quantity page that Confidence used to force on the oldest child.
+  // No Difficulty control exists.
   await openMoreOptions(page);
   expect(await page.getByRole("region", { name: "Create a practice worksheet" }).innerText()).not.toMatch(
     /\bDifficulty\b|\bstretch\b/iu,
   );
-  await generate(young, "find-the-wow", "quantity");
+  // None of these generations wrote the file.
+  expect(await appServer.readConfig()).toEqual(saved);
 
-  // A retained profile with no age: its capabilities copy the oldest canonical
-  // child's into `legacyChoices`, and age no longer gates any family.
+  // A retained profile is identity-only, and nothing about it gates a family.
   await createProfile(page, { ...oldest, displayName: "Temporary" });
   const retained = (await appServer.readConfig()).profiles.find(({ displayName }) => displayName === "Temporary");
   expect(retained).toBeDefined();
   expect(retained).not.toHaveProperty("ageYears");
-  expect(retained?.legacyChoices).toEqual(oldest.legacyChoices);
+  expect(isIdentityOnlyProfile(retained)).toBe(true);
   if (retained !== undefined) await recordPrivateValues([retained]);
   await page.reload();
   await chooseChild(page, retained?.id ?? "missing");
@@ -299,4 +317,214 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   const durationMs = Math.round(performance.now() - started);
   expect(durationMs).toBeLessThan(60_000);
   await testInfo.attach("release-smoke-timing", { body: JSON.stringify({ durationMs }), contentType: "application/json" });
+});
+
+/** The keys an earlier version stored that version 2 never writes, found at any depth. */
+function retiredKeysAnywhere(value: unknown): string[] {
+  if (Array.isArray(value)) return value.flatMap(retiredKeysAnywhere);
+  if (typeof value !== "object" || value === null) return [];
+  return Object.entries(value).flatMap(([key, child]) => [
+    ...(key === "ageYears" || key === "difficulty" ? [key] : []),
+    ...retiredKeysAnywhere(child),
+  ]);
+}
+
+const V1_BACKUP_NAME = /^children\.local\.json\.v1-\d{8}T\d{6}Z-[0-9a-f]{8}\.bak$/u;
+
+test("compiled upgrade of an earlier-version file through every worksheet choice to print", async ({ appServer, page, context }) => {
+  const consoleMessages: string[] = [];
+  const pageErrors: string[] = [];
+  const requests: string[] = [];
+  const puts: string[] = [];
+  context.on("request", (request) => {
+    requests.push(request.url());
+    if (request.method() === "PUT") puts.push(new URL(request.url()).pathname);
+  });
+  page.on("console", (message) => consoleMessages.push(`${message.type()}: ${message.text()}`));
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  /** One rendered Dry Math problem's operands and its recomputed answer. */
+  function dryMathValues(text: string): { left: number; right: number; answer: number } {
+    const match = /(\d+)\s*([+−])\s*(\d+)/u.exec(text);
+    expect(match).not.toBeNull();
+    const left = Number(match?.[1]);
+    const right = Number(match?.[3]);
+    return { left, right, answer: match?.[2] === "+" ? left + right : left - right };
+  }
+
+  await appServer.seedRaw(childrenV1FixtureBytes);
+  await recordPrivateValues(migratedV1FixtureConfig.profiles);
+  const upgradedProfiles = migratedV1FixtureConfig.profiles;
+  const [, , withinTwenty] = upgradedProfiles;
+  if (withinTwenty?.legacyChoices === undefined) throw new Error("The v1 fixture's third child carried no earlier settings.");
+
+  // Reading the earlier-version file shows the notice and writes nothing.
+  await page.goto(appServer.origin);
+  const notice = page.locator("[data-upgrade-notice]");
+  await expect(notice).toHaveText(/^This profile file was saved by an earlier version\./u);
+  const create = page.getByRole("button", { name: "Create worksheet", exact: true });
+
+  // The seeded panel starts from a migrated child's earlier settings: its
+  // stored addition and subtraction within 20 becomes the Dry Math focus.
+  await chooseChild(page, withinTwenty.id);
+  await chooseWorksheet(page, "dry-math");
+  await expect(page.locator("[data-earlier-settings-used]")).toBeVisible();
+  await expect(controls(page).practiceFocus().locator("option:checked")).toHaveText(
+    "Addition and subtraction within 20",
+  );
+  await create.click();
+  const preview = page.getByLabel("Worksheet preview");
+  await expect(preview).toHaveAttribute("data-worksheet-type", "dry-math");
+  const earlierRows = await preview.locator("[data-item-id]").allTextContents();
+  expect(earlierRows.length).toBeGreaterThan(0);
+  const earlierValues = earlierRows.flatMap((row) => {
+    const { left, right, answer } = dryMathValues(row);
+    return [left, right, answer];
+  });
+  for (const value of earlierValues) {
+    expect(value).toBeGreaterThanOrEqual(0);
+    expect(value).toBeLessThanOrEqual(20);
+  }
+  // The built-in default focus is within 10, so a value above 10 shows the
+  // earlier setting reached the generator.
+  expect(Math.max(...earlierValues)).toBeGreaterThan(10);
+  expect((await appServer.readRaw()).equals(childrenV1FixtureBytes)).toBe(true);
+  expect(await appServer.backupNames()).toEqual([]);
+
+  // The first explicit save is the worksheet-defaults save: it upgrades the
+  // file behind one byte-identical backup and ends seeding.
+  const defaultsSaved = page.waitForResponse((response) =>
+    response.request().method() === "PUT" && new URL(response.url()).pathname === "/api/config",
+  );
+  await page.getByRole("button", { name: "Save these as worksheet defaults", exact: true }).click();
+  expect((await defaultsSaved).status()).toBe(200);
+  await expect(page.getByText("Worksheet defaults saved locally.", { exact: true })).toBeVisible();
+  await expect(notice).toHaveText("");
+  const backupNames = await appServer.backupNames();
+  expect(backupNames).toHaveLength(1);
+  expect(backupNames[0]).toMatch(V1_BACKUP_NAME);
+  const backups = await appServer.backupContents();
+  expect(backups).toHaveLength(1);
+  expect(backups[0]?.equals(childrenV1FixtureBytes)).toBe(true);
+
+  const raw: unknown = JSON.parse((await appServer.readRaw()).toString("utf8"));
+  const live = AppConfigV2Schema.parse(raw);
+  expect(retiredKeysAnywhere(raw)).toEqual([]);
+  expect(live.profiles).toEqual(upgradedProfiles);
+  expect(live.defaults.useEarlierChildSettings).toBe(false);
+  expect(live.defaults.worksheetType).toBe("dry-math");
+  expect(live.defaults.dryMath).toEqual({ operations: ["addition", "subtraction"], operandMax: 20, resultMax: 20 });
+  expect([live.defaults.paperSize, live.defaults.printScale]).toEqual(["letter", "standard"]);
+
+  // A restart reads version 2: no notice, no second backup, and the saved
+  // defaults come back as the starting selection.
+  await appServer.restart();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Create a practice worksheet" })).toBeVisible();
+  await expect(notice).toHaveText("");
+  expect(await appServer.backupNames()).toEqual(backupNames);
+  await expect(controls(page).worksheetCard("dry-math")).toBeChecked();
+  await expect(controls(page).practiceFocus().locator("option:checked")).toHaveText(
+    "Addition and subtraction within 20",
+  );
+  await expect(page.locator("[data-earlier-settings-used]")).toHaveCount(0);
+  expect((await appServer.readConfig()).defaults).toEqual(live.defaults);
+
+  /** Prints the current surface at the saved Letter/standard layout and counts its pages. */
+  async function printedPages(surface: "worksheet" | "answer"): Promise<number> {
+    await page.emulateMedia({ media: "print" });
+    await expect(page.locator(`.print-surface[data-surface="${surface}"]`)).toBeVisible();
+    const pages = (await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }))).getPageCount();
+    await page.emulateMedia({ media: "screen" });
+    return pages;
+  }
+
+  /** Creates the current selection and returns its preview. */
+  async function createSheet(worksheetType: typeof families[number]) {
+    await create.click();
+    const sheet = page.getByLabel("Worksheet preview");
+    await expect(sheet).toHaveAttribute("data-worksheet-type", worksheetType);
+    return sheet;
+  }
+
+  // Every worksheet-first choice, made in the panel with no profile edit.
+  await chooseChild(page, withinTwenty.id);
+  await chooseWorksheet(page, "sentence-builder");
+  await chooseVariant(page, "copy-with-model");
+  for (const vocabulary of ["simpler-words", "all-words"] as const) {
+    await chooseVocabulary(page, vocabulary);
+    const sheet = await createSheet("sentence-builder");
+    await expect(sheet.locator('[data-writing-mode="copy-with-model"]')).toHaveCount(1);
+  }
+  expect(await printedPages("worksheet")).toBe(1);
+  await expect(page.getByRole("button", { name: "Parent answer key", exact: true })).toHaveCount(0);
+
+  await chooseWorksheet(page, "dry-math");
+  await choosePracticeFocus(page, "Addition and subtraction within 100");
+  await setAnswerKey(page, true);
+  const dryMath = await createSheet("dry-math");
+  const answers = new Map<string, number>();
+  const withinHundred: number[] = [];
+  for (const { id, text } of await dryMath.locator("[data-item-id]").evaluateAll((nodes) =>
+    nodes.map((node) => ({ id: node.getAttribute("data-item-id") ?? "", text: node.textContent ?? "" })),
+  )) {
+    const { left, right, answer } = dryMathValues(text);
+    for (const value of [left, right, answer]) {
+      expect(value).toBeGreaterThanOrEqual(0);
+      expect(value).toBeLessThanOrEqual(100);
+    }
+    withinHundred.push(left, right, answer);
+    answers.set(id, answer);
+  }
+  expect(answers.size).toBeGreaterThan(0);
+  // The saved focus is within 20, so a value above 20 shows the new focus
+  // reached the generator.
+  expect(Math.max(...withinHundred)).toBeGreaterThan(20);
+  expect(await printedPages("worksheet")).toBe(1);
+  await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+  const keyed = await page.locator(".print-surface [data-item-id]").evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      id: node.getAttribute("data-item-id") ?? "",
+      value: Number(node.querySelector("[data-answer-value]")?.getAttribute("data-answer-value")),
+    })),
+  );
+  expect(keyed).toHaveLength(answers.size);
+  for (const { id, value } of keyed) expect(value).toBe(answers.get(id));
+  expect(await printedPages("answer")).toBe(1);
+
+  await chooseWorksheet(page, "find-the-wow");
+  for (const variant of ["quantity", "equation"] as const) {
+    await chooseVariant(page, variant);
+    const wow = await createSheet("find-the-wow");
+    const groups = await wow.locator("[data-item-id]").count();
+    expect(groups).toBeGreaterThan(0);
+    expect(await wow.locator(`[data-wow-mode="${variant}"]`).count()).toBe(groups);
+  }
+  expect(await printedPages("worksheet")).toBe(1);
+  await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+  expect(await printedPages("answer")).toBe(1);
+
+  await chooseWorksheet(page, "count-compare-make");
+  const count = await createSheet("count-compare-make");
+  expect(await count.locator("[data-item-id]").count()).toBeGreaterThan(0);
+  expect(await printedPages("worksheet")).toBe(1);
+  await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+  expect(await printedPages("answer")).toBe(1);
+
+  // Choosing and creating never wrote the file: the saved defaults and every
+  // profile's identity fields and earlier settings are as the upgrade left them.
+  expect(AppConfigV2Schema.parse(JSON.parse((await appServer.readRaw()).toString("utf8")))).toEqual(live);
+  expect(await appServer.backupNames()).toEqual(backupNames);
+  await expectPrivateBrowser(page, appServer.origin);
+  expect(consoleMessages).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  expect(appServer.serverErrors()).toEqual([]);
+  // The defaults save was the only write request.
+  expect(puts).toEqual(["/api/config"]);
+  expect(requests.length).toBeGreaterThan(0);
+  for (const url of requests) {
+    const parsed = new URL(url);
+    expect(parsed.origin).toBe(appServer.origin);
+    expect(parsed.hostname).toBe("127.0.0.1");
+  }
 });

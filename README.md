@@ -1,6 +1,6 @@
 # Extra Credit
 
-Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
+Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English early primary practice and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
 > **Steps 1-13 and two iterative UAT revisions are implemented.** The UAT revisions expand arithmetic presets and simplify profile, worksheet and print presentation. The final combined Windows check passed 521 unit tests and 160 browser specs, lint/types, and log-privacy calibration. Physical-print and family-pilot acceptance remain pending. Three follow-on plans are reviewed and none is built; the first two are issue-synced and the third is redlined: [worksheet-first controls](documentation/worksheet-first-plan.md) (Steps 14-20, issues #25-#31), [math operations and activities](documentation/math-activities-plan.md) (Steps 21-27, issues #32-#38), and [printable packets](documentation/printable-packets-plan.md) (Steps 28-34). See [plan.md](plan.md), the [UAT review](documentation/uat-round-2-review.md), and the [feature seeds](documentation/feature-seeds/README.md).
 
@@ -11,19 +11,19 @@ Extra Credit is an open-source, local web application for creating personalized,
 | **Dry Math** | Shipped (Step 4) | Numbers and symbols only, using parent-confirmed operations and limits. |
 | **Two Whats and a Wow** | Shipped (Step 5) | Three distinct statements per group: exactly two false “whats” and one true “wow,” using equations or quantities as appropriate. |
 | **Sentence Builder** | Shipped (Step 6) | Drawing, labeling, copying, sentence-frame, and independent-writing modes with reviewed word banks. |
-| **Count, Compare & Make** | Shipped (Step 8) | An age-four-friendly mix of matching, comparing, completing, and drawing quantities. |
+| **Count, Compare & Make** | Shipped (Step 8) | A mix of matching, comparing, completing, and drawing quantities for a child who is just beginning to count. |
 
 Answer keys, black-and-white line art, Letter and A4 selection, and independent toggles for nickname, interests, and decorative graphics all ship today; automated print and pagination hardening is merged. Personalization may change headings, reviewed vocabulary, topics, or decoration; it never changes the learning target or mathematical answer.
 
 **Worksheet-first controls.** The worksheet panel asks for the work first: the worksheet type (four cards), its variant where one exists (Sentence Builder's writing activity, or Two Whats and a Wow's Quantity pictures or Equations statements), the child, and then a practice focus that states its operations and range in words, such as "Addition within 20" or "Quantities to 10"; Sentence Builder asks for its vocabulary instead. Length, the answer key, personalization, and print layout sit under More options. Whether a worksheet can be created depends only on these choices, never on which child is selected. The choices are session state: profile edits, profile saves, and in-app reloads keep them, a browser page reload starts again from the saved defaults, and Create or Make another never writes the local file. Only **Save these as worksheet defaults** stores them, as one set of starting choices for every child. A file saved by an earlier version keeps each child's earlier writing mode, vocabulary band, and math values; they supply that child's starting choices until the first defaults save, which ends that for good.
 
-Profiles may be stored for ages 4–18. Worksheet generation is enabled only for ages 4–8 in V1; profiles for ages 9–18 remain editable while later content packs are reviewed.
+A new child profile holds only a nickname, a review date, and up to five broad interests. Extra Credit's worksheets are designed for early primary practice; the parent's worksheet choices, not the profile, decide the work.
 
 ## Privacy boundary
 
 The code is public, but family data stays local:
 
-- The production user-data store is the gitignored `config/children.local.json`; explicit recovery can also leave residual backup copies described below. Local attended UAT may use separate ignored retained profiles under `config/uat-session/`; these are private too and are excluded from release exports.
+- The production user-data store is the gitignored `config/children.local.json`; explicit recovery, and the first save of a file an earlier version saved, can also leave residual backup copies described below. Local attended UAT may use separate ignored retained profiles under `config/uat-session/`; these are private too and are excluded from release exports.
 - The browser will not store child data in local storage, session storage, IndexedDB, the Cache API, or service workers.
 - V1 has no login, cloud sync, analytics, advertising, API keys, or runtime AI.
 - The application binds only to `127.0.0.1`: port `4310` for the built app/API and port `4311` for Vite development.
@@ -40,9 +40,11 @@ The application runtime sends no profile or worksheet data to a cloud service. D
 
 The server owns one fixed path, `config/children.local.json`; the HTTP API never accepts a filesystem path. It reads at most 64 KiB, rejects symbolic links and other non-regular targets, validates UTF-8/JSON/the complete versioned schema, and requires ETag preconditions so a stale browser tab cannot silently overwrite a newer save. Writes use flushed atomic replacement and normalized two-space JSON with a final newline.
 
-Extra Credit never automatically overwrites an invalid, newer-version, oversized, or unsafe target. A parent may explicitly choose **Back up invalid file and replace** only for a bounded regular file with invalid UTF-8, malformed JSON, or an invalid v1 schema. The server first creates a byte-identical exclusive sibling such as `children.local.json.invalid-YYYYMMDDTHHMMSSZ-1234abcd.bak`, flushes it, and only then replaces the live file. A newer schema version needs a future migration or manual intervention; oversized, symbolic-link, and non-regular targets must be moved or repaired manually. The unreadable raw file is never automatically downloaded into the browser.
+Extra Credit never automatically overwrites an invalid, newer-version, oversized, or unsafe target. A parent may explicitly choose **Back up invalid file and replace** only for a bounded regular file with invalid UTF-8, malformed JSON, or an invalid v1 or v2 schema. The server first creates a byte-identical exclusive sibling such as `children.local.json.invalid-YYYYMMDDTHHMMSSZ-1234abcd.bak`, flushes it, and only then replaces the live file. A file saved by a newer version of Extra Credit (a higher schema version, or a current-version file with keys or values this version does not know) is left unchanged and blocked; it needs that newer version or manual intervention. Oversized, symbolic-link, and non-regular targets must be moved or repaired manually. The unreadable raw file is never automatically downloaded into the browser.
 
-Real config files, temporary siblings, and recovery backups are ignored by git, but they remain local files. Deleting a profile rewrites only the live JSON file. It does not delete `.bak` siblings under `config/`, a manually downloaded `extra-credit-profile-backup.json`, saved worksheet PDFs/screenshots, or paper copies. Review and remove those separately from the repository's `config/` directory and from whatever download/PDF folders or physical storage you chose. Automatic backup discovery and deletion are outside v1.
+A file saved by an earlier version is read without being changed. The first explicit save (a profile change or a worksheet-defaults save) first writes a byte-identical sibling such as `children.local.json.v1-YYYYMMDDTHHMMSSZ-1234abcd.bak`, flushes it, and only then replaces the live file with version 2. That `.v1-…bak` upgrade backup is a residual local copy: it keeps the old age and Difficulty values that version 2 no longer stores, and it stays until you delete it.
+
+Real config files, temporary siblings, and recovery and upgrade backups are ignored by git, but they remain local files. Deleting a profile rewrites only the live JSON file. It does not delete `.bak` siblings under `config/`, a manually downloaded `extra-credit-profile-backup.json`, saved worksheet PDFs/screenshots, or paper copies. Review and remove those separately from the repository's `config/` directory and from whatever download/PDF folders or physical storage you chose. Automatic backup discovery and deletion are outside v1.
 
 Keep any manual profile backup and browser-saved worksheet under the generic filenames offered by the app and save them outside this public repository. Those copies remain the parent's responsibility.
 
@@ -153,11 +155,11 @@ SECURITY.md                   # loopback boundary and reporting
 LICENSE                       # project MIT license
 ```
 
-A profile contains an optional nickname, age, parent-confirmed presentation band, review date, explicit math capabilities, writing mode, and up to five broad interests. Age provides setup suggestions only; it does not determine grade, placement, readiness, or mastery. V1 stores no scores, completed worksheets, or inferred performance history.
+A profile contains an optional nickname, a review date, and up to five broad interests. A profile carried over from a file an earlier version saved also keeps that child's earlier writing mode, vocabulary band, and math values as read-only earlier settings, shown in the profile editor and never edited there. No worksheet choice asserts grade, placement, readiness, or mastery. V1 stores no scores, completed worksheets, or inferred performance history.
 
 ## Key design decisions
 
-- Educational content is governed by explicit capabilities rather than age alone.
+- Educational content is governed by the parent's explicit worksheet choices: the worksheet type, its variant, and a practice focus or vocabulary stated in words.
 - Dry Math supports addition/subtraction presets through 100; quantity and Wow activities stay within 20. No activity produces negative results or carrying/borrowing in this increment.
 - A seed and generator version reproduce the same educational content.
 - Answer keys derive from the same immutable worksheet document shown to the child.
@@ -178,7 +180,7 @@ The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-13 a
 6. Release verification and public-project documentation - automated gates merged
 7. Physical-print, family-pilot, and live-CI acceptance checks
 
-Later feature plans may add Mini Missions, shapes, measurement, language and science activities, reviewed content for ages nine and older, and optional runtime AI with a fresh privacy and security review.
+Later feature plans may add Mini Missions, shapes, measurement, language and science activities, reviewed content beyond early primary practice, and optional runtime AI with a fresh privacy and security review.
 
 ## Contributing
 

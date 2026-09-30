@@ -43,14 +43,15 @@ export async function startManualPrintHarness() {
       import("../../dist/shared/config/migrate.js"),
     ]);
     category = "FIXTURE";
-    // The committed example's own bytes, validated by the compiled store
-    // classifier: the app reads them exactly as a parent's earlier file.
+    // The committed example's own identity-only version 2 bytes, validated by
+    // the compiled store classifier: the app reads them as the current version,
+    // with no upgrade notice and no upgrade backup on the first save.
     const exampleBytes = await readFile(
       new URL("../../../config/children.example.json", import.meta.url),
     );
     const classified = classifyStoredConfig(JSON.parse(exampleBytes.toString("utf8")));
-    if (classified.kind !== "legacy" && classified.kind !== "current") {
-      throw new Error("The committed example is not a readable profile file.");
+    if (classified.kind !== "current") {
+      throw new Error("The committed example is not a current-version profile file.");
     }
     category = "TEMPORARY_STORAGE";
     temporaryDirectory = await mkdtemp(join(tmpdir(), "extra-credit-manual-print-"));

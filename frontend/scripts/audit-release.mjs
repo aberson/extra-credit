@@ -5,10 +5,16 @@ import ts from "typescript";
 import { parseDocument } from "yaml";
 import { hash, listTree, safePath } from "./release-tree.mjs";
 
+// Whole-record hashes of the three canonical fictional children: first as
+// version 1 records (the v1 fixture and the plan appendix), then as the
+// identity-only version 2 records of the committed example.
 const canonicalProfiles = new Set([
   "078bc73b70f818c22573205617b414884f0d7090d400af31ffe7528cf9d99a10",
   "2bda83030410b45182eaa1f64b2454498ae68236f8eedbe5afd60571d9dcee7f",
   "7726ad9bec6455bf37c2bc01e71e321df68c7093c986f5c774c490429c7637a1",
+  "fa95f0e27e978dda3ec4ce67bf45af8edee2c3ae14d6184fbeebbed3519440f6",
+  "6cf25facf737f27f383b490f481c06ea419b5a103ef58181fdac1a520ab4da6f",
+  "539f07d138efbbe430bb33b7d475e14d5831090ab4d6d172aacbce00a416c46f",
 ]);
 const stable = (v) => v && typeof v === "object" ? Array.isArray(v) ? v.map(stable)
   : Object.fromEntries(Object.keys(v).sort().map((k) => [k, stable(v[k])])) : v;
@@ -148,7 +154,7 @@ export async function auditRelease(root) {
     if (!["127.0.0.1", "4310", "4311", "children.local.json", "local process", "backup"].every((word) => get(path).includes(word))) fail("BOUNDARY_DOCS", path);
   }
   if (!["CONTRIBUTING.md", "ASSET_PROVENANCE.md"].every((path) => get("README.md").includes(`](${path})`))) fail("DOC_LINKS", "README.md");
-  for (const term of ["4–8", "9–18", "within 20", "no accounts", "cloud services", "telemetry", "runtime AI", "no scheduler", "backups", "saved PDFs"]) {
+  for (const term of ["early primary", "within 20", "no accounts", "cloud services", "telemetry", "runtime AI", "no scheduler", "backups", "saved PDFs"]) {
     if (!get("README.md").includes(term)) fail("V1_BOUNDARY_DOCS", "README.md");
   }
   const manifestPath = "frontend/src/web/assets/line-art/manifest.json";

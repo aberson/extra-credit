@@ -17,12 +17,14 @@ import {
   requiredPrintContent,
   type RequiredPrintContent,
 } from "../fixtures/print/required-content.ts";
+import { isIdentityOnlyProfile } from "../fixtures/profiles.ts";
 import { expect, test } from "./fixtures/app-server.ts";
 import {
   chooseChild,
   chooseLength,
   choosePrintLayout,
   chooseWorksheet,
+  chooseWorksheetChoices,
   controls,
   openMoreOptions,
   setPersonalization,
@@ -748,14 +750,23 @@ for (const paper of ["letter", "a4"] as const) {
   }
 }
 
+/**
+ * Every worksheet case the loop below defines, and whether it also measures a
+ * key PDF, recorded as each test is defined so the counts are read from the
+ * same expansion the tests use.
+ */
+const matrixCases: { readonly name: string; readonly keyPdf: boolean }[] = [];
+
 for (const fixture of printFixtures) {
   const decorationApplicable = ["sentence-builder", "count-compare-make"]
-    .includes(fixture.worksheetType);
+    .includes(fixture.selection.worksheetType);
   for (const scale of ["standard", "large"] as const) {
     const boundary = createPrintFixture(fixture, scale);
     for (const paper of ["letter", "a4"] as const) {
       for (const decoration of decorationApplicable ? [false, true] : [false]) {
         const name = `${fixture.id}-${paper}-${scale}-decoration-${decoration}`;
+        const keyPdf = !decoration && boundary.document.request.options.includeAnswerKey;
+        matrixCases.push({ name, keyPdf });
         test(name, async ({ appServer, page }) => {
           test.setTimeout(60_000);
           await appServer.seedConfig({
@@ -786,17 +797,25 @@ for (const fixture of printFixtures) {
           if (original === undefined) {
             throw new Error("Missing canonical profile.");
           }
+          // The profile editor holds only identity fields: the case edits the
+          // nickname and, for Sentence Builder, the interests, and makes every
+          // worksheet choice through the worksheet controls.
           await page.getByRole("button", { name: `Edit ${original.displayName}` }).click();
           await page.getByRole("textbox", { name: "Nickname (optional)" }).fill(boundaryNickname);
-          if (fixture.writingMode !== undefined) {
-            await page.getByRole("combobox", { name: "Writing mode" })
-              .selectOption(fixture.writingMode);
+          if (fixture.selection.worksheetType === "sentence-builder") {
             await page.getByRole("textbox", { name: /Broad interests/ })
               .fill(boundary.profile.interests.join(", "));
           }
+          const saved = page.waitForResponse((response) =>
+            response.request().method() === "PUT" && new URL(response.url()).pathname === "/api/config",
+          );
           await page.getByRole("button", { name: "Save profile" }).click();
+          expect((await saved).status()).toBe(200);
+          const stored = await appServer.readConfig();
+          expect(stored.profiles).toHaveLength(acceptanceConfig.profiles.length);
+          expect(stored.profiles.filter((profile) => !isIdentityOnlyProfile(profile))).toEqual([]);
           await chooseChild(page, original.id);
-          await chooseWorksheet(page, fixture.worksheetType);
+          await chooseWorksheetChoices(page, fixture.selection);
           await openMoreOptions(page);
           await choosePrintLayout(page, { printScale: scale });
           await choosePrintLayout(page, { paperSize: paper });
@@ -961,7 +980,7 @@ for (const fixture of printFixtures) {
             expect((await readPrintGeometry(page, true)).violations,
               "column flow restored").toEqual([]);
           }
-          if (!decoration && boundary.document.request.options.includeAnswerKey) {
+          if (keyPdf) {
             await page.emulateMedia({ media: "screen" });
             await page.getByRole("button", { name: "Parent answer key" }).click();
             await measurePrint(page, `${name}-key`, paper, scale,
@@ -1123,6 +1142,11 @@ test("delayed startup CSS is ready for the earliest print click on either paper"
 test("manual print uses the compiled app with canonical temporary profiles and cleans up", async ({
   request,
 }) => {
+  // The worksheet-choice matrix built from the committed example expands to
+  // 84 distinct worksheet cases, 16 of which also measure a key PDF.
+  expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
+  expect(matrixCases).toHaveLength(84);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(16);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {
@@ -1137,9 +1161,9 @@ test("manual print uses the compiled app with canonical temporary profiles and c
     const config = await request.get(`${harness.origin}/api/config`, {
       headers: { "X-Extra-Credit-Token": token },
     });
-    // The harness writes the committed example's own version 1 bytes, so the
-    // app reads them through the upgrade path without writing.
-    expect(await config.json()).toEqual({ config: acceptanceConfig, storedSchemaVersion: 1 });
+    // The harness writes the committed example's own identity-only version 2
+    // bytes, so the app reads them as the current version.
+    expect(await config.json()).toEqual({ config: acceptanceConfig, storedSchemaVersion: 2 });
     expect((await request.get(`${harness.origin}/api/health`, {
       headers: { Host: "127.0.0.1:1" },
     })).status()).toBe(403);

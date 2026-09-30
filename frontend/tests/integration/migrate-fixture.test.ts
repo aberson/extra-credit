@@ -17,6 +17,8 @@ import {
   GOLDEN_UPGRADED_V1_FIXTURE_SHA256,
   acceptanceConfig,
   childrenV1FixtureBytes,
+  isIdentityOnlyProfile,
+  migratedV1FixtureConfig,
 } from "../fixtures/profiles.js";
 
 /**
@@ -52,14 +54,25 @@ describe("the fictional v1 fixture", () => {
     expect(parsed.profiles).toHaveLength(3);
   });
 
-  test("its parsed value equals the parsed committed example", async () => {
+  test("its profile identity fields, in order, equal the committed example's", async () => {
     // Compared only after parsing: the example is CRLF in a Windows worktree.
-    const fixture: unknown = JSON.parse(await readFile(FIXTURE_URL, "utf8"));
-    const example: unknown = JSON.parse(await readFile(EXAMPLE_URL, "utf8"));
-    expect(fixture).toEqual(example);
-    expect(AppConfigV1Schema.parse(fixture)).toEqual(
-      AppConfigV1Schema.parse(example),
+    const identity = (profiles: readonly Record<string, unknown>[]) =>
+      profiles.map(({ id, displayName, reviewedOn, interests }) => ({
+        id,
+        displayName,
+        reviewedOn,
+        interests,
+      }));
+    const fixture = AppConfigV1Schema.parse(
+      JSON.parse(await readFile(FIXTURE_URL, "utf8")),
     );
+    const example = AppConfigV2Schema.parse(
+      JSON.parse(await readFile(EXAMPLE_URL, "utf8")),
+    );
+    expect(example.profiles).toHaveLength(3);
+    expect(identity(example.profiles)).toEqual(identity(fixture.profiles));
+    // Mirror: reordering one side breaks the comparison.
+    expect(identity([...example.profiles].reverse())).not.toEqual(identity(fixture.profiles));
   });
 
   test("calibration: a one-byte change moves the digest", async () => {
@@ -96,11 +109,14 @@ describe("the golden upgraded digest of the v1 fixture", () => {
     ))).toBe(GOLDEN_UPGRADED_V1_FIXTURE_SHA256);
   });
 
-  test("the shared fixture exports are the fixture bytes and the example's classifier output", async () => {
+  test("the shared fixture exports are the fixture bytes and each file's classifier output", async () => {
     expect(Buffer.compare(childrenV1FixtureBytes, await readFile(FIXTURE_URL))).toBe(0);
     const example: unknown = JSON.parse(await readFile(EXAMPLE_URL, "utf8"));
     const classified = classifyStoredConfig(example);
-    expect(classified.kind === "legacy" ? classified.config : undefined).toEqual(acceptanceConfig);
+    expect(classified.kind).toBe("current");
+    expect(classified.kind === "current" ? classified.config : undefined).toEqual(acceptanceConfig);
+    const fixture = classifyStoredConfig(JSON.parse(await readFile(FIXTURE_URL, "utf8")));
+    expect(fixture.kind === "legacy" ? fixture.config : undefined).toEqual(migratedV1FixtureConfig);
   });
 
   test("calibration: mutating one field of a runtime copy changes the upgraded digest", async () => {
@@ -112,5 +128,42 @@ describe("the golden upgraded digest of the v1 fixture", () => {
     const layout = structuredClone(v1);
     layout.defaults.useInterests = !layout.defaults.useInterests;
     expect(sha256(upgradedBytes(layout))).not.toBe(GOLDEN_UPGRADED_V1_FIXTURE_SHA256);
+  });
+});
+
+describe("the identity-only profile check", () => {
+  const identityOnly = {
+    id: "0a0b0c0d-1e1f-4a2b-8c3d-4e5f6a7b8c9d",
+    displayName: "Fictional Identity",
+    reviewedOn: "2026-09-30",
+    interests: ["trains"],
+  };
+
+  test("accepts an identity-only record, with or without a nickname", () => {
+    expect(isIdentityOnlyProfile(identityOnly)).toBe(true);
+    const { displayName: _unused, ...unnamed } = identityOnly;
+    void _unused;
+    expect(isIdentityOnlyProfile(unnamed)).toBe(true);
+  });
+
+  test("rejects a version 2 record carrying legacyChoices", () => {
+    const migrated = migratedV1FixtureConfig.profiles[0];
+    expect(migrated?.legacyChoices).toBeDefined();
+    expect(AppConfigV2Schema.shape.profiles.element.safeParse(migrated).success).toBe(true);
+    expect(isIdentityOnlyProfile(migrated)).toBe(false);
+  });
+
+  test("rejects a version 1 record", async () => {
+    const v1 = AppConfigV1Schema.parse(JSON.parse(await readFile(FIXTURE_URL, "utf8")));
+    for (const record of v1.profiles) {
+      expect(isIdentityOnlyProfile(record)).toBe(false);
+    }
+  });
+
+  test("every committed example profile is identity-only", () => {
+    expect(acceptanceConfig.profiles).toHaveLength(3);
+    for (const profile of acceptanceConfig.profiles) {
+      expect(isIdentityOnlyProfile(profile)).toBe(true);
+    }
   });
 });

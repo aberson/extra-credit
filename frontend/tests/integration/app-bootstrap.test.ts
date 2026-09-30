@@ -236,7 +236,10 @@ describe("application bootstrap", () => {
       /never automatically overwrites an invalid, newer-version, oversized, or unsafe target/iu,
     );
     expect(readme).toMatch(
-      /Back up invalid file and replace[\s\S]*bounded regular file with invalid UTF-8, malformed JSON, or an invalid v1 schema[\s\S]*byte-identical exclusive sibling/iu,
+      /Back up invalid file and replace[\s\S]*bounded regular file with invalid UTF-8, malformed JSON, or an invalid v1 or v2 schema[\s\S]*byte-identical exclusive sibling/iu,
+    );
+    expect(readme).toMatch(
+      /`children\.local\.json\.v1-YYYYMMDDTHHMMSSZ-1234abcd\.bak`[\s\S]*`\.v1-…bak` upgrade backup is a residual local copy: it keeps the old age and Difficulty values/iu,
     );
     expect(readme).toMatch(
       /Deleting a profile rewrites only the live JSON file[\s\S]*does not delete `.bak` siblings[\s\S]*saved worksheet PDFs\/screenshots, or paper copies/iu,
@@ -256,10 +259,16 @@ describe("application bootstrap", () => {
       /explicit \*\*Back up invalid file and replace\*\* action[\s\S]*byte-identical, exclusive sibling[\s\S]*Newer schema versions are preserved[\s\S]*Oversized, symbolic-link, and other non-regular targets/iu,
     );
     expect(privacy).toMatch(
-      /Deleting a profile changes only `config\/children\.local\.json`[\s\S]*does not remove invalid-file `.bak` siblings[\s\S]*saved PDFs[\s\S]*printed pages/iu,
+      /For a bounded regular file with invalid UTF-8, malformed JSON, or an invalid v1 or v2 schema/iu,
     );
     expect(privacy).toMatch(
-      /does not remove invalid-file `.bak` siblings, manually downloaded profile backups, saved PDFs, screenshots, named worksheet copies[\s\S]*or printed pages/iu,
+      /`children\.local\.json\.v1-YYYYMMDDTHHMMSSZ-1234abcd\.bak`[\s\S]*`\.v1-…bak` upgrade backup is a residual local copy: it keeps the old age and Difficulty values/iu,
+    );
+    expect(privacy).toMatch(
+      /Deleting a profile changes only `config\/children\.local\.json`[\s\S]*does not remove invalid-file or upgrade `.bak` siblings[\s\S]*saved PDFs[\s\S]*printed pages/iu,
+    );
+    expect(privacy).toMatch(
+      /does not remove invalid-file or upgrade `.bak` siblings, manually downloaded profile backups, saved PDFs, screenshots, named worksheet copies[\s\S]*or printed pages/iu,
     );
     expect(privacy).toMatch(/save exports outside the repository/iu);
 

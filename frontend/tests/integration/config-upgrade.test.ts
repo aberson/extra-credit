@@ -119,6 +119,11 @@ async function backupNames(configPath: string): Promise<readonly string[]> {
   return (await readdir(dirname(configPath))).filter((name) => name.endsWith(".bak"));
 }
 
+type EditableV2 = Record<string, unknown> & {
+  profiles: Record<string, unknown>[];
+  defaults: Record<string, unknown>;
+};
+
 async function seedV1(): Promise<string> {
   const configPath = await temporaryConfigPath();
   await writeFile(configPath, childrenV1FixtureBytes);
@@ -220,6 +225,55 @@ describe("the upgrade's refusals leave every file untouched", () => {
     expect(await backupNames(configPath)).toEqual([]);
   });
 
+  /** A valid v2 file with one edit, pretty-printed as a newer build would write it. */
+  function editedV2Bytes(edit: (config: EditableV2) => void): Buffer {
+    const config = JSON.parse(JSON.stringify({
+      ...emptyAppConfigV2(),
+      profiles: [{
+        id: "0a0b0c0d-1e1f-4a2b-8c3d-4e5f6a7b8c9d",
+        displayName: "Fictional Newer",
+        reviewedOn: "2026-09-29",
+        interests: ["trains"],
+      }],
+    })) as EditableV2;
+    edit(config);
+    return Buffer.from(`${JSON.stringify(config, null, 2)}\n`, "utf8");
+  }
+
+  test.each([
+    ["an unknown top-level key", editedV2Bytes((config) => {
+      config.packets = [];
+    })],
+    ["an unknown profile key", editedV2Bytes((config) => {
+      config.profiles[0]!.favoriteColor = "green";
+    })],
+    ["an unknown enum member in defaults", editedV2Bytes((config) => {
+      config.defaults.worksheetType = "number-bonds";
+    })],
+  ])("a v2 file with %s is blocked on GET and on PUT, with and without the recovery header", async (_label, blockedRaw) => {
+    const configPath = await temporaryConfigPath();
+    await writeFile(configPath, blockedRaw);
+    const before = await stat(configPath);
+    const { app, token } = await startApp(configPath);
+
+    const read = await getConfig(app, token);
+    expect(read.statusCode).toBe(409);
+    expect(errorCode(read)).toBe("CONFIG_VERSION_UNSUPPORTED");
+    expect(read.headers.etag).toBe(rawEtag(blockedRaw));
+    for (const recovery of [undefined, "backup-and-replace"] as const) {
+      const write = await putConfig(app, token, emptyAppConfigV2(), {
+        "if-match": rawEtag(blockedRaw),
+        ...(recovery === undefined ? {} : { "x-extra-credit-recovery": recovery }),
+      });
+      expect(write.statusCode).toBe(409);
+      expect(errorCode(write)).toBe("CONFIG_VERSION_UNSUPPORTED");
+      expect(write.headers.etag).toBe(rawEtag(blockedRaw));
+    }
+    expect((await readFile(configPath)).equals(blockedRaw)).toBe(true);
+    expect((await stat(configPath)).mtimeMs).toBe(before.mtimeMs);
+    expect(await backupNames(configPath)).toEqual([]);
+  });
+
   test("a valid v1 file refuses the recovery header, a stale ETag and a v1-shaped body", async () => {
     const configPath = await seedV1();
     const { app, token } = await startApp(configPath);
@@ -250,7 +304,11 @@ describe("the upgrade's refusals leave every file untouched", () => {
 
   test.each([
     ["a schema-invalid v1 file", '{"schemaVersion":1,"profiles":[],"defaults":{"difficulty":"hard"}}\n'],
-    ["a schema-invalid v2 file", '{"schemaVersion":2,"profiles":[],"defaults":{"theme":"ocean"}}\n'],
+    ["a v2 file missing required keys beside an unknown theme", '{"schemaVersion":2,"profiles":[],"defaults":{"theme":"ocean"}}\n'],
+    [
+      "a v2 file with a wrong type for a known key",
+      `${JSON.stringify({ ...emptyAppConfigV2(), defaults: { ...emptyAppConfigV2().defaults, useInterests: "yes" } }, null, 2)}\n`,
+    ],
   ])("%s is CONFIG_INVALID and recovers backup-first to the empty config plus one profile", async (_label, text) => {
     const configPath = await temporaryConfigPath();
     const invalidRaw = Buffer.from(text, "utf8");
@@ -262,27 +320,12 @@ describe("the upgrade's refusals leave every file untouched", () => {
     expect(errorCode(read)).toBe("CONFIG_INVALID");
     expect(read.headers.etag).toBe(rawEtag(invalidRaw));
 
+    // The profile editor writes identity-only profiles, so the draft is one.
     const draft: ChildProfileV2 = {
       id: "0a0b0c0d-1e1f-4a2b-8c3d-4e5f6a7b8c9d",
       displayName: "Fictional Recovery",
       reviewedOn: "2026-09-29",
       interests: ["trains"],
-      legacyChoices: {
-        presentationBand: "preschool",
-        writingMode: "label",
-        mathSkills: {
-          countingMax: 10,
-          numeralMax: 10,
-          compareMax: 10,
-          representations: ["quantities"],
-          understandsEquality: false,
-          operations: [],
-          operandMax: 0,
-          resultMax: 0,
-          allowRegrouping: false,
-          allowNegativeResults: false,
-        },
-      },
     };
     const replacement: AppConfigV2 = { ...emptyAppConfigV2(), profiles: [draft] };
     const recovered = await putConfig(app, token, replacement, {

@@ -33,6 +33,12 @@ async function clean() {
   return room;
 }
 const remote = () => ["https:", "", "example.invalid", "collect"].join("/");
+/** The audit's own record normal form: object keys sorted at every depth. */
+const stableJson = (value: unknown): unknown => value && typeof value === "object"
+  ? Array.isArray(value)
+    ? value.map(stableJson)
+    : Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableJson((value as Record<string, unknown>)[key])]))
+  : value;
 const call = (object: string, method: string) => `${object}.${method}('fixture')`;
 
 describe("public release audit over the current export", () => {
@@ -107,14 +113,15 @@ describe("public release audit over the current export", () => {
 
   it("rejects a record nesting legacyChoices outside the allowance", async () => {
     const room = await clean();
-    const config = JSON.parse(await readFile(join(room, "config/children.example.json"), "utf8")) as { profiles: Record<string, unknown>[] };
+    const config = JSON.parse(await readFile(join(room, "frontend/tests/fixtures/config/children.v1.json"), "utf8")) as { profiles: Record<string, unknown>[] };
     const { presentationBand, writingMode, mathSkills, ageYears, ...identity } = config.profiles[1]!;
+    expect(mathSkills).toBeDefined();
     void ageYears;
     await put(room, "notes.json", JSON.stringify({ ...identity, legacyChoices: { presentationBand, writingMode, mathSkills } }));
     expect(audit(room)).toMatchObject({ exit: 1, output: expect.stringContaining("PROFILE_RECORD") });
   });
 
-  it("keeps passing the canonical v1 records in the example, the v1 fixture and the plan appendix", async () => {
+  it("keeps passing the canonical v2 records in the example and the v1 records in the fixture and the plan appendix", async () => {
     const room = await clean();
     for (const path of ["config/children.example.json", "frontend/tests/fixtures/config/children.v1.json", "plan.md"]) {
       const text = await readFile(join(room, path), "utf8");
@@ -122,6 +129,34 @@ describe("public release audit over the current export", () => {
       expect(text, path).toContain('"interests"');
     }
     expect(audit(room).exit).toBe(0);
+  });
+
+  it("passes the real export with exactly six canonical hashes: three v1 records and three identity-only v2 records", async () => {
+    const room = await clean();
+    const recordHashes = async (path: string) => {
+      const config = JSON.parse(await readFile(join(room, path), "utf8")) as { profiles: unknown[] };
+      return config.profiles.map((profile) => hash(JSON.stringify(stableJson(profile))));
+    };
+    const v1 = await recordHashes("frontend/tests/fixtures/config/children.v1.json");
+    const v2 = await recordHashes("config/children.example.json");
+    expect(v1).toHaveLength(3);
+    expect(v2).toHaveLength(3);
+    const expected = [...new Set([...v1, ...v2])].sort();
+    expect(expected).toHaveLength(6);
+    const source = await readFile(join(root, "frontend/scripts/audit-release.mjs"), "utf8");
+    const allowance = /const canonicalProfiles = new Set\(\[([^\]]*)\]\);/u.exec(source)?.[1] ?? "";
+    expect([...allowance.matchAll(/"([0-9a-f]{64})"/gu)].map(([, digest]) => digest).sort()).toEqual(expected);
+    expect(audit(room).exit).toBe(0);
+  });
+
+  it("rejects a README that no longer names the early primary boundary", async () => {
+    const room = await clean();
+    const readme = await readFile(join(room, "README.md"), "utf8");
+    expect(readme).toContain("early primary");
+    await put(room, "README.md", readme.replaceAll("early primary", "young learner"));
+    const result = audit(room);
+    expect(result.exit).toBe(1);
+    expect(result.output).toContain("V1_BOUNDARY_DOCS");
   });
 
   it("allows read-only persistence probes and source links in documentation", async () => {

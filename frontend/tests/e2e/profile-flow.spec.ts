@@ -5,108 +5,51 @@ import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 
 import { emptyAppConfigV2 } from "../../src/shared/config/defaults.js";
-import { migrateConfigV1ToV2 } from "../../src/shared/config/migrate.js";
 import type {
-  AppConfigV1,
   AppConfigV2,
-  ChildProfileV1,
   ChildProfileV2,
-  WritingMode,
 } from "../../src/shared/config/schema.js";
-import { childrenV1FixtureBytes } from "../fixtures/profiles.js";
+import {
+  childrenV1FixtureBytes,
+  isIdentityOnlyProfile,
+} from "../fixtures/profiles.js";
 import { expect, test } from "./fixtures/app-server.js";
+import {
+  chooseVariant,
+  chooseWorksheet,
+  choosePracticeFocus,
+  controls,
+} from "./fixtures/worksheet-controls.js";
 
-const defaults: AppConfigV1["defaults"] = {
-  useDisplayName: true,
-  useInterests: true,
-  includeDecorativeGraphics: true,
-  difficulty: "practice",
-  length: "standard",
-  includeAnswerKey: true,
-  paperSize: "letter",
-  printScale: "standard",
-};
-
+/** The three canonical fictional children, identity-only as the example stores them. */
 const canonicalProfiles = [
   {
     id: "d2c05a44-73ad-4fa0-a4b3-9db5c5f6e321",
     displayName: "Riley",
-    ageYears: 4,
-    presentationBand: "preschool",
     reviewedOn: "2026-08-22",
-    mathSkills: {
-      countingMax: 10,
-      numeralMax: 10,
-      compareMax: 10,
-      representations: ["quantities"],
-      understandsEquality: false,
-      operations: [],
-      operandMax: 0,
-      resultMax: 0,
-      allowRegrouping: false,
-      allowNegativeResults: false,
-    },
-    writingMode: "label",
     interests: ["animals", "space"],
   },
   {
     id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
     displayName: "Morgan",
-    ageYears: 6,
-    presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
-    mathSkills: {
-      countingMax: 20,
-      numeralMax: 20,
-      compareMax: 20,
-      representations: ["quantities", "equations"],
-      understandsEquality: true,
-      operations: ["addition", "subtraction"],
-      operandMax: 10,
-      resultMax: 10,
-      allowRegrouping: false,
-      allowNegativeResults: false,
-    },
-    writingMode: "sentence-frame",
     interests: ["nature", "vehicles"],
   },
   {
     id: "93c7a8d2-4b1e-4a6f-9d30-7b8e2f1c5a64",
     displayName: "Avery",
-    ageYears: 8,
-    presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
-    mathSkills: {
-      countingMax: 20,
-      numeralMax: 20,
-      compareMax: 20,
-      representations: ["quantities", "equations"],
-      understandsEquality: true,
-      operations: ["addition", "subtraction"],
-      operandMax: 20,
-      resultMax: 20,
-      allowRegrouping: false,
-      allowNegativeResults: false,
-    },
-    writingMode: "independent",
     interests: ["sports", "nature"],
   },
-] as const satisfies readonly ChildProfileV1[];
+] as const satisfies readonly ChildProfileV2[];
 
-/** The math preset whose expansion equals each canonical child's stored values. */
-const canonicalPresets: Readonly<Record<string, string>> = {
-  [canonicalProfiles[0].id]: "Quantities to 10",
-  [canonicalProfiles[1].id]: "Early primary within 10",
-  [canonicalProfiles[2].id]: "Early primary within 20",
-};
-
-/** A version 1 profile as the version 2 file stores it: no age, earlier settings kept. */
-function storedProfile(profile: ChildProfileV1): ChildProfileV2 {
-  return migrateConfigV1ToV2({ schemaVersion: 1, profiles: [profile], defaults }).profiles[0]!;
+/** A stored copy of a canonical child: identity fields only, arrays unshared. */
+function storedProfile(profile: ChildProfileV2): ChildProfileV2 {
+  return { ...profile, interests: [...profile.interests] };
 }
 
 /** The config a missing file's first saves create: built-in defaults, version 2. */
-function createdConfig(profiles: readonly ChildProfileV1[]): AppConfigV2 {
+function createdConfig(profiles: readonly ChildProfileV2[]): AppConfigV2 {
   return { ...emptyAppConfigV2(), profiles: profiles.map(storedProfile) };
 }
 
@@ -115,6 +58,8 @@ const disposableId = "11111111-1111-4111-8111-111111111111";
 /** The upgrade notice, verbatim (U11); the only parent-visible text naming age. */
 const UPGRADE_NOTICE_TEXT =
   "This profile file was saved by an earlier version. Your profiles are shown unchanged; the next save updates the file and keeps a copy of the earlier file beside it. Age is no longer used, and Practice focus replaces Difficulty. A saved Difficulty of Confidence or Stretch no longer applies; each practice focus uses exactly its stated range.";
+
+const V1_BACKUP_NAME = /^children\.local\.json\.v1-\d{8}T\d{6}Z-[0-9a-f]{8}\.bak$/u;
 
 interface BrowserConsoleEntry {
   location: {
@@ -139,18 +84,36 @@ async function installCanonicalUuids(page: Page): Promise<void> {
   );
 }
 
+/**
+ * The open profile form holds exactly the three identity fields, with no age,
+ * preset, writing-mode, vocabulary or math control.
+ */
+async function expectIdentityFieldsOnly(page: Page): Promise<void> {
+  const form = page.locator('form[aria-labelledby="profile-editor-title"]');
+  await expect(form).toHaveCount(1);
+  expect(await form.locator("input, select, textarea").evaluateAll((controls) =>
+    controls.map((control) => control.closest("label")?.firstChild?.textContent?.trim() ?? ""),
+  )).toEqual([
+    "Nickname (optional)",
+    "Reviewed on",
+    "Broad interests (optional, separated by commas)",
+  ]);
+  for (const role of ["radio", "combobox", "spinbutton", "checkbox"] as const) {
+    await expect(form.getByRole(role)).toHaveCount(0);
+  }
+}
+
 async function createProfile(
   page: Page,
-  profile: ChildProfileV1,
+  profile: ChildProfileV2,
   first: boolean,
 ): Promise<void> {
   await page.getByRole("button", {
     name: first ? "Create first profile" : "Add profile",
   }).click();
+  await expectIdentityFieldsOnly(page);
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill(profile.displayName ?? "");
   await expect(page.getByRole("spinbutton", { name: /\bages?\b/iu })).toHaveCount(0);
-  await page.getByRole("radio", { name: canonicalPresets[profile.id] ?? "" }).click();
-  await page.getByRole("combobox", { name: "Writing mode" }).selectOption(profile.writingMode);
   await page.getByLabel("Reviewed on").fill(profile.reviewedOn);
   await page.getByRole("textbox", { name: /Broad interests/ }).fill(profile.interests.join(", "));
   await page.getByRole("button", { name: "Save profile" }).click();
@@ -242,17 +205,13 @@ test("creates, reloads, edits, deletes, and conflict-protects canonical profiles
   expect(configPutHeaders[0]?.["if-match"]).toBeUndefined();
   expect(configPutHeaders.slice(1, 3).every((headers) => /^"sha256-[0-9a-f]{64}"$/u.test(headers["if-match"] ?? ""))).toBe(true);
 
-  const externallyChangedProfiles: ChildProfileV1[] = canonicalProfiles.map(
+  const externallyChangedProfiles: ChildProfileV2[] = canonicalProfiles.map(
     (profile, index) =>
       index === 0
         ? { ...profile, displayName: "Riley from external file" }
         : { ...profile },
   );
-  await appServer.seedConfig({
-    schemaVersion: 1,
-    profiles: externallyChangedProfiles,
-    defaults,
-  });
+  await appServer.seedConfig(createdConfig(externallyChangedProfiles));
   const externalReload = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
@@ -265,11 +224,7 @@ test("creates, reloads, edits, deletes, and conflict-protects canonical profiles
   ).toBeVisible();
   await expect(page.getByRole("heading", { name: "Riley", exact: true })).toHaveCount(0);
 
-  await appServer.seedConfig({
-    schemaVersion: 1,
-    profiles: canonicalProfiles.map((profile) => ({ ...profile })),
-    defaults,
-  });
+  await appServer.seedConfig(createdConfig(canonicalProfiles));
   const canonicalReload = page.waitForResponse(
     (response) =>
       response.request().method() === "GET" &&
@@ -284,6 +239,7 @@ test("creates, reloads, edits, deletes, and conflict-protects canonical profiles
   await expectNoBrowserPersistence(page);
 
   await page.getByRole("button", { name: "Edit Morgan" }).click();
+  await expectIdentityFieldsOnly(page);
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill("Morgan Updated");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByRole("heading", { name: "Morgan Updated" })).toBeVisible();
@@ -293,36 +249,19 @@ test("creates, reloads, edits, deletes, and conflict-protects canonical profiles
   await expectNoBrowserPersistence(page);
 
   await page.getByRole("button", { name: "Add profile" }).click();
+  await expectIdentityFieldsOnly(page);
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill("Disposable");
-  await page.getByRole("radio", { name: "Emerging equations within 5" }).click();
-  await expect(page.getByRole("radio", { name: "Preschool", exact: true })).not.toBeChecked();
-  await expect(page.getByRole("radio", { name: "Early primary", exact: true })).not.toBeChecked();
-  await page.getByRole("radio", { name: "Preschool", exact: true }).click();
-  await page.getByRole("combobox", { name: "Writing mode" }).selectOption("copy-with-model" satisfies WritingMode);
   await page.getByLabel("Reviewed on").fill("2026-08-22");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByRole("heading", { name: "Disposable" })).toBeVisible();
   const withDisposable = await appServer.readConfig();
-  expect(withDisposable.profiles[3]).toMatchObject({
+  expect(withDisposable.profiles[3]).toEqual({
     id: disposableId,
-    legacyChoices: {
-      presentationBand: "preschool",
-      writingMode: "copy-with-model",
-      mathSkills: {
-        countingMax: 10,
-        numeralMax: 10,
-        compareMax: 10,
-        representations: ["quantities", "equations"],
-        understandsEquality: false,
-        operations: ["addition"],
-        operandMax: 5,
-        resultMax: 5,
-        allowRegrouping: false,
-        allowNegativeResults: false,
-      },
-    },
+    displayName: "Disposable",
+    reviewedOn: "2026-08-22",
+    interests: [],
   });
-  expect(withDisposable.profiles[3]).not.toHaveProperty("ageYears");
+  expect(withDisposable.profiles.every(isIdentityOnlyProfile)).toBe(true);
   expect(JSON.stringify(withDisposable)).not.toContain("grade");
 
   const siblingBytes = Buffer.from("existing sibling backup remains byte-identical\n", "utf8");
@@ -447,11 +386,7 @@ test("keeps an unsaved draft through a same-origin process restart and never rep
   page,
 }) => {
   test.setTimeout(60_000);
-  await appServer.seedConfig({
-    schemaVersion: 1,
-    profiles: [canonicalProfiles[1]],
-    defaults,
-  });
+  await appServer.seedConfig(createdConfig([canonicalProfiles[1]]));
   await page.goto(appServer.origin);
   await expect(page.getByRole("heading", { name: "Morgan" })).toBeVisible();
   await page.getByRole("button", { name: "Edit Morgan" }).click();
@@ -537,10 +472,10 @@ test("requires explicit invalid-file recovery and offers only the warned generic
   );
   const downloadCopy = await page.getByText(/Optional draft download/u).textContent();
   expect(downloadCopy ?? "").not.toMatch(/\bages?\b/iu);
+  expect(downloadCopy ?? "").not.toMatch(/capabilit/iu);
 
+  await expectIdentityFieldsOnly(page);
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill("Recovery Riley");
-  await page.getByRole("radio", { name: "Quantities to 10" }).click();
-  await page.getByRole("combobox", { name: "Writing mode" }).selectOption("copy-with-model");
   await page.getByLabel("Reviewed on").fill("2026-08-22");
   await page.getByRole("textbox", { name: /Broad interests/ }).fill("animals, space");
   await page.getByRole("button", { name: "Back up invalid file and replace" }).click();
@@ -566,7 +501,8 @@ test("requires explicit invalid-file recovery and offers only the warned generic
   expect(downloaded.profiles).toHaveLength(1);
   expect(downloaded.profiles[0]?.displayName).toBe("Recovery Riley");
   expect(downloaded.profiles[0]).not.toHaveProperty("ageYears");
-  expect(downloaded.profiles[0]?.legacyChoices?.writingMode).toBe("copy-with-model");
+  expect(downloaded.profiles[0]).not.toHaveProperty("legacyChoices");
+  expect(isIdentityOnlyProfile(downloaded.profiles[0])).toBe(true);
   expect((await readFile(downloadedPath)).equals(invalidRawA)).toBe(false);
 
   const recoveryConfirmation = page.getByLabel(
@@ -594,15 +530,10 @@ test("requires explicit invalid-file recovery and offers only the warned generic
   await expect(page.getByRole("textbox", { name: "Nickname (optional)" })).toHaveValue(
     "Recovery Riley",
   );
-  await expect(page.getByRole("combobox", { name: "Writing mode" })).toHaveValue(
-    "copy-with-model",
-  );
   await expect(page.getByLabel("Reviewed on")).toHaveValue("2026-08-22");
   await expect(page.getByRole("textbox", { name: /Broad interests/ })).toHaveValue(
     "animals, space",
   );
-  await expect(page.getByRole("radio", { name: "Quantities to 10" })).toBeChecked();
-  await expect(page.getByText("Sentence vocabulary", { exact: true }).locator("xpath=following-sibling::dd[1]")).toHaveText("Preschool");
   await expect(recoveryConfirmation).not.toBeChecked();
   await expect(downloadButton).toBeEnabled();
   expect(putStatuses).toEqual([409]);
@@ -622,6 +553,7 @@ test("requires explicit invalid-file recovery and offers only the warned generic
   expect(backups).toHaveLength(1);
   expect(backups[0]).toEqual(invalidRawB);
   expect((await appServer.readConfig()).profiles[0]?.displayName).toBe("Recovery Riley");
+  expect((await appServer.readConfig()).profiles.every(isIdentityOnlyProfile)).toBe(true);
   expect(downloads).toEqual(["extra-credit-profile-backup.json"]);
 });
 
@@ -660,10 +592,23 @@ test("upgrades a version 1 file only on the first explicit save, behind one byte
     throw new Error("The v1 fixture's first profile has no nickname.");
   }
   await page.getByRole("button", { name: `Edit ${first.displayName}`, exact: true }).click();
+  // A migrated child shows its earlier settings read-only beside the three
+  // identity fields.
+  await expectIdentityFieldsOnly(page);
+  const summary = page.getByRole("region", { name: "Earlier settings" });
+  await expect(summary).toBeVisible();
+  await expect(summary.locator("dt")).toHaveText(["Writing activity", "Vocabulary", "Two Whats and a Wow", "Count, Compare & Make"]);
+  await expect(summary.locator("dd").first()).toHaveText("Picture Labels");
+  for (const role of ["textbox", "radio", "combobox", "spinbutton", "checkbox", "button"] as const) {
+    await expect(summary.getByRole(role)).toHaveCount(0);
+  }
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill("Upgraded Nickname");
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(page.getByRole("heading", { name: "Upgraded Nickname" })).toBeVisible();
   await expect(notice).toHaveText("");
+  const backupNames = await appServer.backupNames();
+  expect(backupNames).toHaveLength(1);
+  expect(backupNames[0]).toMatch(V1_BACKUP_NAME);
   const backups = await appServer.backupContents();
   expect(backups).toHaveLength(1);
   expect(backups[0]?.equals(childrenV1FixtureBytes)).toBe(true);
@@ -687,7 +632,47 @@ test("upgrades a version 1 file only on the first explicit save, behind one byte
   await expect(page.getByRole("heading", { name: "Upgraded Nickname" })).toBeVisible();
   await expect(notice).toHaveText("");
   expect(identity(await appServer.readConfig())).toEqual(identity(upgraded));
-  expect(await appServer.backupContents()).toHaveLength(1);
+  expect(await appServer.backupNames()).toEqual(backupNames);
+});
+
+test("keeps the chosen writing activity and practice focus across a profile save", async ({
+  appServer,
+  page,
+}) => {
+  test.setTimeout(60_000);
+  await appServer.seedConfig(createdConfig(canonicalProfiles));
+  await page.goto(appServer.origin);
+  await expect(page.getByRole("heading", { name: "Create a practice worksheet" })).toBeVisible();
+  await chooseWorksheet(page, "sentence-builder");
+  await chooseVariant(page, "copy-with-model");
+  await chooseWorksheet(page, "dry-math");
+  await choosePracticeFocus(page, "Addition and subtraction within 100");
+  const before = await appServer.readRaw();
+
+  const [edited] = canonicalProfiles;
+  await page.getByRole("button", { name: `Edit ${edited.displayName}`, exact: true }).click();
+  await expectIdentityFieldsOnly(page);
+  await page.getByRole("textbox", { name: "Nickname (optional)" }).fill("Renamed Child");
+  const saved = page.waitForResponse((response) =>
+    response.request().method() === "PUT" && new URL(response.url()).pathname === "/api/config",
+  );
+  await page.getByRole("button", { name: "Save profile" }).click();
+  expect((await saved).status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "Renamed Child" })).toBeVisible();
+
+  // The save wrote only the renamed identity-only profile; the worksheet
+  // choices stayed session state and are still the ones chosen.
+  const stored = await appServer.readConfig();
+  expect(stored.profiles.every(isIdentityOnlyProfile)).toBe(true);
+  expect(stored.defaults).toEqual(JSON.parse(before.toString("utf8")).defaults);
+  await expect(controls(page).worksheetCard("dry-math")).toBeChecked();
+  await expect(controls(page).practiceFocus().locator("option:checked")).toHaveText(
+    "Addition and subtraction within 100",
+  );
+  await chooseWorksheet(page, "sentence-builder");
+  await expect(
+    controls(page).writingActivity().getByRole("radio", { name: "Copy a Sentence", exact: true }),
+  ).toBeChecked();
 });
 
 test("real Vite development routing proxies only the three exact API endpoints", async ({

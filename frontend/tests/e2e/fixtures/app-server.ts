@@ -24,10 +24,12 @@ interface AppServerFixture {
   readonly origin: string;
   serverErrors(): readonly string[];
   backupContents(): Promise<readonly Buffer[]>;
+  /** The names of the `.bak` files the store wrote beside the temporary config, sorted. */
+  backupNames(): Promise<readonly string[]>;
   /**
    * The stored config as the app reads it: the store's own classifier's
    * `config`, so a seeded version 1 file reads back migrated in memory without
-   * a write (D41). It throws on a future or invalid file. A test that needs
+   * a write (D41). It throws on a future, blocked or invalid file. A test that needs
    * the stored version or the bytes uses `readRaw()`.
    */
   readConfig(): Promise<AppConfigV2>;
@@ -137,10 +139,15 @@ export const test = base.extend<ProfileFixtures>({
           );
           return await Promise.all(names.map(async (name) => await readFile(join(temporaryDirectory, name))));
         },
+        async backupNames() {
+          return (await readdir(temporaryDirectory))
+            .filter((name) => name.endsWith(".bak") && name !== siblingFixtureName)
+            .sort();
+        },
         async readConfig() {
           const value: unknown = JSON.parse(await readFile(configPath, "utf8"));
           const classified = classifyStoredConfig(value);
-          if (classified.kind === "future" || classified.kind === "invalid") {
+          if (classified.kind !== "current" && classified.kind !== "legacy") {
             throw new Error(`The stored config is ${classified.kind}.`);
           }
           return classified.config;

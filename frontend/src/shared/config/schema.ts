@@ -6,8 +6,10 @@
  * frozen version 1 read path lives in `legacy-v1.ts` and is re-exported below
  * so its consumers keep compiling; `migrate.ts` turns a v1 file into this
  * shape in memory. `tests/integration/config-shape-fingerprint.test.ts` pins
- * the whole accepted value domain: changing any of it requires
- * `schemaVersion: 3` with a version 2 read path (`CONTRIBUTING.md`).
+ * the accepted value domain additive-only: a new optional key with a default
+ * or a new member of a value list no array bound is derived from may land at
+ * version 2, and any other change requires `schemaVersion: 3` with a version 2
+ * read path (`CONTRIBUTING.md`).
  */
 import { z } from "zod";
 
@@ -59,8 +61,8 @@ export const INTEREST_MAXIMUM_COUNT = 5;
  * The stable name of every refinement on a persisted object (DD3).
  *
  * A hand-kept list: it pins names, not logic. Every new refinement on any
- * object reachable from `AppConfigV2Schema` must be registered here, and the
- * fingerprint test then requires the version bump. The three
+ * object reachable from `AppConfigV2Schema` must be registered here; the
+ * fingerprint test fails when a registered name disappears. The three
  * `legacyChoices.mathSkills` names belong to the frozen `MathSkillsV1Schema`,
  * which a v2 profile carries verbatim.
  */

@@ -10,6 +10,7 @@ import { expect, test } from "./fixtures/app-server.js";
 import {
   chooseChild,
   chooseLength,
+  choosePracticeFocus,
   choosePrintLayout,
   controls,
   openMoreOptions,
@@ -148,9 +149,10 @@ function validateProblemRows(rows: readonly ProblemRow[], maximum = 10): Map<str
   return answers;
 }
 
-test("expanded presets save, generate their real range, and print matching single-page keys", async ({ appServer, page }, testInfo) => {
+test("expanded practice focus choices generate their real range and print matching single-page keys", async ({ appServer, page }, testInfo) => {
   test.setTimeout(90_000);
   await appServer.seedConfig({ schemaVersion: 1, profiles: [profiles[1]], defaults });
+  const seeded = await appServer.readRaw();
   await page.addInitScript(() => {
     const browserCrypto = globalThis.crypto as unknown as {
       getRandomValues: (array: ArrayBufferView) => ArrayBufferView;
@@ -170,16 +172,10 @@ test("expanded presets save, generate their real range, and print matching singl
     ["Addition and subtraction within 50", 50, ["addition", "subtraction"]],
     ["Addition and subtraction within 100", 100, ["addition", "subtraction"]],
   ] as const) {
+    // The range is a worksheet choice made in the panel: no profile edit, and
+    // nothing is written to the file.
     await page.goto(appServer.origin);
-    await page.getByRole("button", { name: "Edit Morgan" }).click();
-    await expect(page.getByRole("checkbox", { name: /future permission/ })).toHaveCount(0);
-    await page.getByRole("radio", { name: label, exact: true }).check();
-    await page.getByRole("button", { name: "Save profile", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Edit Morgan" })).toBeVisible();
-    expect((await appServer.readConfig()).profiles[0]?.legacyChoices?.mathSkills).toMatchObject({
-      operandMax: maximum, resultMax: maximum, operations,
-    });
-    await page.reload();
+    await choosePracticeFocus(page, label);
     await openMoreOptions(page);
     await chooseLength(page, "long");
     for (const paper of ["letter", "a4"] as const) {
@@ -210,6 +206,7 @@ test("expanded presets save, generate their real range, and print matching singl
         if (maximum === 100) await page.screenshot({ path: testInfo.outputPath(`${paper}-${scale}-key.png`), fullPage: true });
       }
     }
+    expect((await appServer.readRaw()).equals(seeded)).toBe(true);
   }
 });
 

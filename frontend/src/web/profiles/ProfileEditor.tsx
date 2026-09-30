@@ -1,26 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 
 import {
-  expandMathPreset,
-  MATH_PRESETS,
-  MATH_PRESET_IDS,
-  type ConcreteMathPresetId,
-  type MathPresetId,
-} from "../../shared/config/math-presets";
-import {
   ChildProfileV2Schema,
-  WRITING_MODES,
   type ChildProfileV2,
-  type LegacyChoicesV2,
-  type MathSkillsV1,
-  type PresentationBand,
-  type WritingMode,
 } from "../../shared/config/schema";
 import {
   ConfigApiError,
   ConfigAuthorityChangedError,
 } from "../api/client";
-import { MathSkillsEditor } from "./MathSkillsEditor";
+import { EarlierSettingsSummary } from "./EarlierSettingsSummary";
 
 /**
  * DD10's help text, shown by the profile editor and the generator
@@ -31,10 +19,11 @@ export const EARLY_PRIMARY_HELP_TEXT =
   "Extra Credit's worksheets are designed for early primary practice. Choose the worksheet and practice focus that fit your child.";
 
 /**
- * Interim (D-interim, Steps 15-17): the form still edits a child's earlier
- * writing mode, vocabulary band and math values, and saves them as the
- * profile's read-only `legacyChoices`. A new profile, or one stored without
- * them, cannot be saved until a math preset is chosen explicitly.
+ * The form edits only a child's nickname, review date and interests. A profile
+ * that carries `legacyChoices` (written by the upgrade from an earlier
+ * version, or by an earlier build's editor) shows them read-only through
+ * `EarlierSettingsSummary` and saves them back unchanged; a new profile never
+ * gets them.
  */
 export interface ProfileEditorProps {
   readonly onCancel: () => void;
@@ -45,19 +34,6 @@ export interface ProfileEditorProps {
   readonly profile?: ChildProfileV2;
   readonly recoveryMode?: boolean;
 }
-
-const blankMathSkills: MathSkillsV1 = {
-  countingMax: 10,
-  numeralMax: 10,
-  compareMax: 10,
-  representations: ["quantities"],
-  understandsEquality: false,
-  operations: [],
-  operandMax: 0,
-  resultMax: 0,
-  allowRegrouping: false,
-  allowNegativeResults: false,
-};
 
 const fieldStyle: CSSProperties = {
   display: "grid",
@@ -77,33 +53,6 @@ function todayIso(): string {
   const month = String(today.getMonth() + 1).padStart(2, "0");
   const day = String(today.getDate()).padStart(2, "0");
   return `${today.getFullYear()}-${month}-${day}`;
-}
-
-function cloneMathSkills(mathSkills: MathSkillsV1): MathSkillsV1 {
-  return {
-    ...mathSkills,
-    representations: [...mathSkills.representations],
-    operations: [...mathSkills.operations],
-  };
-}
-
-function sameMathSkills(left: MathSkillsV1, right: MathSkillsV1): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
-}
-
-function inferPreset(legacy: LegacyChoicesV2): MathPresetId {
-  for (const presetId of MATH_PRESET_IDS) {
-    if (presetId === "custom") continue;
-    const definition = MATH_PRESETS[presetId];
-    if (
-      sameMathSkills(legacy.mathSkills, definition.mathSkills) &&
-      (definition.presentationBand === null ||
-        definition.presentationBand === legacy.presentationBand)
-    ) {
-      return presetId;
-    }
-  }
-  return "custom";
 }
 
 function parseInterests(value: string): string[] {
@@ -151,25 +100,9 @@ export function ProfileEditor({
   const errorRef = useRef<HTMLDivElement>(null);
   useEffect(() => { headingRef.current?.focus(); }, []);
   const isEditing = profile !== undefined;
-  const legacy = profile?.legacyChoices;
+  const legacyChoices = profile?.legacyChoices;
   const [id] = useState(() => profile?.id ?? crypto.randomUUID());
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
-  const [presentationBand, setPresentationBand] = useState<PresentationBand>(
-    legacy?.presentationBand ?? "preschool",
-  );
-  const [presentationBandConfirmed, setPresentationBandConfirmed] = useState(
-    legacy !== undefined,
-  );
-  const [mathSkills, setMathSkills] = useState<MathSkillsV1>(() =>
-    cloneMathSkills(legacy?.mathSkills ?? blankMathSkills),
-  );
-  const [selectedPresetId, setSelectedPresetId] = useState<MathPresetId | null>(
-    legacy === undefined ? null : inferPreset(legacy),
-  );
-  const [presetConfirmed, setPresetConfirmed] = useState(legacy !== undefined);
-  const [writingMode, setWritingMode] = useState<WritingMode>(
-    legacy?.writingMode ?? "label",
-  );
   const [reviewedOn, setReviewedOn] = useState(profile?.reviewedOn ?? todayIso());
   const [interestsText, setInterestsText] = useState(
     profile?.interests.join(", ") ?? "",
@@ -187,75 +120,20 @@ export function ProfileEditor({
       ...(displayName.trim().length === 0 ? {} : { displayName }),
       reviewedOn,
       interests: parseInterests(interestsText),
-      legacyChoices: {
-        presentationBand,
-        writingMode,
-        mathSkills,
-      },
+      // Stored earlier settings ride along untouched: the form has no control
+      // for them, and a profile stored without them never gains them.
+      ...(legacyChoices === undefined ? {} : { legacyChoices }),
     }),
-    [
-      displayName,
-      id,
-      interestsText,
-      mathSkills,
-      presentationBand,
-      reviewedOn,
-      writingMode,
-    ],
+    [displayName, id, interestsText, legacyChoices, reviewedOn],
   );
   const parsedDraft = useMemo(
     () => ChildProfileV2Schema.safeParse(draftInput),
     [draftInput],
   );
-  const capabilitiesConfirmed = selectedPresetId !== null && presetConfirmed;
 
   useEffect(() => {
-    onDraftChange?.(
-      parsedDraft.success && capabilitiesConfirmed && presentationBandConfirmed
-        ? parsedDraft.data
-        : undefined,
-    );
-  }, [capabilitiesConfirmed, onDraftChange, parsedDraft, presentationBandConfirmed]);
-
-  /** A preset is only ever applied by the parent's own explicit choice. */
-  function applyPreset(presetId: ConcreteMathPresetId): void {
-    const expanded = expandMathPreset(presetId, presentationBand);
-    setSelectedPresetId(presetId);
-    setMathSkills(cloneMathSkills(expanded.mathSkills));
-    setPresentationBand(expanded.presentationBand);
-    setPresetConfirmed(true);
-    setPresentationBandConfirmed(MATH_PRESETS[presetId].presentationBand !== null);
-  }
-
-  function handlePresetSelection(presetId: MathPresetId): void {
-    if (presetId === "custom") {
-      setSelectedPresetId("custom");
-      setPresetConfirmed(true);
-      return;
-    }
-    applyPreset(presetId);
-  }
-
-  function handleBandChange(band: PresentationBand): void {
-    setPresentationBand(band);
-    setPresentationBandConfirmed(true);
-    const fixedBand =
-      selectedPresetId === null || selectedPresetId === "custom"
-        ? null
-        : MATH_PRESETS[selectedPresetId].presentationBand;
-    if (fixedBand !== null && band !== fixedBand) {
-      setSelectedPresetId("custom");
-      setPresetConfirmed(true);
-    } else if (selectedPresetId !== null) {
-      setPresetConfirmed(true);
-    }
-  }
-
-  function handleMathSkillsChange(next: MathSkillsV1): void {
-    setMathSkills(next);
-    setSelectedPresetId("custom");
-    setPresetConfirmed(true);
-  }
+    onDraftChange?.(parsedDraft.success ? parsedDraft.data : undefined);
+  }, [onDraftChange, parsedDraft]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -265,10 +143,6 @@ export function ProfileEditor({
       return;
     }
 
-    if (!capabilitiesConfirmed || !presentationBandConfirmed) {
-      setError("Review and confirm a capability preset and presentation band before saving.");
-      return;
-    }
     if (!parsedDraft.success) {
       setError(formatIssues(parsedDraft.error.issues));
       return;
@@ -345,27 +219,6 @@ export function ProfileEditor({
             value={displayName}
           />
         </label>
-        <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
-          <legend>Writing mode</legend>
-          <select
-            aria-describedby="writing-mode-help"
-            aria-label="Writing mode"
-            onChange={(event) => setWritingMode(event.target.value as WritingMode)}
-            style={inputStyle}
-            value={writingMode}
-          >
-            {WRITING_MODES.map((mode) => (
-              <option key={mode} value={mode}>
-                {mode.replaceAll("-", " ")}
-              </option>
-            ))}
-          </select>
-          <p id="writing-mode-help">
-            Changes Sentence Builder only: draw and tell a grown-up, label a
-            picture, copy a model sentence, finish a sentence frame, or write
-            independently. It does not change math worksheets.
-          </p>
-        </fieldset>
         <label style={fieldStyle}>
           Reviewed on
           <input
@@ -381,21 +234,9 @@ export function ProfileEditor({
       {profile !== undefined && isReviewOverdue(reviewedOn) && (
         <p role="status" style={{ background: "#fff7e7", borderRadius: "0.5rem", padding: "0.65rem" }}>
           Nine months have passed since this profile was reviewed.
-          Check the capabilities when convenient; this reminder does not change them.
+          Check the nickname and interests when convenient; this reminder does not change them.
         </p>
       )}
-
-      <div style={{ marginTop: "0.8rem" }}>
-        <MathSkillsEditor
-          mathSkills={mathSkills}
-          onMathSkillsChange={handleMathSkillsChange}
-          onPresentationBandChange={handleBandChange}
-          onSelectPreset={handlePresetSelection}
-          presentationBand={presentationBand}
-          presentationBandConfirmed={presentationBandConfirmed}
-          selectedPresetId={selectedPresetId}
-        />
-      </div>
 
       <label style={{ ...fieldStyle, marginTop: "0.8rem" }}>
         Broad interests (optional, separated by commas)
@@ -413,6 +254,10 @@ export function ProfileEditor({
         exact birthdate, school, teacher, email, location, photo, voice, diagnosis,
         scores, behavioral details, or private history.
       </p>
+
+      {legacyChoices !== undefined && (
+        <EarlierSettingsSummary legacyChoices={legacyChoices} />
+      )}
 
       {error !== null && (
         <div ref={errorRef} tabIndex={-1} id="profile-error" role="alert" style={{ background: "#fff0ee", borderLeft: "0.25rem solid #b23a3a", marginTop: "0.8rem", padding: "0.7rem" }}>

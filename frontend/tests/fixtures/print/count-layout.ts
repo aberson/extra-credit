@@ -2,10 +2,11 @@ import type { PrintScale } from "../../../src/shared/worksheet/types.ts";
 import { projectGenerationRequest } from "../../../src/shared/worksheet/project-request.ts";
 import { getWorksheetRegistration } from "../../../src/shared/worksheet/registry.ts";
 import type { WorksheetDefaultsV2 } from "../../../src/shared/config/schema.ts";
+import { worksheetSelectionOf } from "../../../src/shared/config/defaults.ts";
 import {
   acceptanceConfig,
   boundaryNickname,
-  selectionFor,
+  formerChoices,
 } from "./matrix.ts";
 
 // Independent upper budgets in CSS px, rounded UP from the physical layout.
@@ -66,16 +67,18 @@ export function countSeedFixture(seed: number, paper: "letter" | "a4", scale: Pr
   const original = acceptanceConfig.profiles[2];
   if (original === undefined) throw new Error("Missing canonical Avery.");
   const profile = { ...original, displayName: boundaryNickname };
-  // The stored defaults the spec seeds, and the worksheet selection the panel
-  // builds from them for this child.
+  // The stored defaults the spec seeds, holding the canonical child's former
+  // Count, Compare & Make focus, and the worksheet selection the panel builds
+  // from them once Count, Compare & Make is chosen.
   const defaults: WorksheetDefaultsV2 = {
     ...acceptanceConfig.defaults,
+    countCompareMake: formerChoices(2).countCompareMake,
     length: "long",
     printScale: scale,
     paperSize: paper,
     includeDecorativeGraphics: false,
   };
-  const selection = selectionFor(profile, defaults, { worksheetType: "count-compare-make" });
+  const selection = { ...worksheetSelectionOf(defaults), worksheetType: "count-compare-make" as const };
   const registration = getWorksheetRegistration("count-compare-make");
   const projected = projectGenerationRequest({
     profile, selection,

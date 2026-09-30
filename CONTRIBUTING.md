@@ -84,26 +84,59 @@ is read through the frozen `legacy-v1.ts` path, upgraded in memory by
 `migrate.ts`, and rewritten only by the first explicit save, after a
 byte-identical `.v1-…bak` backup of the earlier file.
 
-- **Any change to accepted keys or accepted values needs a new version.**
-  Adding, removing or renaming a key; adding or removing a value-list member
-  (for example widening `MATH_OPERATIONS` or `THEME_CHOICES`); moving a
-  numeric, item or text bound; or adding, removing or renaming a refinement
-  requires `schemaVersion: 3` with a version 2 read path and its own step in
-  `CONFIG_MIGRATIONS`, never an in-place edit of version 2. An older version 2
-  build treats a same-version file it cannot strictly parse as invalid and
-  offers backup-and-replace recovery, so widening version 2 in place turns an
-  ordinary downgrade into a destructive one.
+- **Additive changes land at the current version; everything else needs a new one.**
+  Additive changes (a new optional key with a default, a new enum member) land
+  at the current version with no migration, backup or upgrade notice: a
+  version 2 file that lacks the new key parses with its default. A removal,
+  rename or tightened bound needs a new version with a read path, that is,
+  `schemaVersion: 3` with a version 2 read path and its own step in
+  `CONFIG_MIGRATIONS`. A widened bound or a key that stops being required is
+  not additive either and needs the same new version, because an older
+  version 2 build would classify a file using it as invalid.
+- **What makes a new key additive.** The key needs a Zod `.default()`, so
+  this build still parses an older file that lacks it; a key without one is
+  required, and this build would classify such a file as invalid. In
+  `frontend/src/server/transport-schemas.ts` the key must also be named in the
+  `optional` list of the `strictObjectSchema` call that composes its parent
+  object, because that composer marks every property required unless it is
+  listed there, and the fingerprint fails when a parent's `required` list
+  changes. A new required key is not additive.
+- **What makes a new enum member additive.** Only a member of a value list
+  that no array bound is derived from. The `operations` arrays (Dry Math, the
+  Two Whats and a Wow equation focus, and the earlier `mathSkills`) are capped
+  at `MATH_OPERATIONS.length`, and `representations` at
+  `REPRESENTATIONS.length`, in both `schema.ts`/`legacy-v1.ts` and
+  `transport-schemas.ts`. A member added to either list also raises that cap,
+  and an older build meeting a full-length array reports it too big, which is
+  invalid, not blocked; such a member needs a new version or a separate list.
+- **Why additive changes are safe.** A build that meets a current-version
+  file whose only strict-parse failures are unknown keys or unknown enum
+  members classifies it as `blocked`: it answers `CONFIG_VERSION_UNSUPPORTED`,
+  leaves the bytes untouched, writes no backup and offers no recovery, exactly
+  as for a higher `schemaVersion`. Any other strict-parse failure is still
+  `invalid` and offers backup-and-replace, which is why only those two kinds
+  of change may skip the version bump.
 - **The fingerprint enforces it.**
-  `frontend/tests/integration/config-shape-fingerprint.test.ts` pins the whole
-  accepted value domain (the composed transport JSON Schema, the refinement
-  names, and each text field at its maximum and one past it) and fails with
-  "Changing the persisted config shape requires schemaVersion 3 with a v2 read
-  path". Bump the version; do not edit the snapshot to make it pass.
+  `frontend/tests/integration/config-shape-fingerprint.test.ts` pins the
+  accepted value domain as Step 15 landed it (the composed transport JSON
+  Schema, the refinement names, and each text field at its maximum and one
+  past it) and checks it additive-only: it passes when an optional key path,
+  an enum member or a refinement name is added, and fails with "A persisted
+  config change that is not additive requires schemaVersion 3 with a v2 read
+  path" when a pinned key path, enum member or refinement name disappears or
+  any pinned constraint (a parent's `required` list and an array's `maxItems`
+  included) or text-bound outcome changes. The failure text also names the two
+  additive forms. For a new key, list it as optional in `strictObjectSchema`
+  and give it a Zod default; otherwise bump the version. Do not edit the
+  snapshot to make it pass.
 - **Its limits.** `PERSISTED_REFINEMENTS` in `schema.ts` is a hand-kept list
-  that pins refinement names, not their logic. A refinement added without
-  being registered, or a change inside a registered one, is left to review, so
-  register every new refinement on a persisted object and treat a change to a
-  registered one as a shape change.
+  that pins refinement names, not their logic. A new name passes, because a
+  refinement on a new optional key is additive; a new refinement on an
+  existing key tightens what that key accepts, which the fingerprint cannot
+  see. A refinement added without being registered, a new refinement on an
+  existing key, and a change inside a registered one are left to review, so
+  register every new refinement on a persisted object and treat the last two
+  as shape changes that need a new version.
 - **One source for every value.** `frontend/src/server/transport-schemas.ts`
   composes the transport schema from the same value lists and ceilings the Zod
   schema uses; never restate a list or bound by hand. The frozen legacy

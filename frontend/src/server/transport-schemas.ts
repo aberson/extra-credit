@@ -166,7 +166,11 @@ const legacyMathSkillsProperties = {
   allowNegativeResults: { type: "boolean" },
 } as const;
 
-function strictObjectSchema<const TProperties extends Record<string, unknown>>(
+/**
+ * A closed object schema (`additionalProperties: false`) whose `required`
+ * list is every property key not named in `optional`.
+ */
+export function strictObjectSchema<const TProperties extends Record<string, unknown>>(
   properties: TProperties,
   optional: readonly (keyof TProperties & string)[] = [],
 ) {
