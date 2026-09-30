@@ -148,3 +148,31 @@ describe("shared config import direction", () => {
     expect(violations(enumsRule!, moduleImports(ENUMS, allowedTopicImport))).toEqual([]);
   });
 });
+
+/**
+ * `enums.ts` imports `TOPIC_IDS` from `worksheet/types.ts` as a value, so
+ * `types.ts` may reach `enums.ts` (and `schema.ts`, which imports
+ * `types.ts` as a value) only through imports the compiler erases.
+ */
+function runtimeConfigImports(imports: readonly ModuleImport[]): readonly string[] {
+  return imports
+    .filter(({ target, runtime }) => runtime && (target === ENUMS || target === SCHEMA))
+    .map(({ target }) => `${WORKSHEET_TYPES} imports ${target} at runtime`);
+}
+
+describe("worksheet types import the config leaves by type only", () => {
+  test("types.ts imports from enums.ts only through import type", () => {
+    const imports = moduleImports(WORKSHEET_TYPES, readModule(WORKSHEET_TYPES));
+    expect(imports.filter(({ target }) => target === ENUMS)).not.toEqual([]);
+    expect(runtimeConfigImports(imports)).toEqual([]);
+  });
+
+  test("calibration: a value import of enums.ts from types.ts fails the rule", () => {
+    const valueImport = 'import { WORKSHEET_LENGTHS } from "../config/enums.js";\n';
+    expect(runtimeConfigImports(moduleImports(WORKSHEET_TYPES, valueImport))).toEqual([
+      `${WORKSHEET_TYPES} imports ${ENUMS} at runtime`,
+    ]);
+    const typeImport = 'import type { WORKSHEET_LENGTHS } from "../config/enums.js";\n';
+    expect(runtimeConfigImports(moduleImports(WORKSHEET_TYPES, typeImport))).toEqual([]);
+  });
+});

@@ -1,4 +1,5 @@
-import type { GenerationDefaultsV1 } from "../config/schema.js";
+import { presentationBandForVocabulary } from "../config/practice-focus.js";
+import type { WorksheetSelectionV2 } from "../config/schema.js";
 import {
   COUNT_COMPARE_MAKE_DEFINITION,
   getCountCompareMakeCapabilitySupport,
@@ -19,6 +20,7 @@ import {
 } from "../../worksheets/dry-math/generator.js";
 import {
   FIND_THE_WOW_DEFINITION,
+  FIND_THE_WOW_VARIANT_LABELS,
   getFindTheWowCapabilitySupport,
   getFindTheWowGroupCount,
 } from "../../worksheets/find-the-wow/definition.js";
@@ -29,9 +31,8 @@ import {
 import {
   SENTENCE_BUILDER_DEFINITION,
   SENTENCE_BUILDER_ITEM_COUNT,
-  SENTENCE_BUILDER_MODE_LABELS,
+  SENTENCE_BUILDER_VARIANT_LABELS,
   getSentenceBuilderBankSize,
-  getSentenceBuilderCanonicalLength,
   getSentenceBuilderCapabilitySupport,
 } from "../../worksheets/sentence-builder/definition.js";
 import { generateSentenceBuilder } from "../../worksheets/sentence-builder/generator.js";
@@ -46,10 +47,9 @@ import {
 } from "./limit-labels.js";
 import {
   projectGenerationRequest,
-  type CapabilityProfileV1,
+  projectWorksheetCapabilities,
 } from "./project-request.js";
 import type {
-  Difficulty,
   GenerationRequestV1,
   WorksheetGeneratorV1,
   WorksheetType,
@@ -61,15 +61,12 @@ export type {
 } from "./limit-labels.js";
 
 /**
- * Interim (D-interim): `profile` is the capability view `capabilityProfileOf`
- * flattens from a stored profile's `legacyChoices`; Step 16 replaces it with
- * the worksheet selection.
+ * What every family control reads: the worksheet selection alone. No child
+ * field reaches availability, capacity or advice; the selected child only
+ * personalizes the page at projection time.
  */
-export interface WorksheetControlContextV1 {
-  readonly profile: CapabilityProfileV1;
-  readonly difficulty: Difficulty;
-  readonly length: GenerationDefaultsV1["length"];
-  readonly printScale: GenerationDefaultsV1["printScale"];
+export interface WorksheetControlContextV2 {
+  readonly selection: WorksheetSelectionV2;
 }
 
 /**
@@ -79,7 +76,7 @@ export interface WorksheetControlContextV1 {
  * Availability and capacity are two different questions and issue #14 was born
  * of answering only the first: `getFindTheWowCapabilitySupport` resolved a
  * mode, the control said "Create", and the generator then refused the click
- * because the confirmed limits held fewer distinct stems than the length
+ * because the practice focus held fewer distinct stems than the length
  * needed. Every registration now answers both.
  */
 export type WorksheetCapacityVerdictV1 =
@@ -132,7 +129,12 @@ export interface WorksheetApplicableControlsV1 {
   readonly useDisplayName: boolean;
   readonly useInterests: boolean;
   readonly includeDecorativeGraphics: boolean;
-  readonly difficulty: boolean;
+  /** A practice focus: the operations and range a math family practices. */
+  readonly practiceFocus: boolean;
+  /** Statements (Two Whats and a Wow) or Writing activity (Sentence Builder). */
+  readonly variant: boolean;
+  /** Sentence Builder's plain-language vocabulary choice. */
+  readonly vocabulary: boolean;
   readonly length: boolean;
   readonly includeAnswerKey: boolean;
   readonly paperSize: boolean;
@@ -146,47 +148,43 @@ export interface WorksheetApplicableControlsV1 {
  *
  * Declaring a new `WORKSHEET_TYPE_IDS` entry without registering it does NOT
  * fail here: `WORKSHEET_REGISTRY` is `satisfies Record<string, ...>`, which
- * allows missing keys. The exhaustive `relevantMaximumKeys` switch in
+ * allows missing keys. The exhaustive `projectWorksheetCapabilities` switch in
  * `project-request.ts` is what then fails to compile.
  */
 export interface WorksheetControlContractV1 {
   readonly getCapabilitySupport: (
-    context: WorksheetControlContextV1,
+    context: WorksheetControlContextV2,
   ) => WorksheetCapabilitySupportV1;
   /**
    * One sentence naming the resource that actually bounds this family's
    * variety, for the shared generation session to append to its exhaustion
    * message.
    *
-   * The shared message used to end "Review the profile limits" for every
+   * The shared message used to end with one piece of numeric advice for every
    * family. That is true of the three math families, whose variety really is
-   * bounded by stored numeric maxima, and false of Sentence Builder, whose
-   * variety is bounded by the reviewed vocabulary for a writing mode - a
-   * parent following that advice would edit numbers that cannot change the
+   * bounded by the practice focus, and false of Sentence Builder, whose
+   * variety is bounded by the reviewed vocabulary for a writing activity - a
+   * parent following that advice would change numbers that cannot change the
    * outcome (issue #16). The families that DO name numeric maxima derive this
    * sentence from `getRelevantMaximums`, so one list feeds both.
    */
   readonly getLimitingResourceAdvice: (
-    context: WorksheetControlContextV1,
+    context: WorksheetControlContextV2,
   ) => string;
   /**
-   * The stored maxima this family actually reads for the given context. It must
-   * never claim a key the sole projection boundary would not scale, because the
-   * parent's stretch gate and preview are derived from exactly this list.
+   * The practice-focus maxima this family actually reads for the given
+   * selection. It must never claim a key the sole projection boundary would
+   * not carry from the focus into the request.
    */
   readonly getRelevantMaximums: (
-    context: WorksheetControlContextV1,
+    context: WorksheetControlContextV2,
   ) => readonly WorksheetRelevantMaximumV1[];
   readonly getEffectiveUnit: (
-    context: WorksheetControlContextV1,
+    context: WorksheetControlContextV2,
   ) => WorksheetEffectiveUnitV1;
   readonly getApplicableControls: (
-    context: WorksheetControlContextV1,
+    context: WorksheetControlContextV2,
   ) => WorksheetApplicableControlsV1;
-  readonly projectPreferences: (
-    context: WorksheetControlContextV1,
-    preferences: GenerationDefaultsV1,
-  ) => GenerationDefaultsV1;
 }
 
 const SUFFICIENT_CAPACITY: WorksheetCapacityVerdictV1 = Object.freeze({
@@ -196,7 +194,7 @@ const SUFFICIENT_CAPACITY: WorksheetCapacityVerdictV1 = Object.freeze({
 /**
  * The seed the capacity probe below projects with.
  *
- * Capacity is a property of the effective limits and the length budget, never
+ * Capacity is a property of the practice focus and the length budget, never
  * of the seed: every family counts the whole candidate collection before it
  * draws from it, so a shortage fails closed on every seed rather than on some.
  * A fixed nonzero seed therefore measures the same capacity the parent's real
@@ -205,14 +203,15 @@ const SUFFICIENT_CAPACITY: WorksheetCapacityVerdictV1 = Object.freeze({
 export const CAPACITY_PROBE_SEED = "00000001";
 
 /**
- * The preferences that cannot move any family's capacity, pinned so the probe
- * varies only the three the control context carries.
+ * The selection fields that cannot move any family's capacity, pinned so the
+ * probe varies only what the worksheet choices really decide.
  *
  * Nickname, interests, decoration, answer key and paper size change what a
- * page SAYS, never how many distinct exercises the limits can supply. Sentence
- * Builder is the one family whose vocabulary breadth does follow the reviewed
- * interests, and it does not use this probe: its own gate measures the leanest
- * reviewed topic, which bounds every interest set the parent could enable.
+ * page SAYS, never how many distinct exercises a practice focus can supply.
+ * Sentence Builder is the one family whose vocabulary breadth does follow the
+ * reviewed interests, and it does not use this probe: its own gate measures
+ * the leanest reviewed topic, which bounds every interest set the parent could
+ * enable.
  */
 export const CAPACITY_PROBE_PREFERENCES = Object.freeze({
   useDisplayName: false,
@@ -220,94 +219,57 @@ export const CAPACITY_PROBE_PREFERENCES = Object.freeze({
   includeDecorativeGraphics: false,
   includeAnswerKey: false,
   paperSize: "letter",
-} as const satisfies Omit<
-  GenerationDefaultsV1,
-  "difficulty" | "length" | "printScale"
+} as const satisfies Pick<
+  WorksheetSelectionV2,
+  | "useDisplayName"
+  | "useInterests"
+  | "includeDecorativeGraphics"
+  | "includeAnswerKey"
+  | "paperSize"
 >);
-
-/**
- * The one remedy the parent can take without touching the child's profile.
- *
- * Confidence is often the whole reason a length stopped fitting - and the
- * shortage sentence used to offer only "shorten the worksheet" and "review the
- * profile limits", steering a parent toward lowering the page or raising a
- * four-year-old's confirmed counting maximum when one option flip would have
- * done it. It is appended only after the same selection has been PROVED
- * producible at practice, because a remedy that cannot change the outcome is
- * the defect issue #16 is about.
- */
-export const DIFFICULTY_REMEDY =
-  "Setting Difficulty to Practice also fills this selection, without changing the profile.";
 
 /**
  * Runs a family's own capacity verdict on the request that selection projects.
  *
  * The request is built by the sole projection boundary rather than assembled
- * here, so the effective maxima the verdict counts against are the clamped,
- * difficulty-scaled ones the generator will really see - the confidence
- * downgrade that made issue #14 reachable included. What the probe does NOT
- * share with a real run is the parent's personalization: nickname, interests,
- * decoration, answer key and paper size are pinned, and stretch is treated as
- * confirmed. None of them can move any family's candidate count, which is why
- * pinning them is safe; the control keeps its own separate stretch gate.
+ * here, so the maxima the verdict counts against are exactly the ones the
+ * generator will really see. The probe projects the selection with no child
+ * at all and with `CAPACITY_PROBE_PREFERENCES`: none of the pinned fields can
+ * move any family's candidate count, which is why pinning them is safe.
  *
  * A projection that fails reports its own message: the control must never
  * offer a selection it could not even project.
  */
-function probeShortfall(
-  definition: {
-    readonly generatorVersion: number;
-    readonly id: WorksheetType;
-  },
-  context: WorksheetControlContextV1,
-  verdictOf: (request: GenerationRequestV1) => string | undefined,
-): string | undefined {
-  const projection = projectGenerationRequest({
-    profile: context.profile,
-    worksheetType: definition.id,
-    generatorVersion: definition.generatorVersion,
-    seed: CAPACITY_PROBE_SEED,
-    preferences: {
-      ...CAPACITY_PROBE_PREFERENCES,
-      difficulty: context.difficulty,
-      length: context.length,
-      printScale: context.printScale,
-    },
-    stretchConfirmed: true,
-  });
-  return projection.ok ? verdictOf(projection.request) : projection.message;
-}
-
 function probeCapacity(
   definition: {
     readonly generatorVersion: number;
     readonly id: WorksheetType;
   },
-  context: WorksheetControlContextV1,
+  context: WorksheetControlContextV2,
   verdictOf: (request: GenerationRequestV1) => string | undefined,
 ): WorksheetCapacityVerdictV1 {
-  const shortfall = probeShortfall(definition, context, verdictOf);
-  if (shortfall === undefined) {
-    return SUFFICIENT_CAPACITY;
-  }
-  const practiceFills =
-    context.difficulty === "confidence" &&
-    probeShortfall(
-      definition,
-      { ...context, difficulty: "practice" },
-      verdictOf,
-    ) === undefined;
-  return {
-    sufficient: false,
-    message: practiceFills ? `${shortfall} ${DIFFICULTY_REMEDY}` : shortfall,
-  };
+  const projection = projectGenerationRequest({
+    selection: {
+      ...context.selection,
+      ...CAPACITY_PROBE_PREFERENCES,
+      worksheetType: definition.id,
+    },
+    generatorVersion: definition.generatorVersion,
+    seed: CAPACITY_PROBE_SEED,
+  });
+  const shortfall = projection.ok
+    ? verdictOf(projection.request)
+    : projection.message;
+  return shortfall === undefined
+    ? SUFFICIENT_CAPACITY
+    : { sufficient: false, message: shortfall };
 }
 
 /**
  * The limiting-resource sentence for a family whose variety really is bounded
- * by stored numeric maxima, DERIVED from the same `getRelevantMaximums` list
- * the stretch preview and the limit display read. A family that reads no
- * stored maximum must never be given this sentence (issue #16).
+ * by its practice focus, DERIVED from the same `getRelevantMaximums` list the
+ * shortage sentences name. A family that reads no focus maximum must never be
+ * given this sentence (issue #16).
  */
 function numericLimitAdvice(
   displayName: string,
@@ -315,22 +277,32 @@ function numericLimitAdvice(
 ): string {
   return maximums.length === 0
     ? `${displayName} has no further variation to offer for this selection. Create a new worksheet later.`
-    : `${displayName} varies within the profile's ${joinLabels(
+    : `${displayName} varies within the ${joinLabels(
         maximums.map(({ label }) => label),
-      )} limits. Review those limits in the profile or create a new worksheet later.`;
+      )} range of this practice focus. Choose a practice focus with a wider range, or create a new worksheet later.`;
+}
+
+/** The capabilities this selection projects for one family. */
+function projectedSkills(
+  context: WorksheetControlContextV2,
+  worksheetType: WorksheetType,
+) {
+  return projectWorksheetCapabilities(context.selection, worksheetType)
+    .mathSkills;
 }
 
 /**
- * The maxima Two Whats and a Wow reads, which follow the mode its confirmed
- * capabilities resolve to. One owner for both the declared list and the
- * limiting-resource sentence keeps a quantity page from being explained in
- * terms of operands.
+ * The maxima Two Whats and a Wow reads, which follow the mode its projected
+ * capabilities resolve to - the Statements variant. One owner for both the
+ * declared list and the limiting-resource sentence keeps a quantity page from
+ * being explained in terms of operands.
  */
-function findTheWowRelevantMaximums({
-  difficulty,
-  profile,
-}: WorksheetControlContextV1): readonly WorksheetRelevantMaximumV1[] {
-  const support = getFindTheWowCapabilitySupport(profile.mathSkills, difficulty);
+function findTheWowRelevantMaximums(
+  context: WorksheetControlContextV2,
+): readonly WorksheetRelevantMaximumV1[] {
+  const support = getFindTheWowCapabilitySupport(
+    projectedSkills(context, FIND_THE_WOW_DEFINITION.id),
+  );
   if (!support.available) {
     return NO_MAXIMUMS;
   }
@@ -355,7 +327,9 @@ export const WORKSHEET_REGISTRY = {
     generate: generateDryMath,
     controls: {
       getCapabilitySupport: (context) => {
-        const support = getDryMathCapabilitySupport(context.profile.mathSkills);
+        const support = getDryMathCapabilitySupport(
+          projectedSkills(context, DRY_MATH_DEFINITION.id),
+        );
         return support.available
           ? {
               available: true,
@@ -373,8 +347,8 @@ export const WORKSHEET_REGISTRY = {
           OPERAND_RESULT_MAXIMUMS,
         ),
       getRelevantMaximums: () => OPERAND_RESULT_MAXIMUMS,
-      getEffectiveUnit: ({ length, printScale }) => ({
-        count: getDryMathItemCount(length, printScale),
+      getEffectiveUnit: ({ selection }) => ({
+        count: getDryMathItemCount(selection.length, selection.printScale),
         singularLabel: "problem",
         pluralLabel: "problems",
       }),
@@ -382,16 +356,13 @@ export const WORKSHEET_REGISTRY = {
         useDisplayName: true,
         useInterests: false,
         includeDecorativeGraphics: false,
-        difficulty: true,
+        practiceFocus: true,
+        variant: false,
+        vocabulary: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
         printScale: true,
-      }),
-      projectPreferences: (_context, preferences) => ({
-        ...preferences,
-        useInterests: false,
-        includeDecorativeGraphics: false,
       }),
     },
   },
@@ -401,8 +372,7 @@ export const WORKSHEET_REGISTRY = {
     controls: {
       getCapabilitySupport: (context) => {
         const support = getFindTheWowCapabilitySupport(
-          context.profile.mathSkills,
-          context.difficulty,
+          projectedSkills(context, FIND_THE_WOW_DEFINITION.id),
         );
         return support.available
           ? {
@@ -412,7 +382,7 @@ export const WORKSHEET_REGISTRY = {
                 context,
                 findTheWowCapacityVerdict,
               ),
-              statusMessage: `This profile will use ${support.mode} mode for Two Whats and a Wow.`,
+              statusMessage: `Statements for Two Whats and a Wow: ${FIND_THE_WOW_VARIANT_LABELS[support.mode]}.`,
             }
           : { available: false, message: support.reason };
       },
@@ -422,8 +392,8 @@ export const WORKSHEET_REGISTRY = {
           findTheWowRelevantMaximums(context),
         ),
       getRelevantMaximums: findTheWowRelevantMaximums,
-      getEffectiveUnit: ({ length, printScale }) => ({
-        count: getFindTheWowGroupCount(length, printScale),
+      getEffectiveUnit: ({ selection }) => ({
+        count: getFindTheWowGroupCount(selection.length, selection.printScale),
         singularLabel: "group",
         pluralLabel: "groups",
       }),
@@ -431,16 +401,13 @@ export const WORKSHEET_REGISTRY = {
         useDisplayName: true,
         useInterests: false,
         includeDecorativeGraphics: false,
-        difficulty: true,
+        practiceFocus: true,
+        variant: true,
+        vocabulary: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
         printScale: true,
-      }),
-      projectPreferences: (_context, preferences) => ({
-        ...preferences,
-        useInterests: false,
-        includeDecorativeGraphics: false,
       }),
     },
   },
@@ -448,14 +415,15 @@ export const WORKSHEET_REGISTRY = {
     ...SENTENCE_BUILDER_DEFINITION,
     generate: generateSentenceBuilder,
     controls: {
-      getCapabilitySupport: ({ length, printScale, profile }) => {
+      getCapabilitySupport: ({ selection }) => {
+        const { variant, vocabulary } = selection.sentenceBuilder;
         const support = getSentenceBuilderCapabilitySupport(
-          profile.writingMode,
-          profile.presentationBand,
-          length,
-          printScale,
+          variant,
+          presentationBandForVocabulary(vocabulary),
+          selection.length,
+          selection.printScale,
         );
-        const statusMessage = `This profile will use ${SENTENCE_BUILDER_MODE_LABELS[profile.writingMode]} mode for Sentence Builder.`;
+        const statusMessage = `Writing activity for Sentence Builder: ${SENTENCE_BUILDER_VARIANT_LABELS[variant]}.`;
         // Sentence Builder needs none of the numeric probing the math
         // families do: `getSentenceBuilderCapabilitySupport` already measures
         // the leanest reviewed topic against this length's bank budget, which
@@ -469,18 +437,18 @@ export const WORKSHEET_REGISTRY = {
           : { available: false, message: support.reason };
       },
       // Sentence Builder's variety is the reviewed vocabulary, so the numeric
-      // advice the math families derive would send a parent to edit numbers
+      // advice the math families derive would send a parent to change numbers
       // that cannot change this page (issue #16).
-      getLimitingResourceAdvice: ({ profile }) =>
-        `Sentence Builder varies within the reviewed vocabulary for ${SENTENCE_BUILDER_MODE_LABELS[profile.writingMode]} mode, which no stored number can widen. Choose a different writing mode in the profile, or create a new worksheet later.`,
-      // Sentence Builder reads no stored numeric maximum, exactly as the sole
-      // projection boundary scales none for it.
+      getLimitingResourceAdvice: ({ selection }) =>
+        `Sentence Builder varies within the reviewed vocabulary for ${SENTENCE_BUILDER_VARIANT_LABELS[selection.sentenceBuilder.variant]}, which no practice focus can widen. Choose a different Writing activity, or create a new worksheet later.`,
+      // Sentence Builder reads no numeric maximum, exactly as the sole
+      // projection boundary carries none into its request.
       getRelevantMaximums: () => NO_MAXIMUMS,
-      getEffectiveUnit: ({ length, printScale, profile }) => {
+      getEffectiveUnit: ({ selection }) => {
         const bankSize = getSentenceBuilderBankSize(
-          profile.writingMode,
-          length,
-          printScale,
+          selection.sentenceBuilder.variant,
+          selection.length,
+          selection.printScale,
         );
         // A Sentence Builder page always holds exactly one prompt, so the
         // per-document singular names that prompt. Length scales bank breadth
@@ -499,7 +467,7 @@ export const WORKSHEET_REGISTRY = {
               pluralLabel: "word-bank words",
             };
       },
-      getApplicableControls: ({ profile }) => ({
+      getApplicableControls: ({ selection }) => ({
         useDisplayName: true,
         useInterests: true,
         // Sentence Builder and Count, Compare & Make are the two families
@@ -511,20 +479,13 @@ export const WORKSHEET_REGISTRY = {
         // graphics-independence assertions run against a non-vacuous baseline
         // rather than a toggle nothing renders from.
         includeDecorativeGraphics: true,
-        difficulty: false,
-        length: isBankWritingMode(profile.writingMode),
+        practiceFocus: false,
+        variant: true,
+        vocabulary: true,
+        length: isBankWritingMode(selection.sentenceBuilder.variant),
         includeAnswerKey: false,
         paperSize: true,
         printScale: true,
-      }),
-      projectPreferences: ({ profile }, preferences) => ({
-        ...preferences,
-        difficulty: "practice",
-        includeAnswerKey: false,
-        length: getSentenceBuilderCanonicalLength(
-          profile.writingMode,
-          preferences.length,
-        ),
       }),
     },
   },
@@ -534,7 +495,7 @@ export const WORKSHEET_REGISTRY = {
     controls: {
       getCapabilitySupport: (context) => {
         const support = getCountCompareMakeCapabilitySupport(
-          context.profile.mathSkills,
+          projectedSkills(context, COUNT_COMPARE_MAKE_DEFINITION.id),
         );
         return support.available
           ? {
@@ -552,12 +513,12 @@ export const WORKSHEET_REGISTRY = {
           COUNT_COMPARE_MAKE_DEFINITION.displayName,
           COUNTING_NUMERAL_COMPARE_MAXIMUMS,
         ),
-      // The three maxima the sole projection boundary scales for this family:
-      // counting and numerals bound match/complete/draw work, comparisons
-      // bound the two compared groups (plan.md:207).
+      // The three focus maxima the sole projection boundary carries for this
+      // family: counting and numerals bound match/complete/draw work,
+      // comparisons bound the two compared groups (plan.md:207).
       getRelevantMaximums: () => COUNTING_NUMERAL_COMPARE_MAXIMUMS,
-      getEffectiveUnit: ({ length, printScale }) => ({
-        count: getCountCompareMakeItemCount(length, printScale),
+      getEffectiveUnit: ({ selection }) => ({
+        count: getCountCompareMakeItemCount(selection.length, selection.printScale),
         singularLabel: "item",
         pluralLabel: "items",
       }),
@@ -565,18 +526,14 @@ export const WORKSHEET_REGISTRY = {
         useDisplayName: true,
         useInterests: true,
         includeDecorativeGraphics: true,
-        difficulty: true,
+        practiceFocus: true,
+        variant: false,
+        vocabulary: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
         printScale: true,
       }),
-      // Every control this family exposes is honored as chosen, so this
-      // registration itself normalizes nothing away. The sole projection
-      // boundary still applies its family-independent rules - most visibly
-      // the stretch-to-practice downgrade when every relevant maximum is
-      // already 20 (plan.md:227).
-      projectPreferences: (_context, preferences) => preferences,
     },
   },
 } as const satisfies Record<string, WorksheetRegistrationV1>;

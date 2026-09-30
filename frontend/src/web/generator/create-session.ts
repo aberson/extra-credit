@@ -1,18 +1,13 @@
 import type {
   ChildProfileV2,
-  GenerationDefaultsV1,
+  WorksheetSelectionV2,
 } from "../../shared/config/schema";
 import { canonicalContentKey } from "../../shared/worksheet/invariants";
 import {
-  capabilityProfileOf,
-  NO_EARLIER_SETTINGS_MESSAGE,
   projectGenerationRequest,
   type ProjectAndGenerateResult,
 } from "../../shared/worksheet/project-request";
-import {
-  getWorksheetRegistration,
-  type RegisteredWorksheetType,
-} from "../../shared/worksheet/registry";
+import { getWorksheetRegistration } from "../../shared/worksheet/registry";
 import { formatSeedHex } from "../../shared/worksheet/seeded-random";
 import type {
   WorksheetDocumentV1,
@@ -24,14 +19,13 @@ export const MAX_ALTERNATIVE_SEED_ATTEMPTS = 16;
 export type SeedSource = () => number;
 
 /**
- * One Create: the stored profile, and (interim, D-interim) the unchanged
- * projection's preferences, whose Difficulty is the session-only select.
+ * One Create: the selected child, whose nickname and reviewed interests
+ * personalize the page, and the worksheet selection that decides everything
+ * else, the worksheet type included.
  */
 export interface GenerationSelection {
   readonly profile: ChildProfileV2;
-  readonly preferences: GenerationDefaultsV1;
-  readonly stretchConfirmed: boolean;
-  readonly worksheetType: RegisteredWorksheetType;
+  readonly selection: WorksheetSelectionV2;
 }
 
 export interface WorksheetSession {
@@ -74,26 +68,18 @@ export function productionSeedSource(): number {
 /**
  * The selected family's own explanation of what bounds its variety.
  *
- * This message used to end "Review the profile limits" for every family. That
- * is right for the three math families and wrong for Sentence Builder, whose
- * limiting resource is the breadth of the reviewed vocabulary for a writing
- * mode: a parent following the old advice would edit stored numbers that
- * cannot change the outcome (issue #16). Asking the registration is the same
- * move `getEffectiveUnit` already makes for unit labels.
+ * This message used to end with the same numeric advice for every family.
+ * That is right for the three math families and wrong for Sentence Builder,
+ * whose limiting resource is the breadth of the reviewed vocabulary for a
+ * writing activity: a parent following the old advice would change numbers
+ * that cannot change the outcome (issue #16). Asking the registration is the
+ * same move `getEffectiveUnit` already makes for unit labels. It reads the
+ * worksheet selection only, never the child.
  */
-function limitingResourceAdvice(selection: GenerationSelection): string {
-  const capabilities = capabilityProfileOf(selection.profile);
-  if (capabilities === undefined) {
-    return NO_EARLIER_SETTINGS_MESSAGE;
-  }
+function limitingResourceAdvice(generation: GenerationSelection): string {
   return getWorksheetRegistration(
-    selection.worksheetType,
-  ).controls.getLimitingResourceAdvice({
-    profile: capabilities,
-    difficulty: selection.preferences.difficulty,
-    length: selection.preferences.length,
-    printScale: selection.preferences.printScale,
-  });
+    generation.selection.worksheetType,
+  ).controls.getLimitingResourceAdvice({ selection: generation.selection });
 }
 
 function resultToSession(result: ProjectAndGenerateResult): SessionCreationResult {
@@ -110,7 +96,7 @@ function resultToSession(result: ProjectAndGenerateResult): SessionCreationResul
 }
 
 export function createWorksheetSessionForSeed(
-  selection: GenerationSelection,
+  generation: GenerationSelection,
   seed: number,
   dependencies: SessionDependencies = {},
 ): SessionCreationResult {
@@ -124,22 +110,12 @@ export function createWorksheetSessionForSeed(
       message: "A valid nonzero worksheet seed could not be created.",
     };
   }
-  // Interim (D-interim): a profile stored without earlier settings is refused
-  // here, before a lifecycle ID or any generator is reached.
-  const capabilities = capabilityProfileOf(selection.profile);
-  if (capabilities === undefined) {
-    return {
-      ok: false,
-      code: "GENERATION_CONSTRAINT_CONFLICT",
-      message: NO_EARLIER_SETTINGS_MESSAGE,
-    };
-  }
-  const registration = getWorksheetRegistration(selection.worksheetType);
+  const registration = getWorksheetRegistration(
+    generation.selection.worksheetType,
+  );
   const projection = projectGenerationRequest({
-    profile: capabilities,
-    preferences: selection.preferences,
-    stretchConfirmed: selection.stretchConfirmed,
-    worksheetType: selection.worksheetType,
+    profile: generation.profile,
+    selection: generation.selection,
     generatorVersion: registration.generatorVersion,
     seed: seedHex,
   });

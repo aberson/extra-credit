@@ -189,13 +189,13 @@ const expectedByProfile: Readonly<Record<string, ExpectedSheet>> = {
 
 const BANK_MODES = new Set(["label", "sentence-frame", "independent"]);
 
-/** Mirrors SENTENCE_BUILDER_MODE_LABELS; asserted through the real UI string. */
-const MODE_LABELS: Readonly<Record<string, string>> = {
-  "copy-with-model": "copy with a model",
-  "draw-and-tell": "draw and tell",
-  independent: "independent writing",
-  label: "label your drawing",
-  "sentence-frame": "sentence frame",
+/** Mirrors SENTENCE_BUILDER_VARIANT_LABELS; asserted through the real UI string. */
+const VARIANT_LABELS: Readonly<Record<string, string>> = {
+  "copy-with-model": "Copy a Sentence",
+  "draw-and-tell": "Draw & Tell",
+  independent: "Independent Writing",
+  label: "Picture Labels",
+  "sentence-frame": "Finish a Sentence",
 };
 
 async function expectAccessible(page: Page): Promise<void> {
@@ -320,7 +320,7 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
     await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
     await expect(
       page.getByText(
-        `This profile will use ${MODE_LABELS[writingMode]} mode for Sentence Builder.`,
+        `Writing activity for Sentence Builder: ${VARIANT_LABELS[writingMode]}.`,
       ),
     ).toBeVisible();
 

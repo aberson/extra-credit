@@ -1,14 +1,12 @@
+import { worksheetSelectionOf } from "../../../src/shared/config/defaults.ts";
+import { selectionFromEarlierSettings } from "../../../src/shared/config/earlier-settings.ts";
 import type {
   ChildProfileV2,
-  GenerationDefaultsV1,
   WorksheetDefaultsV2,
+  WorksheetSelectionV2,
   WritingMode,
 } from "../../../src/shared/config/schema.ts";
-import {
-  capabilityProfileOf,
-  projectGenerationRequest,
-  type CapabilityProfileV1,
-} from "../../../src/shared/worksheet/project-request.ts";
+import { projectGenerationRequest } from "../../../src/shared/worksheet/project-request.ts";
 import { getWorksheetRegistration } from "../../../src/shared/worksheet/registry.ts";
 import {
   V1_NUMERIC_MAXIMUM,
@@ -28,29 +26,23 @@ export { acceptanceConfig };
 export const boundaryNickname = "界".repeat(40);
 
 /**
- * Interim (D-interim): the unchanged projection's preferences for stored
- * version 2 defaults, at the session-only Difficulty's starting Practice.
+ * The worksheet selection the generator panel builds for a stored canonical
+ * child: the stored defaults' selection with that child's earlier settings
+ * mapped onto the groups they cover, then the panel's own choices.
  */
-export function practicePreferences(defaults: WorksheetDefaultsV2): GenerationDefaultsV1 {
-  return {
-    useDisplayName: defaults.useDisplayName,
-    useInterests: defaults.useInterests,
-    includeDecorativeGraphics: defaults.includeDecorativeGraphics,
-    difficulty: "practice",
-    length: defaults.length,
-    includeAnswerKey: defaults.includeAnswerKey,
-    paperSize: defaults.paperSize,
-    printScale: defaults.printScale,
-  };
-}
-
-/** The capabilities a stored canonical profile carries in its `legacyChoices`. */
-export function capabilitiesOf(profile: ChildProfileV2): CapabilityProfileV1 {
-  const capabilities = capabilityProfileOf(profile);
-  if (capabilities === undefined) {
+export function selectionFor(
+  profile: ChildProfileV2,
+  defaults: WorksheetDefaultsV2,
+  overrides: Partial<WorksheetSelectionV2>,
+): WorksheetSelectionV2 {
+  const legacy = profile.legacyChoices;
+  if (legacy === undefined) {
     throw new Error("A canonical profile carried no earlier settings.");
   }
-  return capabilities;
+  return {
+    ...selectionFromEarlierSettings(legacy, worksheetSelectionOf(defaults)).selection,
+    ...overrides,
+  };
 }
 
 export interface PrintFixture {
@@ -127,31 +119,28 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
       requiredWords = widest.words;
       requiredPrompt = undefined;
     }
-    const legacyChoices = capabilitiesOf(profile);
+    const legacyChoices = profile.legacyChoices;
+    if (legacyChoices === undefined) {
+      throw new Error("A canonical profile carried no earlier settings.");
+    }
     profile = {
       ...profile,
       interests: [topic],
-      legacyChoices: {
-        presentationBand: legacyChoices.presentationBand,
-        writingMode: mode,
-        mathSkills: legacyChoices.mathSkills,
-      },
+      legacyChoices: { ...legacyChoices, writingMode: mode },
     };
   }
-  const preferences: GenerationDefaultsV1 = {
-    ...practicePreferences(acceptanceConfig.defaults),
+  const selection = selectionFor(profile, acceptanceConfig.defaults, {
+    worksheetType: fixture.worksheetType,
     length: "long",
     printScale,
-  };
-  const capabilities = capabilitiesOf(profile);
+  });
   const registration = getWorksheetRegistration(fixture.worksheetType);
   // Search only real generator outputs. The browser receives this seed, never a
   // fabricated document, and must reproduce its exact prompts, bank and items.
   for (let seed = 1; seed <= 50_000; seed += 1) {
     const projected = projectGenerationRequest({
-      profile: capabilities,
-      preferences,
-      worksheetType: fixture.worksheetType,
+      profile,
+      selection,
       generatorVersion: registration.generatorVersion,
       seed: seed.toString(16).padStart(8, "0"),
     });
@@ -193,7 +182,7 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
     ) {
       continue;
     }
-    return { profile, preferences, seed, document: generated.document };
+    return { profile, selection, seed, document: generated.document };
   }
   throw new Error(`No deterministic boundary seed found for ${fixture.id}.`);
 }

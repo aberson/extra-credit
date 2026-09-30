@@ -1,102 +1,139 @@
+import fc from "fast-check";
 import { describe, expect, test, vi } from "vitest";
 
+import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../config/defaults.js";
+import { profileWithLegacyChoices } from "../config/earlier-settings.js";
+import {
+  FIND_THE_WOW_VARIANTS,
+  MATH_OPERATIONS,
+  PAPER_SIZES,
+  PRINT_SCALES,
+  SENTENCE_VOCABULARY_OPTIONS,
+  THEME_CHOICES,
+  WORKSHEET_LENGTHS,
+  WRITING_MODES,
+} from "../config/enums.js";
 import { MATH_PRESETS, MATH_PRESET_IDS } from "../config/math-presets.js";
 import { migrateConfigV1ToV2 } from "../config/migrate.js";
 import {
-  ChildProfileV2Schema,
-  type ChildProfileV1,
-  type ChildProfileV2,
-  type GenerationDefaultsV1,
-  type PresentationBand,
+  PRACTICE_FOCUS_CATALOG,
+  VOCABULARY_PRESENTATION_BANDS,
+} from "../config/practice-focus.js";
+import { selectionFromEarlierSettings } from "../config/earlier-settings.js";
+import type {
+  ArithmeticFocusV2,
+  ChildProfileV1,
+  ChildProfileV2,
+  WorksheetSelectionV2,
 } from "../config/schema.js";
 import {
-  CapabilityProfileV1Schema,
+  INACTIVE_MATH_FIELDS,
+  INACTIVE_WRITING_CAPABILITIES,
   PROJECTED_TOPIC_ALLOWLIST,
-  capabilityProfileOf,
-  profileWithLegacyChoices,
   projectAndGenerateWorksheet,
   projectGenerationRequest,
-  type CapabilityProfileV1,
+  projectWorksheetCapabilities,
+  type ProjectionChild,
 } from "./project-request.js";
+import { getWorksheetRegistration } from "./registry.js";
 import {
+  DRY_MATH_NUMERIC_MAXIMUM,
   REVIEWED_TOPIC_IDS,
   TOPIC_IDS,
+  V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
+  type GenerationRequestV1,
   type TopicId,
   type WorksheetGeneratorV1,
   type WorksheetType,
 } from "./types.js";
 
-const preferences: GenerationDefaultsV1 = {
-  useDisplayName: true,
-  useInterests: true,
-  includeDecorativeGraphics: true,
-  difficulty: "practice",
-  length: "standard",
-  includeAnswerKey: true,
-  paperSize: "letter",
-  printScale: "standard",
-};
+/** A fictional child: a nickname and one reviewed and one unreviewed interest. */
+const child: ChildProfileV2 = profileWithLegacyChoices({
+  id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
+  displayName: "Distinctive Nickname",
+  presentationBand: "early-primary",
+  reviewedOn: "2026-08-22",
+  mathSkills: {
+    countingMax: 1_000,
+    numeralMax: 1_000,
+    compareMax: 1_000,
+    representations: ["quantities", "equations"],
+    understandsEquality: false,
+    operations: ["addition", "subtraction"],
+    operandMax: 1_000,
+    resultMax: 1_000,
+    allowRegrouping: true,
+    allowNegativeResults: true,
+  },
+  writingMode: "sentence-frame",
+  interests: ["space", "Unreviewed Distinctive Topic"],
+});
 
-function equationProfile(
-  presentationBand: PresentationBand = "early-primary",
-): CapabilityProfileV1 {
-  return {
-    id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
-    displayName: "Distinctive Nickname",
-    presentationBand,
-    reviewedOn: "2026-08-22",
-    mathSkills: {
-      countingMax: 1_000,
-      numeralMax: 1_000,
-      compareMax: 1_000,
-      representations: ["quantities", "equations"],
-      understandsEquality: false,
-      operations: ["addition", "subtraction"],
-      operandMax: 1_000,
-      resultMax: 1_000,
-      allowRegrouping: true,
-      allowNegativeResults: true,
-    },
-    writingMode: "sentence-frame",
-    interests: ["space", "Unreviewed Distinctive Topic"],
-  };
+const baseSelection: WorksheetSelectionV2 = worksheetSelectionOf(
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+);
+
+function selectionFor(
+  worksheetType: WorksheetType,
+  overrides: Partial<WorksheetSelectionV2> = {},
+): WorksheetSelectionV2 {
+  return { ...baseSelection, ...overrides, worksheetType };
 }
 
-function input(profile: CapabilityProfileV1) {
+function input(selection: WorksheetSelectionV2, profile: ProjectionChild = child) {
   return {
     profile,
-    preferences,
-    worksheetType: "dry-math" as const,
+    selection,
     generatorVersion: 1,
     seed: "00000001",
   };
 }
 
+function requestFor(
+  selection: WorksheetSelectionV2,
+  profile: ProjectionChild = child,
+  seed = "00000001",
+): GenerationRequestV1 {
+  const projection = projectGenerationRequest({ ...input(selection, profile), seed });
+  if (!projection.ok) {
+    throw new Error(projection.message);
+  }
+  return projection.request;
+}
+
+/** The real registered generator's items, or its refusal message. */
+function itemsFor(request: GenerationRequestV1): unknown {
+  const result = getWorksheetRegistration(request.worksheetType).generate(request, {
+    worksheetId: "11111111-1111-4111-8111-111111111111",
+  });
+  return result.ok ? result.document.items : { refused: result.message };
+}
+
 describe("projectGenerationRequest", () => {
   test.each(WORKSHEET_TYPE_IDS)(
-    "projects %s from a capability profile with no age, identity or review field in the request",
+    "projects %s from a worksheet selection with no age, identity or review field in the request",
     (worksheetType) => {
-      const result = projectGenerationRequest({
-        ...input(equationProfile()),
-        worksheetType,
-      });
+      const result = projectGenerationRequest(input(selectionFor(worksheetType)));
       expect(result.ok).toBe(true);
       if (!result.ok) {
         return;
       }
       const serialized = JSON.stringify(result.request);
-      expect(serialized).not.toMatch(/ageYears|reviewedOn|legacyChoices/u);
-      expect(serialized).not.toContain(equationProfile().id);
-      expect(serialized).not.toContain(equationProfile().reviewedOn);
-      expect(result.request.capabilities.writingMode).toBe("sentence-frame");
+      expect(serialized).not.toMatch(/ageYears|reviewedOn|legacyChoices|difficulty/u);
+      expect(serialized).not.toContain(child.id);
+      expect(serialized).not.toContain(child.reviewedOn);
+      expect(result.request.worksheetType).toBe(worksheetType);
     },
   );
 
   test("a malformed seed is refused before any generator runs, with no age gate ahead of it", () => {
     const generator = vi.fn<WorksheetGeneratorV1>();
     const result = projectAndGenerateWorksheet(
-      { ...input(equationProfile()), seed: "not-a-seed" },
+      { ...input(selectionFor("dry-math")), seed: "not-a-seed" },
       generator,
       { worksheetId: "11111111-1111-4111-8111-111111111111" },
     );
@@ -108,14 +145,20 @@ describe("projectGenerationRequest", () => {
     expect(generator).not.toHaveBeenCalled();
   });
 
-  test("projects an exact age-free allowlist and clamps future capabilities", () => {
-    const result = projectGenerationRequest(input(equationProfile()));
-    expect(result.ok).toBe(true);
-    if (!result.ok) {
-      return;
-    }
+  test("an invalid generator version is refused before any generator runs", () => {
+    const generator = vi.fn<WorksheetGeneratorV1>();
+    const result = projectAndGenerateWorksheet(
+      { ...input(selectionFor("dry-math")), generatorVersion: 0 },
+      generator,
+      { worksheetId: "11111111-1111-4111-8111-111111111111" },
+    );
+    expect(result).toMatchObject({ ok: false, code: "GENERATION_CONSTRAINT_CONFLICT" });
+    expect(generator).not.toHaveBeenCalled();
+  });
 
-    expect(Object.keys(result.request).sort()).toEqual([
+  test("projects an exact age-free allowlist with both permission flags false", () => {
+    const request = requestFor(selectionFor("dry-math"));
+    expect(Object.keys(request).sort()).toEqual([
       "capabilities",
       "displayName",
       "generatorVersion",
@@ -124,118 +167,525 @@ describe("projectGenerationRequest", () => {
       "seed",
       "worksheetType",
     ]);
-    expect(result.request).not.toHaveProperty("ageYears");
-    expect(result.request).not.toHaveProperty("id");
-    expect(result.request).not.toHaveProperty("reviewedOn");
-    expect(result.request).not.toHaveProperty("interests");
-    expect(result.request).not.toHaveProperty("topicIds");
-    expect(result.request.options.includeDecorativeGraphics).toBe(false);
-    expect(result.request.capabilities.mathSkills).toMatchObject({
-      countingMax: 20,
-      numeralMax: 20,
-      compareMax: 20,
-      operandMax: 100,
-      resultMax: 100,
-      allowRegrouping: false,
-      allowNegativeResults: false,
-    });
-    expect(JSON.stringify(result.request)).not.toContain(
-      "Unreviewed Distinctive Topic",
-    );
+    expect(Object.keys(request.options).sort()).toEqual([
+      "includeAnswerKey",
+      "includeDecorativeGraphics",
+      "length",
+      "paperSize",
+      "printScale",
+    ]);
+    expect(request).not.toHaveProperty("topicIds");
+    expect(request.options.includeDecorativeGraphics).toBe(false);
+    expect(request.capabilities.mathSkills.allowRegrouping).toBe(false);
+    expect(request.capabilities.mathSkills.allowNegativeResults).toBe(false);
+    expect(JSON.stringify(request)).not.toContain("Unreviewed Distinctive Topic");
   });
 
   test("omits a disabled nickname instead of copying an empty value", () => {
-    const result = projectGenerationRequest({
-      ...input(equationProfile()),
-      preferences: { ...preferences, useDisplayName: false },
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.request).not.toHaveProperty("displayName");
-      expect(JSON.stringify(result.request)).not.toContain("Distinctive Nickname");
-    }
+    const request = requestFor(selectionFor("dry-math", { useDisplayName: false }));
+    expect(request).not.toHaveProperty("displayName");
+    expect(JSON.stringify(request)).not.toContain("Distinctive Nickname");
   });
 
-  test("difficulty changes only activity-relevant maxima after the V1 clamp", () => {
-    const confidence = projectGenerationRequest({
-      ...input(equationProfile()),
-      preferences: { ...preferences, difficulty: "confidence" },
+  test("a child-free probe projects no nickname and no topics", () => {
+    const selection = selectionFor("count-compare-make", {
+      useDisplayName: true,
+      useInterests: true,
     });
-    expect(confidence.ok).toBe(true);
-    if (confidence.ok) {
-      expect(confidence.request.capabilities.mathSkills).toMatchObject({
-        countingMax: 20,
-        numeralMax: 20,
-        compareMax: 20,
-        operandMax: 75,
-        resultMax: 75,
-      });
+    const probe = projectGenerationRequest({ selection, generatorVersion: 1, seed: "00000001" });
+    expect(probe.ok).toBe(true);
+    if (!probe.ok) {
+      return;
     }
-
-    const base = equationProfile();
-    base.mathSkills.operandMax = 8;
-    base.mathSkills.resultMax = 12;
-    const unconfirmed = projectGenerationRequest({
-      ...input(base),
-      preferences: { ...preferences, difficulty: "stretch" },
+    expect(probe.request).not.toHaveProperty("displayName");
+    expect(probe.request).not.toHaveProperty("topicIds");
+    // Mirror: the same selection with the child carries both.
+    expect(requestFor(selection)).toMatchObject({
+      displayName: "Distinctive Nickname",
+      topicIds: ["space"],
     });
-    expect(unconfirmed).toMatchObject({
-      ok: false,
-      code: "GENERATION_CONSTRAINT_CONFLICT",
-    });
-    const confirmed = projectGenerationRequest({
-      ...input(base),
-      preferences: { ...preferences, difficulty: "stretch" },
-      stretchConfirmed: true,
-    });
-    expect(confirmed.ok).toBe(true);
-    if (confirmed.ok) {
-      expect(confirmed.request.capabilities.mathSkills).toMatchObject({
-        operandMax: 10,
-        resultMax: 15,
-      });
-      expect(confirmed.request.options.difficulty).toBe("stretch");
-    }
   });
 
-  test("normalizes ineffective maximum stretch to practice", () => {
-    const result = projectGenerationRequest({
-      ...input(equationProfile()),
-      preferences: { ...preferences, difficulty: "stretch" },
-    });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.request.options.difficulty).toBe("practice");
-      expect(result.request.capabilities.mathSkills.operandMax).toBe(100);
-    }
-  });
-
-  test("canonicalizes Sentence Builder controls that are hidden by writing mode", () => {
-    const source = equationProfile();
-    source.writingMode = "copy-with-model";
-    const result = projectGenerationRequest({
-      profile: source,
-      preferences: {
-        ...preferences,
-        difficulty: "confidence",
+  test("canonicalizes Sentence Builder controls that are hidden by writing activity", () => {
+    const request = requestFor(
+      selectionFor("sentence-builder", {
+        sentenceBuilder: { variant: "copy-with-model", vocabulary: "all-words" },
         length: "long",
         includeAnswerKey: true,
-      },
-      worksheetType: "sentence-builder",
-      generatorVersion: 1,
-      seed: "00000001",
+      }),
+    );
+    expect(request.options).toMatchObject({
+      length: "standard",
+      includeAnswerKey: false,
+      includeDecorativeGraphics: true,
     });
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.request.options).toMatchObject({
-        difficulty: "practice",
-        length: "standard",
-        includeAnswerKey: false,
-        includeDecorativeGraphics: true,
-      });
-      expect(result.request.topicIds).toEqual(["space"]);
+    expect(request.topicIds).toEqual(["space"]);
+  });
+
+  test.each(WORKSHEET_TYPE_IDS)(
+    '"difficulty" is absent from the %s request options',
+    (worksheetType) => {
+      const request = requestFor(selectionFor(worksheetType));
+      expect("difficulty" in request.options).toBe(false);
+    },
+  );
+});
+
+describe("the practice focus reaches the request exactly", () => {
+  test.each(PRACTICE_FOCUS_CATALOG["dry-math"].map((option) => [option.label, option.focus] as const))(
+    "Dry Math %s projects its exact operations, operand and result maxima",
+    (_label, focus) => {
+      const skills = requestFor(selectionFor("dry-math", { dryMath: focus })).capabilities
+        .mathSkills;
+      expect({
+        operations: skills.operations,
+        operandMax: skills.operandMax,
+        resultMax: skills.resultMax,
+      }).toEqual(focus);
+    },
+  );
+
+  test.each(
+    PRACTICE_FOCUS_CATALOG["find-the-wow-equation"].map(
+      (option) => [option.label, option.focus] as const,
+    ),
+  )("Two Whats and a Wow Equations %s projects its exact focus", (_label, focus) => {
+    const skills = requestFor(
+      selectionFor("find-the-wow", {
+        findTheWow: { ...baseSelection.findTheWow, variant: "equation", equation: focus },
+      }),
+    ).capabilities.mathSkills;
+    expect({
+      operations: skills.operations,
+      operandMax: skills.operandMax,
+      resultMax: skills.resultMax,
+    }).toEqual(focus);
+  });
+
+  test.each(
+    PRACTICE_FOCUS_CATALOG["find-the-wow-quantity"].map(
+      (option) => [option.label, option.focus] as const,
+    ),
+  )("Two Whats and a Wow Quantity pictures %s projects its exact counting and numerals", (_label, focus) => {
+    const skills = requestFor(
+      selectionFor("find-the-wow", {
+        findTheWow: { ...baseSelection.findTheWow, variant: "quantity", quantity: focus },
+      }),
+    ).capabilities.mathSkills;
+    expect({ countingMax: skills.countingMax, numeralMax: skills.numeralMax }).toEqual(focus);
+  });
+
+  test.each(
+    PRACTICE_FOCUS_CATALOG["count-compare-make"].map(
+      (option) => [option.label, option.focus] as const,
+    ),
+  )("Count, Compare & Make %s projects its exact counting, numeral and compare maxima", (_label, focus) => {
+    const skills = requestFor(
+      selectionFor("count-compare-make", { countCompareMake: focus }),
+    ).capabilities.mathSkills;
+    expect({
+      countingMax: skills.countingMax,
+      numeralMax: skills.numeralMax,
+      compareMax: skills.compareMax,
+    }).toEqual(focus);
+  });
+
+  test("within 100 projects 100 and 100, with no value scaled", () => {
+    const within100 = PRACTICE_FOCUS_CATALOG["dry-math"].find(
+      (option) => option.focus.operandMax === DRY_MATH_NUMERIC_MAXIMUM,
+    );
+    expect(within100?.label).toBe(`Addition and subtraction within ${DRY_MATH_NUMERIC_MAXIMUM}`);
+    const skills = requestFor(selectionFor("dry-math", { dryMath: within100!.focus }))
+      .capabilities.mathSkills;
+    expect([skills.operandMax, skills.resultMax]).toEqual([
+      DRY_MATH_NUMERIC_MAXIMUM,
+      DRY_MATH_NUMERIC_MAXIMUM,
+    ]);
+  });
+
+  test("each family's capabilities follow the exact projected-capability table", () => {
+    const equation: ArithmeticFocusV2 = { operations: ["subtraction"], operandMax: 7, resultMax: 5 };
+    const selection: WorksheetSelectionV2 = {
+      ...baseSelection,
+      dryMath: { operations: ["addition"], operandMax: 30, resultMax: 40 },
+      findTheWow: { variant: "equation", quantity: { countingMax: 3, numeralMax: 4 }, equation },
+      countCompareMake: { countingMax: 6, numeralMax: 8, compareMax: 9 },
+      sentenceBuilder: { variant: "independent", vocabulary: "all-words" },
+    };
+    const inactive = { ...INACTIVE_MATH_FIELDS };
+    expect(projectWorksheetCapabilities(selection, "dry-math")).toEqual({
+      ...INACTIVE_WRITING_CAPABILITIES,
+      mathSkills: {
+        ...inactive,
+        representations: ["equations"],
+        understandsEquality: false,
+        operations: ["addition"],
+        operandMax: 30,
+        resultMax: 40,
+      },
+    });
+    expect(projectWorksheetCapabilities(selection, "find-the-wow")).toEqual({
+      ...INACTIVE_WRITING_CAPABILITIES,
+      mathSkills: {
+        ...inactive,
+        representations: ["equations"],
+        understandsEquality: true,
+        ...equation,
+      },
+    });
+    expect(
+      projectWorksheetCapabilities(
+        { ...selection, findTheWow: { ...selection.findTheWow, variant: "quantity" } },
+        "find-the-wow",
+      ),
+    ).toEqual({
+      ...INACTIVE_WRITING_CAPABILITIES,
+      mathSkills: {
+        ...inactive,
+        representations: ["quantities"],
+        understandsEquality: false,
+        countingMax: 3,
+        numeralMax: 4,
+      },
+    });
+    expect(projectWorksheetCapabilities(selection, "count-compare-make")).toEqual({
+      ...INACTIVE_WRITING_CAPABILITIES,
+      mathSkills: {
+        ...inactive,
+        representations: ["quantities"],
+        countingMax: 6,
+        numeralMax: 8,
+        compareMax: 9,
+      },
+    });
+    expect(projectWorksheetCapabilities(selection, "sentence-builder")).toEqual({
+      presentationBand: "early-primary",
+      writingMode: "independent",
+      mathSkills: inactive,
+    });
+  });
+
+  test("the inactive pins are the quantities-to-10 shape and the default Sentence choices", () => {
+    const source = MATH_PRESETS["quantities-to-10"].mathSkills;
+    expect(INACTIVE_MATH_FIELDS).toEqual({ ...source });
+    expect(INACTIVE_WRITING_CAPABILITIES).toEqual({
+      presentationBand:
+        VOCABULARY_PRESENTATION_BANDS[DEFAULT_WORKSHEET_DEFAULTS_V2.sentenceBuilder.vocabulary],
+      writingMode: DEFAULT_WORKSHEET_DEFAULTS_V2.sentenceBuilder.variant,
+    });
+    expect(INACTIVE_WRITING_CAPABILITIES).toEqual({
+      presentationBand: "preschool",
+      writingMode: "label",
+    });
+  });
+});
+
+describe("the Statements variant and the Sentence choices", () => {
+  test("for the same child, Quantity pictures yields only quantity items and Equations only equation items", () => {
+    for (const variant of FIND_THE_WOW_VARIANTS) {
+      const request = requestFor(
+        selectionFor("find-the-wow", {
+          findTheWow: { ...baseSelection.findTheWow, variant },
+        }),
+      );
+      const items = itemsFor(request) as readonly { readonly mode: string }[];
+      expect(Array.isArray(items), variant).toBe(true);
+      expect(items.length, variant).toBeGreaterThan(0);
+      expect(new Set(items.map((item) => item.mode)), variant).toEqual(new Set([variant]));
     }
   });
+
+  test("the five Sentence variants differ only in writingMode and canonical length", () => {
+    const requests = WRITING_MODES.map((variant) =>
+      requestFor(
+        selectionFor("sentence-builder", {
+          sentenceBuilder: { variant, vocabulary: "simpler-words" },
+          length: "long",
+        }),
+      ),
+    );
+    const normalized = requests.map((request) => ({
+      ...request,
+      capabilities: { ...request.capabilities, writingMode: "label" },
+      options: { ...request.options, length: "long" },
+    }));
+    for (const request of normalized) {
+      expect(request).toEqual(normalized[0]);
+    }
+    expect(requests.map((request) => request.capabilities.writingMode)).toEqual([
+      ...WRITING_MODES,
+    ]);
+    expect(requests.map((request) => request.options.length)).toEqual([
+      "standard",
+      "long",
+      "standard",
+      "long",
+      "long",
+    ]);
+  });
+
+  test("simpler-words maps to the preschool band and all-words to early-primary", () => {
+    const bands = SENTENCE_VOCABULARY_OPTIONS.map(
+      (vocabulary) =>
+        requestFor(
+          selectionFor("sentence-builder", {
+            sentenceBuilder: { variant: "label", vocabulary },
+          }),
+        ).capabilities.presentationBand,
+    );
+    expect(bands).toEqual(["preschool", "early-primary"]);
+  });
+});
+
+/** Any schema-valid arithmetic focus up to a ceiling. */
+function arithmeticFocusArbitrary(ceiling: number): fc.Arbitrary<ArithmeticFocusV2> {
+  return fc.record({
+    operations: fc.constantFrom<ArithmeticFocusV2["operations"]>(
+      ["addition"],
+      ["subtraction"],
+      [...MATH_OPERATIONS],
+    ),
+    operandMax: fc.integer({ min: 1, max: ceiling }),
+    resultMax: fc.integer({ min: 1, max: ceiling }),
+  });
+}
+
+const quantityMaximum = fc.integer({ min: 1, max: V1_NUMERIC_MAXIMUM });
+
+/** Any schema-valid worksheet selection. */
+const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
+  worksheetType: fc.constantFrom(...WORKSHEET_TYPE_IDS),
+  dryMath: arithmeticFocusArbitrary(DRY_MATH_NUMERIC_MAXIMUM),
+  findTheWow: fc.record({
+    variant: fc.constantFrom(...FIND_THE_WOW_VARIANTS),
+    quantity: fc.record({ countingMax: quantityMaximum, numeralMax: quantityMaximum }),
+    equation: arithmeticFocusArbitrary(V1_NUMERIC_MAXIMUM),
+  }),
+  sentenceBuilder: fc.record({
+    variant: fc.constantFrom(...WRITING_MODES),
+    vocabulary: fc.constantFrom(...SENTENCE_VOCABULARY_OPTIONS),
+  }),
+  countCompareMake: fc.record({
+    countingMax: quantityMaximum,
+    numeralMax: quantityMaximum,
+    compareMax: quantityMaximum,
+  }),
+  theme: fc.constantFrom(...THEME_CHOICES),
+  useDisplayName: fc.boolean(),
+  useInterests: fc.boolean(),
+  includeDecorativeGraphics: fc.boolean(),
+  includeAnswerKey: fc.boolean(),
+  length: fc.constantFrom(...WORKSHEET_LENGTHS),
+  paperSize: fc.constantFrom(...PAPER_SIZES),
+  printScale: fc.constantFrom(...PRINT_SCALES),
+});
+
+/**
+ * `target` with every field family `worksheetType` reads copied from
+ * `source`: its own focus (and variant), the layout and the personalization
+ * its request carries. Every other field keeps `target`'s value.
+ */
+function withOwnFields(
+  worksheetType: Exclude<WorksheetType, "sentence-builder">,
+  source: WorksheetSelectionV2,
+  target: WorksheetSelectionV2,
+): WorksheetSelectionV2 {
+  const shared = {
+    worksheetType,
+    useDisplayName: source.useDisplayName,
+    includeAnswerKey: source.includeAnswerKey,
+    length: source.length,
+    paperSize: source.paperSize,
+    printScale: source.printScale,
+  };
+  switch (worksheetType) {
+    case "dry-math":
+      return { ...target, ...shared, dryMath: source.dryMath };
+    case "find-the-wow":
+      return {
+        ...target,
+        ...shared,
+        findTheWow: {
+          ...target.findTheWow,
+          variant: source.findTheWow.variant,
+          ...(source.findTheWow.variant === "equation"
+            ? { equation: source.findTheWow.equation }
+            : { quantity: source.findTheWow.quantity }),
+        },
+      };
+    case "count-compare-make":
+      return {
+        ...target,
+        ...shared,
+        countCompareMake: source.countCompareMake,
+        useInterests: source.useInterests,
+        includeDecorativeGraphics: source.includeDecorativeGraphics,
+      };
+  }
+}
+
+const NON_SENTENCE_FAMILIES = ["dry-math", "find-the-wow", "count-compare-make"] as const;
+
+describe("another family's choices never change a request (U7)", () => {
+  test("varying inactive fields, other families' focus, inapplicable controls and the Sentence choices leaves every non-Sentence request and its items unchanged", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...NON_SENTENCE_FAMILIES),
+        selectionArbitrary,
+        selectionArbitrary,
+        fc.constantFrom(...WRITING_MODES),
+        fc.constantFrom(...SENTENCE_VOCABULARY_OPTIONS),
+        (family, source, noise, sentenceVariant, vocabulary) => {
+          const chosen = withOwnFields(family, source, source);
+          const varied = withOwnFields(family, source, {
+            ...noise,
+            sentenceBuilder: { variant: sentenceVariant, vocabulary },
+          });
+          const left = requestFor(chosen);
+          const right = requestFor(varied);
+          expect(right).toEqual(left);
+          expect(left.capabilities.presentationBand).toBe(
+            INACTIVE_WRITING_CAPABILITIES.presentationBand,
+          );
+          expect(left.capabilities.writingMode).toBe(INACTIVE_WRITING_CAPABILITIES.writingMode);
+          expect(itemsFor(right)).toEqual(itemsFor(left));
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  test.each(NON_SENTENCE_FAMILIES)(
+    "mirror: a different %s focus with the same seed changes the items",
+    (family) => {
+      const narrow = withOwnFields(family, {
+        ...baseSelection,
+        dryMath: PRACTICE_FOCUS_CATALOG["dry-math"][1]!.focus,
+        findTheWow: {
+          ...baseSelection.findTheWow,
+          variant: "equation",
+          equation: PRACTICE_FOCUS_CATALOG["find-the-wow-equation"][1]!.focus,
+        },
+        countCompareMake: PRACTICE_FOCUS_CATALOG["count-compare-make"][0]!.focus,
+      }, baseSelection);
+      const wide = withOwnFields(family, {
+        ...baseSelection,
+        dryMath: PRACTICE_FOCUS_CATALOG["dry-math"][2]!.focus,
+        findTheWow: {
+          ...baseSelection.findTheWow,
+          variant: "equation",
+          equation: PRACTICE_FOCUS_CATALOG["find-the-wow-equation"][2]!.focus,
+        },
+        countCompareMake: PRACTICE_FOCUS_CATALOG["count-compare-make"][1]!.focus,
+      }, baseSelection);
+      expect(requestFor(wide)).not.toEqual(requestFor(narrow));
+      expect(itemsFor(requestFor(wide))).not.toEqual(itemsFor(requestFor(narrow)));
+    },
+  );
+});
+
+describe("the child only personalizes", () => {
+  const otherChild: ChildProfileV2 = profileWithLegacyChoices({
+    id: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+    displayName: "Distinctive Nickname",
+    presentationBand: "preschool",
+    reviewedOn: "2026-09-01",
+    mathSkills: {
+      countingMax: 3,
+      numeralMax: 3,
+      compareMax: 3,
+      representations: ["quantities"],
+      understandsEquality: false,
+      operations: [],
+      operandMax: 0,
+      resultMax: 0,
+      allowRegrouping: false,
+      allowNegativeResults: false,
+    },
+    writingMode: "draw-and-tell",
+    interests: ["space", "Unreviewed Distinctive Topic"],
+  });
+
+  test.each(WORKSHEET_TYPE_IDS)(
+    "two children with different earlier settings but the same nickname and interests project the same %s request",
+    (worksheetType) => {
+      expect(requestFor(selectionFor(worksheetType), otherChild)).toEqual(
+        requestFor(selectionFor(worksheetType), child),
+      );
+    },
+  );
+
+  test("a child without earlier settings projects the same request as one with them", () => {
+    const { legacyChoices: _unused, ...identityOnly } = child;
+    void _unused;
+    for (const worksheetType of WORKSHEET_TYPE_IDS) {
+      expect(requestFor(selectionFor(worksheetType), identityOnly), worksheetType).toEqual(
+        requestFor(selectionFor(worksheetType), child),
+      );
+    }
+  });
+
+  const CONCRETE_PRESETS = MATH_PRESET_IDS.filter(
+    (presetId): presetId is Exclude<typeof presetId, "custom"> => presetId !== "custom",
+  );
+
+  test.each(CONCRETE_PRESETS)(
+    "a migrated v1 child at preset %s projects its preset values through its earlier settings",
+    (presetId) => {
+      const preset = MATH_PRESETS[presetId];
+      const v1Profile: ChildProfileV1 = {
+        id: "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e",
+        displayName: "Fictional Lee",
+        ageYears: 7,
+        presentationBand: preset.presentationBand ?? "preschool",
+        reviewedOn: "2026-08-22",
+        mathSkills: {
+          ...preset.mathSkills,
+          representations: [...preset.mathSkills.representations],
+          operations: [...preset.mathSkills.operations],
+        },
+        writingMode: "label",
+        interests: ["space"],
+      };
+      const migrated = migrateConfigV1ToV2({
+        schemaVersion: 1,
+        profiles: [v1Profile],
+        defaults: {
+          useDisplayName: true,
+          useInterests: true,
+          includeDecorativeGraphics: true,
+          difficulty: "practice",
+          length: "standard",
+          includeAnswerKey: true,
+          paperSize: "letter",
+          printScale: "standard",
+        },
+      }).profiles[0]!;
+      const seeded = selectionFromEarlierSettings(migrated.legacyChoices!, baseSelection).selection;
+      const skills = v1Profile.mathSkills;
+      const hasEquations = skills.representations.includes("equations") && skills.operations.length > 0;
+      const dryMath = requestFor({ ...seeded, worksheetType: "dry-math" }, migrated).capabilities
+        .mathSkills;
+      expect([dryMath.operations, dryMath.operandMax, dryMath.resultMax]).toEqual(
+        hasEquations
+          ? [skills.operations, skills.operandMax, skills.resultMax]
+          : [baseSelection.dryMath.operations, baseSelection.dryMath.operandMax, baseSelection.dryMath.resultMax],
+      );
+      const countCompare = requestFor({ ...seeded, worksheetType: "count-compare-make" }, migrated)
+        .capabilities.mathSkills;
+      expect([countCompare.countingMax, countCompare.numeralMax, countCompare.compareMax]).toEqual([
+        Math.min(skills.countingMax, V1_NUMERIC_MAXIMUM),
+        Math.min(skills.numeralMax, V1_NUMERIC_MAXIMUM),
+        Math.min(skills.compareMax, V1_NUMERIC_MAXIMUM),
+      ]);
+      const sentence = requestFor({ ...seeded, worksheetType: "sentence-builder" }, migrated)
+        .capabilities;
+      expect([sentence.presentationBand, sentence.writingMode]).toEqual([
+        v1Profile.presentationBand,
+        v1Profile.writingMode,
+      ]);
+    },
+  );
 });
 
 /**
@@ -258,15 +708,8 @@ describe("reviewed-topic allowlist", () => {
     interest: string,
     worksheetType: WorksheetType = "count-compare-make",
   ): readonly TopicId[] {
-    const projection = projectGenerationRequest({
-      ...input(equationProfile()),
-      profile: { ...equationProfile(), interests: [interest] },
-      worksheetType,
-    });
-    if (!projection.ok) {
-      throw new Error(projection.message);
-    }
-    return projection.request.topicIds ?? [];
+    return requestFor(selectionFor(worksheetType), { ...child, interests: [interest] })
+      .topicIds ?? [];
   }
 
   test("the projector consults the leaf constant itself, not a copy of it", () => {
@@ -343,112 +786,4 @@ describe("reviewed-topic allowlist", () => {
       "count-compare-make": ["space"],
     });
   });
-});
-
-/**
- * Interim (D-interim): the capability view the unchanged projection reads is
- * flattened from a stored profile's `legacyChoices`. Its whole contract is that
- * nothing is lost or invented on the way, which is what lets Steps 15 and 16
- * reproduce the golden content grid unchanged.
- */
-describe("capabilityProfileOf", () => {
-  const stored: ChildProfileV2 = ChildProfileV2Schema.parse({
-    id: "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
-    displayName: "Fictional Kit",
-    reviewedOn: "2026-09-01",
-    interests: ["trains", "Space"],
-    legacyChoices: {
-      presentationBand: "preschool",
-      writingMode: "draw-and-tell",
-      mathSkills: {
-        countingMax: 1_000,
-        numeralMax: 30,
-        compareMax: 2,
-        representations: ["quantities", "equations"],
-        understandsEquality: true,
-        operations: ["subtraction"],
-        operandMax: 55,
-        resultMax: 1_000,
-        allowRegrouping: true,
-        allowNegativeResults: true,
-      },
-    },
-  });
-
-  test("flattens legacyChoices verbatim beside the identity fields", () => {
-    expect(capabilityProfileOf(stored)).toEqual({
-      id: stored.id,
-      displayName: stored.displayName,
-      presentationBand: "preschool",
-      reviewedOn: stored.reviewedOn,
-      mathSkills: stored.legacyChoices?.mathSkills,
-      writingMode: "draw-and-tell",
-      interests: stored.interests,
-    });
-    expect(CapabilityProfileV1Schema.safeParse(capabilityProfileOf(stored)).success).toBe(true);
-  });
-
-  test("returns undefined for a profile stored without legacyChoices", () => {
-    const { legacyChoices: _unused, ...identityOnly } = stored;
-    void _unused;
-    expect(capabilityProfileOf(identityOnly)).toBeUndefined();
-  });
-
-  test("round-trips through profileWithLegacyChoices and shares no array with its input", () => {
-    const capabilities = capabilityProfileOf(stored)!;
-    const restored = profileWithLegacyChoices(capabilities);
-    expect(restored).toEqual(stored);
-    expect(ChildProfileV2Schema.parse(restored)).toEqual(stored);
-    capabilities.mathSkills.operations.push("addition");
-    capabilities.interests.pop();
-    expect(stored.legacyChoices?.mathSkills.operations).toEqual(["subtraction"]);
-    expect(stored.interests).toEqual(["trains", "Space"]);
-  });
-
-  test("the capability schema refuses an age key", () => {
-    const withAge = { ...capabilityProfileOf(stored)!, ageYears: 6 };
-    expect(CapabilityProfileV1Schema.safeParse(withAge).success).toBe(false);
-    expect(Object.keys(CapabilityProfileV1Schema.shape)).not.toContain("ageYears");
-  });
-
-  const CONCRETE_PRESETS = MATH_PRESET_IDS.filter(
-    (presetId): presetId is Exclude<typeof presetId, "custom"> => presetId !== "custom",
-  );
-
-  test.each(CONCRETE_PRESETS)(
-    "a migrated v1 profile at preset %s projects exactly as the v1 original",
-    (presetId) => {
-      const preset = MATH_PRESETS[presetId];
-      const v1Profile: ChildProfileV1 = {
-        id: "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e",
-        displayName: "Fictional Lee",
-        ageYears: 7,
-        presentationBand: preset.presentationBand ?? "preschool",
-        reviewedOn: "2026-08-22",
-        mathSkills: {
-          ...preset.mathSkills,
-          representations: [...preset.mathSkills.representations],
-          operations: [...preset.mathSkills.operations],
-        },
-        writingMode: "label",
-        interests: ["space"],
-      };
-      const migrated = migrateConfigV1ToV2({
-        schemaVersion: 1,
-        profiles: [v1Profile],
-        defaults: { ...preferences },
-      }).profiles[0]!;
-      const { ageYears: _unused, ...withoutAge } = v1Profile;
-      void _unused;
-      for (const worksheetType of WORKSHEET_TYPE_IDS) {
-        expect(
-          projectGenerationRequest({
-            ...input(capabilityProfileOf(migrated)!),
-            worksheetType,
-          }),
-          worksheetType,
-        ).toEqual(projectGenerationRequest({ ...input(withoutAge), worksheetType }));
-      }
-    },
-  );
 });

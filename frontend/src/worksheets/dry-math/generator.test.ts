@@ -1,16 +1,22 @@
 import { describe, expect, test } from "vitest";
 import { expandMathPreset } from "../../shared/config/math-presets.js";
 
-import type { GenerationDefaultsV1 } from "../../shared/config/schema.js";
+import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../../shared/config/defaults.js";
+import {
+  profileWithLegacyChoices,
+  selectionFromEarlierSettings,
+  type CapabilityProfileV1,
+} from "../../shared/config/earlier-settings.js";
+import type { WorksheetSelectionV2 } from "../../shared/config/schema.js";
 import {
   objectiveAnswerEntries,
   recomputeDryMathAnswer,
   validateWorksheetInvariants,
 } from "../../shared/worksheet/invariants.js";
-import {
-  projectGenerationRequest,
-  type CapabilityProfileV1,
-} from "../../shared/worksheet/project-request.js";
+import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
 import {
   createSeededRandom,
   formatSeedHex,
@@ -26,13 +32,24 @@ import {
   enumerateDryMathCandidates,
   generateDryMath,
 } from "./generator.js";
-import { getDryMathItemCount } from "./definition.js";
+import { getDryMathCapabilitySupport, getDryMathItemCount } from "./definition.js";
 
-const defaults: GenerationDefaultsV1 = {
+/** The layout and personalization choices a selection carries beside its practice focus. */
+type Layout = Pick<
+  WorksheetSelectionV2,
+  | "useDisplayName"
+  | "useInterests"
+  | "includeDecorativeGraphics"
+  | "includeAnswerKey"
+  | "length"
+  | "paperSize"
+  | "printScale"
+>;
+
+const defaults: Layout = {
   useDisplayName: true,
   useInterests: true,
   includeDecorativeGraphics: true,
-  difficulty: "practice",
   length: "standard",
   includeAnswerKey: true,
   paperSize: "letter",
@@ -69,15 +86,29 @@ function profile(
   };
 }
 
+/**
+ * The Dry Math selection a child's earlier settings describe: those settings
+ * mapped over the built-in defaults with this layout, then projected.
+ */
 function request(
   sourceProfile = profile(),
-  preferences: GenerationDefaultsV1 = defaults,
+  layout: Layout = defaults,
   seed = "00000001",
 ): GenerationRequestV1 {
-  const projected = projectGenerationRequest({
-    profile: sourceProfile,
-    preferences,
+  const stored = profileWithLegacyChoices(sourceProfile);
+  if (stored.legacyChoices === undefined) {
+    throw new Error("The fixture profile unexpectedly carried no earlier settings.");
+  }
+  const selection: WorksheetSelectionV2 = {
+    ...selectionFromEarlierSettings(stored.legacyChoices, {
+      ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+      ...layout,
+    }).selection,
     worksheetType: "dry-math",
+  };
+  const projected = projectGenerationRequest({
+    profile: stored,
+    selection,
     generatorVersion: 1,
     seed,
   });
@@ -439,11 +470,25 @@ describe("Dry Math documents", () => {
   });
 
   test("rejects missing symbolic capability and detects a tampered duplicate", () => {
-    const quantitiesOnly = profile();
-    quantitiesOnly.mathSkills.representations = ["quantities"];
+    const supported = request(profile());
+    const quantitiesOnly: GenerationRequestV1 = {
+      ...supported,
+      capabilities: {
+        ...supported.capabilities,
+        mathSkills: {
+          ...supported.capabilities.mathSkills,
+          representations: ["quantities"],
+        },
+      },
+    };
     expect(
-      generateDryMath(request(quantitiesOnly), { worksheetId: "unsupported" }),
+      generateDryMath(quantitiesOnly, { worksheetId: "unsupported" }),
     ).toMatchObject({ ok: false, code: "GENERATION_CONSTRAINT_CONFLICT" });
+    expect(
+      generateDryMath(supported, {
+        worksheetId: "44444444-4444-4444-8444-444444444444",
+      }).ok,
+    ).toBe(true);
 
     const document = generated(request(profile()));
     const firstItem = document.items[0];
@@ -458,6 +503,47 @@ describe("Dry Math documents", () => {
       ok: false,
       code: "GENERATION_INVARIANT_FAILED",
     });
+  });
+
+  test("the leaf gate still refuses raw skills without equations or an operation", () => {
+    const skills = request(profile()).capabilities.mathSkills;
+    expect(getDryMathCapabilitySupport(skills)).toEqual({ available: true });
+    expect(
+      getDryMathCapabilitySupport({ ...skills, representations: ["quantities"] }),
+    ).toEqual({
+      available: false,
+      reason:
+        "Dry Math needs equations and an enabled operation. Choose a practice focus with addition or subtraction. Count, Compare & Make offers quantity practice.",
+    });
+    expect(getDryMathCapabilitySupport({ ...skills, operations: [] })).toEqual({
+      available: false,
+      reason:
+        "Dry Math needs at least one symbolic operation. Choose a practice focus with addition or subtraction. Count, Compare & Make offers quantity practice.",
+    });
+  });
+
+  test("a child whose earlier settings lack equations still gets the default Dry Math focus", () => {
+    const quantitiesOnly = profile(5, 5, ["addition"]);
+    quantitiesOnly.mathSkills.representations = ["quantities"];
+    const projected = request(quantitiesOnly);
+    const defaultFocus = DEFAULT_WORKSHEET_DEFAULTS_V2.dryMath;
+    expect(projected.capabilities.mathSkills).toMatchObject({
+      representations: ["equations"],
+      operations: [...defaultFocus.operations],
+      operandMax: defaultFocus.operandMax,
+      resultMax: defaultFocus.resultMax,
+    });
+    // Mirror: the same child with equations carries its own narrower focus.
+    const withEquations = request(profile(5, 5, ["addition"]));
+    expect(withEquations.capabilities.mathSkills).toMatchObject({
+      operations: ["addition"],
+      operandMax: 5,
+      resultMax: 5,
+    });
+    expect(generateDryMath(projected, {
+      worksheetId: "55555555-5555-4555-8555-555555555555",
+    }).ok).toBe(true);
+    expect("difficulty" in projected.options).toBe(false);
   });
 
   test("fails closed when lifecycle metadata is not a lowercase UUID v4", () => {

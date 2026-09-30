@@ -22,7 +22,6 @@ import {
   type ChildProfileV2,
   type StoredSchemaVersion,
 } from "../shared/config/schema";
-import { capabilityProfileOf } from "../shared/worksheet/project-request";
 import { getWorksheetRegistration } from "../shared/worksheet/registry";
 import {
   ConfigApiError,
@@ -1002,25 +1001,15 @@ export function App() {
         selection: currentSelection,
         session: generated.session,
       });
-      const capabilities = capabilityProfileOf(currentProfile);
       const readyCount = generated.session.document.items.length;
-      if (capabilities === undefined) {
-        setGenerationMessage("Worksheet ready.");
-      } else {
-        const unit = getWorksheetRegistration(
-          currentSelection.worksheetType,
-        ).controls.getEffectiveUnit({
-          profile: capabilities,
-          difficulty: currentSelection.preferences.difficulty,
-          length: currentSelection.preferences.length,
-          printScale: currentSelection.preferences.printScale,
-        });
-        setGenerationMessage(
-          `Worksheet ready with ${readyCount} unique ${
-            readyCount === 1 ? unit.singularLabel : unit.pluralLabel
-          }.`,
-        );
-      }
+      const unit = getWorksheetRegistration(
+        currentSelection.selection.worksheetType,
+      ).controls.getEffectiveUnit({ selection: currentSelection.selection });
+      setGenerationMessage(
+        `Worksheet ready with ${readyCount} unique ${
+          readyCount === 1 ? unit.singularLabel : unit.pluralLabel
+        }.`,
+      );
       setMakeAnotherExhausted(false);
     } finally {
       generationActionRef.current = false;

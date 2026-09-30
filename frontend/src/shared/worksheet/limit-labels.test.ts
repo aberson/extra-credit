@@ -1,10 +1,22 @@
 import { describe, expect, test } from "vitest";
 
 import {
-  DIFFICULTIES,
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../config/defaults.js";
+import {
+  CapabilityProfileV1Schema,
+  profileWithLegacyChoices,
+  selectionFromEarlierSettings,
+  type CapabilityProfileV1,
+} from "../config/earlier-settings.js";
+import { PRACTICE_FOCUS_CATALOG } from "../config/practice-focus.js";
+import {
   PRINT_SCALES,
+  SENTENCE_VOCABULARY_OPTIONS,
   WORKSHEET_LENGTHS,
-  type GenerationDefaultsV1,
+  WRITING_MODES,
+  type WorksheetSelectionV2,
 } from "../config/schema.js";
 import {
   COUNT_COMPARE_MAKE_LABELS,
@@ -41,24 +53,22 @@ import {
   bindingMaximumKeysByProbe,
   capacityRemedySentence,
   joinLabels,
-  shorterLengthLowersRequirement,
+  shorterLengthFills,
   type WorksheetMaximumValues,
   type WorksheetRelevantMaximumKey,
 } from "./limit-labels.js";
 import {
-  CapabilityProfileV1Schema,
   projectGenerationRequest,
-  type CapabilityProfileV1,
+  projectWorksheetCapabilities,
 } from "./project-request.js";
-import { V1_NUMERIC_MAXIMUM } from "./types.js";
+import { V1_NUMERIC_MAXIMUM, type WorksheetLength } from "./types.js";
 import {
   CAPACITY_PROBE_PREFERENCES,
   CAPACITY_PROBE_SEED,
-  DIFFICULTY_REMEDY,
   REGISTERED_WORKSHEET_IDS,
   getWorksheetRegistration,
   type RegisteredWorksheetType,
-  type WorksheetControlContextV1,
+  type WorksheetControlContextV2,
 } from "./registry.js";
 
 /*
@@ -118,35 +128,35 @@ describe("the remedy clause of a capacity shortage sentence", () => {
       {
         shorter: false,
         keys: ["compareMax"],
-        sentence: "Review the profile's comparisons limits.",
+        sentence: "Choose a practice focus with a wider comparisons range.",
       },
       {
         shorter: true,
         keys: ["compareMax"],
         sentence:
-          "Choose a shorter worksheet or review the profile's comparisons limits.",
+          "Choose a shorter length under More options, or a practice focus with a wider comparisons range.",
       },
       {
         shorter: false,
         keys: ["countingMax", "numeralMax"],
-        sentence: "Review the profile's counting and numerals limits.",
+        sentence: "Choose a practice focus with a wider counting and numerals range.",
       },
       {
         shorter: true,
         keys: ["countingMax", "numeralMax", "compareMax"],
         sentence:
-          "Choose a shorter worksheet or review the profile's counting, numerals, and comparisons limits.",
+          "Choose a shorter length under More options, or a practice focus with a wider counting, numerals, and comparisons range.",
       },
       {
         shorter: true,
         keys: ["operandMax"],
         sentence:
-          "Choose a shorter worksheet or review the profile's operands limits.",
+          "Choose a shorter length under More options, or a practice focus with a wider operands range.",
       },
       {
         shorter: false,
         keys: ["resultMax"],
-        sentence: "Review the profile's results limits.",
+        sentence: "Choose a practice focus with a wider results range.",
       },
     ];
     for (const { shorter, keys, sentence } of rows) {
@@ -156,43 +166,41 @@ describe("the remedy clause of a capacity shortage sentence", () => {
 
   test("an empty key list never prints a limit with no noun", () => {
     // Unreachable from any registration today, which is exactly why it needs a
-    // test: the string it used to build was "Review the profile's  limits."
+    // test: an empty list would otherwise print a range with no noun at all.
     expect(capacityRemedySentence(false, [])).toBe(
-      "No profile limit can widen this selection.",
+      "No practice focus can widen this selection.",
     );
-    expect(capacityRemedySentence(true, [])).toBe("Choose a shorter worksheet.");
+    expect(capacityRemedySentence(true, [])).toBe(
+      "Choose a shorter length under More options.",
+    );
   });
 });
 
 describe("whether a shorter worksheet is a real remedy", () => {
-  test("offers a shorter length only when one really asks for less", () => {
-    const budgets: Record<GenerationDefaultsV1["length"], number> = {
+  test("offers a shorter length only when one really fits the capacity", () => {
+    const budgets: Record<WorksheetLength, number> = {
       short: 8,
       standard: 12,
       long: 18,
     };
-    const flat: Record<GenerationDefaultsV1["length"], number> = {
+    const flat: Record<WorksheetLength, number> = {
       short: 2,
       standard: 2,
       long: 3,
     };
-    expect(
-      shorterLengthLowersRequirement("short", 8, (length) => budgets[length]),
-    ).toBe(false);
-    expect(
-      shorterLengthLowersRequirement("standard", 12, (length) => budgets[length]),
-    ).toBe(true);
-    expect(
-      shorterLengthLowersRequirement("long", 18, (length) => budgets[length]),
-    ).toBe(true);
+    // The shortest page has no shorter page to offer, whatever the capacity.
+    expect(shorterLengthFills("short", 7, (length) => budgets[length])).toBe(false);
+    // Short needs 8: a capacity of 8 fits it, 7 does not.
+    expect(shorterLengthFills("standard", 8, (length) => budgets[length])).toBe(true);
+    expect(shorterLengthFills("standard", 7, (length) => budgets[length])).toBe(false);
+    expect(shorterLengthFills("long", 12, (length) => budgets[length])).toBe(true);
+    expect(shorterLengthFills("long", 8, (length) => budgets[length])).toBe(true);
+    // Three facts fill no Dry Math length, so no shorter one is a remedy.
+    expect(shorterLengthFills("long", 3, (length) => budgets[length])).toBe(false);
     // Count, Compare & Make asks for the same two comparisons at short and at
-    // standard, so at standard the shorter option cannot change the answer.
-    expect(
-      shorterLengthLowersRequirement("standard", 2, (length) => flat[length]),
-    ).toBe(false);
-    expect(shorterLengthLowersRequirement("long", 3, (length) => flat[length])).toBe(
-      true,
-    );
+    // standard, so at standard a shortage of comparisons has no shorter fix.
+    expect(shorterLengthFills("standard", 1, (length) => flat[length])).toBe(false);
+    expect(shorterLengthFills("long", 2, (length) => flat[length])).toBe(true);
   });
 });
 
@@ -292,6 +300,24 @@ const PROBING_WORKSHEET_TYPES: readonly RegisteredWorksheetType[] = [
   "count-compare-make",
 ];
 
+/**
+ * Why each probing family's capability gate cannot refuse a projected
+ * selection. The projection implies the representation from the family (and,
+ * for Two Whats and a Wow, from the Statements variant), and the schema's
+ * minimums of one operation and a maximum of at least 1 hold for every
+ * schema-valid `WorksheetSelectionV2`, so no selection can fail these gates.
+ */
+const IMPLIED_REPRESENTATION_NOTE: Readonly<Record<RegisteredWorksheetType, string>> = {
+  "dry-math":
+    "dead over the whole selection domain: the projection gives Dry Math the equations representation, and the schema requires at least one operation and operand and result maxima of at least 1",
+  "find-the-wow":
+    "dead over the whole selection domain: Quantity pictures projects the quantities representation, and Equations projects equations with equality understanding and the focus's at least one operation",
+  "count-compare-make":
+    "dead over the whole selection domain: the projection gives Count, Compare & Make the quantities representation",
+  "sentence-builder":
+    "dead from the registry: the registration always passes the shipped vocabulary, which options.test.tsx proves can starve no (variant, vocabulary, length, scale) cell",
+};
+
 const registrationArms: readonly DeclaredArm[] = REGISTERED_WORKSHEET_IDS.flatMap(
   (worksheetType): DeclaredArm[] => [
     {
@@ -301,11 +327,8 @@ const registrationArms: readonly DeclaredArm[] = REGISTERED_WORKSHEET_IDS.flatMa
     },
     {
       id: `REG-${worksheetType}-UNAVAIL`,
-      status: worksheetType === "sentence-builder" ? "dead" : "reachable",
-      note:
-        worksheetType === "sentence-builder"
-          ? "dead from the registry: the registration always passes the shipped vocabulary, which options.test.tsx proves can starve no (mode, band, length, scale) cell"
-          : "the capability gate refused before any capacity question",
+      status: "dead",
+      note: IMPLIED_REPRESENTATION_NOTE[worksheetType],
     },
   ],
 );
@@ -373,7 +396,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "RM-shorter",
     status: "reachable",
-    note: "the remedy offered a shorter worksheet",
+    note: "the remedy offered a shorter length",
   },
   {
     id: "RM-noshorter",
@@ -383,7 +406,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "RM-empty",
     status: "dead",
-    note: "no schema-valid profile in the sweep leaves a shortage sentence naming no maximum; the sweep emits this id the moment one does, and `capacityRemedySentence`'s own empty-list branch is covered by the direct table above",
+    note: "no schema-valid selection in the sweep leaves a shortage sentence naming no maximum; the sweep emits this id the moment one does, and `capacityRemedySentence`'s own empty-list branch is covered by the direct table above",
   },
   {
     id: "SL-short-false",
@@ -409,15 +432,19 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   },
   {
     id: "NA-empty",
-    status: "reachable",
-    note: "a family that reads no stored maximum for this selection",
+    status: "dead",
+    note: "dead over the whole selection domain: only an unavailable Two Whats and a Wow declared no maximum, and REG-find-the-wow-UNAVAIL is dead for the implied-representation reason; Dry Math and Count, Compare & Make always declare their focus maxima",
   },
   {
     id: "NA-nonempty",
     status: "reachable",
     note: "advice derived from a non-empty declared maximum list",
   },
-  { id: "FRM-none", status: "reachable", note: "Two Whats and a Wow unavailable" },
+  {
+    id: "FRM-none",
+    status: "dead",
+    note: "same reason as NA-empty: the Statements variant always resolves a mode",
+  },
   { id: "FRM-equation", status: "reachable", note: "equation mode maxima" },
   { id: "FRM-quantity", status: "reachable", note: "quantity mode maxima" },
   {
@@ -426,38 +453,31 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     note: "the probe found no shortage",
   },
   {
-    id: "PC-conf-practice-fills",
+    id: "PC-insufficient",
     status: "reachable",
-    note: "confidence caused the shortage and practice would fill it",
-  },
-  {
-    id: "PC-conf-practice-short",
-    status: "reachable",
-    note: "confidence, but practice falls short too, so no difficulty remedy",
-  },
-  {
-    id: "PC-nonconf",
-    status: "reachable",
-    note: "not on confidence, so the practice re-probe is skipped",
+    note: "the probe found a shortage; the practice focus (a catalog value or an earlier setting) cannot fill this length",
   },
   { id: "PS-ok", status: "reachable", note: "the probe projection succeeded" },
   {
     id: "PS-projection-fail",
     status: "dead",
-    note: "dead since the age gate was removed (worksheet-first Step 15): the sweep projects only confirmed stretch, so the projection's remaining refusals (an invalid generator version, a malformed seed, an unconfirmed stretch) cannot occur here, and the age-9 probe that was this arm's only producer no longer exists. A projection refusal the sweep ever observes again names this arm through the dead-arm check",
+    note: "dead since the age gate was removed (worksheet-first Step 15) and stretch was deleted (Step 16): the probe projects a schema-valid selection with no child fields, a registered generator version and a fixed nonzero seed, so none of the projection's remaining refusals (an invalid generator version, a malformed seed) can occur. A projection refusal the sweep ever observes again names this arm through the dead-arm check",
   },
   {
-    id: "FCS-conf-quantity",
+    id: "FCS-equation",
     status: "reachable",
-    note: "confidence with confirmed quantities resolves quantity mode first",
+    note: "the equation gate: the Equations variant projects equations, equality understanding and an operation",
   },
-  { id: "FCS-equation", status: "reachable", note: "the equation gate" },
   {
     id: "FCS-quantity-fallback",
     status: "reachable",
-    note: "quantities without the equation gate",
+    note: "quantities without the equation gate: the Quantity pictures variant",
   },
-  { id: "FCS-unavailable", status: "reachable", note: "neither capability path" },
+  {
+    id: "FCS-unavailable",
+    status: "dead",
+    note: "dead over the whole selection domain: each Statements variant projects exactly one of the two capability paths (see REG-find-the-wow-UNAVAIL)",
+  },
   { id: "FSF-suff", status: "reachable", note: "enough stems for this length" },
   {
     id: "FSF-quantity-counting",
@@ -492,7 +512,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "FSF-equation-none",
     status: "dead",
-    note: "no schema-valid equation profile leaves the probe with nothing to name; the empty case is covered by the direct table above",
+    note: "no schema-valid equation focus leaves the probe with nothing to name; the empty case is covered by the direct table above",
   },
   {
     id: "DSF-none",
@@ -517,19 +537,19 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   },
   {
     id: "DCS-no-equations",
-    status: "reachable",
-    note: "Dry Math refused for want of the equations representation",
+    status: "dead",
+    note: "the representation gate: dead over the whole selection domain because the projection implies equations for Dry Math",
   },
   {
     id: "DCS-no-operation",
-    status: "reachable",
-    note: "equations confirmed but no operation or no positive operand/result limit",
+    status: "dead",
+    note: "dead over the whole selection domain: the schema's minimum of one operation and of 1 for both maxima",
   },
   { id: "DCS-available", status: "reachable", note: "Dry Math capability gate open" },
   {
     id: "CCS-no-quantities",
-    status: "reachable",
-    note: "Count, Compare & Make refused for want of the quantities representation",
+    status: "dead",
+    note: "the representation gate: dead over the whole selection domain because the projection implies quantities for Count, Compare & Make",
   },
   {
     id: "CCS-available",
@@ -554,7 +574,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "NL-v1clamp",
     status: "dead",
-    note: "the sole projection boundary clamps every maximum to `COUNT_COMPARE_MAKE_V1_MAXIMUM` before the family sees it, so the family's own clamp term can only tie, never win outright",
+    note: "the schema bounds every quantity focus by `COUNT_COMPARE_MAKE_V1_MAXIMUM` and `selectionFromEarlierSettings` clamps an earlier setting into that range, so the family's own clamp term can only tie, never win outright",
   },
   {
     id: "CL-counting",
@@ -574,7 +594,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "CL-v1clamp",
     status: "dead",
-    note: "same pre-clamp argument as NL-v1clamp",
+    note: "same bound-and-clamp argument as NL-v1clamp",
   },
   {
     id: "QL-counting",
@@ -594,25 +614,53 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "QL-v1clamp",
     status: "dead",
-    note: "same pre-clamp argument as NL-v1clamp, against `FIND_THE_WOW_V1_MAXIMUM`: `getQuantityWowLimit` carries the family's own clamp term, which the projection has already applied",
+    note: "same bound-and-clamp argument as NL-v1clamp, against `FIND_THE_WOW_V1_MAXIMUM`: `getQuantityWowLimit` carries the family's own clamp term, which the schema and the earlier-settings clamp have already applied",
   },
   {
     id: "SBU-no-bank",
     status: "reachable",
-    note: "a writing mode that prints no bank previews one writing prompt",
+    note: "a writing activity that prints no bank previews one writing prompt",
   },
   {
     id: "SBU-bank",
     status: "reachable",
-    note: "a bank-bearing mode previews its word-bank width",
+    note: "a bank-bearing activity previews its word-bank width",
+  },
+];
+
+/**
+ * Arms whose code path no longer exists. Each names the deleted path; none may
+ * be declared again or observed, and the sweep's own undeclared-arm check
+ * fails the moment one is emitted.
+ */
+const RETIRED_ARMS: readonly { readonly id: string; readonly deletedPath: string }[] = [
+  {
+    id: "PC-conf-practice-fills",
+    deletedPath:
+      "`probeCapacity`'s confidence re-probe at practice and its `DIFFICULTY_REMEDY` suffix in `registry.ts`, deleted with Difficulty (Step 16)",
+  },
+  {
+    id: "PC-conf-practice-short",
+    deletedPath:
+      "the same confidence re-probe's no-remedy branch in `registry.ts`, deleted with Difficulty (Step 16)",
+  },
+  {
+    id: "PC-nonconf",
+    deletedPath:
+      "the not-on-confidence branch that skipped that re-probe in `registry.ts`; its insufficient-capacity outcome is re-declared as `PC-insufficient`",
+  },
+  {
+    id: "FCS-conf-quantity",
+    deletedPath:
+      "the `difficulty === \"confidence\"` quantity-first branch of `getFindTheWowCapabilitySupport` in `find-the-wow/definition.ts`, deleted with Difficulty (Step 16)",
   },
 ];
 
 /**
  * Every parent-facing capacity sentence the sweep below renders, with the
  * digits normalised to `N`: the availability refusals, the projection
- * refusals, and the capacity shortfalls, over the probe profiles and the
- * (difficulty x length x print scale) cube the sweep walks.
+ * refusals, and the capacity shortfalls, over the sweep's selections and the
+ * (length x print scale) square it walks.
  *
  * The arm catalogue answers "did a declared branch stop being reachable"; this
  * answers the other direction. A fifth remedy clause, a reworded sentence, or a
@@ -622,42 +670,22 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
  * pasting the observed set back in without deciding the new prose is right.
  */
 const DECLARED_SENTENCE_SHAPES: readonly string[] = [
-  "Count, Compare & Make needs confirmed quantities. Choose another supported profile, or edit this profile to confirm that the child works with counted groups.",
-  "Dry Math needs at least one confirmed symbolic operation. Choose another supported profile with an enabled operation, or edit this profile to confirm one. Count, Compare & Make offers quantity practice for a profile that confirms quantities.",
-  "Dry Math needs equations and an enabled operation. Choose another supported profile with those confirmed capabilities, or edit this profile to confirm them. Count, Compare & Make offers quantity practice for a profile that confirms quantities.",
-  "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's operands limits.",
-  "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's operands limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's results limits.",
-  "The confirmed limits provide N unique equation groups, but this length needs N. Choose a shorter worksheet or review the profile's results limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique equation groups, but this length needs N. Review the profile's operands limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique equation groups, but this length needs N. Review the profile's results limits.",
-  "The confirmed limits provide N unique equation groups, but this length needs N. Review the profile's results limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique facts, but this length needs N. Choose a shorter worksheet or review the profile's operands and results limits.",
-  "The confirmed limits provide N unique facts, but this length needs N. Choose a shorter worksheet or review the profile's operands limits.",
-  "The confirmed limits provide N unique facts, but this length needs N. Choose a shorter worksheet or review the profile's results limits.",
-  "The confirmed limits provide N unique facts, but this length needs N. Review the profile's operands and results limits.",
-  "The confirmed limits provide N unique facts, but this length needs N. Review the profile's operands limits.",
-  "The confirmed limits provide N unique facts, but this length needs N. Review the profile's results limits.",
-  "The confirmed limits provide N unique group-comparison exercises, but this length needs N. Choose a shorter worksheet or review the profile's comparisons limits.",
-  "The confirmed limits provide N unique group-comparison exercises, but this length needs N. Review the profile's comparisons limits.",
-  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Choose a shorter worksheet or review the profile's counting and numerals limits.",
-  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Choose a shorter worksheet or review the profile's counting limits.",
-  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Choose a shorter worksheet or review the profile's counting limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Choose a shorter worksheet or review the profile's numerals limits.",
-  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Review the profile's counting and numerals limits.",
-  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Review the profile's counting limits.",
-  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Review the profile's counting limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique numeral-matching exercises, but this length needs N. Review the profile's numerals limits.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's counting and numerals limits.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's counting and numerals limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's counting limits.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's counting limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's numerals limits.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Choose a shorter worksheet or review the profile's numerals limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's counting and numerals limits.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's counting limits.",
-  "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's numerals limits.",
-  "Two Whats and a Wow needs confirmed quantities, or equations with equality understanding and an enabled operation. Choose another supported profile or edit this profile to confirm one of those capability paths.",
+  "This practice focus provides N unique equation groups, but this length needs N. Choose a practice focus with a wider results range.",
+  "This practice focus provides N unique equation groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider operands range.",
+  "This practice focus provides N unique equation groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider results range.",
+  "This practice focus provides N unique facts, but this length needs N. Choose a practice focus with a wider operands and results range.",
+  "This practice focus provides N unique facts, but this length needs N. Choose a practice focus with a wider operands range.",
+  "This practice focus provides N unique facts, but this length needs N. Choose a practice focus with a wider results range.",
+  "This practice focus provides N unique group-comparison exercises, but this length needs N. Choose a practice focus with a wider comparisons range.",
+  "This practice focus provides N unique numeral-matching exercises, but this length needs N. Choose a practice focus with a wider counting and numerals range.",
+  "This practice focus provides N unique numeral-matching exercises, but this length needs N. Choose a practice focus with a wider counting range.",
+  "This practice focus provides N unique numeral-matching exercises, but this length needs N. Choose a practice focus with a wider numerals range.",
+  "This practice focus provides N unique quantity groups, but this length needs N. Choose a practice focus with a wider counting and numerals range.",
+  "This practice focus provides N unique quantity groups, but this length needs N. Choose a practice focus with a wider counting range.",
+  "This practice focus provides N unique quantity groups, but this length needs N. Choose a practice focus with a wider numerals range.",
+  "This practice focus provides N unique quantity groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider counting and numerals range.",
+  "This practice focus provides N unique quantity groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider counting range.",
+  "This practice focus provides N unique quantity groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider numerals range.",
 ];
 
 const DECLARED_ARM_IDS = new Set(DECLARED_ARMS.map(({ id }) => id));
@@ -759,22 +787,22 @@ const bothCapabilitiesProfile: CapabilityProfileV1 = {
  * Every quantity AND equation maximum stored far above the Version 1 ceiling.
  *
  * The schema permits maxima up to 1000, and plan.md:701 is exactly the
- * stored-above-the-ceiling case. Without a profile like this one the three
+ * stored-above-the-ceiling case. Without a record like this one the three
  * `*-v1clamp` rows in the catalogue are dead for want of an input rather than
  * by the mechanism they name: every other probe stores at most the ceiling, so
- * the clamp term can only ever tie. Here the projection clamp is the only
- * thing standing between a stored 100 and a limit arithmetic that would name
- * `v1clamp` the strict winner, which is what the deadness rows claim.
+ * the clamp term can only ever tie. Here the earlier-settings clamp is the
+ * only thing standing between a stored 100 and a limit arithmetic that would
+ * name `v1clamp` the strict winner, which is what the deadness rows claim.
  *
- * It is exercised OFF the sweep cube, in its own loop at the end of the sweep.
- * `projectGenerationRequest` clamps all five maxima and `probeCapacity` always
- * projects before it measures, so this profile's EFFECTIVE skills are the ones
- * `bothCapabilitiesProfile` already produces: every cell it could add to the
- * cube would recompute that profile's enumerations. What it alone can reach is
- * the three limit minima with a stored maximum above the ceiling behind them,
- * which is what the loop feeds through the same `observedMinimumArm` - and,
- * because those arms are ties the cube reaches anyway, through a closed set of
- * its own so that deleting the loop is not silent.
+ * It is exercised OFF the sweep, in its own loop at the end of the sweep.
+ * `selectionFromEarlierSettings` clamps its quantity maxima into the schema's
+ * range, so its SELECTION is the one `bothCapabilitiesProfile` already maps
+ * to: every cell it could add would recompute that record's enumerations.
+ * What it alone can reach is the three limit minima with a stored maximum
+ * above the ceiling behind them, which is what the loop feeds through the same
+ * `observedMinimumArm` - and, because those arms are ties the sweep reaches
+ * anyway, through a closed set of its own so that deleting the loop is not
+ * silent.
  */
 const aboveCeilingProfile: CapabilityProfileV1 = CapabilityProfileV1Schema.parse({
   ...bothCapabilitiesProfile,
@@ -789,15 +817,20 @@ const aboveCeilingProfile: CapabilityProfileV1 = CapabilityProfileV1Schema.parse
   },
 });
 
+/**
+ * The probe records Step 15 kept, rebuilt without age as earlier settings.
+ * Their narrow values stay reachable as Earlier-setting values, which is what
+ * keeps the shorter-length and single-limit arms observed.
+ */
 const PROBE_PROFILES: readonly CapabilityProfileV1[] = [
-  // Quantities, tied at 10: the confidence downgrade takes both to 7 together.
+  // Quantities, tied at 10.
   quantityProfile("d2c05a44-73ad-4fa0-a4b3-9db5c5f6e321", {
     countingMax: 10,
     numeralMax: 10,
     compareMax: 10,
   }),
   // Counting strictly lowest, then numerals strictly lowest, with the other at
-  // the Version 1 ceiling where "review that limit" would be unactionable.
+  // the Version 1 ceiling where "a wider range" of that one would be unactionable.
   quantityProfile("1a2b3c4d-5e6f-4708-8912-a3b4c5d6e7f8", {
     countingMax: 6,
     numeralMax: 20,
@@ -833,7 +866,16 @@ const PROBE_PROFILES: readonly CapabilityProfileV1[] = [
     numeralMax: 20,
     compareMax: 20,
   }),
-  // A no-bank writing mode, so the Sentence Builder unit arm is entered too.
+  // Quantities to 5: five Wow stems fill Short (4) but not Standard (6), the
+  // one shape in which a shorter length is a real remedy at Standard. Added
+  // with Step 16, when the remedy started requiring that the shorter length
+  // fit the capacity.
+  quantityProfile("e5f60718-293a-4b5c-8d6e-7f8091a2b3c4", {
+    countingMax: 5,
+    numeralMax: 5,
+    compareMax: 5,
+  }),
+  // A no-bank writing activity, so the Sentence Builder unit arm is entered too.
   quantityProfile(
     "8192a3b4-c5d6-4e75-8089-b0c1d2e3f4a5",
     { countingMax: 20, numeralMax: 20, compareMax: 20 },
@@ -846,10 +888,104 @@ const PROBE_PROFILES: readonly CapabilityProfileV1[] = [
   equationProfile("a3b4c5d6-e7f8-4097-82ab-d2e3f4a5b6c7", 2, 5, ["subtraction"]),
   // Subtraction with the result below the operands: BOTH maxima bind.
   equationProfile("b4c5d6e7-f8a9-41a8-83bc-e3f4a5b6c7d8", 3, 1, ["subtraction"]),
-  // Equations confirmed with nothing usable behind them.
+  // Equations confirmed with nothing usable behind them: every group keeps its
+  // base value.
   equationProfile("c5d6e7f8-a9b0-42b9-84cd-f4a5b6c7d8e9", 0, 0, []),
   bothCapabilitiesProfile,
 ].map((profile) => CapabilityProfileV1Schema.parse(profile));
+
+/**
+ * D34: the starves-every-length Earlier-setting source. Addition with operand
+ * and result maxima of 1 holds three facts, below every Dry Math budget.
+ */
+const D34_PROFILE: CapabilityProfileV1 = CapabilityProfileV1Schema.parse({
+  ...quantityProfile("d3400000-0000-4000-8000-000000000034", {
+    countingMax: 10,
+    numeralMax: 10,
+    compareMax: 10,
+  }),
+  mathSkills: {
+    countingMax: 10,
+    numeralMax: 10,
+    compareMax: 10,
+    representations: ["quantities", "equations"],
+    understandsEquality: false,
+    operations: ["addition"],
+    operandMax: 1,
+    resultMax: 1,
+    allowRegrouping: false,
+    allowNegativeResults: false,
+  },
+});
+
+/**
+ * D36: the Long-only Earlier-setting source. Quantities to 7 hold seven Wow
+ * stems: Long at standard scale needs 8, Standard needs 6.
+ */
+const D36_PROFILE: CapabilityProfileV1 = quantityProfile(
+  "d3600000-0000-4000-8000-000000000036",
+  { countingMax: 7, numeralMax: 7, compareMax: 7 },
+);
+
+const SWEEP_BASE: WorksheetSelectionV2 = worksheetSelectionOf(
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+);
+
+/** A record's earlier settings as the selection a parent would start from. */
+function earlierSelection(profile: CapabilityProfileV1): WorksheetSelectionV2 {
+  const legacy = profileWithLegacyChoices(profile).legacyChoices;
+  if (legacy === undefined) {
+    throw new Error("A probe record carried no earlier settings.");
+  }
+  return selectionFromEarlierSettings(legacy, SWEEP_BASE).selection;
+}
+
+interface SweepSource {
+  readonly name: string;
+  readonly selection: WorksheetSelectionV2;
+}
+
+/** Every catalog cell: each family's focus options, variants and vocabularies. */
+const CATALOG_SOURCES: readonly SweepSource[] = [
+  ...PRACTICE_FOCUS_CATALOG["dry-math"].map((option) => ({
+    name: `catalog dry-math ${option.id}`,
+    selection: { ...SWEEP_BASE, dryMath: option.focus },
+  })),
+  ...PRACTICE_FOCUS_CATALOG["find-the-wow-quantity"].map((option) => ({
+    name: `catalog wow quantity ${option.id}`,
+    selection: {
+      ...SWEEP_BASE,
+      findTheWow: { ...SWEEP_BASE.findTheWow, variant: "quantity" as const, quantity: option.focus },
+    },
+  })),
+  ...PRACTICE_FOCUS_CATALOG["find-the-wow-equation"].map((option) => ({
+    name: `catalog wow equation ${option.id}`,
+    selection: {
+      ...SWEEP_BASE,
+      findTheWow: { ...SWEEP_BASE.findTheWow, variant: "equation" as const, equation: option.focus },
+    },
+  })),
+  ...PRACTICE_FOCUS_CATALOG["count-compare-make"].map((option) => ({
+    name: `catalog count-compare-make ${option.id}`,
+    selection: { ...SWEEP_BASE, countCompareMake: option.focus },
+  })),
+  ...WRITING_MODES.flatMap((variant) =>
+    SENTENCE_VOCABULARY_OPTIONS.map((vocabulary) => ({
+      name: `catalog sentence ${variant} ${vocabulary}`,
+      selection: { ...SWEEP_BASE, sentenceBuilder: { variant, vocabulary } },
+    })),
+  ),
+];
+
+const SWEEP_SOURCES: readonly SweepSource[] = [
+  ...CATALOG_SOURCES,
+  ...PROBE_PROFILES.map((profile) => ({
+    name: `earlier ${profile.id}`,
+    selection: earlierSelection(profile),
+  })),
+  { name: "earlier D34", selection: earlierSelection(D34_PROFILE) },
+  { name: "earlier D36", selection: earlierSelection(D36_PROFILE) },
+];
 
 // --- observation -----------------------------------------------------------
 
@@ -858,9 +994,9 @@ const LABELLED_KEYS = Object.entries(WORKSHEET_MAXIMUM_LABELS) as readonly [
   string,
 ][];
 
-/** The maxima a shortage sentence really told the parent to review. */
+/** The maxima a shortage sentence really told the parent to widen. */
 function namedLimitLabels(message: string): readonly string[] {
-  const match = /review the profile's (.+?) limits\./iu.exec(message);
+  const match = /a practice focus with a wider (.+?) range\./iu.exec(message);
   if (match === null) {
     return [];
   }
@@ -868,6 +1004,11 @@ function namedLimitLabels(message: string): readonly string[] {
   return LABELLED_KEYS.map(([, label]) => label)
     .filter((label) => new RegExp(`(^|[ ,])${label}([ ,.]|$)`, "u").test(phrase))
     .sort();
+}
+
+/** Whether a shortage sentence offers a shorter length. */
+function offersShorterLength(message: string): boolean {
+  return message.includes("Choose a shorter length");
 }
 
 /** A `Math.min` selector's outcome: one winner, or a tie that names them all. */
@@ -900,7 +1041,7 @@ function lowestTerms(
  * The winners are read off the value the production function RETURNED: a
  * test-local mirror records the same arm whatever production does, which is
  * the unfalsifiable-coverage shape this file exists to end. `terms` names the
- * stored maxima the limit is documented to be the minimum of, and the
+ * focus maxima the limit is documented to be the minimum of, and the
  * assertion is what fails when production starts reading a different one.
  */
 function observedMinimumArm(
@@ -927,6 +1068,19 @@ function shortageSubtype(message: string): CountCompareSubtypeV1 | undefined {
 }
 
 describe("every declared arm of the capacity and advice surface", () => {
+  test("retired arms name their deleted code path and are never declared again", () => {
+    for (const { id, deletedPath } of RETIRED_ARMS) {
+      expect(`${id} declared ${DECLARED_ARM_IDS.has(id)}`).toBe(`${id} declared false`);
+      expect(deletedPath.length, id).toBeGreaterThan(0);
+    }
+    expect(RETIRED_ARMS.map(({ id }) => id).sort()).toEqual([
+      "FCS-conf-quantity",
+      "PC-conf-practice-fills",
+      "PC-conf-practice-short",
+      "PC-nonconf",
+    ]);
+  });
+
   test("the observed arm set equals the declared reachable set exactly", () => {
     const observed = new Set<string>();
     // The second closed set. Arm ids are produced by branch logic written in
@@ -942,6 +1096,10 @@ describe("every declared arm of the capacity and advice surface", () => {
     const collectSentence = (sentence: string): void => {
       shapes.add(sentence.replace(/\d+/gu, "N"));
     };
+    // The sources whose selection the probe found short somewhere, so the two
+    // declared Earlier-setting shortfall sources are shown to reach
+    // PC-insufficient themselves rather than through some other record.
+    const insufficientSources = new Set<string>();
     const observe = (arm: string): void => {
       if (!DECLARED_ARM_IDS.has(arm)) {
         // An arm nobody declared is the same defect as an arm nobody reached:
@@ -953,224 +1111,261 @@ describe("every declared arm of the capacity and advice surface", () => {
 
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
       const registration = getWorksheetRegistration(worksheetType);
-      for (const profile of PROBE_PROFILES) {
-        for (const difficulty of DIFFICULTIES) {
-          for (const length of WORKSHEET_LENGTHS) {
-            for (const printScale of PRINT_SCALES) {
-              const context: WorksheetControlContextV1 = {
-                profile,
-                difficulty,
+      for (const source of SWEEP_SOURCES) {
+        for (const length of WORKSHEET_LENGTHS) {
+          for (const printScale of PRINT_SCALES) {
+            const selection: WorksheetSelectionV2 = {
+              ...source.selection,
+              worksheetType,
+              length,
+              printScale,
+            };
+            const context: WorksheetControlContextV2 = { selection };
+            const where = `${worksheetType} ${source.name} ${length}/${printScale}`;
+            const support =
+              registration.controls.getCapabilitySupport(context);
+            observe(
+              `REG-${worksheetType}-${support.available ? "AVAIL" : "UNAVAIL"}`,
+            );
+            if (!support.available) {
+              // The refusal IS the capacity line the parent reads for this
+              // selection, and it is rendered for every registered family
+              // rather than only the probing ones, so it is collected here -
+              // above both `continue`s below.
+              collectSentence(support.message);
+            }
+
+            // The leaf capability gates, read at the capabilities this
+            // selection really projects for the family being swept.
+            const projectedSkills = projectWorksheetCapabilities(
+              selection,
+              worksheetType,
+            ).mathSkills;
+            if (worksheetType === "find-the-wow") {
+              const hasQuantities = projectedSkills.representations.includes("quantities");
+              const hasEquationGate =
+                projectedSkills.representations.includes("equations") &&
+                projectedSkills.understandsEquality &&
+                projectedSkills.operations.length > 0;
+              const arm = hasEquationGate
+                ? "FCS-equation"
+                : hasQuantities
+                  ? "FCS-quantity-fallback"
+                  : "FCS-unavailable";
+              const findTheWow = getFindTheWowCapabilitySupport(projectedSkills);
+              const outcome = findTheWow.available ? findTheWow.mode : "unavailable";
+              expect(`${where}: ${arm} -> ${outcome}`).toBe(
+                `${where}: ${arm} -> ${
+                  arm === "FCS-equation"
+                    ? "equation"
+                    : arm === "FCS-unavailable"
+                      ? "unavailable"
+                      : "quantity"
+                }`,
+              );
+              // The mode is exactly the Statements variant the parent chose.
+              expect(`${where}: ${outcome}`).toBe(`${where}: ${selection.findTheWow.variant}`);
+              observe(arm);
+            }
+            if (worksheetType === "dry-math") {
+              const hasEquations = projectedSkills.representations.includes("equations");
+              const dryArm = !hasEquations
+                ? "DCS-no-equations"
+                : projectedSkills.operations.length === 0 ||
+                    projectedSkills.operandMax < 1 ||
+                    projectedSkills.resultMax < 1
+                  ? "DCS-no-operation"
+                  : "DCS-available";
+              const dryMath = getDryMathCapabilitySupport(projectedSkills);
+              expect(`${where}: ${dryArm} -> ${dryMath.available}`).toBe(
+                `${where}: ${dryArm} -> ${dryArm === "DCS-available"}`,
+              );
+              observe(dryArm);
+            }
+            if (worksheetType === "count-compare-make") {
+              const countCompare = getCountCompareMakeCapabilitySupport(projectedSkills);
+              const hasQuantities = projectedSkills.representations.includes("quantities");
+              expect(`${where}: CCS -> ${countCompare.available}`).toBe(
+                `${where}: CCS -> ${hasQuantities}`,
+              );
+              observe(countCompare.available ? "CCS-available" : "CCS-no-quantities");
+            }
+
+            // The effective-unit noun arms, read off the unit the
+            // registration really returned rather than off a threshold
+            // recomputed here.
+            if (worksheetType === "sentence-builder") {
+              const unit = registration.controls.getEffectiveUnit(context);
+              const bankArm = unit.pluralLabel === "word-bank words";
+              observe(bankArm ? "SBU-bank" : "SBU-no-bank");
+              // The noun has to describe the number printed beside it: a
+              // bank-bearing page counts bank words, and a page with no bank
+              // counts its one writing prompt.
+              const bankSize = getSentenceBuilderBankSize(
+                selection.sentenceBuilder.variant,
                 length,
                 printScale,
-              };
-              const where = `${worksheetType} ${profile.id} ${difficulty}/${length}/${printScale}`;
-              const support =
-                registration.controls.getCapabilitySupport(context);
-              observe(
-                `REG-${worksheetType}-${support.available ? "AVAIL" : "UNAVAIL"}`,
               );
-              if (!support.available) {
-                // The refusal IS the capacity line the parent reads for this
-                // selection, and it is rendered for every registered family
-                // rather than only the probing ones, so it is collected here -
-                // above both `continue`s below.
-                collectSentence(support.message);
-              }
+              expect(`${where}: bank ${bankArm} count ${unit.count}`).toBe(
+                `${where}: bank ${bankSize > 0} count ${
+                  bankSize > 0 ? bankSize : SENTENCE_BUILDER_ITEM_COUNT
+                }`,
+              );
+            }
 
-              // The effective-unit noun arms, read off the unit the
-              // registration really returned rather than off a threshold
-              // recomputed here.
-              if (worksheetType === "sentence-builder") {
-                const unit = registration.controls.getEffectiveUnit(context);
-                const bankArm = unit.pluralLabel === "word-bank words";
-                observe(bankArm ? "SBU-bank" : "SBU-no-bank");
-                // The noun has to describe the number printed beside it: a
-                // bank-bearing page counts bank words, and a page with no bank
-                // counts its one writing prompt.
-                const bankSize = getSentenceBuilderBankSize(
-                  profile.writingMode,
-                  length,
-                  printScale,
-                );
-                expect(`${where}: bank ${bankArm} count ${unit.count}`).toBe(
-                  `${where}: bank ${bankSize > 0} count ${
-                    bankSize > 0 ? bankSize : SENTENCE_BUILDER_ITEM_COUNT
-                  }`,
-                );
-              }
+            // The declared-maximum list and the advice derived from it.
+            const maximums = registration.controls.getRelevantMaximums(context);
+            if (worksheetType !== "sentence-builder") {
+              const advice =
+                registration.controls.getLimitingResourceAdvice(context);
+              observe(maximums.length === 0 ? "NA-empty" : "NA-nonempty");
+              expect(`${where}: ${advice}`).toContain(
+                maximums.length === 0
+                  ? "has no further variation to offer"
+                  : "range of this practice focus",
+              );
+            }
+            if (worksheetType === "find-the-wow") {
+              observe(
+                maximums.length === 0
+                  ? "FRM-none"
+                  : maximums[0]?.key === "operandMax"
+                    ? "FRM-equation"
+                    : "FRM-quantity",
+              );
+            }
 
-              // The declared-maximum list and the advice derived from it.
-              const maximums = registration.controls.getRelevantMaximums(context);
-              if (worksheetType !== "sentence-builder") {
-                const advice =
-                  registration.controls.getLimitingResourceAdvice(context);
-                observe(maximums.length === 0 ? "NA-empty" : "NA-nonempty");
-                expect(`${where}: ${advice}`).toContain(
-                  maximums.length === 0
-                    ? "has no further variation to offer"
-                    : "varies within the profile's",
-                );
-              }
-              if (worksheetType === "find-the-wow") {
-                observe(
-                  maximums.length === 0
-                    ? "FRM-none"
-                    : maximums[0]?.key === "operandMax"
-                      ? "FRM-equation"
-                      : "FRM-quantity",
-                );
-              }
+            if (!PROBING_WORKSHEET_TYPES.includes(worksheetType)) {
+              continue;
+            }
 
-              if (!PROBING_WORKSHEET_TYPES.includes(worksheetType)) {
-                continue;
-              }
-
-              // The probe's own projection, built from exactly the inputs
-              // `probeShortfall` pins.
-              const projection = projectGenerationRequest({
-                profile,
+            // The probe's own projection, built from exactly the inputs
+            // `probeCapacity` pins: the selection, no child, and the pinned
+            // preferences.
+            const projection = projectGenerationRequest({
+              selection: {
+                ...selection,
+                ...CAPACITY_PROBE_PREFERENCES,
                 worksheetType,
-                generatorVersion: registration.generatorVersion,
-                seed: CAPACITY_PROBE_SEED,
-                preferences: {
-                  ...CAPACITY_PROBE_PREFERENCES,
-                  difficulty,
-                  length,
-                  printScale,
-                },
-                // Scope clause: the sweep probes the CONFIRMED stretch only.
-                // With this false the projection refuses every stretch cell
-                // before any capacity is measured, which is a different
-                // surface - `project-request.test.ts` owns that refusal - and
-                // would silence two thirds of the difficulty axis here.
-                stretchConfirmed: true,
-              });
-              observe(projection.ok ? "PS-ok" : "PS-projection-fail");
-              if (!projection.ok) {
-                // A refused projection reaches the parent through the same
-                // capacity line - the assertion just below pins that the
-                // registration surfaces exactly this message - so its shape
-                // belongs in the closed set too.
-                collectSentence(projection.message);
-              }
-              if (!projection.ok && support.available) {
-                // A projection that failed must surface its OWN message, not a
-                // capacity sentence about limits it never computed.
-                expect(`${where}: ${JSON.stringify(support.capacity)}`).toBe(
-                  `${where}: ${JSON.stringify({
-                    sufficient: false,
-                    message: projection.message,
-                  })}`,
-                );
-              }
-              if (!support.available || !projection.ok) {
-                continue;
-              }
+              },
+              generatorVersion: registration.generatorVersion,
+              seed: CAPACITY_PROBE_SEED,
+            });
+            observe(projection.ok ? "PS-ok" : "PS-projection-fail");
+            if (!projection.ok) {
+              // A refused projection reaches the parent through the same
+              // capacity line - the assertion just below pins that the
+              // registration surfaces exactly this message - so its shape
+              // belongs in the closed set too.
+              collectSentence(projection.message);
+            }
+            if (!projection.ok && support.available) {
+              // A projection that failed must surface its OWN message, not a
+              // capacity sentence about limits it never computed.
+              expect(`${where}: ${JSON.stringify(support.capacity)}`).toBe(
+                `${where}: ${JSON.stringify({
+                  sufficient: false,
+                  message: projection.message,
+                })}`,
+              );
+            }
+            if (!support.available || !projection.ok) {
+              continue;
+            }
 
-              const skills = projection.request.capabilities.mathSkills;
-              const message = support.capacity.sufficient
-                ? ""
-                : support.capacity.message;
+            const skills = projection.request.capabilities.mathSkills;
+            const message = support.capacity.sufficient
+              ? ""
+              : support.capacity.message;
 
-              // probeCapacity's four arms.
-              if (support.capacity.sufficient) {
-                observe("PC-sufficient");
-              } else if (difficulty !== "confidence") {
-                observe("PC-nonconf");
-              } else {
-                observe(
-                  message.endsWith(DIFFICULTY_REMEDY)
-                    ? "PC-conf-practice-fills"
-                    : "PC-conf-practice-short",
-                );
-              }
+            observe(support.capacity.sufficient ? "PC-sufficient" : "PC-insufficient");
+            if (!support.capacity.sufficient) {
+              insufficientSources.add(`${source.name} ${worksheetType}`);
+            }
 
-              const labels = namedLimitLabels(message);
-              if (message !== "") {
-                collectSentence(message);
-                // The empty arm is emitted from the same site as the other
-                // two, so "no remedy named a maximum" is a declared arm the
-                // equality assertion owns rather than a claim about a branch
-                // nothing in this sweep could ever report.
-                observe(
-                  labels.length === 0
-                    ? "RM-empty"
-                    : message.includes("Choose a shorter worksheet")
-                      ? "RM-shorter"
-                      : "RM-noshorter",
-                );
-                observe(
-                  `SL-${length}-${message.includes("Choose a shorter worksheet")}`,
-                );
-              }
+            const labels = namedLimitLabels(message);
+            if (message !== "") {
+              collectSentence(message);
+              // The empty arm is emitted from the same site as the other
+              // two, so "no remedy named a maximum" is a declared arm the
+              // equality assertion owns rather than a claim about a branch
+              // nothing in this sweep could ever report.
+              observe(
+                labels.length === 0
+                  ? "RM-empty"
+                  : offersShorterLength(message)
+                    ? "RM-shorter"
+                    : "RM-noshorter",
+              );
+              observe(`SL-${length}-${offersShorterLength(message)}`);
+            }
 
-              if (worksheetType === "dry-math") {
-                observe(
-                  support.capacity.sufficient
-                    ? "DSF-suff"
-                    : `DSF-${probeSuffix(labels)}`,
-                );
-              }
+            if (worksheetType === "dry-math") {
+              observe(
+                support.capacity.sufficient
+                  ? "DSF-suff"
+                  : `DSF-${probeSuffix(labels)}`,
+              );
+            }
 
-              if (worksheetType === "find-the-wow") {
-                const mode = getFindTheWowCapabilitySupport(skills, difficulty);
-                expect(`${where}: ${mode.available}`).toBe(`${where}: true`);
-                if (mode.available && mode.mode === "quantity") {
-                  observe(
-                    observedMinimumArm(
-                      "QL",
-                      [
-                        ["counting", skills.countingMax],
-                        ["numerals", skills.numeralMax],
-                        ["v1clamp", FIND_THE_WOW_V1_MAXIMUM],
-                      ],
-                      getQuantityWowLimit(skills),
-                      where,
-                    ),
-                  );
-                }
-                if (support.capacity.sufficient) {
-                  observe("FSF-suff");
-                } else if (mode.available && mode.mode === "equation") {
-                  observe(`FSF-equation-${probeSuffix(labels)}`);
-                } else {
-                  observe(`FSF-quantity-${armSuffix(labels)}`);
-                }
-              }
-
-              if (worksheetType === "count-compare-make") {
+            if (worksheetType === "find-the-wow") {
+              const mode = getFindTheWowCapabilitySupport(skills);
+              expect(`${where}: ${mode.available}`).toBe(`${where}: true`);
+              if (mode.available && mode.mode === "quantity") {
                 observe(
                   observedMinimumArm(
-                    "NL",
+                    "QL",
                     [
                       ["counting", skills.countingMax],
                       ["numerals", skills.numeralMax],
-                      ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
+                      ["v1clamp", FIND_THE_WOW_V1_MAXIMUM],
                     ],
-                    getCountCompareMakeNumeralLimit(skills),
+                    getQuantityWowLimit(skills),
                     where,
                   ),
                 );
+              }
+              if (support.capacity.sufficient) {
+                observe("FSF-suff");
+              } else if (mode.available && mode.mode === "equation") {
+                observe(`FSF-equation-${probeSuffix(labels)}`);
+              } else {
+                observe(`FSF-quantity-${armSuffix(labels)}`);
+              }
+            }
+
+            if (worksheetType === "count-compare-make") {
+              observe(
+                observedMinimumArm(
+                  "NL",
+                  [
+                    ["counting", skills.countingMax],
+                    ["numerals", skills.numeralMax],
+                    ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
+                  ],
+                  getCountCompareMakeNumeralLimit(skills),
+                  where,
+                ),
+              );
+              observe(
+                observedMinimumArm(
+                  "CL",
+                  [
+                    ["counting", skills.countingMax],
+                    ["comparisons", skills.compareMax],
+                    ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
+                  ],
+                  getCountCompareMakeComparisonLimit(skills),
+                  where,
+                ),
+              );
+              const subtype = shortageSubtype(message);
+              observe(subtype === undefined ? "CS-none" : `CS-${subtype}`);
+              if (subtype !== undefined) {
+                observe(subtype === "compare" ? "BK-compare" : "BK-other");
                 observe(
-                  observedMinimumArm(
-                    "CL",
-                    [
-                      ["counting", skills.countingMax],
-                      ["comparisons", skills.compareMax],
-                      ["v1clamp", COUNT_COMPARE_MAKE_V1_MAXIMUM],
-                    ],
-                    getCountCompareMakeComparisonLimit(skills),
-                    where,
-                  ),
+                  `BM-${subtype === "compare" ? "CMP" : "NUM"}-${armSuffix(labels)}`,
                 );
-                const subtype = shortageSubtype(message);
-                observe(subtype === undefined ? "CS-none" : `CS-${subtype}`);
-                if (subtype !== undefined) {
-                  observe(subtype === "compare" ? "BK-compare" : "BK-other");
-                  observe(
-                    `BM-${subtype === "compare" ? "CMP" : "NUM"}-${armSuffix(labels)}`,
-                  );
-                }
               }
             }
           }
@@ -1178,82 +1373,20 @@ describe("every declared arm of the capacity and advice surface", () => {
       }
     }
 
-    // The leaf capability gates, whose arms are decided by the STORED profile
-    // rather than by any (length, print scale) cell.
-    for (const profile of PROBE_PROFILES) {
-      const skills = profile.mathSkills;
-      const hasQuantities = skills.representations.includes("quantities");
-      const hasEquations = skills.representations.includes("equations");
-      const hasEquationGate =
-        hasEquations && skills.understandsEquality && skills.operations.length > 0;
-
-      for (const difficulty of DIFFICULTIES) {
-        const findTheWow = getFindTheWowCapabilitySupport(skills, difficulty);
-        const arm =
-          difficulty === "confidence" && hasQuantities
-            ? "FCS-conf-quantity"
-            : hasEquationGate
-              ? "FCS-equation"
-              : hasQuantities
-                ? "FCS-quantity-fallback"
-                : "FCS-unavailable";
-        const outcome = findTheWow.available ? findTheWow.mode : "unavailable";
-        expect(`${profile.id} ${difficulty}: ${arm} -> ${outcome}`).toBe(
-          `${profile.id} ${difficulty}: ${arm} -> ${
-            arm === "FCS-equation"
-              ? "equation"
-              : arm === "FCS-unavailable"
-                ? "unavailable"
-                : "quantity"
-          }`,
-        );
-        observe(arm);
-      }
-
-      const dryMath = getDryMathCapabilitySupport(skills);
-      const dryArm = !hasEquations
-        ? "DCS-no-equations"
-        : skills.operations.length === 0 ||
-            skills.operandMax < 1 ||
-            skills.resultMax < 1
-          ? "DCS-no-operation"
-          : "DCS-available";
-      expect(`${profile.id}: ${dryArm} -> ${dryMath.available}`).toBe(
-        `${profile.id}: ${dryArm} -> ${dryArm === "DCS-available"}`,
-      );
-      if (!dryMath.available) {
-        // The two refusals must stay two different sentences; a shared one
-        // would let either gate stand in for the other.
-        expect(dryMath.reason).toContain(
-          dryArm === "DCS-no-equations"
-            ? "needs equations and an enabled operation"
-            : "needs at least one confirmed symbolic operation",
-        );
-      }
-      observe(dryArm);
-
-      const countCompare = getCountCompareMakeCapabilitySupport(skills);
-      expect(`${profile.id}: CCS -> ${countCompare.available}`).toBe(
-        `${profile.id}: CCS -> ${hasQuantities}`,
-      );
-      observe(
-        countCompare.available ? "CCS-available" : "CCS-no-quantities",
-      );
-    }
-
-    // The above-ceiling profile, off the cube on purpose (its fixture docblock
-    // says why). Projected once per family and read through the same
-    // `observedMinimumArm` and the same `observe`, so the three `*-v1clamp`
-    // rows keep the only input under which their term could win outright: a
-    // STORED maximum above the ceiling, with nothing but the projection clamp
-    // holding it down. Confidence is the difficulty because it is what puts Two
-    // Whats and a Wow in quantity mode for a profile that also confirms
-    // equations, and quantity mode is where that family's clamp term is read.
+    // The above-ceiling record, off the sweep on purpose (its fixture docblock
+    // says why). Its earlier settings are mapped once, Two Whats and a Wow is
+    // set to Quantity pictures (the parent's explicit Statements choice, since
+    // the record also clears the equation gate), and each family is projected
+    // and read through the same `observedMinimumArm` and the same `observe`, so
+    // the three `*-v1clamp` rows keep the only input under which their term
+    // could win outright: a STORED maximum above the ceiling, with nothing but
+    // the earlier-settings clamp holding it down.
     //
-    // Every arm this loop reaches is a tie the cube already reaches, so
+    // Every arm this loop reaches is a tie the sweep already reaches, so
     // `observe` cannot tell whether the loop ran: the closed set below is what
     // makes it answerable, and deleting the loop empties that set.
     const aboveCeilingObservations: string[] = [];
+    const aboveCeilingSelection = earlierSelection(aboveCeilingProfile);
     for (const worksheetType of [
       "find-the-wow",
       "count-compare-make",
@@ -1261,17 +1394,16 @@ describe("every declared arm of the capacity and advice surface", () => {
       const registration = getWorksheetRegistration(worksheetType);
       const where = `${worksheetType} above-ceiling`;
       const projection = projectGenerationRequest({
-        profile: aboveCeilingProfile,
-        worksheetType,
-        generatorVersion: registration.generatorVersion,
-        seed: CAPACITY_PROBE_SEED,
-        preferences: {
+        selection: {
+          ...aboveCeilingSelection,
           ...CAPACITY_PROBE_PREFERENCES,
-          difficulty: "confidence",
+          worksheetType,
+          findTheWow: { ...aboveCeilingSelection.findTheWow, variant: "quantity" },
           length: "long",
           printScale: "standard",
         },
-        stretchConfirmed: true,
+        generatorVersion: registration.generatorVersion,
+        seed: CAPACITY_PROBE_SEED,
       });
       expect(`${where}: ${projection.ok}`).toBe(`${where}: true`);
       if (!projection.ok) {
@@ -1285,7 +1417,7 @@ describe("every declared arm of the capacity and advice surface", () => {
         observe(arm);
       };
       if (worksheetType === "find-the-wow") {
-        const mode = getFindTheWowCapabilitySupport(skills, "confidence");
+        const mode = getFindTheWowCapabilitySupport(skills);
         expect(`${where}: ${mode.available ? mode.mode : "unavailable"}`).toBe(
           `${where}: quantity`,
         );
@@ -1335,26 +1467,24 @@ describe("every declared arm of the capacity and advice surface", () => {
       }
     }
 
-    // The closed set for the loop above. Its arms are ties the cube reaches
+    // The closed set for the loop above. Its arms are ties the sweep reaches
     // anyway, so both set equalities at the end of this test stay green if the
     // loop is deleted and the three `*-v1clamp` deadness rows quietly return to
     // being prose about an input nothing supplies. This set is what the loop is
     // answerable to: it empties if the loop goes, and it changes if a family
-    // stops being projected or the projection stops landing where it does.
+    // stops being projected or the clamp stops landing where it does.
     //
-    // Why 15 and why a tie: `confidence` is floor(0.75 x) of each relevant
-    // maximum and runs AFTER the clamp, so this profile's stored 5x maxima
-    // arrive as 20 and leave as 15, tying counting against numerals (and
-    // against comparisons for CL) with the family's clamp term at 20 above
-    // them. That is exactly the shape the `*-v1clamp` rows are dead in: dead
-    // because the clamp bound the stored maximum first, not because no profile
-    // ever stores more than the ceiling.
-    const ABOVE_CEILING_CONFIDENCE_LIMIT = 15;
+    // Why the ceiling and why a tie: `selectionFromEarlierSettings` clamps each
+    // stored 5x maximum to the Version 1 ceiling, tying counting against
+    // numerals (and against comparisons for CL) AND against the family's own
+    // clamp term. That is exactly the shape the `*-v1clamp` rows are dead in:
+    // dead because the earlier-settings clamp bound the stored maximum first,
+    // not because no record ever stores more than the ceiling.
     expect([...aboveCeilingObservations].sort()).toEqual(
       [
-        `find-the-wow above-ceiling: QL-tie at ${ABOVE_CEILING_CONFIDENCE_LIMIT}`,
-        `count-compare-make above-ceiling: NL-tie at ${ABOVE_CEILING_CONFIDENCE_LIMIT}`,
-        `count-compare-make above-ceiling: CL-tie at ${ABOVE_CEILING_CONFIDENCE_LIMIT}`,
+        `find-the-wow above-ceiling: QL-tie at ${V1_NUMERIC_MAXIMUM}`,
+        `count-compare-make above-ceiling: NL-tie at ${V1_NUMERIC_MAXIMUM}`,
+        `count-compare-make above-ceiling: CL-tie at ${V1_NUMERIC_MAXIMUM}`,
       ].sort(),
     );
 
@@ -1367,6 +1497,8 @@ describe("every declared arm of the capacity and advice surface", () => {
     }
     expect([...observed].sort()).toEqual(REACHABLE_ARM_IDS);
     expect([...shapes].sort()).toEqual(DECLARED_SENTENCE_SHAPES);
+    expect(insufficientSources).toContain("earlier D34 dry-math");
+    expect(insufficientSources).toContain("earlier D36 find-the-wow");
   });
 });
 
@@ -1443,7 +1575,7 @@ describe("the equation families' binding-maximum arms", () => {
       ["addition"],
       ["subtraction"],
       ["addition", "subtraction"],
-    ] as const satisfies readonly CapabilityProfileV1["mathSkills"]["operations"][];
+    ] as const satisfies readonly WorksheetSelectionV2["dryMath"]["operations"][];
     const dryMathArms = new Set<string>();
     const findTheWowArms = new Set<string>();
     // Tuples where a `Math.min` over the same two maxima would have named a
@@ -1463,29 +1595,22 @@ describe("the equation families' binding-maximum arms", () => {
     for (const operations of OPERATION_SETS) {
       for (let operandMax = 1; operandMax <= 20; operandMax += 1) {
         for (let resultMax = 1; resultMax <= 20; resultMax += 1) {
-          const profile = CapabilityProfileV1Schema.parse(
-            equationProfile(
-              "e1d2c3b4-a596-4877-8968-5a4b3c2d1e0f",
-              operandMax,
-              resultMax,
-              [...operations],
-            ),
-          );
+          const focus = { operations: [...operations], operandMax, resultMax };
           const where = `${operations.join("+")} ${operandMax}/${resultMax}`;
           for (const worksheetType of ["dry-math", "find-the-wow"] as const) {
             const registration = getWorksheetRegistration(worksheetType);
             const projection = projectGenerationRequest({
-              profile,
-              worksheetType,
-              generatorVersion: registration.generatorVersion,
-              seed: CAPACITY_PROBE_SEED,
-              preferences: {
+              selection: {
+                ...SWEEP_BASE,
                 ...CAPACITY_PROBE_PREFERENCES,
-                difficulty: "practice",
+                worksheetType,
+                dryMath: focus,
+                findTheWow: { ...SWEEP_BASE.findTheWow, variant: "equation", equation: focus },
                 length: "long",
                 printScale: "standard",
               },
-              stretchConfirmed: true,
+              generatorVersion: registration.generatorVersion,
+              seed: CAPACITY_PROBE_SEED,
             });
             expect(`${where}: ${projection.ok}`).toBe(`${where}: true`);
             if (!projection.ok) {

@@ -1,29 +1,24 @@
 import { useMemo, useState } from "react";
 
+import { themeFromInterests, worksheetSelectionOf } from "../../shared/config/defaults";
+import {
+  describeEarlierSettingDisclosure,
+  selectionForChild,
+} from "../../shared/config/earlier-settings";
 import type {
   ChildProfileV2,
-  GenerationDefaultsV1,
-  MathSkillsV1,
   WorksheetDefaultsV2,
+  WorksheetSelectionV2,
 } from "../../shared/config/schema";
-import { WORKSHEET_MAXIMUM_LABELS } from "../../shared/worksheet/limit-labels";
-import {
-  capabilityProfileOf,
-  NO_EARLIER_SETTINGS_MESSAGE,
-  type CapabilityProfileV1,
-} from "../../shared/worksheet/project-request";
 import {
   REGISTERED_WORKSHEET_IDS,
   getWorksheetRegistration,
   type RegisteredWorksheetType,
   type WorksheetApplicableControlsV1,
   type WorksheetCapabilitySupportV1,
-  type WorksheetControlContextV1,
+  type WorksheetControlContextV2,
   type WorksheetRegistrationV1,
-  type WorksheetRelevantMaximumKey,
-  type WorksheetRelevantMaximumV1,
 } from "../../shared/worksheet/registry";
-import { V1_NUMERIC_MAXIMUM, worksheetMaximum } from "../../shared/worksheet/types";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
 import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
 import type { GenerationSelection } from "./create-session";
@@ -61,58 +56,18 @@ interface GeneratorControlsProps {
   readonly profiles: readonly ChildProfileV2[];
 }
 
-interface RelevantLimit {
-  readonly label: string;
-  readonly value: number;
-  readonly maximum: number;
-}
-
 const NO_APPLICABLE_CONTROLS: WorksheetApplicableControlsV1 = {
   useDisplayName: false,
   useInterests: false,
   includeDecorativeGraphics: false,
-  difficulty: false,
+  practiceFocus: false,
+  variant: false,
+  vocabulary: false,
   length: false,
   includeAnswerKey: false,
   paperSize: false,
   printScale: false,
 };
-
-/**
- * The two stored permissions Version 1 never exercises.
- *
- * The sole projection boundary forces both to `false` in every effective
- * request, so a profile may record them for a later sourced pack without any
- * v1 page ever carrying a regrouped column or a negative result. They are
- * shown here for the same reason a stored maximum above 20 is: a parent who
- * confirmed a capability should see that it is kept and that this version does
- * not use it, rather than wonder why the worksheets ignore it. Keying the
- * labels off the stored field names makes a schema rename a compile error.
- */
-const FUTURE_PERMISSION_LABELS = {
-  allowRegrouping: "carrying and borrowing",
-  allowNegativeResults: "negative results",
-} as const satisfies Record<
-  keyof Pick<MathSkillsV1, "allowRegrouping" | "allowNegativeResults">,
-  string
->;
-
-const FUTURE_PERMISSION_KEYS = Object.freeze(
-  Object.keys(FUTURE_PERMISSION_LABELS) as (keyof typeof FUTURE_PERMISSION_LABELS)[],
-);
-
-/**
- * Every stored numeric maximum, in the order the disclosure below lists them.
- *
- * Read off the label table rather than off the selection's own relevant
- * maxima: like the permission notice beside it, this reports what the PROFILE
- * stores, so a family that reads none of these maxima must still disclose a
- * stored value Version 1 will not use. Keying off the label table makes a new
- * maximum a compile-time addition here rather than a silent omission.
- */
-const STORED_MAXIMUM_KEYS = Object.freeze(
-  Object.keys(WORKSHEET_MAXIMUM_LABELS) as WorksheetRelevantMaximumKey[],
-);
 
 const WORKSHEET_OPTIONS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
   id: worksheetId,
@@ -127,7 +82,7 @@ function profileLabel(profile: ChildProfileV2, index: number): string {
 function worksheetAvailability(
   profile: ChildProfileV2 | undefined,
   registration: WorksheetRegistrationV1,
-  context: WorksheetControlContextV1 | undefined,
+  context: WorksheetControlContextV2,
 ): WorksheetCapabilitySupportV1 {
   if (profile === undefined) {
     return {
@@ -135,54 +90,7 @@ function worksheetAvailability(
       message: "Add and save a profile before creating a worksheet.",
     };
   }
-  if (context === undefined) {
-    // Interim (D-interim): a profile stored without earlier settings has
-    // nothing the unchanged projection could read.
-    return { available: false, message: NO_EARLIER_SETTINGS_MESSAGE };
-  }
   return registration.controls.getCapabilitySupport(context);
-}
-
-function relevantMaximums(
-  registration: WorksheetRegistrationV1,
-  context: WorksheetControlContextV1 | undefined,
-): readonly WorksheetRelevantMaximumV1[] {
-  return context === undefined
-    ? []
-    : registration.controls.getRelevantMaximums(context);
-}
-
-function relevantLimits(
-  maximums: readonly WorksheetRelevantMaximumV1[],
-  context: WorksheetControlContextV1 | undefined,
-  worksheetType: RegisteredWorksheetType,
-): readonly RelevantLimit[] {
-  if (context === undefined) {
-    return [];
-  }
-  return maximums
-    .map(({ key, label }) => ({ label, value: context.profile.mathSkills[key], maximum: worksheetMaximum(worksheetType, key) }))
-    .filter(({ value }) => value > 0);
-}
-
-/**
- * Mirrors the projection boundary's own stretch downgrade: an empty
- * relevant-limit list and limits at their activity ceilings fall back to practice, so the
- * parent is never asked to confirm a stretch that cannot change the sheet.
- */
-function stretchCannotApply(limits: readonly RelevantLimit[]): boolean {
-  return (
-    limits.length === 0 ||
-    limits.every(({ value, maximum }) => value >= maximum)
-  );
-}
-
-function stretchLimit(value: number, maximum: number): readonly [number, number] {
-  const base = Math.min(value, maximum);
-  return [
-    base,
-    Math.min(maximum, base + Math.max(1, Math.ceil(base * 0.25))),
-  ];
 }
 
 export function GeneratorControls({
@@ -194,25 +102,20 @@ export function GeneratorControls({
   profiles,
 }: GeneratorControlsProps) {
   const [requestedProfileId, setProfileId] = useState(profiles[0]?.id ?? "");
-  const [worksheetType, setWorksheetType] =
-    useState<RegisteredWorksheetType>("dry-math");
-  // Interim (D-interim): Difficulty is session-only. It starts at Practice on
-  // every mount, is never read from or written to the stored defaults, and
-  // Step 16 replaces it with an explicit practice focus.
+  const [worksheetType, setWorksheetType] = useState<RegisteredWorksheetType>(
+    defaults.worksheetType,
+  );
   const [useDisplayName, setUseDisplayName] = useState(defaults.useDisplayName);
   const [useInterests, setUseInterests] = useState(defaults.useInterests);
   const [includeDecorativeGraphics, setIncludeDecorativeGraphics] = useState(
     defaults.includeDecorativeGraphics,
   );
-  const [difficulty, setDifficulty] =
-    useState<GenerationDefaultsV1["difficulty"]>("practice");
   const [length, setLength] = useState(defaults.length);
   const [includeAnswerKey, setIncludeAnswerKey] = useState(
     defaults.includeAnswerKey,
   );
   const [paperSize, setPaperSize] = useState(defaults.paperSize);
   const [printScale, setPrintScale] = useState(defaults.printScale);
-  const [stretchConfirmed, setStretchConfirmed] = useState(false);
   const [savingDefaults, setSavingDefaults] = useState(false);
   const [defaultsError, setDefaultsError] = useState<string | null>(null);
   const [defaultsSaved, setDefaultsSaved] = useState(false);
@@ -235,42 +138,49 @@ export function GeneratorControls({
     () => profiles.find((profile) => profile.id === profileId),
     [profileId, profiles],
   );
-  const capabilities: CapabilityProfileV1 | undefined = useMemo(
-    () =>
-      selectedProfile === undefined
-        ? undefined
-        : capabilityProfileOf(selectedProfile),
-    [selectedProfile],
+  const baseSelection = useMemo(() => worksheetSelectionOf(defaults), [defaults]);
+  // Interim (Step 16): the saved defaults with the selected child's earlier
+  // settings applied to every group they cover. The visible worksheet-level
+  // choices, the seeding flag and touched-state logic arrive together with the
+  // worksheet-first panel.
+  const earlierSettings = useMemo(
+    () => selectionForChild(selectedProfile, baseSelection),
+    [baseSelection, selectedProfile],
   );
-  const selectedRegistration = getWorksheetRegistration(worksheetType);
-  // The requested difficulty is used here on purpose: only "confidence" can
-  // change which maxima a family reads, and the stretch downgrade below never
-  // produces "confidence", so this stays free of a circular dependency.
-  const requestedContext: WorksheetControlContextV1 | undefined =
-    capabilities === undefined
-      ? undefined
-      : { profile: capabilities, difficulty, length, printScale };
-  const maximums = relevantMaximums(selectedRegistration, requestedContext);
-  const limits = relevantLimits(maximums, requestedContext, worksheetType);
-  const stretchUnavailable = stretchCannotApply(limits);
-  const effectiveDifficulty =
-    difficulty === "stretch" && stretchUnavailable ? "practice" : difficulty;
   // Memoized on its own values because the capacity verdict inside
   // `getCapabilitySupport` enumerates a family's whole candidate collection.
   // That is the right unit to measure in, and it is far too much work to redo
   // on every re-render.
-  const controlContext: WorksheetControlContextV1 | undefined = useMemo(
-    () =>
-      capabilities === undefined
-        ? undefined
-        : {
-            profile: capabilities,
-            difficulty: effectiveDifficulty,
-            length,
-            printScale,
-          },
-    [capabilities, effectiveDifficulty, length, printScale],
+  const selection: WorksheetSelectionV2 = useMemo(
+    () => ({
+      ...earlierSettings.selection,
+      worksheetType,
+      useDisplayName,
+      useInterests,
+      includeDecorativeGraphics,
+      includeAnswerKey,
+      length,
+      paperSize,
+      printScale,
+      theme: themeFromInterests(useInterests),
+    }),
+    [
+      earlierSettings,
+      includeAnswerKey,
+      includeDecorativeGraphics,
+      length,
+      paperSize,
+      printScale,
+      useDisplayName,
+      useInterests,
+      worksheetType,
+    ],
   );
+  const controlContext: WorksheetControlContextV2 = useMemo(
+    () => ({ selection }),
+    [selection],
+  );
+  const selectedRegistration = getWorksheetRegistration(worksheetType);
   const availability = useMemo(
     () =>
       worksheetAvailability(
@@ -285,52 +195,28 @@ export function GeneratorControls({
     capacity !== undefined && !capacity.sufficient ? capacity.message : undefined;
   const producible = availability.available && capacityShortfall === undefined;
   const applicableControls =
-    controlContext === undefined
+    selectedProfile === undefined
       ? NO_APPLICABLE_CONTROLS
       : selectedRegistration.controls.getApplicableControls(controlContext);
   const effectiveUnit =
-    controlContext === undefined
+    selectedProfile === undefined
       ? undefined
       : selectedRegistration.controls.getEffectiveUnit(controlContext);
   const unitLabel =
     effectiveUnit?.count === 1
       ? effectiveUnit.singularLabel
       : effectiveUnit?.pluralLabel;
-  // Both disclosures below are about what the PROFILE stores, not about what
-  // this selection prints. The sole projection boundary clamps every stored
-  // maximum to the envelope and pins both flags false in the request every
-  // family receives, which `shared/worksheet/project-request.test.ts` asserts
-  // directly, so a parent choosing a counted-groups page still needs to be
-  // told which stored values are kept and dormant. Scoping either list to the
-  // selection's own maxima hides the disclosure on exactly the families a
-  // parent of a young child is most likely to pick.
-  const limitsAboveV1: readonly RelevantLimit[] =
-    capabilities === undefined
-      ? []
-      : STORED_MAXIMUM_KEYS.filter(
-          (key) => capabilities.mathSkills[key] > worksheetMaximum(worksheetType, key),
-        ).map((key) => ({
-          label: WORKSHEET_MAXIMUM_LABELS[key],
-          value: capabilities.mathSkills[key],
-          maximum: worksheetMaximum(worksheetType, key),
-        }));
-  const futurePermissions =
-    capabilities === undefined
-      ? []
-      : FUTURE_PERMISSION_KEYS.filter(
-          (key) => capabilities.mathSkills[key],
-        ).map((key) => FUTURE_PERMISSION_LABELS[key]);
+  // What the selected child's earlier settings store but this version clamps
+  // or never uses. It describes the child's stored values, not this family's
+  // page, so it shows whichever worksheet is chosen.
+  const earlierSettingDisclosures = earlierSettings.disclosures.map(
+    describeEarlierSettingDisclosure,
+  );
   const hasMoreOptions =
-    applicableControls.difficulty ||
     applicableControls.length ||
     applicableControls.includeAnswerKey ||
     applicableControls.paperSize ||
     applicableControls.printScale;
-  const stretchNeedsConfirmation =
-    applicableControls.difficulty &&
-    difficulty === "stretch" &&
-    !stretchUnavailable &&
-    !stretchConfirmed;
 
   function changed(change: () => void): void {
     change();
@@ -343,24 +229,22 @@ export function GeneratorControls({
   }
 
   function effectiveUnitForLength(
-    nextLength: GenerationDefaultsV1["length"],
+    nextLength: WorksheetSelectionV2["length"],
   ): number | undefined {
-    return controlContext === undefined
+    return selectedProfile === undefined
       ? undefined
       : selectedRegistration.controls.getEffectiveUnit({
-          ...controlContext,
-          length: nextLength,
+          selection: { ...selection, length: nextLength },
         }).count;
   }
 
   /**
    * The parent's own visible choices, before any family normalization.
    *
-   * Stored defaults deliberately keep the RAW selections: the registration and
-   * the sole projection boundary canonicalize whatever a family hides at
-   * request time, so storing a projected value here would let a stored default
-   * silently rewrite an identical visible selection under a different family.
-   * The session-only Difficulty is not among them.
+   * Stored defaults deliberately keep the RAW selections: the sole projection
+   * boundary canonicalizes whatever a family hides at request time, so storing
+   * a projected value here would let a stored default silently rewrite an
+   * identical visible selection under a different family.
    */
   function shownDefaults(): ShownWorksheetDefaults {
     return {
@@ -372,11 +256,6 @@ export function GeneratorControls({
       paperSize,
       printScale,
     };
-  }
-
-  /** The unchanged projection's preferences: the shown fields plus Difficulty. */
-  function currentPreferences(): GenerationDefaultsV1 {
-    return { ...shownDefaults(), difficulty };
   }
 
   async function saveDefaults(): Promise<void> {
@@ -406,24 +285,10 @@ export function GeneratorControls({
   }
 
   function submit(): void {
-    if (
-      selectedProfile === undefined ||
-      controlContext === undefined ||
-      !producible ||
-      disabled
-    ) {
+    if (selectedProfile === undefined || !producible || disabled) {
       return;
     }
-    const preferences = selectedRegistration.controls.projectPreferences(
-      controlContext,
-      { ...currentPreferences(), difficulty: effectiveDifficulty },
-    );
-    onGenerate({
-      profile: selectedProfile,
-      worksheetType,
-      stretchConfirmed: applicableControls.difficulty && stretchConfirmed,
-      preferences,
-    });
+    onGenerate({ profile: selectedProfile, selection });
   }
 
   return (
@@ -441,10 +306,7 @@ export function GeneratorControls({
             aria-label="Child profile"
             disabled={disabled || profiles.length === 0}
             onChange={(event) =>
-              changed(() => {
-                setProfileId(event.currentTarget.value);
-                setStretchConfirmed(false);
-              })
+              changed(() => setProfileId(event.currentTarget.value))
             }
             value={profileId}
           >
@@ -464,12 +326,11 @@ export function GeneratorControls({
             aria-label="Worksheet type"
             disabled={disabled}
             onChange={(event) =>
-              changed(() => {
+              changed(() =>
                 setWorksheetType(
                   event.currentTarget.value as RegisteredWorksheetType,
-                );
-                setStretchConfirmed(false);
-              })
+                ),
+              )
             }
             value={worksheetType}
           >
@@ -547,22 +408,10 @@ export function GeneratorControls({
           </label>
         )}
 
-        {limitsAboveV1.length > 0 && (
-          <p>
-            Stored limits reach{" "}
-            {limitsAboveV1
-              .map(({ label, value, maximum }) => worksheetType === "dry-math"
-                ? `${label} ${value} (this activity uses at most ${maximum})`
-                : `${label} ${value}`)
-              .join(", ")}
-            {worksheetType === "dry-math" ? "." : `; Version 1 uses at most ${V1_NUMERIC_MAXIMUM}.`}
-          </p>
-        )}
-
-        {futurePermissions.length > 0 && (
-          <p>
-            This profile also allows {futurePermissions.join(", and ")}; Version
-            1 never uses {futurePermissions.length === 1 ? "it" : "them"}.
+        {earlierSettingDisclosures.length > 0 && (
+          <p data-earlier-settings-disclosure="true">
+            Earlier settings this version adjusts or does not use:{" "}
+            {earlierSettingDisclosures.join(" ")}
           </p>
         )}
 
@@ -570,70 +419,6 @@ export function GeneratorControls({
           <details>
             <summary>More options</summary>
             <div style={{ display: "grid", gap: "0.75rem", padding: "0.75rem 0" }}>
-              {applicableControls.difficulty && (
-                <>
-                  <label>
-                    Difficulty
-                    <select
-                      aria-label="Difficulty"
-                      disabled={disabled}
-                      onChange={(event) =>
-                        changed(() => {
-                          setDifficulty(
-                            event.currentTarget
-                              .value as GenerationDefaultsV1["difficulty"],
-                          );
-                          setStretchConfirmed(false);
-                        })
-                      }
-                      value={difficulty}
-                    >
-                      <option value="confidence">Confidence</option>
-                      <option value="practice">Practice</option>
-                      <option disabled={stretchUnavailable} value="stretch">
-                        Stretch
-                      </option>
-                    </select>
-                  </label>
-                  {difficulty === "stretch" && stretchUnavailable && (
-                    <p role="status">
-                      {limits.length === 0
-                        ? "This worksheet has no stretchable limits for this profile; practice limits will be used."
-                        : "Already at the V1 maximum; practice limits will be used."}
-                    </p>
-                  )}
-                  {difficulty === "stretch" && !stretchUnavailable && (
-                    <>
-                      {limits.length > 0 && (
-                        <p>
-                          One-time stretch preview:{" "}
-                          {limits
-                            .map(
-                              ({ label, value, maximum }) =>
-                                `${label} ${stretchLimit(value, maximum).join(" → ")}`,
-                            )
-                            .join("; ")}
-                          .
-                        </p>
-                      )}
-                      <label>
-                        <input
-                          checked={stretchConfirmed}
-                          disabled={disabled}
-                          onChange={(event) =>
-                            changed(() =>
-                              setStretchConfirmed(event.currentTarget.checked),
-                            )
-                          }
-                          type="checkbox"
-                        />{" "}
-                        Confirm these one-time stretch limits
-                      </label>
-                    </>
-                  )}
-                </>
-              )}
-
               {applicableControls.length && (
                 <label>
                   Length
@@ -643,7 +428,7 @@ export function GeneratorControls({
                     onChange={(event) =>
                       changed(() =>
                         setLength(
-                          event.currentTarget.value as GenerationDefaultsV1["length"],
+                          event.currentTarget.value as WorksheetSelectionV2["length"],
                         ),
                       )
                     }
@@ -689,7 +474,7 @@ export function GeneratorControls({
                       changed(() =>
                         setPaperSize(
                           event.currentTarget
-                            .value as GenerationDefaultsV1["paperSize"],
+                            .value as WorksheetSelectionV2["paperSize"],
                         ),
                       )
                     }
@@ -711,7 +496,7 @@ export function GeneratorControls({
                       changed(() =>
                         setPrintScale(
                           event.currentTarget
-                            .value as GenerationDefaultsV1["printScale"],
+                            .value as WorksheetSelectionV2["printScale"],
                         ),
                       )
                     }
@@ -736,7 +521,7 @@ export function GeneratorControls({
 
         <button
           aria-describedby={!availability.available ? "generation-unavailable" : capacityShortfall !== undefined ? "generation-capacity" : undefined}
-          disabled={disabled || !producible || stretchNeedsConfirmation}
+          disabled={disabled || !producible}
           onClick={submit}
           type="button"
         >

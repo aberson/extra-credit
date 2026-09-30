@@ -2,16 +2,23 @@ import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 
 import {
-  PRINT_SCALES,
-  WORKSHEET_LENGTHS,
-  type GenerationDefaultsV1,
-} from "../../shared/config/schema.js";
-import { objectiveAnswerEntries } from "../../shared/worksheet/invariants.js";
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../../shared/config/defaults.js";
 import {
   CapabilityProfileV1Schema,
-  projectGenerationRequest,
+  profileWithLegacyChoices,
+  selectionFromEarlierSettings,
   type CapabilityProfileV1,
-} from "../../shared/worksheet/project-request.js";
+} from "../../shared/config/earlier-settings.js";
+import {
+  PRINT_SCALES,
+  WORKSHEET_LENGTHS,
+  type ChildProfileV2,
+  type WorksheetSelectionV2,
+} from "../../shared/config/schema.js";
+import { objectiveAnswerEntries } from "../../shared/worksheet/invariants.js";
+import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
 import { formatSeedHex } from "../../shared/worksheet/seeded-random.js";
 import {
   REVIEWED_TOPIC_IDS,
@@ -45,11 +52,22 @@ import {
 
 const WORKSHEET_ID = "11111111-1111-4111-8111-111111111111";
 
-const defaults: GenerationDefaultsV1 = {
+/** The layout and personalization choices a selection carries beside its practice focus. */
+type Layout = Pick<
+  WorksheetSelectionV2,
+  | "useDisplayName"
+  | "useInterests"
+  | "includeDecorativeGraphics"
+  | "includeAnswerKey"
+  | "length"
+  | "paperSize"
+  | "printScale"
+>;
+
+const defaults: Layout = {
   useDisplayName: true,
   useInterests: true,
   includeDecorativeGraphics: true,
-  difficulty: "practice",
   length: "standard",
   includeAnswerKey: true,
   paperSize: "letter",
@@ -63,14 +81,7 @@ interface ProfileShape {
   readonly representations?: CapabilityProfileV1["mathSkills"]["representations"];
 }
 
-/**
- * The profile shape, built but NOT parsed.
- *
- * `MathSkillsV1Schema` floors the three quantity maxima at 1, so only the two
- * enumeration cubes below use this directly: they deliberately probe a 0 the
- * schema refuses, which is a claim about the enumeration staying total rather
- * than about a profile a parent could store.
- */
+/** The profile shape, built but NOT parsed; `quantityProfile` parses it. */
 function buildQuantityProfile({
   compareMax,
   countingMax = 10,
@@ -110,23 +121,93 @@ function quantityProfile(shape: ProfileShape = {}): CapabilityProfileV1 {
   return CapabilityProfileV1Schema.parse(buildQuantityProfile(shape));
 }
 
-function request(
-  profile: CapabilityProfileV1,
-  preferences: Partial<GenerationDefaultsV1> = {},
-  seed = "00000001",
+function projected(
+  selection: WorksheetSelectionV2,
+  profile: ChildProfileV2 | undefined,
+  seed: string,
 ): GenerationRequestV1 {
   const projection = projectGenerationRequest({
-    profile,
-    preferences: { ...defaults, ...preferences },
-    worksheetType: "count-compare-make",
+    ...(profile === undefined ? {} : { profile }),
+    selection,
     generatorVersion: 1,
     seed,
-    stretchConfirmed: true,
   });
   if (!projection.ok) {
     throw new Error(projection.message);
   }
   return projection.request;
+}
+
+/**
+ * The Count, Compare & Make selection a child's earlier settings describe:
+ * those settings mapped over the built-in defaults with this layout, then
+ * projected.
+ */
+function request(
+  profile: CapabilityProfileV1,
+  preferences: Partial<Layout> = {},
+  seed = "00000001",
+): GenerationRequestV1 {
+  const stored = profileWithLegacyChoices(profile);
+  if (stored.legacyChoices === undefined) {
+    throw new Error("The fixture profile unexpectedly carried no earlier settings.");
+  }
+  return projected(
+    {
+      ...selectionFromEarlierSettings(stored.legacyChoices, {
+        ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+        ...defaults,
+        ...preferences,
+      }).selection,
+      worksheetType: "count-compare-make",
+    },
+    stored,
+    seed,
+  );
+}
+
+/**
+ * A child-free request whose practice focus is exactly these values.
+ *
+ * The projection carries a focus verbatim, so only the two enumeration cubes
+ * below use this: they deliberately probe a 0 that neither the selection
+ * schema nor the earlier-settings mapping (which floors at 1) produces, which
+ * is a claim about the enumeration staying total rather than about a
+ * selection a parent could save.
+ */
+function focusRequest({
+  compareMax,
+  countingMax = 10,
+  numeralMax,
+}: Omit<ProfileShape, "representations"> = {}): GenerationRequestV1 {
+  return projected(
+    {
+      ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+      ...defaults,
+      worksheetType: "count-compare-make",
+      countCompareMake: {
+        countingMax,
+        numeralMax: numeralMax ?? countingMax,
+        compareMax: compareMax ?? countingMax,
+      },
+    },
+    undefined,
+    "00000001",
+  );
+}
+
+/** A projected request with its math capabilities replaced, bypassing the projection. */
+function withMathSkills(
+  requestValue: GenerationRequestV1,
+  mathSkills: Partial<GenerationRequestV1["capabilities"]["mathSkills"]>,
+): GenerationRequestV1 {
+  return {
+    ...requestValue,
+    capabilities: {
+      ...requestValue.capabilities,
+      mathSkills: { ...requestValue.capabilities.mathSkills, ...mathSkills },
+    },
+  };
 }
 
 function generated(
@@ -234,10 +315,21 @@ describe("Count, Compare & Make availability", () => {
     const support = getCountCompareMakeCapabilitySupport({
       representations: ["equations"],
     });
-    expect(support.available).toBe(false);
+    expect(support).toEqual({
+      available: false,
+      reason:
+        "Count, Compare & Make needs quantities. Choose a practice focus with counted groups.",
+    });
+    expect(
+      getCountCompareMakeCapabilitySupport({ representations: ["quantities"] }),
+    ).toEqual({ available: true });
 
+    const supported = request(quantityProfile());
+    expect(
+      generateCountCompareMake(supported, { worksheetId: WORKSHEET_ID }).ok,
+    ).toBe(true);
     const result = generateCountCompareMake(
-      request(quantityProfile({ representations: ["equations"] })),
+      withMathSkills(supported, { representations: ["equations"] }),
       { worksheetId: WORKSHEET_ID },
     );
     expect(result).toMatchObject({
@@ -248,12 +340,33 @@ describe("Count, Compare & Make availability", () => {
 
   test("high numeric maxima never authorize the representation on their own", () => {
     const result = generateCountCompareMake(
-      request(
-        quantityProfile({ countingMax: 20, representations: ["equations"] }),
-      ),
+      withMathSkills(request(quantityProfile({ countingMax: 20 })), {
+        representations: ["equations"],
+      }),
       { worksheetId: WORKSHEET_ID },
     );
     expect(result.ok).toBe(false);
+  });
+
+  test("a child whose earlier settings lack quantities still gets the default focus", () => {
+    const equationsOnly = request(
+      quantityProfile({ countingMax: 4, representations: ["equations"] }),
+    );
+    const defaultFocus = DEFAULT_WORKSHEET_DEFAULTS_V2.countCompareMake;
+    expect(equationsOnly.capabilities.mathSkills).toMatchObject({
+      representations: ["quantities"],
+      countingMax: defaultFocus.countingMax,
+      numeralMax: defaultFocus.numeralMax,
+      compareMax: defaultFocus.compareMax,
+    });
+    // Mirror: the same child with quantities carries its own narrower focus.
+    expect(
+      request(quantityProfile({ countingMax: 4 })).capabilities.mathSkills,
+    ).toMatchObject({ countingMax: 4, numeralMax: 4, compareMax: 4 });
+    expect("difficulty" in equationsOnly.options).toBe(false);
+    expect(
+      generateCountCompareMake(equationsOnly, { worksheetId: WORKSHEET_ID }).ok,
+    ).toBe(true);
   });
 
   test("refuses a request built for another registered family", () => {
@@ -268,14 +381,14 @@ describe("Count, Compare & Make candidate capacity", () => {
   /**
    * plan.md:209 states four closed forms. This proves each one against the
    * ACTUAL enumerated collection over the full cube of `countingMax` x
-   * `numeralMax` x `compareMax` in `0..20` - the whole post-clamp range plus a
-   * 0 sentinel, since `shared/config/schema.ts` stores each maximum as
-   * `min(1).max(1_000)` and `project-request.ts` clamps it to 20 - so the
+   * `numeralMax` x `compareMax` in `0..20` - the whole range a practice focus
+   * can hold plus a 0 sentinel, since `shared/config/schema.ts` bounds each
+   * focus maximum to `1..20` and the projection carries it verbatim - so the
    * documented formula and the array a page draws from cannot drift apart.
    *
-   * All three axes move INDEPENDENTLY on purpose. `MathSkillsV1Schema`
+   * All three axes move INDEPENDENTLY on purpose. `CountCompareFocusV2Schema`
    * declares them as three unrelated integer fields with no cross-field
-   * refinement, so a profile of 10 / 3 / 10 really does reach
+   * refinement, so a focus of 10 / 3 / 10 really does reach
    * `comparisonLimit > numeralLimit` - a regime an earlier version of this
    * sweep pinned `numeralMax` to `countingMax` and never enumerated. The
    * regime tally below is asserted rather than assumed: if a future clamp
@@ -287,9 +400,7 @@ describe("Count, Compare & Make candidate capacity", () => {
     for (let countingMax = 0; countingMax <= 20; countingMax += 1) {
       for (let numeralMax = 0; numeralMax <= 20; numeralMax += 1) {
         for (let compareMax = 0; compareMax <= 20; compareMax += 1) {
-          const requestValue = request(
-            buildQuantityProfile({ compareMax, countingMax, numeralMax }),
-          );
+          const requestValue = focusRequest({ compareMax, countingMax, numeralMax });
           const skills = requestValue.capabilities.mathSkills;
           const numeralLimit = getCountCompareMakeNumeralLimit(skills);
           const comparisonLimit = getCountCompareMakeComparisonLimit(skills);
@@ -316,7 +427,7 @@ describe("Count, Compare & Make candidate capacity", () => {
   test("match capacity is L targets at L>=3 and zero below it", () => {
     for (let limit = 0; limit <= 6; limit += 1) {
       const pools = enumerateCountCompareCandidates(
-        request(buildQuantityProfile({ countingMax: limit })),
+        focusRequest({ countingMax: limit }),
       );
       expect(pools.match.length, `L=${limit}`).toBe(limit >= 3 ? limit : 0);
       expect(new Set(pools.match.map(({ target }) => target)).size).toBe(
@@ -548,7 +659,7 @@ describe("capacity is counted in the collection selection draws from", () => {
     // here, so both really do bound the pool and a selector that named one of
     // them would be telling the parent that raising it alone is enough.
     expect(short.ok ? "" : short.message).toBe(
-      "The confirmed limits provide 0 unique numeral-matching exercises, but this length needs 2. Review the profile's counting and numerals limits.",
+      "This practice focus provides 0 unique numeral-matching exercises, but this length needs 2. Choose a practice focus with a wider counting and numerals range.",
     );
     expect(short).not.toHaveProperty("document");
   });
@@ -567,7 +678,7 @@ describe("capacity is counted in the collection selection draws from", () => {
       code: "GENERATION_CONSTRAINT_CONFLICT",
     });
     expect(result.ok ? "" : result.message).toBe(
-      "The confirmed limits provide 1 unique group-comparison exercises, but this length needs 2. Review the profile's comparisons limits.",
+      "This practice focus provides 1 unique group-comparison exercises, but this length needs 2. Choose a practice focus with a wider comparisons range.",
     );
   });
 
@@ -621,14 +732,14 @@ describe("capacity is counted in the collection selection draws from", () => {
           .map(([label]) => label);
         const expectedClause =
           expectedLabels.length === 1
-            ? `${expectedLabels[0]} limits.`
-            : `${expectedLabels[0]} and ${expectedLabels[1]} limits.`;
-        // Lowercased so one assertion covers both remedy openings ("Review
-        // the profile's ..." and "Choose a shorter worksheet or review the
-        // profile's ..."); the labels themselves are already lowercase.
+            ? `${expectedLabels[0]} range.`
+            : `${expectedLabels[0]} and ${expectedLabels[1]} range.`;
+        // One assertion covers both remedy forms ("Choose a practice focus
+        // with a wider ..." and "Choose a shorter length under More options,
+        // or a practice focus with a wider ...").
         expect(
-          `${result.message.toLowerCase()} | pair ${JSON.stringify(pair)}`,
-        ).toContain(`review the profile's ${expectedClause}`);
+          `${result.message} | pair ${JSON.stringify(pair)}`,
+        ).toContain(`a practice focus with a wider ${expectedClause}`);
         observed.add(`${subtype}:${expectedLabels.join("+")}`);
         return true;
       }),
@@ -687,8 +798,7 @@ describe("Count, Compare & Make match position", () => {
   }
 
   test("no target is locked to one position, at the smallest usable limits", () => {
-    // Limit 3 is the smallest limit that supports match items at all, and it
-    // is reachable from an age-four profile at Practice.
+    // Limit 3 is the smallest limit that supports match items at all.
     for (const limit of [3, 4, 10]) {
       const byTarget = matchPositionsByTarget(limit, 24);
       expect(byTarget.size, `L=${limit}`).toBeGreaterThan(0);
@@ -1347,17 +1457,11 @@ describe("Count, Compare & Make interest data", () => {
     // the check that they agree is driven through the real projection boundary
     // so a future second copy of the list fails here.
     for (const topicId of REVIEWED_TOPIC_IDS) {
-      const projection = projectGenerationRequest({
-        profile: { ...quantityProfile({ countingMax: 12 }), interests: [topicId] },
-        preferences: { ...defaults, length: "long", useInterests: true },
-        worksheetType: "count-compare-make",
-        generatorVersion: 1,
-        seed: "00000001",
-      });
-      if (!projection.ok) {
-        throw new Error(projection.message);
-      }
-      expect(projection.request.topicIds, topicId).toEqual([topicId]);
+      const projection = request(
+        { ...quantityProfile({ countingMax: 12 }), interests: [topicId] },
+        { length: "long", useInterests: true },
+      );
+      expect(projection.topicIds, topicId).toEqual([topicId]);
       expect(
         validateCountCompareMakeDocument(documentWithTopics([topicId])),
         topicId,
@@ -1366,19 +1470,13 @@ describe("Count, Compare & Make interest data", () => {
 
     // An unmatched raw tag never becomes a topic, so the validator never has
     // to accept one.
-    const unmatched = projectGenerationRequest({
-      profile: {
+    const unmatched = request(
+      {
         ...quantityProfile({ countingMax: 12 }),
         interests: ["Distinctive Private Nonsense"],
       },
-      preferences: { ...defaults, length: "long", useInterests: true },
-      worksheetType: "count-compare-make",
-      generatorVersion: 1,
-      seed: "00000001",
-    });
-    if (!unmatched.ok) {
-      throw new Error(unmatched.message);
-    }
-    expect("topicIds" in unmatched.request).toBe(false);
+      { length: "long", useInterests: true },
+    );
+    expect("topicIds" in unmatched).toBe(false);
   });
 });

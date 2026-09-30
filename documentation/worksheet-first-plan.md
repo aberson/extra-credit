@@ -669,6 +669,7 @@ These standing checks must also hold at every step's gate once they exist, and e
   10. **Copy and import scans.** `parent-copy-scan.test.ts` passes, and a synthetic source string containing "review the profile" fails it (calibration). `config-module-graph.test.ts` also asserts that `types.ts` imports from `enums.ts` only through `import type`.
   11. **Full gate.** `npm --prefix frontend run check` passes with counts at least Step 15's, and the §7 standing checks hold. The evidence section lists each removed assertion or test with its replacement (D23).
 - **Depends on:** Step 15
+- **Status:** DONE (2026-09-29)
 
 <!-- autofix-applied: 2026-09-29 -->
 ### Step 17: Worksheet-first panel with session-held selections

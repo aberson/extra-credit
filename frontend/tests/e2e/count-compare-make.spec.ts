@@ -288,14 +288,25 @@ test("renders Count, Compare & Make through the compiled UI", async ({
   await chooseWorksheet(page, "count-compare-make");
   await openMoreOptions(page);
 
-  // Without a confirmed quantities representation the activity is unavailable,
-  // and no numeric maximum can authorize it on its own.
+  // Count, Compare & Make implies its quantities representation, so a child
+  // whose earlier settings hold equations only generates it at the saved
+  // default's practice focus instead of being refused.
   await chooseChild(page, profiles[2].id);
+  await expect(page.getByText(/Count, Compare & Make needs/)).toHaveCount(0);
   await expect(
-    page.getByText(/Count, Compare & Make needs confirmed quantities/),
+    page.getByText(
+      "This selection creates 8 unique items on one practice page.",
+    ),
   ).toBeVisible();
-  await expect(createButton).toBeDisabled();
-  await expect(page.getByText(/This selection creates/)).toHaveCount(0);
+  await expect(createButton).toBeEnabled();
+  await createButton.click();
+  await expect(preview).toHaveAttribute(
+    "data-worksheet-type",
+    "count-compare-make",
+  );
+  await expect(
+    page.getByText("Worksheet ready with 8 unique items."),
+  ).toBeVisible();
 
   await chooseChild(page, profiles[0].id);
   await expect(
@@ -445,11 +456,12 @@ test("renders Count, Compare & Make through the compiled UI", async ({
   });
   await chooseLength(page, "standard");
 
-  // A stored maximum above 20 is shown but can never widen v1 generation.
+  // A stored maximum above 20 is shown but can never widen v1 generation:
+  // the earlier setting is clamped to the Version 1 ceiling and disclosed.
   await chooseChild(page, profiles[1].id);
-  await expect(
-    page.getByText(/Version 1 uses at most 20/),
-  ).toBeVisible();
+  await expect(page.locator("[data-earlier-settings-disclosure]")).toContainText(
+    "Count, Compare & Make counting: stored 50, using 20.",
+  );
   await setFixedSeed(page, 0x9dcc_a8c5);
   await createButton.click();
   const clamped = await readSheet(preview);

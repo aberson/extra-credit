@@ -1,7 +1,7 @@
 import {
   bindingMaximumKeys,
   capacityRemedySentence,
-  shorterLengthLowersRequirement,
+  shorterLengthFills,
   type WorksheetRelevantMaximumKey,
 } from "../../shared/worksheet/limit-labels.js";
 import {
@@ -21,10 +21,11 @@ export const COUNT_COMPARE_MAKE_DEFINITION = {
 } as const;
 
 /**
- * Every rendered quantity is clamped to the v1 source envelope even when the
- * stored profile records a higher capability (plan.md:211). The sole
- * projection boundary already clamps the request; repeating the clamp here
- * keeps the family's own limit arithmetic from being able to widen past it.
+ * Every rendered quantity is clamped to the v1 source envelope even when a
+ * request carries a higher capability (plan.md:211). The selection schema
+ * already bounds every quantity focus to it, and the earlier-settings mapping
+ * clamps a stored value into that range; repeating the clamp here keeps the
+ * family's own limit arithmetic from being able to widen past it.
  *
  * A re-export of the one envelope constant, never a second literal: the two
  * are the same number by construction rather than by agreement.
@@ -173,7 +174,7 @@ export function getCountCompareMakeCapabilitySupport(
     return {
       available: false,
       reason:
-        "Count, Compare & Make needs confirmed quantities. Choose another supported profile, or edit this profile to confirm that the child works with counted groups.",
+        "Count, Compare & Make needs quantities. Choose a practice focus with counted groups.",
     };
   }
   return { available: true };
@@ -222,8 +223,9 @@ function bindingKeysForSubtype(
  * derived HERE so a caller cannot measure capacity against a budget the
  * generator never uses, and both remedies are checked against the shortage
  * they claim to fix: the subtype's OWN binding maximum is named, and a shorter
- * worksheet is offered only when a shorter length really asks for fewer of
- * that subtype (`short` and `standard` both ask for two comparisons).
+ * length is offered only when a shorter length's allocation of that subtype
+ * fits within its capacity (`short` and `standard` both ask for two
+ * comparisons).
  */
 export function countCompareCapacityShortfall(
   capacity: CountCompareSubtypeCountsV1,
@@ -238,14 +240,14 @@ export function countCompareCapacityShortfall(
       continue;
     }
     const remedy = capacityRemedySentence(
-      shorterLengthLowersRequirement(
+      shorterLengthFills(
         length,
-        required,
+        capacity[subtype],
         (shorter) => getCountCompareMakeAllocation(shorter, printScale)[subtype],
       ),
       bindingKeysForSubtype(subtype, mathSkills),
     );
-    return `The confirmed limits provide ${capacity[subtype]} unique ${COUNT_COMPARE_MAKE_LABELS[subtype]} exercises, but this length needs ${required}. ${remedy}`;
+    return `This practice focus provides ${capacity[subtype]} unique ${COUNT_COMPARE_MAKE_LABELS[subtype]} exercises, but this length needs ${required}. ${remedy}`;
   }
   return undefined;
 }

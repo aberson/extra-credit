@@ -60,14 +60,6 @@
     },
     {
       "file": "frontend/src/shared/worksheet/registry.ts",
-      "planLine": 227,
-      "anchors": [
-        "a stored stretch default normalizes to"
-      ],
-      "siteCount": 1
-    },
-    {
-      "file": "frontend/src/shared/worksheet/registry.ts",
       "planLine": 238,
       "anchors": [
         "Sentence Builder always has one prompt"

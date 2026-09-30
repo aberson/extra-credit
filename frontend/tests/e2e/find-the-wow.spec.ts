@@ -467,7 +467,7 @@ async function setFixedSeed(page: Page, seed: number): Promise<void> {
   }, seed);
 }
 
-test("renders quantity, unavailable, equation, and confidence Wow through the compiled UI", async ({
+test("renders quantity, Statements-fallback and equation Wow pages through the compiled UI", async ({
   appServer,
   page,
 }) => {
@@ -514,13 +514,14 @@ test("renders quantity, unavailable, equation, and confidence Wow through the co
   ).toHaveText("Math — Two Whats and a Wow");
   await chooseWorksheet(page, "find-the-wow");
 
-  await expect(page.getByText(/use quantity mode for Two Whats and a Wow/)).toBeVisible();
+  await expect(
+    page.getByText("Statements for Two Whats and a Wow: Quantity pictures."),
+  ).toBeVisible();
   await expect(createButton).toBeEnabled();
   await expect(
     page.getByText("This selection creates 6 unique groups on one practice page."),
   ).toBeVisible();
   await openMoreOptions(page);
-  const difficultySelect = page.getByRole("combobox", { name: "Difficulty" });
   const lengthSelect = controls(page).length();
   await choosePrintLayout(page, { printScale: "large" });
   await expect(
@@ -622,22 +623,28 @@ test("renders quantity, unavailable, equation, and confidence Wow through the co
   await expect(page.locator("[data-quantity-mark]")).not.toHaveCount(0);
   await page.emulateMedia({ media: "screen" });
 
+  // Equations without equality understanding and no quantities seed no
+  // Statements variant, so this child keeps the saved default, Quantity
+  // pictures, where Version 1 refused Two Whats and a Wow outright.
   await chooseChild(page, profiles[2].id);
   await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Parent answer key" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Make another" })).toHaveCount(0);
   await expect(page.getByText(/Worksheet ready with/)).toHaveCount(0);
-  await expect(page.getByText(/This selection creates/)).toHaveCount(0);
-  await expect(createButton).toBeDisabled();
+  await expect(page.getByText(/Two Whats and a Wow needs/)).toHaveCount(0);
   await expect(
-    page.getByText(
-      /needs confirmed quantities, or equations with equality understanding and an enabled operation/,
-    ),
+    page.getByText("Statements for Two Whats and a Wow: Quantity pictures."),
   ).toBeVisible();
+  await expect(
+    page.getByText("This selection creates 6 unique groups on one practice page."),
+  ).toBeVisible();
+  await expect(createButton).toBeEnabled();
   await expectAccessible(page);
 
   await chooseChild(page, profiles[1].id);
-  await expect(page.getByText(/use equation mode for Two Whats and a Wow/)).toBeVisible();
+  await expect(
+    page.getByText("Statements for Two Whats and a Wow: Equations."),
+  ).toBeVisible();
   await expect(createButton).toBeEnabled();
   await setFixedSeed(page, 2);
   await createButton.click();
@@ -682,18 +689,23 @@ test("renders quantity, unavailable, equation, and confidence Wow through the co
   await answerKeySurfaceButton.click();
   await expectAccessible(page);
 
-  await difficultySelect.selectOption("confidence");
+  // No Difficulty control can switch this equation-capable child to
+  // quantities; the quantity-only child produces the quantity page instead.
+  await expect(page.getByRole("combobox", { name: "Difficulty" })).toHaveCount(0);
+  await chooseChild(page, profiles[0].id);
   await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
-  await expect(page.getByText(/use quantity mode for Two Whats and a Wow/)).toBeVisible();
+  await expect(
+    page.getByText("Statements for Two Whats and a Wow: Quantity pictures."),
+  ).toBeVisible();
   await setFixedSeed(page, 3);
   await createButton.click();
   await expect(preview).toHaveAttribute("data-seed", "00000003");
   await expect(preview.locator('[data-wow-mode="quantity"]')).toHaveCount(6);
-  const confidenceGroups = await readGroups(preview);
-  const confidenceAnswers = quantityOracle(confidenceGroups, 15);
+  const quantityOnlyGroups = await readGroups(preview);
+  const quantityOnlyAnswers = quantityOracle(quantityOnlyGroups, 10);
   await expect(preview.locator("[data-visible-equation]")).toHaveCount(0);
   await answerKeySurfaceButton.click();
-  await readAndVerifyKey(answerSurface, confidenceAnswers);
+  await readAndVerifyKey(answerSurface, quantityOnlyAnswers);
 
   await chooseWorksheet(page, "dry-math");
   await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);

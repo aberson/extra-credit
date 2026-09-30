@@ -81,6 +81,19 @@ export const SENTENCE_BUILDER_REQUIRED_RESPONSES = {
   },
 } as const satisfies Record<WritingMode, RequiredResponseV1>;
 
+/**
+ * The parent-visible name of each Writing activity (U2, DD12). Every sentence
+ * a parent reads names the activity this way; the internal ids stay in data
+ * attributes and requests.
+ */
+export const SENTENCE_BUILDER_VARIANT_LABELS = {
+  "draw-and-tell": "Draw & Tell",
+  label: "Picture Labels",
+  "copy-with-model": "Copy a Sentence",
+  "sentence-frame": "Finish a Sentence",
+  independent: "Independent Writing",
+} as const satisfies Record<WritingMode, string>;
+
 export const SENTENCE_BUILDER_MODE_LABELS = {
   "draw-and-tell": "draw and tell",
   label: "label your drawing",
@@ -143,7 +156,7 @@ export type SentenceBuilderCapabilitySupport =
  * Parent-facing availability, proved over EVERY reviewed topic in the
  * vocabulary rather than only the neutral fallback.
  *
- * Which topics a generation actually reaches depends on the profile's matched
+ * Which topics a generation actually reaches depends on the child's matched
  * interests, so a gate that measured one topic would be answering about a pool
  * the generator may never touch: adding a topic thinner than that one would
  * make this say "available" and the generator answer
@@ -164,7 +177,7 @@ export function getSentenceBuilderCapabilitySupport(
   const topicIds = knownVocabularyTopicIds(vocabulary);
   const unavailablePrompt = {
     available: false,
-    reason: `Sentence Builder has no reviewed ${SENTENCE_BUILDER_MODE_LABELS[writingMode]} prompt for this profile's presentation band. Choose a different writing mode in the profile.`,
+    reason: `Sentence Builder has no reviewed ${SENTENCE_BUILDER_VARIANT_LABELS[writingMode]} prompt for this vocabulary. Choose a different Writing activity or Vocabulary.`,
   } as const;
   if (topicIds.length === 0) {
     return unavailablePrompt;

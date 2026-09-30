@@ -24,17 +24,23 @@ import {
   WRITING_MODES,
 } from "../../src/shared/config/enums.js";
 import {
-  ChildProfileV1Schema,
-  type GenerationDefaultsV1,
-} from "../../src/shared/config/legacy-v1.js";
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../../src/shared/config/defaults.js";
+import {
+  selectionFromEarlierSettings,
+  type EarlierSettingsGroup,
+} from "../../src/shared/config/earlier-settings.js";
+import { ChildProfileV1Schema } from "../../src/shared/config/legacy-v1.js";
 import { MATH_PRESETS } from "../../src/shared/config/math-presets.js";
 import { classifyStoredConfig } from "../../src/shared/config/migrate.js";
+import type {
+  ChildProfileV2,
+  LegacyChoicesV2,
+  WorksheetSelectionV2,
+} from "../../src/shared/config/schema.js";
 import { canonicalContentKey } from "../../src/shared/worksheet/invariants.js";
-import {
-  capabilityProfileOf,
-  projectGenerationRequest,
-  type CapabilityProfileV1,
-} from "../../src/shared/worksheet/project-request.js";
+import { projectGenerationRequest } from "../../src/shared/worksheet/project-request.js";
 import { getWorksheetRegistration } from "../../src/shared/worksheet/registry.js";
 import {
   WORKSHEET_TYPE_IDS,
@@ -49,9 +55,10 @@ import {
  * captured from 5c22159's exported tree. Every committed key is parsed back
  * into its record, family, length, scale and seed, and that cell is generated
  * again through the current path: each record is read as a stored version 1
- * file through the store's own classifier, flattened back to capabilities by
- * `capabilityProfileOf` and projected at Practice. The pinned file digest
- * keeps the grid itself frozen. Nothing here calls git, so the suite also runs in the release
+ * file through the store's own classifier, its `legacyChoices` are mapped to
+ * a worksheet selection by `selectionFromEarlierSettings` over the built-in
+ * defaults, and that selection is projected. The pinned file digest keeps the
+ * grid itself frozen. Nothing here calls git, so the suite also runs in the release
  * clean room and in a shallow CI checkout.
  */
 
@@ -134,27 +141,32 @@ const gridBytes = readFileSync(GRID_PATH);
 const committedGrid = JSON.parse(gridBytes.toString("utf8")) as Record<string, string>;
 const committedKeys = Object.keys(committedGrid);
 
+/** A migrated profile: its identity and interests, and its earlier settings. */
+interface GoldenRecord {
+  readonly profile: ChildProfileV2;
+  readonly legacy: LegacyChoicesV2;
+}
+
 /**
- * The capability view of every profile a stored version 1 file holds, read
- * exactly as the store reads one: the classifier upgrades it in memory, and
- * `capabilityProfileOf` flattens each profile's `legacyChoices`.
+ * Every profile a stored version 1 file holds, read exactly as the store
+ * reads one: the classifier upgrades it in memory, and each migrated profile
+ * carries its version 1 choices as `legacyChoices`.
  */
-function capabilitiesThroughClassifier(stored: unknown): readonly CapabilityProfileV1[] {
+function recordsThroughClassifier(stored: unknown): readonly GoldenRecord[] {
   const classified = classifyStoredConfig(stored);
   if (classified.kind !== "legacy") {
     throw new Error(`A golden source classified as ${classified.kind}, not legacy.`);
   }
   return classified.config.profiles.map((profile) => {
-    const capabilities = capabilityProfileOf(profile);
-    if (capabilities === undefined) {
+    if (profile.legacyChoices === undefined) {
       throw new Error("A migrated golden profile carried no earlier settings.");
     }
-    return capabilities;
+    return { profile, legacy: profile.legacyChoices };
   });
 }
 
 const runtimeRecords = buildGoldenRuntimeRecords(MATH_PRESETS, WRITING_MODES, PRESENTATION_BANDS);
-const runtimeProfiles = capabilitiesThroughClassifier({
+const runtimeProfiles = recordsThroughClassifier({
   schemaVersion: 1,
   profiles: runtimeRecords.map(({ profile }) => ChildProfileV1Schema.parse(profile)),
   defaults: {
@@ -168,8 +180,8 @@ const runtimeProfiles = capabilitiesThroughClassifier({
     printScale: "standard",
   },
 });
-const records: ReadonlyMap<string, CapabilityProfileV1> = new Map([
-  ...capabilitiesThroughClassifier(JSON.parse(readFileSync(FIXTURE_PATH, "utf8"))).map(
+const records: ReadonlyMap<string, GoldenRecord> = new Map([
+  ...recordsThroughClassifier(JSON.parse(readFileSync(FIXTURE_PATH, "utf8"))).map(
     (profile, index) => [`canonical-${index + 1}`, profile] as const,
   ),
   ...runtimeRecords.map(({ record }, index) => [record, runtimeProfiles[index]!] as const),
@@ -197,29 +209,51 @@ function parseCaseId(key: string, knownRecords: ReadonlySet<string>): GoldenCell
   return { record, family, length, scale, seed };
 }
 
-/**
- * The current path for one cell: the unchanged Version 1 projection at
- * Practice, then the registered generator, exactly as the app creates a
- * worksheet. A refused cell yields `undefined`.
- */
-function currentCellHash(profile: CapabilityProfileV1, cell: GoldenCell): string | undefined {
-  const registration = getWorksheetRegistration(cell.family);
-  const preferences: GenerationDefaultsV1 = {
-    useDisplayName: false,
-    useInterests: true,
-    includeDecorativeGraphics: true,
-    difficulty: "practice",
-    length: cell.length,
-    includeAnswerKey: true,
-    paperSize: "letter",
-    printScale: cell.scale,
+/** The built-in defaults at the capture's fixed layout: nickname off, interests on. */
+const CAPTURE_BASE: WorksheetSelectionV2 = {
+  ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+  useDisplayName: false,
+  useInterests: true,
+  includeDecorativeGraphics: true,
+  includeAnswerKey: true,
+  paperSize: "letter",
+};
+
+/** One cell's selection: the record's earlier settings over the capture base. */
+function cellSelection({ legacy }: GoldenRecord, cell: GoldenCell): {
+  readonly selection: WorksheetSelectionV2;
+  readonly groups: readonly EarlierSettingsGroup[];
+} {
+  const mapped = selectionFromEarlierSettings(legacy, CAPTURE_BASE);
+  return {
+    selection: {
+      ...mapped.selection,
+      worksheetType: cell.family,
+      length: cell.length,
+      printScale: cell.scale,
+    },
+    groups: mapped.groups,
   };
+}
+
+/**
+ * The current path for one cell: the record's earlier settings mapped to a
+ * worksheet selection, the new projection, then the registered generator,
+ * exactly as the app creates a worksheet, with the migrated child's own
+ * nickname and interests for personalization. A refused cell yields
+ * `undefined`.
+ */
+function selectionHash(
+  profile: ChildProfileV2,
+  selection: WorksheetSelectionV2,
+  seed: string,
+): string | undefined {
+  const registration = getWorksheetRegistration(selection.worksheetType);
   const projection = projectGenerationRequest({
     profile,
-    worksheetType: cell.family,
+    selection,
     generatorVersion: registration.generatorVersion,
-    seed: cell.seed,
-    preferences,
+    seed,
   });
   if (!projection.ok) {
     return undefined;
@@ -230,7 +264,11 @@ function currentCellHash(profile: CapabilityProfileV1, cell: GoldenCell): string
   return result.ok ? sha256(canonicalContentKey(result.document.items)) : undefined;
 }
 
-function recordProfile(record: string): CapabilityProfileV1 {
+function currentCellHash(record: GoldenRecord, cell: GoldenCell): string | undefined {
+  return selectionHash(record.profile, cellSelection(record, cell).selection, cell.seed);
+}
+
+function recordProfile(record: string): GoldenRecord {
   const profile = records.get(record);
   if (profile === undefined) {
     throw new Error(`Unknown golden record ${record}.`);
@@ -293,40 +331,72 @@ describe("the current path reproduces every committed hash", () => {
     expect(mismatched).toEqual([]);
   });
 
-  test("the current path generates no cell the grid lacks", () => {
+  test("every cell the grid lacks now runs its family at the base focus the earlier settings do not cover", () => {
+    // At 5c22159 a profile without a family's capability was refused, so the
+    // grid holds no key for it. Without profile gates the family now always
+    // generates; a cell the grid lacks must therefore be one whose family group
+    // the record's earlier settings do not cover, so it runs at the built-in
+    // default's focus and cannot be compared with any 5c22159 content. Every
+    // committed key is generated (the test above), and nothing else is.
+    const coveringGroup = {
+      "dry-math": "dryMath",
+      "find-the-wow": "findTheWow.variant",
+      "sentence-builder": "sentenceBuilder.variant",
+      "count-compare-make": "countCompareMake",
+    } as const satisfies Record<WorksheetType, EarlierSettingsGroup>;
+    const committed = new Set(committedKeys);
     const generated: string[] = [];
-    for (const [record, profile] of records) {
+    const baseOnly: string[] = [];
+    for (const [record, source] of records) {
       for (const family of WORKSHEET_TYPE_IDS) {
         for (const length of WORKSHEET_LENGTHS) {
           for (const scale of PRINT_SCALES) {
             for (const seed of GOLDEN_SEEDS) {
               const cell = { record, family, length, scale, seed };
-              if (currentCellHash(profile, cell) !== undefined) {
-                generated.push([record, family, length, scale, seed].join("/"));
+              const key = [record, family, length, scale, seed].join("/");
+              if (currentCellHash(source, cell) === undefined) {
+                continue;
+              }
+              generated.push(key);
+              if (!committed.has(key)) {
+                const covered = cellSelection(source, cell).groups.includes(
+                  coveringGroup[family],
+                );
+                expect(`${key} covered by earlier settings: ${covered}`).toBe(
+                  `${key} covered by earlier settings: false`,
+                );
+                baseOnly.push(key);
               }
             }
           }
         }
       }
     }
-    expect(generated.sort()).toEqual(committedKeys);
+    expect(generated.filter((key) => committed.has(key)).sort()).toEqual(committedKeys);
+    // The base-only cells are exactly the families a record's earlier settings
+    // leave uncovered, one record-family pair per 24 cells.
+    expect(baseOnly.length % (WORKSHEET_LENGTHS.length * PRINT_SCALES.length * GOLDEN_SEEDS.length)).toBe(0);
   });
 
-  test("calibration: operandMax minus one changes at least one hash", () => {
+  test("calibration: a focus operandMax minus one changes at least one hash", () => {
     let perturbedCells = 0;
     let changed = 0;
     for (const [record, cells] of cellsByRecord) {
-      const profile = recordProfile(record);
-      if (profile.mathSkills.operandMax <= 1) {
-        continue;
-      }
-      const perturbed: CapabilityProfileV1 = {
-        ...profile,
-        mathSkills: { ...profile.mathSkills, operandMax: profile.mathSkills.operandMax - 1 },
-      };
+      const source = recordProfile(record);
       for (const { key, cell } of cells) {
+        const { selection } = cellSelection(source, cell);
+        const lowered = (focus: WorksheetSelectionV2["dryMath"]) =>
+          focus.operandMax <= 1 ? focus : { ...focus, operandMax: focus.operandMax - 1 };
+        const perturbed: WorksheetSelectionV2 = {
+          ...selection,
+          dryMath: lowered(selection.dryMath),
+          findTheWow: {
+            ...selection.findTheWow,
+            equation: lowered(selection.findTheWow.equation),
+          },
+        };
         perturbedCells += 1;
-        if (currentCellHash(perturbed, cell) !== committedGrid[key]) {
+        if (selectionHash(source.profile, perturbed, cell.seed) !== committedGrid[key]) {
           changed += 1;
         }
       }

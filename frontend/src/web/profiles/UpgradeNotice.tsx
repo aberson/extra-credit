@@ -2,9 +2,9 @@
  * The one-time notice for a profile file an earlier version saved (U11).
  *
  * The Practice focus wording is the final copy for the worksheet controls that
- * replace Difficulty; it is shown here ahead of them on purpose, beside the
- * interim session-only Difficulty select. This notice is the only place a
- * parent reads the word "age" (U3).
+ * replace Difficulty; it is shown here ahead of the visible practice-focus
+ * control on purpose. This notice is the only place a parent reads the word
+ * "age" (U3).
  */
 export const UPGRADE_NOTICE_TEXT =
   "This profile file was saved by an earlier version. Your profiles are shown unchanged; the next save updates the file and keeps a copy of the earlier file beside it. Age is no longer used, and Practice focus replaces Difficulty. A saved Difficulty of Confidence or Stretch no longer applies; each practice focus uses exactly its stated range.";

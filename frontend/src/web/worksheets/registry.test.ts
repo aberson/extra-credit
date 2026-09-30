@@ -7,20 +7,33 @@ import { createElement } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
   emptyAppConfigV2,
   themeFromInterests,
+  worksheetSelectionOf,
 } from "../../shared/config/defaults";
 import {
+  profileWithLegacyChoices,
+  selectionFromEarlierSettings,
+  type CapabilityProfileV1,
+} from "../../shared/config/earlier-settings";
+import {
+  PRACTICE_FOCUS_CATALOG,
+  type PracticeFocusKind,
+  type PracticeFocusValues,
+} from "../../shared/config/practice-focus";
+import {
   PRINT_SCALES,
+  SENTENCE_VOCABULARY_OPTIONS,
   WORKSHEET_LENGTHS,
   WRITING_MODES,
-  type GenerationDefaultsV1,
+  type ChildProfileV2,
+  type WorksheetSelectionV2,
 } from "../../shared/config/schema";
 import {
-  NO_EARLIER_SETTINGS_MESSAGE,
-  profileWithLegacyChoices,
+  INACTIVE_MATH_FIELDS,
+  INACTIVE_WRITING_CAPABILITIES,
   projectGenerationRequest,
-  type CapabilityProfileV1,
 } from "../../shared/worksheet/project-request";
 import {
   REGISTERED_WORKSHEET_IDS,
@@ -28,7 +41,7 @@ import {
   getWorksheetRegistration,
   type RegisteredWorksheetType,
   type WorksheetApplicableControlsV1,
-  type WorksheetControlContextV1,
+  type WorksheetControlContextV2,
   type WorksheetRelevantMaximumKey,
 } from "../../shared/worksheet/registry";
 import type {
@@ -52,7 +65,10 @@ import {
   makeAnotherWorksheetSession,
   type GenerationSelection,
 } from "../generator/create-session";
-import { GeneratorControls } from "../generator/GeneratorControls";
+import {
+  GeneratorControls,
+  type ShownWorksheetDefaults,
+} from "../generator/GeneratorControls";
 import { WorksheetPreview } from "../preview/WorksheetPreview";
 import { AnswerKeyView } from "../print/AnswerKeyView";
 import { PrintView } from "../print/PrintView";
@@ -100,32 +116,80 @@ const quantityProfile: CapabilityProfileV1 = {
   interests: ["Private Visual Topic"],
 };
 
-const preferences: GenerationDefaultsV1 = {
+/** The layout and personalization choices every fixture starts from. */
+const layout: ShownWorksheetDefaults = {
   useDisplayName: false,
   useInterests: false,
   includeDecorativeGraphics: false,
-  difficulty: "practice",
   length: "standard",
   includeAnswerKey: true,
   paperSize: "letter",
   printScale: "standard",
 };
 
+/** One change to a worksheet selection, applied after the fixture is built. */
+type SelectionEdit = (selection: WorksheetSelectionV2) => WorksheetSelectionV2;
+
+const unchanged: SelectionEdit = (selection) => selection;
+
+function set(overrides: Partial<WorksheetSelectionV2>): SelectionEdit {
+  return (selection) => ({ ...selection, ...overrides });
+}
+
+function withWowVariant(
+  variant: WorksheetSelectionV2["findTheWow"]["variant"],
+): SelectionEdit {
+  return (selection) => ({
+    ...selection,
+    findTheWow: { ...selection.findTheWow, variant },
+  });
+}
+
 /**
  * The fixtures below are capability views; a session or the controls receive
- * the stored version 2 profile whose `legacyChoices` hold them (D-interim).
+ * the stored version 2 profile whose `legacyChoices` hold them.
  */
 const stored = profileWithLegacyChoices;
 
-const selection: GenerationSelection = {
-  profile: stored(profile),
-  preferences,
-  stretchConfirmed: false,
-  worksheetType: "dry-math",
-};
+/**
+ * The selection a child's earlier settings describe over the built-in
+ * defaults and this suite's layout: the mapping `GeneratorControls` applies,
+ * which reproduces the version 1 Practice content (`practice-golden.test.ts`).
+ */
+function selectionOf(
+  sourceProfile: CapabilityProfileV1,
+  worksheetType: RegisteredWorksheetType,
+  overrides: Partial<WorksheetSelectionV2> = {},
+): WorksheetSelectionV2 {
+  const legacy = stored(sourceProfile).legacyChoices;
+  if (legacy === undefined) {
+    throw new Error("A capability fixture lost its earlier settings.");
+  }
+  return {
+    ...selectionFromEarlierSettings(legacy, {
+      ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+      ...layout,
+    }).selection,
+    ...overrides,
+    worksheetType,
+  };
+}
+
+function generationFor(
+  sourceProfile: CapabilityProfileV1,
+  worksheetType: RegisteredWorksheetType,
+  overrides: Partial<WorksheetSelectionV2> = {},
+): GenerationSelection {
+  return {
+    profile: stored(sourceProfile),
+    selection: selectionOf(sourceProfile, worksheetType, overrides),
+  };
+}
+
+const generation: GenerationSelection = generationFor(profile, "dry-math");
 
 function sessionFor(seed: number) {
-  const result = createWorksheetSessionForSeed(selection, seed, {
+  const result = createWorksheetSessionForSeed(generation, seed, {
     worksheetIdSource: () => "11111111-1111-4111-8111-111111111111",
   });
   if (!result.ok) {
@@ -146,65 +210,6 @@ const smallQuantityProfile: CapabilityProfileV1 = {
   },
 };
 
-/** Every relevant maximum is stretchable: positive and below the V1 ceiling. */
-const stretchProbeProfile: CapabilityProfileV1 = {
-  ...profile,
-  id: "b1b2c3d4-2222-4222-8222-222222222222",
-  mathSkills: {
-    ...profile.mathSkills,
-    countingMax: 8,
-    numeralMax: 8,
-    compareMax: 8,
-    operandMax: 8,
-    resultMax: 8,
-  },
-};
-
-/** Equation limits already at the V1 ceiling; counting limits below it. */
-const equationsAtMaximumProfile: CapabilityProfileV1 = {
-  ...profile,
-  id: "c1b2c3d4-3333-4333-8333-333333333333",
-  mathSkills: {
-    ...profile.mathSkills,
-    countingMax: 10,
-    numeralMax: 10,
-    operandMax: 20,
-    resultMax: 20,
-  },
-};
-
-/** The mirror image: counting limits at the ceiling, equation limits below. */
-const countingAtMaximumProfile: CapabilityProfileV1 = {
-  ...profile,
-  id: "d1b2c3d4-4444-4444-8444-444444444444",
-  mathSkills: {
-    ...profile.mathSkills,
-    countingMax: 20,
-    numeralMax: 20,
-    compareMax: 20,
-    operandMax: 10,
-    resultMax: 10,
-  },
-};
-
-/**
- * A profile whose limits for THAT family are all at the V1 ceiling while its
- * other limits are not. Using one profile for every family would prove only
- * that an all-20 profile disables stretch; pairing each family with the
- * profile that maxes exactly its own maxima is what proves the gate reads the
- * active mode's limits and no others.
- */
-const AT_V1_MAXIMUM_PROFILES: Readonly<
-  Record<RegisteredWorksheetType, CapabilityProfileV1>
-> = {
-  "dry-math": { ...equationsAtMaximumProfile, mathSkills: {
-    ...equationsAtMaximumProfile.mathSkills, operandMax: 100, resultMax: 100,
-  } },
-  "find-the-wow": equationsAtMaximumProfile,
-  "sentence-builder": equationsAtMaximumProfile,
-  "count-compare-make": countingAtMaximumProfile,
-};
-
 const BANK_MODES: readonly CapabilityProfileV1["writingMode"][] =
   BANK_WRITING_MODES;
 
@@ -219,15 +224,10 @@ const MAXIMUM_KEYS = [
 function wowSessionFor(
   sourceProfile: CapabilityProfileV1,
   seed: number,
-  overrides: Partial<GenerationDefaultsV1> = {},
+  overrides: Partial<WorksheetSelectionV2> = {},
 ) {
   const result = createWorksheetSessionForSeed(
-    {
-      profile: stored(sourceProfile),
-      preferences: { ...preferences, ...overrides },
-      stretchConfirmed: false,
-      worksheetType: "find-the-wow",
-    },
+    generationFor(sourceProfile, "find-the-wow", overrides),
     seed,
     {
       worksheetIdSource: () => "55555555-5555-4555-8555-555555555555",
@@ -240,59 +240,97 @@ function wowSessionFor(
 }
 
 function controlContextFor(
+  worksheetType: RegisteredWorksheetType,
   sourceProfile: CapabilityProfileV1,
-  difficulty: GenerationDefaultsV1["difficulty"] = "practice",
-): WorksheetControlContextV1 {
-  return {
-    profile: sourceProfile,
-    difficulty,
-    length: "standard",
-    printScale: "standard",
-  };
+  edit: SelectionEdit = unchanged,
+): WorksheetControlContextV2 {
+  return { selection: edit(selectionOf(sourceProfile, worksheetType)) };
 }
 
 function registryMaximumKeys(
   worksheetType: RegisteredWorksheetType,
-  context: WorksheetControlContextV1,
+  context: WorksheetControlContextV2,
 ): readonly WorksheetRelevantMaximumKey[] {
   return getWorksheetRegistration(worksheetType)
     .controls.getRelevantMaximums(context)
     .map(({ key }) => key);
 }
 
+/** The request the sole projection boundary builds, or a loud failure. */
+function projectedRequest(
+  selection: WorksheetSelectionV2,
+  child?: ChildProfileV2,
+): GenerationRequestV1 {
+  const projection = projectGenerationRequest({
+    ...(child === undefined ? {} : { profile: child }),
+    selection,
+    generatorVersion: getWorksheetRegistration(selection.worksheetType)
+      .generatorVersion,
+    seed: "00000001",
+  });
+  if (!projection.ok) {
+    throw new Error(projection.message);
+  }
+  return projection.request;
+}
+
 /**
- * Observes which stored maxima the sole projection boundary actually scales,
- * instead of re-typing its private per-worksheet key list.
+ * The selection with one maximum of the family's OWN practice focus set to
+ * `value`, or `undefined` when that focus has no such maximum. Two Whats and
+ * a Wow's own focus is the one its Statements variant selects.
  */
-function projectorStretchedKeys(
+function withOwnFocusMaximum(
+  selection: WorksheetSelectionV2,
   worksheetType: RegisteredWorksheetType,
-  sourceProfile: CapabilityProfileV1,
-): readonly WorksheetRelevantMaximumKey[] {
-  const project = (difficulty: GenerationDefaultsV1["difficulty"]) => {
-    const projection = projectGenerationRequest({
-      profile: sourceProfile,
-      preferences: { ...preferences, difficulty },
-      worksheetType,
-      generatorVersion: getWorksheetRegistration(worksheetType).generatorVersion,
-      seed: "00000001",
-      stretchConfirmed: true,
-    });
-    if (!projection.ok) {
-      throw new Error(projection.message);
+  key: WorksheetRelevantMaximumKey,
+  value: number,
+): WorksheetSelectionV2 | undefined {
+  switch (worksheetType) {
+    case "dry-math":
+      return key === "operandMax" || key === "resultMax"
+        ? { ...selection, dryMath: { ...selection.dryMath, [key]: value } }
+        : undefined;
+    case "find-the-wow": {
+      const { variant } = selection.findTheWow;
+      if (variant === "equation") {
+        return key === "operandMax" || key === "resultMax"
+          ? {
+              ...selection,
+              findTheWow: {
+                ...selection.findTheWow,
+                equation: { ...selection.findTheWow.equation, [key]: value },
+              },
+            }
+          : undefined;
+      }
+      return key === "countingMax" || key === "numeralMax"
+        ? {
+            ...selection,
+            findTheWow: {
+              ...selection.findTheWow,
+              quantity: { ...selection.findTheWow.quantity, [key]: value },
+            },
+          }
+        : undefined;
     }
-    return projection.request.capabilities.mathSkills;
-  };
-  const practice = project("practice");
-  const stretch = project("stretch");
-  return MAXIMUM_KEYS.filter((key) => stretch[key] !== practice[key]);
+    case "count-compare-make":
+      return key === "countingMax" || key === "numeralMax" || key === "compareMax"
+        ? {
+            ...selection,
+            countCompareMake: { ...selection.countCompareMake, [key]: value },
+          }
+        : undefined;
+    case "sentence-builder":
+      return undefined;
+  }
 }
 
 function renderControls(
   sourceProfile: CapabilityProfileV1,
   worksheetType: RegisteredWorksheetType,
-  overrides: Partial<GenerationDefaultsV1> = {},
+  overrides: Partial<ShownWorksheetDefaults> = {},
 ): void {
-  const { difficulty, ...shown } = { ...preferences, ...overrides };
+  const shown = { ...layout, ...overrides };
   render(
     createElement(GeneratorControls, {
       defaults: {
@@ -308,13 +346,6 @@ function renderControls(
   );
   for (const details of document.querySelectorAll("details")) {
     details.open = true;
-  }
-  // Difficulty is session-only (D-interim): it starts at Practice, so any
-  // other level is chosen the way a parent does, on the first family shown.
-  if (difficulty !== "practice") {
-    fireEvent.change(screen.getByRole("combobox", { name: "Difficulty" }), {
-      target: { value: difficulty },
-    });
   }
   fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
     target: { value: worksheetType },
@@ -364,12 +395,12 @@ describe("worksheet renderer registry", () => {
       ["find-the-wow", quantityProfile],
       ["find-the-wow", profile],
     ] as const) {
-      const generated = createWorksheetSessionForSeed({
-        ...selection,
-        worksheetType,
-        profile: stored(sourceProfile),
-        preferences: { ...selection.preferences, includeDecorativeGraphics: true },
-      }, 42);
+      const generated = createWorksheetSessionForSeed(
+        generationFor(sourceProfile, worksheetType, {
+          includeDecorativeGraphics: true,
+        }),
+        42,
+      );
       if (!generated.ok) {
         throw new Error(generated.message);
       }
@@ -386,7 +417,7 @@ describe("worksheet renderer registry", () => {
   });
 
   test.each(REGISTERED_WORKSHEET_IDS)("%s worksheet and parent key coexist with document-scoped unique IDs", (worksheetType) => {
-    const generated = createWorksheetSessionForSeed({ ...selection, worksheetType }, 42);
+    const generated = createWorksheetSessionForSeed(generationFor(profile, worksheetType), 42);
     if (!generated.ok) throw new Error(generated.message);
     const session = generated.session;
     render(createElement("div", null,
@@ -420,53 +451,78 @@ describe("worksheet renderer registry", () => {
   });
 
   test("relevant maximums follow the mode each family actually reads", () => {
-    expect(registryMaximumKeys("dry-math", controlContextFor(profile))).toEqual([
-      "operandMax",
-      "resultMax",
-    ]);
     expect(
-      registryMaximumKeys("find-the-wow", controlContextFor(profile)),
+      registryMaximumKeys("dry-math", controlContextFor("dry-math", profile)),
     ).toEqual(["operandMax", "resultMax"]);
+    expect(
+      registryMaximumKeys("find-the-wow", controlContextFor("find-the-wow", profile)),
+    ).toEqual(["operandMax", "resultMax"]);
+    // The Statements choice, not the child, decides the mode: the same
+    // equation-capable child with Quantity pictures reads the counting limits.
     expect(
       registryMaximumKeys(
         "find-the-wow",
-        controlContextFor(profile, "confidence"),
+        controlContextFor("find-the-wow", profile, withWowVariant("quantity")),
       ),
     ).toEqual(["countingMax", "numeralMax"]);
     expect(
-      registryMaximumKeys("find-the-wow", controlContextFor(quantityProfile)),
+      registryMaximumKeys(
+        "find-the-wow",
+        controlContextFor("find-the-wow", quantityProfile),
+      ),
     ).toEqual(["countingMax", "numeralMax"]);
     expect(
       registryMaximumKeys(
+        "find-the-wow",
+        controlContextFor(
+          "find-the-wow",
+          quantityProfile,
+          withWowVariant("equation"),
+        ),
+      ),
+    ).toEqual(["operandMax", "resultMax"]);
+    expect(
+      registryMaximumKeys(
         "count-compare-make",
-        controlContextFor(quantityProfile),
+        controlContextFor("count-compare-make", quantityProfile),
       ),
     ).toEqual(["countingMax", "numeralMax", "compareMax"]);
   });
 
-  test("every declared relevant maximum is one the projector really stretches", () => {
+  test("every declared relevant maximum is one the projector really carries from the focus", () => {
     const observed: string[] = [];
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
-      for (const sourceProfile of [
-        stretchProbeProfile,
-        quantityProfile,
-        equationsAtMaximumProfile,
-      ]) {
-        for (const difficulty of ["confidence", "practice"] as const) {
-          const declared = registryMaximumKeys(
-            worksheetType,
-            controlContextFor(sourceProfile, difficulty),
-          ).filter(
-            (key) =>
-              sourceProfile.mathSkills[key] > 0 &&
-              sourceProfile.mathSkills[key] < 20,
-          );
-          const stretched = projectorStretchedKeys(worksheetType, sourceProfile);
-          for (const key of declared) {
+      for (const sourceProfile of [profile, quantityProfile]) {
+        for (const variant of ["quantity", "equation"] as const) {
+          const selection = selectionOf(sourceProfile, worksheetType, {
+            findTheWow: {
+              ...selectionOf(sourceProfile, worksheetType).findTheWow,
+              variant,
+            },
+          });
+          const declared = registryMaximumKeys(worksheetType, { selection });
+          const before = projectedRequest(selection).capabilities.mathSkills;
+          for (const key of MAXIMUM_KEYS) {
+            const value = before[key] === 7 ? 6 : 7;
+            const changed = withOwnFocusMaximum(
+              selection,
+              worksheetType,
+              key,
+              value,
+            );
+            const after =
+              changed === undefined
+                ? before
+                : projectedRequest(changed).capabilities.mathSkills;
+            // `value` differs from the projected value, so reaching the
+            // request exactly means the request moved. A declared key the
+            // projector ignores, or a carried key the registry forgets to
+            // declare, fails here.
+            const carried = after[key] === value;
             expect(
-              stretched,
-              `${worksheetType}/${sourceProfile.id}/${difficulty}/${key}`,
-            ).toContain(key);
+              carried,
+              `${worksheetType}/${sourceProfile.id}/${variant}/${key}`,
+            ).toBe(declared.includes(key));
           }
           observed.push(...declared);
         }
@@ -753,61 +809,80 @@ describe("worksheet renderer registry", () => {
   });
 });
 
-describe("stretch controls", () => {
-  test("never offers a stretch the active mode's limits cannot change", () => {
+describe("worksheet choices in the generator panel", () => {
+  test("the panel renders no Difficulty or stretch control for any family", () => {
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
-      const atMaximumProfile = AT_V1_MAXIMUM_PROFILES[worksheetType];
-      if (
-        !getWorksheetRegistration(worksheetType).controls.getApplicableControls(
-          controlContextFor(atMaximumProfile),
-        ).difficulty
-      ) {
-        continue;
-      }
-      renderControls(atMaximumProfile, worksheetType, {
-        difficulty: "stretch",
-      });
-      expect(screen.getByRole("option", { name: "Stretch" })).toBeDisabled();
+      renderControls(profile, worksheetType);
+      // The panel really rendered this family's controls, so an empty or
+      // failed render cannot satisfy the absence checks below.
       expect(
-        screen.getByText(
-          "Already at the V1 maximum; practice limits will be used.",
-        ),
+        screen.getByRole("combobox", { name: "Worksheet type" }),
+        worksheetType,
+      ).toHaveValue(worksheetType);
+      expect(
+        screen.getByRole("combobox", { name: "Print scale" }),
+        worksheetType,
       ).toBeInTheDocument();
-      expect(screen.queryByText(/One-time stretch preview/u)).toBeNull();
       expect(
-        screen.queryByLabelText(/Confirm these one-time stretch limits/u),
+        screen.queryByRole("combobox", { name: "Difficulty" }),
+        worksheetType,
       ).toBeNull();
       expect(
+        screen.queryByRole("option", { name: "Stretch" }),
+        worksheetType,
+      ).toBeNull();
+      expect(document.body, worksheetType).not.toHaveTextContent(
+        /difficulty|stretch/iu,
+      );
+      expect(
         screen.getByRole("button", { name: "Create worksheet" }),
+        worksheetType,
       ).toBeEnabled();
       cleanup();
     }
   });
 
-  test("never renders an empty stretch preview beside a live confirmation", () => {
-    renderControls(quantityProfile, "dry-math", { difficulty: "stretch" });
-    expect(screen.queryByText(/One-time stretch preview/u)).toBeNull();
+  test("the panel applies each child's earlier settings itself and discloses what it adjusts", () => {
+    // The saved default Statements variant is Quantity pictures, so Equations
+    // can only come from the equation-capable child's earlier settings.
+    expect(DEFAULT_WORKSHEET_DEFAULTS_V2.findTheWow.variant).toBe("quantity");
+    renderControls(profile, "find-the-wow");
     expect(
-      screen.queryByLabelText(/Confirm these one-time stretch limits/u),
-    ).toBeNull();
-    expect(
-      screen.getByText(
-        "This worksheet has no stretchable limits for this profile; practice limits will be used.",
-      ),
+      screen.getByText("Statements for Two Whats and a Wow: Equations."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Stretch" })).toBeDisabled();
+    expect(
+      document.querySelector("[data-earlier-settings-disclosure]"),
+    ).toBeNull();
     cleanup();
 
-    renderControls(quantityProfile, "find-the-wow", { difficulty: "stretch" });
+    renderControls(quantityProfile, "find-the-wow");
     expect(
-      screen.getByText(
-        "One-time stretch preview: counting 10 \u2192 13; numerals 10 \u2192 13.",
-      ),
+      screen.getByText("Statements for Two Whats and a Wow: Quantity pictures."),
     ).toBeInTheDocument();
+    cleanup();
+
+    const beyondRange: CapabilityProfileV1 = {
+      ...profile,
+      id: "b1b2c3d4-2222-4222-8222-222222222222",
+      mathSkills: {
+        ...profile.mathSkills,
+        operandMax: 25,
+        resultMax: 25,
+        allowRegrouping: true,
+      },
+    };
+    renderControls(beyondRange, "dry-math");
     expect(
-      screen.getByLabelText(/Confirm these one-time stretch limits/u),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Stretch" })).toBeEnabled();
+      document
+        .querySelector("[data-earlier-settings-disclosure]")
+        ?.textContent?.replace(/\s+/gu, " ")
+        .trim(),
+    ).toBe(
+      "Earlier settings this version adjusts or does not use: Two Whats and a Wow equations operands: stored 25, using 20. Two Whats and a Wow equations results: stored 25, using 20. Carrying and borrowing: stored but not used.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Create worksheet" }),
+    ).toBeEnabled();
   });
 });
 
@@ -815,7 +890,7 @@ describe("Make another", () => {
   test("accepts the first seed that changes the canonical item content", () => {
     const current = sessionFor(1);
     const seedSource = vi.fn(() => 2);
-    const result = makeAnotherWorksheetSession(current, selection, seedSource, {
+    const result = makeAnotherWorksheetSession(current, generation, seedSource, {
       worksheetIdSource: () => "22222222-2222-4222-8222-222222222222",
     });
     expect(result.status).toBe("changed");
@@ -841,7 +916,7 @@ describe("Make another", () => {
         },
       }),
     );
-    const result = makeAnotherWorksheetSession(current, selection, seedSource, {
+    const result = makeAnotherWorksheetSession(current, generation, seedSource, {
       generator: duplicateGenerator,
       worksheetIdSource: () => "33333333-3333-4333-8333-333333333333",
     });
@@ -851,54 +926,289 @@ describe("Make another", () => {
     expect(current.document.seed).toBe("00000001");
   });
 
-  test("a profile without earlier settings is refused before a lifecycle ID or injected generator is called", () => {
+  test("seed 0 is refused before a lifecycle ID or injected generator is called", () => {
     const worksheetIdSource = vi.fn(
       () => "44444444-4444-4444-8444-444444444444",
     );
-    const generator = vi.fn<WorksheetGeneratorV1>();
-    const { legacyChoices: _unused, ...identityOnly } = stored(profile);
-    void _unused;
-    const result = createWorksheetSessionForSeed(
-      {
-        ...selection,
-        profile: identityOnly,
-      },
-      1,
-      { generator, worksheetIdSource },
+    const generator = vi.fn<WorksheetGeneratorV1>((request, context) =>
+      WORKSHEET_REGISTRY["dry-math"].generate(request, context),
     );
+    const result = createWorksheetSessionForSeed(generation, 0, {
+      generator,
+      worksheetIdSource,
+    });
     expect(result).toEqual({
       ok: false,
       code: "GENERATION_CONSTRAINT_CONFLICT",
-      message: NO_EARLIER_SETTINGS_MESSAGE,
+      message: "A valid nonzero worksheet seed could not be created.",
     });
     expect(worksheetIdSource).not.toHaveBeenCalled();
     expect(generator).not.toHaveBeenCalled();
+
+    // Calibration: the same injected pair IS reached for seed 1, so the
+    // silence above belongs to the refusal rather than to the wiring.
+    expect(
+      createWorksheetSessionForSeed(generation, 1, {
+        generator,
+        worksheetIdSource,
+      }).ok,
+    ).toBe(true);
+    expect(worksheetIdSource).toHaveBeenCalledTimes(1);
+    expect(generator).toHaveBeenCalledTimes(1);
+  });
+
+  test("a child without earlier settings is not refused and generates from the defaults", () => {
+    const { legacyChoices: _unused, ...identityOnly } = stored(profile);
+    void _unused;
+    const selection: WorksheetSelectionV2 = {
+      ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+      ...layout,
+      worksheetType: "dry-math",
+    };
+    const result = createWorksheetSessionForSeed(
+      { profile: identityOnly, selection },
+      1,
+      { worksheetIdSource: () => "45454545-4545-4545-8545-454545454545" },
+    );
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
+    const { mathSkills } = result.session.document.request.capabilities;
+    expect({
+      operations: mathSkills.operations,
+      operandMax: mathSkills.operandMax,
+      resultMax: mathSkills.resultMax,
+    }).toEqual(DEFAULT_WORKSHEET_DEFAULTS_V2.dryMath);
+    expect(result.session.document.items).toHaveLength(12);
   });
 });
 
+/** A catalog focus of this kind that differs from `current`. */
+function otherFocus<TKind extends PracticeFocusKind>(
+  kind: TKind,
+  current: PracticeFocusValues[TKind],
+): PracticeFocusValues[TKind] {
+  const catalog: readonly { readonly focus: PracticeFocusValues[TKind] }[] =
+    PRACTICE_FOCUS_CATALOG[kind];
+  const other = catalog.find(
+    ({ focus }) => JSON.stringify(focus) !== JSON.stringify(current),
+  );
+  if (other === undefined) {
+    throw new Error(`The ${kind} catalog offers no second focus.`);
+  }
+  return other.focus;
+}
+
+function firstFocus<TKind extends PracticeFocusKind>(
+  kind: TKind,
+): PracticeFocusValues[TKind] {
+  const catalog: readonly { readonly focus: PracticeFocusValues[TKind] }[] =
+    PRACTICE_FOCUS_CATALOG[kind];
+  const first = catalog[0];
+  if (first === undefined) {
+    throw new Error(`The ${kind} catalog is empty.`);
+  }
+  return first.focus;
+}
+
+const otherDryMath: SelectionEdit = (selection) => ({
+  ...selection,
+  dryMath: otherFocus("dry-math", selection.dryMath),
+});
+const otherWowQuantity: SelectionEdit = (selection) => ({
+  ...selection,
+  findTheWow: {
+    ...selection.findTheWow,
+    quantity: otherFocus("find-the-wow-quantity", selection.findTheWow.quantity),
+  },
+});
+const otherWowEquation: SelectionEdit = (selection) => ({
+  ...selection,
+  findTheWow: {
+    ...selection.findTheWow,
+    equation: otherFocus("find-the-wow-equation", selection.findTheWow.equation),
+  },
+});
+const otherWowVariant: SelectionEdit = (selection) =>
+  withWowVariant(
+    selection.findTheWow.variant === "equation" ? "quantity" : "equation",
+  )(selection);
+const otherCountCompare: SelectionEdit = (selection) => ({
+  ...selection,
+  countCompareMake: otherFocus("count-compare-make", selection.countCompareMake),
+});
+const otherSentence: SelectionEdit = (selection) => ({
+  ...selection,
+  sentenceBuilder: {
+    variant:
+      selection.sentenceBuilder.variant === "independent" ? "label" : "independent",
+    vocabulary:
+      selection.sentenceBuilder.vocabulary === "all-words"
+        ? "simpler-words"
+        : "all-words",
+  },
+});
+/** The focus group of the Statements variant this selection does NOT use. */
+const otherInactiveWowFocus: SelectionEdit = (selection) =>
+  selection.findTheWow.variant === "equation"
+    ? otherWowQuantity(selection)
+    : otherWowEquation(selection);
+const otherActiveWowFocus: SelectionEdit = (selection) =>
+  selection.findTheWow.variant === "equation"
+    ? otherWowEquation(selection)
+    : otherWowQuantity(selection);
+
+function compose(...edits: readonly SelectionEdit[]): SelectionEdit {
+  return (selection) => edits.reduce((current, edit) => edit(current), selection);
+}
+
 /**
- * Every parent control the registry can expose, paired with two preference
- * values and the canonical value a family that HIDES the control must project.
+ * Per family: an edit of only the worksheet choices that family reads, and an
+ * edit of every choice it does not (DD13: another family's focus, variant or
+ * vocabulary). The first must move the request, the second never may.
+ */
+const FAMILY_CHOICE_EDITS: Readonly<
+  Record<
+    RegisteredWorksheetType,
+    { readonly own: SelectionEdit; readonly foreign: SelectionEdit }
+  >
+> = {
+  "dry-math": {
+    own: otherDryMath,
+    foreign: compose(
+      otherWowVariant,
+      otherWowQuantity,
+      otherWowEquation,
+      otherCountCompare,
+      otherSentence,
+    ),
+  },
+  "find-the-wow": {
+    own: otherActiveWowFocus,
+    foreign: compose(
+      otherDryMath,
+      otherInactiveWowFocus,
+      otherCountCompare,
+      otherSentence,
+    ),
+  },
+  "sentence-builder": {
+    own: otherSentence,
+    foreign: compose(
+      otherDryMath,
+      otherWowVariant,
+      otherWowQuantity,
+      otherWowEquation,
+      otherCountCompare,
+    ),
+  },
+  "count-compare-make": {
+    own: otherCountCompare,
+    foreign: compose(
+      otherDryMath,
+      otherWowVariant,
+      otherWowQuantity,
+      otherWowEquation,
+      otherSentence,
+    ),
+  },
+};
+
+/** Every practice focus group set to its catalog's first entry. */
+const firstFocusEverywhere: SelectionEdit = (selection) => ({
+  ...selection,
+  dryMath: firstFocus("dry-math"),
+  findTheWow: {
+    ...selection.findTheWow,
+    quantity: firstFocus("find-the-wow-quantity"),
+    equation: firstFocus("find-the-wow-equation"),
+  },
+  countCompareMake: firstFocus("count-compare-make"),
+});
+
+/** Every practice focus group set to a catalog entry other than its first. */
+const otherFocusEverywhere: SelectionEdit = (selection) =>
+  compose(
+    otherDryMath,
+    otherWowQuantity,
+    otherWowEquation,
+    otherCountCompare,
+  )(firstFocusEverywhere(selection));
+
+/**
+ * Every parent control the registry can expose, paired with two selection
+ * edits and the canonical value a family that HIDES the control must project.
  * `undefined` means the allowlisted request must omit the property entirely.
  */
 const CONTROL_PROBES = [
   {
-    canonicalWhenHidden: "practice",
-    key: "difficulty",
-    observe: (request: GenerationRequestV1) => request.options.difficulty,
-    values: [{ difficulty: "practice" }, { difficulty: "confidence" }],
+    canonicalWhenHidden: INACTIVE_MATH_FIELDS,
+    key: "practiceFocus",
+    observe: (request: GenerationRequestV1) => request.capabilities.mathSkills,
+    values: [firstFocusEverywhere, otherFocusEverywhere],
+  },
+  {
+    canonicalWhenHidden: {
+      understandsEquality: INACTIVE_MATH_FIELDS.understandsEquality,
+      writingMode: INACTIVE_WRITING_CAPABILITIES.writingMode,
+    },
+    key: "variant",
+    // Two Whats and a Wow's Statements choice decides equality understanding
+    // (Equations) and Sentence Builder's writing activity decides the mode.
+    observe: (request: GenerationRequestV1) => ({
+      understandsEquality: request.capabilities.mathSkills.understandsEquality,
+      writingMode: request.capabilities.writingMode,
+    }),
+    values: [
+      compose(
+        withWowVariant("quantity"),
+        (selection) => ({
+          ...selection,
+          sentenceBuilder: { ...selection.sentenceBuilder, variant: "label" },
+        }),
+      ),
+      compose(
+        withWowVariant("equation"),
+        (selection) => ({
+          ...selection,
+          sentenceBuilder: {
+            ...selection.sentenceBuilder,
+            variant: "independent",
+          },
+        }),
+      ),
+    ],
+  },
+  {
+    canonicalWhenHidden: INACTIVE_WRITING_CAPABILITIES.presentationBand,
+    key: "vocabulary",
+    observe: (request: GenerationRequestV1) =>
+      request.capabilities.presentationBand,
+    values: [
+      (selection: WorksheetSelectionV2) => ({
+        ...selection,
+        sentenceBuilder: {
+          ...selection.sentenceBuilder,
+          vocabulary: "simpler-words",
+        },
+      }),
+      (selection: WorksheetSelectionV2) => ({
+        ...selection,
+        sentenceBuilder: { ...selection.sentenceBuilder, vocabulary: "all-words" },
+      }),
+    ],
   },
   {
     canonicalWhenHidden: "standard",
     key: "length",
     observe: (request: GenerationRequestV1) => request.options.length,
-    values: [{ length: "standard" }, { length: "long" }],
+    values: [set({ length: "standard" }), set({ length: "long" })],
   },
   {
     canonicalWhenHidden: false,
     key: "includeAnswerKey",
     observe: (request: GenerationRequestV1) => request.options.includeAnswerKey,
-    values: [{ includeAnswerKey: true }, { includeAnswerKey: false }],
+    values: [set({ includeAnswerKey: true }), set({ includeAnswerKey: false })],
   },
   {
     canonicalWhenHidden: false,
@@ -906,51 +1216,47 @@ const CONTROL_PROBES = [
     observe: (request: GenerationRequestV1) =>
       request.options.includeDecorativeGraphics,
     values: [
-      { includeDecorativeGraphics: true },
-      { includeDecorativeGraphics: false },
+      set({ includeDecorativeGraphics: true }),
+      set({ includeDecorativeGraphics: false }),
     ],
   },
   {
     canonicalWhenHidden: "letter",
     key: "paperSize",
     observe: (request: GenerationRequestV1) => request.options.paperSize,
-    values: [{ paperSize: "letter" }, { paperSize: "a4" }],
+    values: [set({ paperSize: "letter" }), set({ paperSize: "a4" })],
   },
   {
     canonicalWhenHidden: "standard",
     key: "printScale",
     observe: (request: GenerationRequestV1) => request.options.printScale,
-    values: [{ printScale: "standard" }, { printScale: "large" }],
+    values: [set({ printScale: "standard" }), set({ printScale: "large" })],
   },
   {
     canonicalWhenHidden: undefined,
     key: "useDisplayName",
     observe: (request: GenerationRequestV1) => request.displayName,
-    values: [{ useDisplayName: true }, { useDisplayName: false }],
+    values: [set({ useDisplayName: true }), set({ useDisplayName: false })],
   },
   {
     canonicalWhenHidden: undefined,
     key: "useInterests",
     observe: (request: GenerationRequestV1) => request.topicIds,
-    values: [{ useInterests: true }, { useInterests: false }],
+    values: [set({ useInterests: true }), set({ useInterests: false })],
   },
 ] as const satisfies readonly {
   readonly canonicalWhenHidden: unknown;
   readonly key: keyof WorksheetApplicableControlsV1;
   readonly observe: (request: GenerationRequestV1) => unknown;
-  readonly values: readonly [
-    Partial<GenerationDefaultsV1>,
-    Partial<GenerationDefaultsV1>,
-  ];
+  readonly values: readonly [SelectionEdit, SelectionEdit];
 }[];
 
-const contractPreferences: GenerationDefaultsV1 = {
-  ...preferences,
+const contractLayout = {
   useDisplayName: true,
   useInterests: true,
   includeDecorativeGraphics: true,
   includeAnswerKey: true,
-};
+} as const satisfies Partial<WorksheetSelectionV2>;
 
 /** Reviewed interest so `useInterests` can actually change a request. */
 function contractProfile(
@@ -976,42 +1282,28 @@ const CONTRACT_PROFILES: Readonly<
   ],
 };
 
+function contractSelection(
+  worksheetType: RegisteredWorksheetType,
+  sourceProfile: CapabilityProfileV1,
+  edit: SelectionEdit = unchanged,
+): WorksheetSelectionV2 {
+  return edit(selectionOf(sourceProfile, worksheetType, contractLayout));
+}
+
 /**
- * Mirrors the ORDER `GeneratorControls.submit` uses - the registration's own
- * `projectPreferences` first, then the sole projection boundary - so a
- * disagreement between those two shows up here.
- *
- * It deliberately skips submit's stretch handling: submit downgrades a
- * requested `stretch` that cannot apply to `practice` before it builds its
- * control context, and passes `applicableControls.difficulty &&
- * stretchConfirmed`, while this uses the raw merged difficulty and a hardcoded
- * `stretchConfirmed: true`. Other tests in this file cover that handling.
+ * The request `GeneratorControls.submit` would send for this child and
+ * selection: the sole projection boundary is the only normalizer, so nothing
+ * runs between the selection and it.
  */
 function contractRequest(
   worksheetType: RegisteredWorksheetType,
   sourceProfile: CapabilityProfileV1,
-  overrides: Partial<GenerationDefaultsV1>,
+  edit: SelectionEdit = unchanged,
 ): GenerationRequestV1 {
-  const registration = getWorksheetRegistration(worksheetType);
-  const merged: GenerationDefaultsV1 = { ...contractPreferences, ...overrides };
-  const context: WorksheetControlContextV1 = {
-    difficulty: merged.difficulty,
-    length: merged.length,
-    printScale: merged.printScale,
-    profile: sourceProfile,
-  };
-  const projection = projectGenerationRequest({
-    generatorVersion: registration.generatorVersion,
-    preferences: registration.controls.projectPreferences(context, merged),
-    profile: sourceProfile,
-    seed: "00000001",
-    stretchConfirmed: true,
-    worksheetType,
-  });
-  if (!projection.ok) {
-    throw new Error(projection.message);
-  }
-  return projection.request;
+  return projectedRequest(
+    contractSelection(worksheetType, sourceProfile, edit),
+    stored(sourceProfile),
+  );
 }
 
 describe("worksheet control contract matches the projection boundary", () => {
@@ -1020,7 +1312,9 @@ describe("worksheet control contract matches the projection boundary", () => {
       for (const sourceProfile of CONTRACT_PROFILES[worksheetType]) {
         const applicable = getWorksheetRegistration(
           worksheetType,
-        ).controls.getApplicableControls(controlContextFor(sourceProfile));
+        ).controls.getApplicableControls({
+          selection: contractSelection(worksheetType, sourceProfile),
+        });
         for (const probe of CONTROL_PROBES) {
           const first = probe.observe(
             contractRequest(worksheetType, sourceProfile, probe.values[0]),
@@ -1040,26 +1334,65 @@ describe("worksheet control contract matches the projection boundary", () => {
     }
   });
 
-  test("Sentence Builder hides difficulty and the answer key for every writing mode", () => {
+  test("another family's practice focus, variant or vocabulary never changes a request", () => {
+    for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
+      const { foreign, own } = FAMILY_CHOICE_EDITS[worksheetType];
+      for (const sourceProfile of CONTRACT_PROFILES[worksheetType]) {
+        const label = `${worksheetType}/${sourceProfile.writingMode}`;
+        const base = contractSelection(worksheetType, sourceProfile);
+        const request = contractRequest(worksheetType, sourceProfile);
+        // The foreign edit really changed the selection it was given...
+        expect(foreign(base), label).not.toEqual(base);
+        // ...and nothing of it reaches this family's request.
+        expect(
+          contractRequest(worksheetType, sourceProfile, foreign),
+          label,
+        ).toEqual(request);
+        // Mirror: the family's own choice does move the same request.
+        expect(
+          contractRequest(worksheetType, sourceProfile, own),
+          label,
+        ).not.toEqual(request);
+      }
+    }
+  });
+
+  test("Sentence Builder hides the answer key for every writing activity and shows vocabulary/variant as applicable", () => {
     for (const writingMode of WRITING_MODES) {
       const sourceProfile = contractProfile({ writingMode });
       const applicable = getWorksheetRegistration(
         "sentence-builder",
-      ).controls.getApplicableControls(controlContextFor(sourceProfile));
-      expect(applicable.difficulty).toBe(false);
-      expect(applicable.includeAnswerKey).toBe(false);
-      expect(applicable.length).toBe(BANK_MODES.includes(writingMode));
-      expect(applicable.useInterests).toBe(true);
-      expect(applicable.includeDecorativeGraphics).toBe(true);
-      const request = contractRequest("sentence-builder", sourceProfile, {
-        difficulty: "stretch",
-        includeAnswerKey: true,
-        length: "long",
-      });
-      expect(request.options.difficulty).toBe("practice");
-      expect(request.options.includeAnswerKey).toBe(false);
-      expect(request.options.length).toBe(
+      ).controls.getApplicableControls(
+        controlContextFor("sentence-builder", sourceProfile),
+      );
+      expect(applicable.practiceFocus, writingMode).toBe(false);
+      expect(applicable.variant, writingMode).toBe(true);
+      expect(applicable.vocabulary, writingMode).toBe(true);
+      expect(applicable.includeAnswerKey, writingMode).toBe(false);
+      expect(applicable.length, writingMode).toBe(BANK_MODES.includes(writingMode));
+      expect(applicable.useInterests, writingMode).toBe(true);
+      expect(applicable.includeDecorativeGraphics, writingMode).toBe(true);
+      const request = contractRequest(
+        "sentence-builder",
+        sourceProfile,
+        set({ includeAnswerKey: true, length: "long" }),
+      );
+      expect(request.capabilities.writingMode, writingMode).toBe(writingMode);
+      expect("difficulty" in request.options, writingMode).toBe(false);
+      expect(request.options.includeAnswerKey, writingMode).toBe(false);
+      expect(request.options.length, writingMode).toBe(
         applicable.length ? "long" : "standard",
+      );
+    }
+    // Mirror: the math families show a practice focus and no vocabulary.
+    for (const worksheetType of ["dry-math", "find-the-wow", "count-compare-make"] as const) {
+      const applicable = getWorksheetRegistration(
+        worksheetType,
+      ).controls.getApplicableControls(controlContextFor(worksheetType, profile));
+      expect(applicable.practiceFocus, worksheetType).toBe(true);
+      expect(applicable.vocabulary, worksheetType).toBe(false);
+      expect(applicable.variant, worksheetType).toBe(
+        worksheetType === "find-the-wow",
       );
     }
   });
@@ -1069,7 +1402,7 @@ describe("worksheet control contract matches the projection boundary", () => {
       expect(
         registryMaximumKeys(
           "sentence-builder",
-          controlContextFor(contractProfile({ writingMode })),
+          controlContextFor("sentence-builder", contractProfile({ writingMode })),
         ),
       ).toEqual([]);
     }
@@ -1077,6 +1410,7 @@ describe("worksheet control contract matches the projection boundary", () => {
 
   test("the effective unit reads true in both consumer sentences", () => {
     const bankContext = controlContextFor(
+      "sentence-builder",
       contractProfile({ writingMode: "independent" }),
     );
     const bankUnit = getWorksheetRegistration(
@@ -1091,7 +1425,10 @@ describe("worksheet control contract matches the projection boundary", () => {
 
     expect(
       getWorksheetRegistration("sentence-builder").controls.getEffectiveUnit(
-        controlContextFor(contractProfile({ writingMode: "copy-with-model" })),
+        controlContextFor(
+          "sentence-builder",
+          contractProfile({ writingMode: "copy-with-model" }),
+        ),
       ),
     ).toEqual({
       count: 1,
@@ -1101,9 +1438,11 @@ describe("worksheet control contract matches the projection boundary", () => {
 
     expect(
       getWorksheetRegistration("sentence-builder").controls.getEffectiveUnit({
-        ...bankContext,
-        length: "long",
-        printScale: "large",
+        selection: {
+          ...bankContext.selection,
+          length: "long",
+          printScale: "large",
+        },
       }).count,
     ).toBe(8);
   });
@@ -1136,11 +1475,9 @@ describe("worksheet control contract matches the projection boundary", () => {
           for (const printScale of PRINT_SCALES) {
             const unit = getWorksheetRegistration(
               worksheetType,
-            ).controls.getEffectiveUnit({
-              ...controlContextFor(sourceProfile),
-              length,
-              printScale,
-            });
+            ).controls.getEffectiveUnit(
+              controlContextFor(worksheetType, sourceProfile, set({ length, printScale })),
+            );
             const selected =
               unit.count === 1 ? unit.singularLabel : unit.pluralLabel;
             const sentence = `${worksheetType}/${sourceProfile.writingMode}/${length}/${printScale}: "${unit.count} unique ${selected}"`;
@@ -1217,7 +1554,7 @@ const SENTENCE_SURFACES = {
 function sentenceSessionFor(
   writingMode: CapabilityProfileV1["writingMode"],
   seed = 1,
-  overrides: Partial<GenerationDefaultsV1> = {},
+  overrides: Partial<WorksheetSelectionV2> = {},
   interests: readonly string[] = ["Private Topic"],
 ) {
   const sourceProfile: CapabilityProfileV1 = {
@@ -1225,29 +1562,13 @@ function sentenceSessionFor(
     interests: [...interests],
     writingMode,
   };
-  const registration = getWorksheetRegistration("sentence-builder");
-  const merged: GenerationDefaultsV1 = {
-    ...preferences,
-    includeDecorativeGraphics: true,
-    useDisplayName: false,
-    useInterests: true,
-    ...overrides,
-  };
   const result = createWorksheetSessionForSeed(
-    {
-      preferences: registration.controls.projectPreferences(
-        {
-          difficulty: merged.difficulty,
-          length: merged.length,
-          printScale: merged.printScale,
-          profile: sourceProfile,
-        },
-        merged,
-      ),
-      profile: stored(sourceProfile),
-      stretchConfirmed: false,
-      worksheetType: "sentence-builder",
-    },
+    generationFor(sourceProfile, "sentence-builder", {
+      includeDecorativeGraphics: true,
+      useDisplayName: false,
+      useInterests: true,
+      ...overrides,
+    }),
     seed,
     { worksheetIdSource: () => "66666666-6666-4666-8666-666666666666" },
   );
@@ -1557,22 +1878,15 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
         presentationBand: "preschool",
         writingMode,
       };
-      const registration = getWorksheetRegistration("sentence-builder");
-      const merged: GenerationDefaultsV1 = { ...preferences, useInterests: true };
-      const selectionForMode: GenerationSelection = {
-        preferences: registration.controls.projectPreferences(
-          {
-            difficulty: merged.difficulty,
-            length: merged.length,
-            printScale: merged.printScale,
-            profile: sourceProfile,
-          },
-          merged,
-        ),
-        profile: stored(sourceProfile),
-        stretchConfirmed: false,
-        worksheetType: "sentence-builder",
-      };
+      const selectionForMode: GenerationSelection = generationFor(
+        sourceProfile,
+        "sentence-builder",
+        { useInterests: true },
+      );
+      expect(selectionForMode.selection.sentenceBuilder, writingMode).toEqual({
+        variant: writingMode,
+        vocabulary: "simpler-words",
+      });
       const worksheetIdSource = (): string =>
         "77777777-7777-4777-8777-777777777777";
       const first = createWorksheetSessionForSeed(selectionForMode, 1, {
@@ -1638,12 +1952,27 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
 });
 
 describe("Sentence Builder controls render what the contract declares", () => {
-  test("hides difficulty and the answer key and shows length only for bank modes", () => {
+  test("hides the answer key and shows length only for bank writing activities", () => {
+    // Independently restated parent-facing names, so a relabelled or
+    // mismatched activity fails here rather than agreeing with itself.
+    const activityNames = {
+      "draw-and-tell": "Draw & Tell",
+      label: "Picture Labels",
+      "copy-with-model": "Copy a Sentence",
+      "sentence-frame": "Finish a Sentence",
+      independent: "Independent Writing",
+    } as const satisfies Record<(typeof WRITING_MODES)[number], string>;
     for (const writingMode of WRITING_MODES) {
       renderControls(
         { ...profile, interests: ["Space"], writingMode },
         "sentence-builder",
       );
+      // The panel applied this child's earlier writing activity itself.
+      expect(
+        screen.getByText(
+          `Writing activity for Sentence Builder: ${activityNames[writingMode]}.`,
+        ),
+      ).toBeInTheDocument();
       expect(screen.queryByRole("combobox", { name: "Difficulty" })).toBeNull();
       expect(screen.queryByLabelText("Include a parent answer key")).toBeNull();
       expect(
@@ -1697,7 +2026,7 @@ describe("registration metadata cannot drift from the control contract", () => {
       for (const sourceProfile of CONTRACT_PROFILES[worksheetType]) {
         const registration = getWorksheetRegistration(worksheetType);
         const applicable = registration.controls.getApplicableControls(
-          controlContextFor(sourceProfile),
+          controlContextFor(worksheetType, sourceProfile),
         );
         expect(registration.usesInterests, worksheetType).toBe(
           applicable.useInterests,
@@ -1709,25 +2038,42 @@ describe("registration metadata cannot drift from the control contract", () => {
     }
   });
 
-  test("a stretch chosen on another family never blocks a family that hides difficulty", () => {
-    renderControls(
-      { ...profile, interests: ["Space"], writingMode: "copy-with-model" },
-      "sentence-builder",
-      { difficulty: "stretch" },
-    );
-    expect(screen.queryByRole("combobox", { name: "Difficulty" })).toBeNull();
-    expect(screen.queryByText(/One-time stretch preview/u)).toBeNull();
+  test("a starving practice focus on another family never blocks a family that hides the focus", () => {
+    // Earlier Dry Math setting of addition within 1: three facts, too few for
+    // any length (D34).
+    const starvingDryMath: CapabilityProfileV1 = {
+      ...profile,
+      id: "c1b2c3d4-3333-4333-8333-333333333333",
+      interests: ["Space"],
+      writingMode: "copy-with-model",
+      mathSkills: {
+        ...profile.mathSkills,
+        operations: ["addition"],
+        operandMax: 1,
+        resultMax: 1,
+      },
+    };
+    const refusal = (): string | undefined =>
+      document
+        .querySelector("#generation-unavailable, [data-capacity-conflict]")
+        ?.textContent?.replace(/\s+/gu, " ")
+        .trim();
+
+    // Calibration: the focus really starves the family that reads it.
+    renderControls(starvingDryMath, "dry-math");
+    expect(refusal()).toMatch(/practice focus/u);
     expect(
-      screen.queryByLabelText(/Confirm these one-time stretch limits/u),
-    ).toBeNull();
+      screen.getByRole("button", { name: "Create worksheet" }),
+    ).toBeDisabled();
+    cleanup();
+
+    renderControls(starvingDryMath, "sentence-builder");
+    expect(refusal()).toBeUndefined();
     expect(screen.getByRole("button", { name: "Create worksheet" })).toBeEnabled();
     expect(
-      contractRequest(
-        "sentence-builder",
-        { ...profile, interests: ["Space"], writingMode: "copy-with-model" },
-        { difficulty: "stretch" },
-      ).options.difficulty,
-    ).toBe("practice");
+      contractRequest("sentence-builder", starvingDryMath).capabilities
+        .mathSkills,
+    ).toEqual(INACTIVE_MATH_FIELDS);
   });
 });
 
@@ -1764,16 +2110,14 @@ const countCompareProfile: CapabilityProfileV1 = {
 
 function countCompareSessionFor(
   seed: number,
-  overrides: Partial<GenerationDefaultsV1> = {},
+  overrides: Partial<WorksheetSelectionV2> = {},
   sourceProfile: CapabilityProfileV1 = countCompareProfile,
 ) {
   const result = createWorksheetSessionForSeed(
-    {
-      profile: stored(sourceProfile),
-      preferences: { ...preferences, useInterests: true, ...overrides },
-      stretchConfirmed: false,
-      worksheetType: "count-compare-make",
-    },
+    generationFor(sourceProfile, "count-compare-make", {
+      useInterests: true,
+      ...overrides,
+    }),
     seed,
     { worksheetIdSource: () => "66666666-6666-4666-8666-666666666666" },
   );
@@ -2022,23 +2366,44 @@ describe("Count, Compare & Make reaches paper through the registered renderer", 
     expect(withoutGraphics.document.items).toEqual(withGraphics.document.items);
   });
 
-  test("the activity is unavailable to a profile without quantities", () => {
+  test("the activity stays available to a child without quantity settings, at the default focus", () => {
     const equationsOnly: CapabilityProfileV1 = {
       ...profile,
       mathSkills: { ...profile.mathSkills, representations: ["equations"] },
     };
     const support = getWorksheetRegistration(
       "count-compare-make",
-    ).controls.getCapabilitySupport(controlContextFor(equationsOnly));
-    expect(support.available).toBe(false);
+    ).controls.getCapabilitySupport(
+      controlContextFor("count-compare-make", equationsOnly),
+    );
+    expect(support).toMatchObject({
+      available: true,
+      capacity: { sufficient: true },
+    });
+    // No earlier quantity setting covers this family, so the saved default
+    // focus applies; the mirror child's own earlier quantities still do.
+    expect(
+      selectionOf(equationsOnly, "count-compare-make").countCompareMake,
+    ).toEqual(DEFAULT_WORKSHEET_DEFAULTS_V2.countCompareMake);
+    expect(selectionOf(profile, "count-compare-make").countCompareMake).toEqual({
+      countingMax: profile.mathSkills.countingMax,
+      numeralMax: profile.mathSkills.numeralMax,
+      compareMax: profile.mathSkills.compareMax,
+    });
+    expect(
+      selectionOf(profile, "count-compare-make").countCompareMake,
+    ).not.toEqual(DEFAULT_WORKSHEET_DEFAULTS_V2.countCompareMake);
 
     renderControls(equationsOnly, "count-compare-make");
+    expect(screen.queryByText(/Count, Compare & Make needs/u)).toBeNull();
     expect(
-      screen.getByText(/Count, Compare & Make needs confirmed quantities/u),
+      screen.getByText(
+        "This selection creates 8 unique items on one practice page.",
+      ),
     ).toBeVisible();
     expect(
       screen.getByRole("button", { name: "Create worksheet" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
   });
 
   test("the control states the exact item count each length would print", () => {
@@ -2452,5 +2817,176 @@ describe("Count, Compare & Make prints a performable page", () => {
       // reuse the attribute that carries those field names.
       expect(node?.getAttribute("data-required-response"), item.id).toBeNull();
     }
+  });
+});
+
+/**
+ * Availability equals generation (worksheet-first plan Step 16, Done when 5).
+ *
+ * Each cell asks the registration's own control and then the real registered
+ * generator, through the production session entry point, with one fixed seed:
+ * capacity is counted over the whole candidate collection before any draw, so
+ * one seed measures what every seed would.
+ */
+const SWEEP_SEED = 0x0000_2a2a;
+
+const sweepChild: ChildProfileV2 = {
+  id: "0a1b2c3d-8888-4888-8888-888888888888",
+  reviewedOn: "2026-08-22",
+  interests: [],
+};
+
+interface SweepCell {
+  readonly label: string;
+  readonly selection: WorksheetSelectionV2;
+}
+
+function sweepCells(
+  label: string,
+  worksheetType: RegisteredWorksheetType,
+  edit: SelectionEdit,
+): readonly SweepCell[] {
+  const base = worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2);
+  return WORKSHEET_LENGTHS.flatMap((length) =>
+    PRINT_SCALES.map((printScale) => ({
+      label: `${label}/${length}/${printScale}`,
+      selection: { ...edit(base), worksheetType, length, printScale },
+    })),
+  );
+}
+
+/** Every catalog focus × family × variant × vocabulary × length × scale. */
+function catalogSweepCells(): readonly SweepCell[] {
+  return [
+    ...PRACTICE_FOCUS_CATALOG["dry-math"].flatMap(({ focus, id }) =>
+      sweepCells(`dry-math/${id}`, "dry-math", (selection) => ({
+        ...selection,
+        dryMath: focus,
+      })),
+    ),
+    ...PRACTICE_FOCUS_CATALOG["find-the-wow-quantity"].flatMap(({ focus, id }) =>
+      sweepCells(`find-the-wow/quantity/${id}`, "find-the-wow", (selection) => ({
+        ...selection,
+        findTheWow: { ...selection.findTheWow, variant: "quantity", quantity: focus },
+      })),
+    ),
+    ...PRACTICE_FOCUS_CATALOG["find-the-wow-equation"].flatMap(({ focus, id }) =>
+      sweepCells(`find-the-wow/equation/${id}`, "find-the-wow", (selection) => ({
+        ...selection,
+        findTheWow: { ...selection.findTheWow, variant: "equation", equation: focus },
+      })),
+    ),
+    ...PRACTICE_FOCUS_CATALOG["count-compare-make"].flatMap(({ focus, id }) =>
+      sweepCells(`count-compare-make/${id}`, "count-compare-make", (selection) => ({
+        ...selection,
+        countCompareMake: focus,
+      })),
+    ),
+    ...WRITING_MODES.flatMap((variant) =>
+      SENTENCE_VOCABULARY_OPTIONS.flatMap((vocabulary) =>
+        sweepCells(
+          `sentence-builder/${variant}/${vocabulary}`,
+          "sentence-builder",
+          (selection) => ({ ...selection, sentenceBuilder: { variant, vocabulary } }),
+        ),
+      ),
+    ),
+  ];
+}
+
+/**
+ * Asserts the control and the generator agree on one cell, and returns
+ * whether the cell is producible.
+ */
+function controlAgreesWithGenerator({ label, selection }: SweepCell): boolean {
+  const support = getWorksheetRegistration(
+    selection.worksheetType,
+  ).controls.getCapabilitySupport({ selection });
+  const refusal = support.available
+    ? support.capacity.sufficient
+      ? undefined
+      : support.capacity.message
+    : support.message;
+  const generated = createWorksheetSessionForSeed(
+    { profile: sweepChild, selection },
+    SWEEP_SEED,
+    { worksheetIdSource: () => "88888888-8888-4888-8888-888888888888" },
+  );
+  expect(generated.ok, label).toBe(refusal === undefined);
+  if (!generated.ok) {
+    expect(refusal, label).toBe(generated.message);
+  }
+  return refusal === undefined;
+}
+
+describe("availability equals generation", () => {
+  test("every catalog focus, variant, vocabulary, length and scale is offered exactly when it generates", () => {
+    const cells = catalogSweepCells();
+    const starving = cells
+      .filter((cell) => !controlAgreesWithGenerator(cell))
+      .map(({ label }) => label);
+    // Pinned: 7 Dry Math, 2 quantity and 5 equation Wow, and 2 Count, Compare
+    // & Make catalog focuses, plus 5 writing activities x 2 vocabularies, each
+    // at 3 lengths x 2 scales. A catalog change must revisit the pinned
+    // starving set below, so it fails here first.
+    expect(cells).toHaveLength(156);
+    expect(new Set(cells.map(({ label }) => label)).size).toBe(cells.length);
+    expect(
+      new Set(cells.map(({ selection }) => selection.worksheetType)),
+    ).toEqual(new Set(REGISTERED_WORKSHEET_IDS));
+    // The pinned set of starving catalog cells: none. Every shipped catalog
+    // focus fills every length and scale; the declared shortfall sources are
+    // Earlier-setting values, exercised in the next test.
+    expect(starving).toEqual([]);
+  });
+
+  test("an Earlier-setting shortfall is refused alike by the control and the generator", () => {
+    // D34: addition within 1 is three facts, which no length or scale fills.
+    const threeFacts = sweepCells("dry-math/addition-within-1", "dry-math", (selection) => ({
+      ...selection,
+      dryMath: { operations: ["addition"], operandMax: 1, resultMax: 1 },
+    }));
+    expect(
+      threeFacts.filter((cell) => !controlAgreesWithGenerator(cell)).map(({ label }) => label),
+    ).toEqual(threeFacts.map(({ label }) => label));
+    for (const { label, selection } of threeFacts) {
+      const support = getWorksheetRegistration("dry-math").controls.getCapabilitySupport({
+        selection,
+      });
+      const message = support.available
+        ? support.capacity.sufficient
+          ? ""
+          : support.capacity.message
+        : support.message;
+      expect(message, label).toMatch(/Choose a practice focus with a wider/u);
+      expect(message, label).not.toMatch(/shorter length/u);
+    }
+
+    // D36: quantities to 7 are seven stems, which only Long at standard scale
+    // outgrows; the mirror cells beside it generate.
+    const sevenStems = sweepCells("find-the-wow/quantities-to-7", "find-the-wow", (selection) => ({
+      ...selection,
+      findTheWow: {
+        ...selection.findTheWow,
+        variant: "quantity",
+        quantity: { countingMax: 7, numeralMax: 7 },
+      },
+    }));
+    expect(
+      sevenStems.filter((cell) => !controlAgreesWithGenerator(cell)).map(({ label }) => label),
+    ).toEqual(["find-the-wow/quantities-to-7/long/standard"]);
+    const long = sevenStems.find(({ label }) => label.endsWith("/long/standard"));
+    if (long === undefined) {
+      throw new Error("The Long standard-scale cell is missing.");
+    }
+    const longSupport = getWorksheetRegistration("find-the-wow").controls.getCapabilitySupport({
+      selection: long.selection,
+    });
+    expect(longSupport).toMatchObject({ available: true, capacity: { sufficient: false } });
+    expect(
+      longSupport.available && !longSupport.capacity.sufficient
+        ? longSupport.capacity.message
+        : "",
+    ).toMatch(/Choose a shorter length under More options/u);
   });
 });

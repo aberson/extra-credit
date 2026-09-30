@@ -541,7 +541,6 @@ export function generateFindTheWow(
 
   const support = getFindTheWowCapabilitySupport(
     request.capabilities.mathSkills,
-    request.options.difficulty,
   );
   if (!support.available) {
     return {
@@ -627,18 +626,16 @@ export function measureFindTheWowStemCapacity(
 /**
  * The whole capacity answer for one request, mode included.
  *
- * The mode is re-resolved from the request's OWN effective capabilities,
- * exactly as `generateFindTheWow` does above, rather than from the stored
- * profile: the confidence downgrade can move a profile between modes, and
- * measuring one mode's stems against the other mode's page is how issue #14
- * would come back.
+ * The mode is re-resolved from the request's OWN projected capabilities,
+ * exactly as `generateFindTheWow` does above, rather than taken from anywhere
+ * else: measuring one mode's stems against the other mode's page is how issue
+ * #14 would come back.
  */
 export function findTheWowCapacityVerdict(
   request: GenerationRequestV1,
 ): string | undefined {
   const support = getFindTheWowCapabilitySupport(
     request.capabilities.mathSkills,
-    request.options.difficulty,
   );
   if (!support.available) {
     return support.reason;

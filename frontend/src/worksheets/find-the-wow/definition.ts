@@ -3,12 +3,12 @@ import {
   bindingMaximumKeys,
   bindingMaximumKeysByProbe,
   capacityRemedySentence,
-  shorterLengthLowersRequirement,
+  shorterLengthFills,
   type WorksheetMaximumValues,
 } from "../../shared/worksheet/limit-labels.js";
+import type { FIND_THE_WOW_VARIANTS } from "../../shared/config/enums.js";
 import {
   V1_NUMERIC_MAXIMUM,
-  type Difficulty,
   type EffectiveMathSkillsV1,
   type PrintScale,
   type WorksheetLength,
@@ -31,8 +31,9 @@ export const FIND_THE_WOW_GROUP_BUDGETS = {
 /**
  * The Version 1 source envelope this family enumerates within.
  *
- * The sole projection boundary already clamps every stored maximum to it; the
- * family repeats the clamp so its own limit arithmetic cannot widen past the
+ * The selection schema already bounds every Wow focus to it, and the
+ * earlier-settings mapping clamps a stored value into that range; the family
+ * repeats the clamp so its own limit arithmetic cannot widen past the
  * envelope, and names it once so the enumeration and the tests that assert
  * which maximum bound a pool read the same number.
  *
@@ -72,7 +73,14 @@ export function getFindTheWowGroupCount(
     : FIND_THE_WOW_GROUP_BUDGETS.short;
 }
 
-export type FindTheWowMode = "equation" | "quantity";
+/** The two statement kinds: the Statements variant a parent chooses. */
+export type FindTheWowMode = (typeof FIND_THE_WOW_VARIANTS)[number];
+
+/** The parent-visible name of each Statements variant (U2). */
+export const FIND_THE_WOW_VARIANT_LABELS = {
+  quantity: "Quantity pictures",
+  equation: "Equations",
+} as const satisfies Record<FindTheWowMode, string>;
 
 export type FindTheWowCapabilitySupport =
   | { readonly available: true; readonly mode: FindTheWowMode }
@@ -83,7 +91,6 @@ export function getFindTheWowCapabilitySupport(
     EffectiveMathSkillsV1,
     "representations" | "understandsEquality" | "operations"
   >,
-  difficulty: Difficulty = "practice",
 ): FindTheWowCapabilitySupport {
   const hasQuantities = mathSkills.representations.includes("quantities");
   const hasEquationGate =
@@ -91,9 +98,6 @@ export function getFindTheWowCapabilitySupport(
     mathSkills.understandsEquality &&
     mathSkills.operations.length > 0;
 
-  if (difficulty === "confidence" && hasQuantities) {
-    return { available: true, mode: "quantity" };
-  }
   if (hasEquationGate) {
     return { available: true, mode: "equation" };
   }
@@ -103,7 +107,7 @@ export function getFindTheWowCapabilitySupport(
   return {
     available: false,
     reason:
-      "Two Whats and a Wow needs confirmed quantities, or equations with equality understanding and an enabled operation. Choose another supported profile or edit this profile to confirm one of those capability paths.",
+      "Two Whats and a Wow needs quantities, or equations with equality understanding and an enabled operation. Choose Quantity pictures or Equations under Statements, with a practice focus that includes an operation for Equations.",
   };
 }
 
@@ -112,10 +116,10 @@ export function getFindTheWowCapabilitySupport(
  *
  * `getFindTheWowCapabilitySupport` above resolves a MODE and nothing else, so
  * before issue #14 the control could promise a page the generator then refused
- * - reachable with the shipped preschool profile at confidence/long, where the
- * confidence downgrade drops the effective counting limit to 7 while the length
- * needs 8 distinct stems. The registration now asks for a capacity verdict
- * beside the mode and both sides render this sentence.
+ * - reachable whenever a practice focus holds fewer distinct stems than the
+ * length needs, for example quantities to 7 on a long page that needs 8. The
+ * registration now asks for a capacity verdict beside the mode and both sides
+ * render this sentence.
  *
  * The remedy names the maxima THIS MODE reads, and within the mode only the
  * ones that are really binding: a quantity page explained in terms of operands
@@ -143,7 +147,7 @@ export function findTheWowCapacityShortfall(
     return undefined;
   }
   const remedy = capacityRemedySentence(
-    shorterLengthLowersRequirement(length, required, (shorter) =>
+    shorterLengthFills(length, capacity, (shorter) =>
       getFindTheWowGroupCount(shorter, printScale),
     ),
     mode === "equation"
@@ -158,5 +162,5 @@ export function findTheWowCapacityShortfall(
           ["numeralMax", maximums.numeralMax],
         ]),
   );
-  return `The confirmed limits provide ${capacity} unique ${mode} groups, but this length needs ${required}. ${remedy}`;
+  return `This practice focus provides ${capacity} unique ${mode} groups, but this length needs ${required}. ${remedy}`;
 }

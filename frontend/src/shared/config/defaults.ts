@@ -13,6 +13,7 @@ import {
   type ArithmeticFocusV2,
   type ThemeChoice,
   type WorksheetDefaultsV2,
+  type WorksheetSelectionV2,
 } from "./schema.js";
 
 type PresetId = keyof typeof MATH_PRESETS;
@@ -93,6 +94,34 @@ export function cloneWorksheetDefaults(
     },
     sentenceBuilder: { ...defaults.sentenceBuilder },
     countCompareMake: { ...defaults.countCompareMake },
+  };
+}
+
+/**
+ * The worksheet selection stored defaults describe: a fresh deep copy of every
+ * selection field, without the seeding flag.
+ */
+export function worksheetSelectionOf(
+  defaults: Readonly<WorksheetSelectionV2>,
+): WorksheetSelectionV2 {
+  const copy = cloneWorksheetDefaults({
+    ...defaults,
+    useEarlierChildSettings: false,
+  });
+  return {
+    worksheetType: copy.worksheetType,
+    dryMath: copy.dryMath,
+    findTheWow: copy.findTheWow,
+    sentenceBuilder: copy.sentenceBuilder,
+    countCompareMake: copy.countCompareMake,
+    theme: copy.theme,
+    useDisplayName: copy.useDisplayName,
+    useInterests: copy.useInterests,
+    includeDecorativeGraphics: copy.includeDecorativeGraphics,
+    includeAnswerKey: copy.includeAnswerKey,
+    length: copy.length,
+    paperSize: copy.paperSize,
+    printScale: copy.printScale,
   };
 }
 

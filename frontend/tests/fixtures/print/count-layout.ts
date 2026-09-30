@@ -5,8 +5,7 @@ import type { WorksheetDefaultsV2 } from "../../../src/shared/config/schema.ts";
 import {
   acceptanceConfig,
   boundaryNickname,
-  capabilitiesOf,
-  practicePreferences,
+  selectionFor,
 } from "./matrix.ts";
 
 // Independent upper budgets in CSS px, rounded UP from the physical layout.
@@ -67,8 +66,8 @@ export function countSeedFixture(seed: number, paper: "letter" | "a4", scale: Pr
   const original = acceptanceConfig.profiles[2];
   if (original === undefined) throw new Error("Missing canonical Avery.");
   const profile = { ...original, displayName: boundaryNickname };
-  // The stored defaults the spec seeds, and the projection preferences the
-  // panel builds from them at Practice.
+  // The stored defaults the spec seeds, and the worksheet selection the panel
+  // builds from them for this child.
   const defaults: WorksheetDefaultsV2 = {
     ...acceptanceConfig.defaults,
     length: "long",
@@ -76,10 +75,10 @@ export function countSeedFixture(seed: number, paper: "letter" | "a4", scale: Pr
     paperSize: paper,
     includeDecorativeGraphics: false,
   };
-  const preferences = practicePreferences(defaults);
+  const selection = selectionFor(profile, defaults, { worksheetType: "count-compare-make" });
   const registration = getWorksheetRegistration("count-compare-make");
   const projected = projectGenerationRequest({
-    profile: capabilitiesOf(profile), preferences, worksheetType: "count-compare-make",
+    profile, selection,
     generatorVersion: registration.generatorVersion,
     seed: seed.toString(16).padStart(8, "0"),
   });
@@ -88,5 +87,5 @@ export function countSeedFixture(seed: number, paper: "letter" | "a4", scale: Pr
     worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   });
   if (!result.ok) throw new Error(result.message);
-  return { profile, defaults, preferences, document: result.document };
+  return { profile, defaults, selection, document: result.document };
 }

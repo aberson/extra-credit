@@ -17,7 +17,7 @@ import {
 import {
   SENTENCE_BUILDER_DEFINITION,
   SENTENCE_BUILDER_ITEM_COUNT,
-  SENTENCE_BUILDER_MODE_LABELS,
+  SENTENCE_BUILDER_VARIANT_LABELS,
   SENTENCE_BUILDER_REQUIRED_RESPONSES,
   getSentenceBuilderBankSize,
   getSentenceBuilderCanonicalLength,
@@ -123,9 +123,9 @@ export function measureSentenceBuilderCapacity(
 }
 
 /**
- * Sentence Builder hides difficulty and the answer key for every mode, and
- * hides length for the two no-bank modes. A request that carries a different
- * hidden value never reached the canonical normalization (plan.md:131).
+ * Sentence Builder hides the answer key for every mode, and hides length for
+ * the two no-bank modes. A request that carries a different hidden value never
+ * reached the canonical normalization (plan.md:131).
  */
 function hiddenControlFailure(
   request: GenerationRequestV1,
@@ -136,7 +136,6 @@ function hiddenControlFailure(
     options.length,
   );
   if (
-    options.difficulty !== "practice" ||
     options.includeAnswerKey !== false ||
     options.length !== canonicalLength
   ) {
@@ -337,12 +336,12 @@ export function generateSentenceBuilder(
   const capacity = measureSentenceBuilderCapacity(request, vocabulary);
   if (capacity.promptCapacity < 1) {
     return constraintConflict(
-      `No reviewed ${SENTENCE_BUILDER_MODE_LABELS[writingMode]} prompt is available for this profile's presentation band and interests. Review the profile's writing mode or interests.`,
+      `No reviewed ${SENTENCE_BUILDER_VARIANT_LABELS[writingMode]} prompt is available for this vocabulary and these interests. Choose a different Writing activity or Vocabulary.`,
     );
   }
   if (capacity.bankCapacity < capacity.bankWidth) {
     return constraintConflict(
-      `This length needs ${capacity.bankWidth} unique reviewed word-bank words, but only ${capacity.bankCapacity} are available. Choose a shorter worksheet or review the profile's interests.`,
+      `This length needs ${capacity.bankWidth} unique reviewed word-bank words, but only ${capacity.bankCapacity} are available. Choose a shorter worksheet or a different Writing activity.`,
     );
   }
 

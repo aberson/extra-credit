@@ -2,7 +2,7 @@ import {
   OPERAND_RESULT_MAXIMUM_KEYS,
   bindingMaximumKeysByProbe,
   capacityRemedySentence,
-  shorterLengthLowersRequirement,
+  shorterLengthFills,
   type WorksheetMaximumValues,
 } from "../../shared/worksheet/limit-labels.js";
 import type {
@@ -51,7 +51,7 @@ export function getDryMathCapabilitySupport(
     return {
       available: false,
       reason:
-        "Dry Math needs equations and an enabled operation. Choose another supported profile with those confirmed capabilities, or edit this profile to confirm them. Count, Compare & Make offers quantity practice for a profile that confirms quantities.",
+        "Dry Math needs equations and an enabled operation. Choose a practice focus with addition or subtraction. Count, Compare & Make offers quantity practice.",
     };
   }
   if (
@@ -62,7 +62,7 @@ export function getDryMathCapabilitySupport(
     return {
       available: false,
       reason:
-        "Dry Math needs at least one confirmed symbolic operation. Choose another supported profile with an enabled operation, or edit this profile to confirm one. Count, Compare & Make offers quantity practice for a profile that confirms quantities.",
+        "Dry Math needs at least one symbolic operation. Choose a practice focus with addition or subtraction. Count, Compare & Make offers quantity practice.",
     };
   }
   return { available: true };
@@ -83,7 +83,7 @@ export function getDryMathCapabilitySupport(
  * enumeration filters on operands AND on the result, so the smaller of the two
  * numbers is not necessarily the one holding the count down: at operands 20 and
  * results 2 an addition pool grows only when the RESULT limit rises, while
- * operands 20 is already at the ceiling `clampPositive` enforces. Naming it
+ * operands 20 is already at the Version 1 ceiling. Naming it
  * would send the parent to a knob that cannot move, so `measureCapacity`
  * re-runs the caller's own enumeration with each maximum lifted instead.
  */
@@ -99,7 +99,7 @@ export function dryMathCapacityShortfall(
     return undefined;
   }
   const remedy = capacityRemedySentence(
-    shorterLengthLowersRequirement(length, required, (shorter) =>
+    shorterLengthFills(length, capacity, (shorter) =>
       getDryMathItemCount(shorter, printScale),
     ),
     bindingMaximumKeysByProbe(
@@ -109,5 +109,5 @@ export function dryMathCapacityShortfall(
       measureCapacity,
     ),
   );
-  return `The confirmed limits provide ${capacity} unique facts, but this length needs ${required}. ${remedy}`;
+  return `This practice focus provides ${capacity} unique facts, but this length needs ${required}. ${remedy}`;
 }

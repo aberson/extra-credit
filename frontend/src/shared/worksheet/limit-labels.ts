@@ -7,12 +7,12 @@ export type WorksheetRelevantMaximumKey = keyof Pick<
 >;
 
 /**
- * The one parent-facing noun for each stored maximum.
+ * The one parent-facing noun for each practice-focus maximum.
  *
- * Two different surfaces name these numbers: the registration's declared
- * relevant-maximum lists (which drive the stretch preview, the above-20
- * notice, and the issue #16 exhaustion advice) and a family's own capacity
- * shortage sentence. A second copy of "comparisons" would let a rename fix one
+ * Several surfaces name these numbers: the registration's declared
+ * relevant-maximum lists (which drive the issue #16 exhaustion advice), a
+ * family's own capacity shortage sentence, and the earlier-settings clamp
+ * disclosures. A second copy of "comparisons" would let a rename fix one
  * surface and leave the other saying something else about the same field, so
  * both derive from this record.
  */
@@ -89,55 +89,59 @@ const SHORTER_WORKSHEET_LENGTHS = {
 } as const satisfies Record<WorksheetLength, readonly WorksheetLength[]>;
 
 /**
- * Whether "choose a shorter worksheet" is a REAL remedy for this shortage.
+ * Whether "choose a shorter length" is a REAL remedy for this shortage: some
+ * shorter length asks for no more of the resource that fell short than the
+ * practice focus supplies.
  *
  * Length is not the same thing as required work: large print already pulls an
- * activity down to the next shorter budget, and Count, Compare & Make asks for
- * the same two comparisons at short and at standard. Offering the remedy
- * anyway is the issue #16 failure mode inside a single family - advice a
- * parent can follow that cannot change the answer - so the caller proves the
- * shorter option really needs fewer of the resource that fell short.
+ * activity down to the next shorter budget, Count, Compare & Make asks for the
+ * same two comparisons at short and at standard, and a focus with three facts
+ * fills no Dry Math length at all. Offering the remedy anyway is the issue #16
+ * failure mode inside a single family - advice a parent can follow that
+ * cannot change the answer - so the caller proves the shorter option really
+ * fits within the capacity it measured.
  */
-export function shorterLengthLowersRequirement(
+export function shorterLengthFills(
   length: WorksheetLength,
-  required: number,
+  capacity: number,
   requirementFor: (length: WorksheetLength) => number,
 ): boolean {
   return SHORTER_WORKSHEET_LENGTHS[length].some(
-    (shorter) => requirementFor(shorter) < required,
+    (shorter) => requirementFor(shorter) <= capacity,
   );
 }
 
 /**
  * The remedy clause of a capacity shortage sentence.
  *
- * `limitKeys` names the stored maxima that actually bound the resource that
- * fell short, never every maximum the family reads: for a group-comparison
- * shortage bounded by `compareMax`, sending the parent to the counting limit
- * is advice that cannot change the outcome.
+ * `limitKeys` names the practice-focus maxima that actually bound the
+ * resource that fell short, never every maximum the family reads: for a
+ * group-comparison shortage bounded by `compareMax`, sending the parent to the
+ * counting range is advice that cannot change the outcome. Both remedies point
+ * at a worksheet choice: the length under More options, or the practice focus.
  */
 export function capacityRemedySentence(
   shorterLengthHelps: boolean,
   limitKeys: readonly WorksheetRelevantMaximumKey[],
 ): string {
   if (limitKeys.length === 0) {
-    // No stored maximum can move this shortage, so naming one would be the
+    // No focus maximum can move this shortage, so naming one would be the
     // issue #16 failure mode again - and an empty list would otherwise print
-    // "review the profile's  limits" with no noun at all.
+    // a range with no noun at all.
     return shorterLengthHelps
-      ? "Choose a shorter worksheet."
-      : "No profile limit can widen this selection.";
+      ? "Choose a shorter length under More options."
+      : "No practice focus can widen this selection.";
   }
   const limits = joinLabels(
     limitKeys.map((key) => WORKSHEET_MAXIMUM_LABELS[key]),
   );
   return shorterLengthHelps
-    ? `Choose a shorter worksheet or review the profile's ${limits} limits.`
-    : `Review the profile's ${limits} limits.`;
+    ? `Choose a shorter length under More options, or a practice focus with a wider ${limits} range.`
+    : `Choose a practice focus with a wider ${limits} range.`;
 }
 
 /**
- * The subset of `candidates` holding the lowest value, i.e. the stored maxima
+ * The subset of `candidates` holding the lowest value, i.e. the focus maxima
  * a `Math.min` over them actually selected. Ties name every tied field because
  * raising only one of them would not move the minimum.
  */
@@ -150,7 +154,7 @@ export function bindingMaximumKeys(
     .map(([key]) => key);
 }
 
-/** The five stored maxima a counterfactual probe reads and rewrites. */
+/** The five focus maxima a counterfactual probe reads and rewrites. */
 export type WorksheetMaximumValues = Readonly<
   Record<WorksheetRelevantMaximumKey, number>
 >;
@@ -177,8 +181,8 @@ export const UNBOUNDED_MAXIMUM = Number.MAX_SAFE_INTEGER;
  * is not necessarily the one that is holding the count down - at operands 20
  * and results 2 an addition pool is bounded by the results alone, and at
  * operands 2 and results 20 a subtraction pool is bounded by the operands
- * alone. A `Math.min` would name a number already at the ceiling `clampPositive`
- * enforces, which is issue #16's failure mode: advice the parent cannot act on.
+ * alone. A `Math.min` would name a number already at the family ceiling, which
+ * is issue #16's failure mode: advice the parent cannot act on.
  * This asks the family's own enumeration instead, and names a maximum only when
  * lifting it really does enlarge the collection.
  */

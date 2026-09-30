@@ -269,15 +269,20 @@ test("creates, keys, varies, and prints Dry Math through the real local UI", asy
   await expect(reloadStatus).toBeVisible();
   const createButton = page.getByRole("button", { name: "Create worksheet" });
 
+  // Dry Math implies its equations representation, so the quantities-only
+  // first child generates it at the saved default's practice focus instead of
+  // being refused.
+  await expect(page.getByText(/Dry Math needs/)).toHaveCount(0);
   await expect(
-    page.getByText(/Dry Math needs equations and an enabled operation/),
+    page.getByText("This selection creates 12 unique problems on one practice page."),
   ).toBeVisible();
-  await expect(page.getByText(/Choose another supported profile/)).toBeVisible();
-  await expect(
-    page.getByText(/Count, Compare & Make offers quantity practice/),
-  ).toBeVisible();
-  await expect(page.getByText(/This selection creates/)).toHaveCount(0);
-  await expect(createButton).toBeDisabled();
+  await expect(createButton).toBeEnabled();
+  await createButton.click();
+  await expect(page.getByLabel("Worksheet preview")).toHaveAttribute(
+    "data-worksheet-type",
+    "dry-math",
+  );
+  await expect(page.getByText(/Worksheet ready with 12 unique problems/)).toBeVisible();
 
   // Age no longer gates generation (P2): a child the version 1 file stored at
   // nine creates Dry Math from its earlier settings like any other child.
@@ -572,7 +577,11 @@ test("clears generated output across profile selection and profile authority cha
   await expect(page.getByText(/Worksheet ready with \d+ unique problems/)).toHaveCount(0);
   await expect(page.getByText("A different worksheet is ready.")).toHaveCount(0);
   await expect(page.getByText(/No different worksheet was found/)).toHaveCount(0);
-  await expect(page.getByText(/This selection creates/)).toHaveCount(0);
+  // The quantities-only child is offered Dry Math at the saved default's
+  // practice focus, so the panel states that selection rather than a refusal.
+  await expect(
+    page.getByText("This selection creates 12 unique problems on one practice page."),
+  ).toBeVisible();
 
   await chooseChild(page, profiles[1].id);
   await createButton.click();

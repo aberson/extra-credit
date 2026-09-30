@@ -204,10 +204,10 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   const [young, middle, oldest] = saved.profiles;
   if (young === undefined || middle === undefined || oldest === undefined) throw new Error("Canonical fixture missing.");
   await expectAgeFreeRegions();
-  await chooseChild(page, young.id);
-  await chooseWorksheet(page, "dry-math");
-  await expect(create).toBeDisabled();
-  await expect(page.getByText(/Dry Math needs equations and an enabled operation/)).toBeVisible();
+  // Dry Math implies its equations representation, so the quantities-only
+  // child generates it at the saved default's practice focus.
+  await generate(young, "dry-math");
+  await expect(page.getByText(/Dry Math needs/)).toHaveCount(0);
   await generate(young, "count-compare-make");
   await generate(young, "find-the-wow", "quantity");
   for (const mode of ["draw-and-tell", "label", "copy-with-model"] as const) {
@@ -217,8 +217,9 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   await editWriting(young, writingModeOf(young));
   await generate(middle, "sentence-builder", "sentence-frame");
   await generate(middle, "dry-math");
-  // Equation-only capability without confirmed equality must not silently
-  // fall back to quantities or permit symbolic Wow generation.
+  // Equation-only earlier settings without confirmed equality seed no
+  // Statements variant, so Two Whats and a Wow keeps the saved default,
+  // Quantity pictures, and never generates symbolic statements.
   await page.getByRole("button", { name: `Edit ${middle.displayName}` }).click();
   await page.getByRole("radio", { name: "Custom capabilities", exact: true }).check();
   await expect(page.getByRole("checkbox", { name: "quantities", exact: true })).toBeVisible();
@@ -229,9 +230,8 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   expect((await appServer.readConfig()).profiles.find(({ id }) => id === middle.id)?.legacyChoices?.mathSkills).toMatchObject({
     representations: ["equations"], understandsEquality: false,
   });
-  await chooseWorksheet(page, "find-the-wow");
-  await expect(create).toBeDisabled();
-  await expect(page.getByText(/needs confirmed quantities, or equations with equality understanding and an enabled operation/)).toBeVisible();
+  await generate(middle, "find-the-wow", "quantity");
+  await expect(page.getByText(/Two Whats and a Wow needs/)).toHaveCount(0);
   await page.getByRole("button", { name: `Edit ${middle.displayName}` }).click();
   await page.getByRole("radio", { name: "Early primary within 10", exact: true }).check();
   await page.getByRole("button", { name: "Save profile", exact: true }).click();
@@ -239,9 +239,13 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   await generate(oldest, "count-compare-make");
   await generate(oldest, "sentence-builder", "independent");
   await generate(oldest, "find-the-wow", "equation");
+  // No Difficulty control exists; the quantities-only canonical child gets the
+  // quantity page that Confidence used to force on the oldest child.
   await openMoreOptions(page);
-  await page.getByRole("combobox", { name: "Difficulty" }).selectOption("confidence");
-  await generate(oldest, "find-the-wow", "quantity");
+  expect(await page.getByRole("region", { name: "Create a practice worksheet" }).innerText()).not.toMatch(
+    /\bDifficulty\b|\bstretch\b/iu,
+  );
+  await generate(young, "find-the-wow", "quantity");
 
   // A retained profile with no age: its capabilities copy the oldest canonical
   // child's into `legacyChoices`, and age no longer gates any family.

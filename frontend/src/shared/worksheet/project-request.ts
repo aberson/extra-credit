@@ -1,16 +1,17 @@
+import { DEFAULT_WORKSHEET_DEFAULTS_V2 } from "../config/defaults.js";
+import { MATH_PRESETS } from "../config/math-presets.js";
 import { normalizedInterestKey } from "../config/normalize.js";
-import {
-  ChildProfileV1Schema,
-  type ChildProfileV1,
-  type ChildProfileV2,
-  type GenerationDefaultsV1,
-  type MathSkillsV1,
+import { presentationBandForVocabulary } from "../config/practice-focus.js";
+import type {
+  ArithmeticFocusV2,
+  ChildProfileV2,
+  WorksheetSelectionV2,
 } from "../config/schema.js";
 import { parseSeedHex } from "./seeded-random.js";
 import {
   GENERATION_CONSTRAINT_CONFLICT,
   REVIEWED_TOPIC_IDS,
-  worksheetMaximum,
+  type EffectiveCapabilitiesV1,
   type EffectiveMathSkillsV1,
   type GenerationRequestV1,
   type GenerationResult,
@@ -33,89 +34,54 @@ const REVIEWED_TOPIC_ID_SET: ReadonlySet<TopicId> = new Set(
   PROJECTED_TOPIC_ALLOWLIST,
 );
 
+const INACTIVE_MATH_SOURCE = MATH_PRESETS["quantities-to-10"].mathSkills;
+
 /**
- * Interim (plan D-interim; Step 16 replaces this input with the worksheet
- * selection): the capabilities the unchanged projection and the registry read,
- * which is a version 1 profile without its age. A version 2 profile carries
- * them only as the read-only `legacyChoices` that migration or the interim
- * profile editor wrote.
+ * The value of every math capability a family does not read (DD13): the
+ * proven-valid `quantities-to-10` shape, so another family's focus or an
+ * inapplicable control can never change a request.
  */
-export const CapabilityProfileV1Schema = ChildProfileV1Schema.omit({
-  ageYears: true,
+export const INACTIVE_MATH_FIELDS: EffectiveMathSkillsV1 = Object.freeze({
+  countingMax: INACTIVE_MATH_SOURCE.countingMax,
+  numeralMax: INACTIVE_MATH_SOURCE.numeralMax,
+  compareMax: INACTIVE_MATH_SOURCE.compareMax,
+  representations: Object.freeze([...INACTIVE_MATH_SOURCE.representations]),
+  understandsEquality: INACTIVE_MATH_SOURCE.understandsEquality,
+  operations: Object.freeze([...INACTIVE_MATH_SOURCE.operations]),
+  operandMax: INACTIVE_MATH_SOURCE.operandMax,
+  resultMax: INACTIVE_MATH_SOURCE.resultMax,
+  allowRegrouping: false,
+  allowNegativeResults: false,
 });
 
-export type CapabilityProfileV1 = Omit<ChildProfileV1, "ageYears">;
-
 /**
- * Flattens a stored profile's `legacyChoices` into the capability shape, or
- * `undefined` when the profile carries none: such a profile has nothing the
- * interim projection could read, and the controls say so explicitly.
+ * The writing capabilities of every family other than Sentence Builder
+ * (D40): the default Sentence choices read through the vocabulary mapping, so
+ * neither the Sentence choices nor a child's earlier settings reach another
+ * family's request.
  */
-export function capabilityProfileOf(
-  profile: ChildProfileV2,
-): CapabilityProfileV1 | undefined {
-  const legacy = profile.legacyChoices;
-  if (legacy === undefined) {
-    return undefined;
-  }
-  return {
-    id: profile.id,
-    ...(profile.displayName === undefined
-      ? {}
-      : { displayName: profile.displayName }),
-    presentationBand: legacy.presentationBand,
-    reviewedOn: profile.reviewedOn,
-    mathSkills: {
-      ...legacy.mathSkills,
-      representations: [...legacy.mathSkills.representations],
-      operations: [...legacy.mathSkills.operations],
-    },
-    writingMode: legacy.writingMode,
-    interests: [...profile.interests],
-  };
-}
+export const INACTIVE_WRITING_CAPABILITIES: Pick<
+  EffectiveCapabilitiesV1,
+  "presentationBand" | "writingMode"
+> = Object.freeze({
+  presentationBand: presentationBandForVocabulary(
+    DEFAULT_WORKSHEET_DEFAULTS_V2.sentenceBuilder.vocabulary,
+  ),
+  writingMode: DEFAULT_WORKSHEET_DEFAULTS_V2.sentenceBuilder.variant,
+});
 
-/**
- * The inverse of `capabilityProfileOf`: the stored version 2 profile whose
- * `legacyChoices` hold these capabilities. The interim profile editor saves
- * through it (D-interim).
- */
-export function profileWithLegacyChoices(
-  capabilities: CapabilityProfileV1,
-): ChildProfileV2 {
-  return {
-    id: capabilities.id,
-    ...(capabilities.displayName === undefined
-      ? {}
-      : { displayName: capabilities.displayName }),
-    reviewedOn: capabilities.reviewedOn,
-    interests: [...capabilities.interests],
-    legacyChoices: {
-      presentationBand: capabilities.presentationBand,
-      writingMode: capabilities.writingMode,
-      mathSkills: {
-        ...capabilities.mathSkills,
-        representations: [...capabilities.mathSkills.representations],
-        operations: [...capabilities.mathSkills.operations],
-      },
-    },
-  };
-}
-
-/**
- * The explicit unavailable message for a profile with no earlier worksheet
- * settings (D-interim), shared by the controls and the session creator.
- */
-export const NO_EARLIER_SETTINGS_MESSAGE =
-  "This profile has no saved worksheet settings yet. Edit it and choose a math preset before creating a worksheet for it.";
+/** The child fields a request may carry: the nickname and the reviewed interests. */
+export type ProjectionChild = Pick<ChildProfileV2, "displayName" | "interests">;
 
 export interface ProjectGenerationRequestInput {
-  readonly profile: CapabilityProfileV1;
-  readonly worksheetType: WorksheetType;
+  /**
+   * The selected child, whose nickname and reviewed interests personalize the
+   * page. Absent for a child-free probe, which projects no personalization.
+   */
+  readonly profile?: ProjectionChild;
+  readonly selection: WorksheetSelectionV2;
   readonly generatorVersion: number;
   readonly seed: string;
-  readonly preferences: GenerationDefaultsV1;
-  readonly stretchConfirmed?: boolean;
 }
 
 export type ProjectionFailure = {
@@ -130,96 +96,84 @@ export type ProjectionResult =
 
 export type ProjectAndGenerateResult = GenerationResult | ProjectionFailure;
 
-function clampPositive(value: number, maximum: number): number {
-  return value === 0 ? 0 : Math.min(value, maximum);
+function inactiveMath(): EffectiveMathSkillsV1 {
+  return {
+    ...INACTIVE_MATH_FIELDS,
+    representations: [...INACTIVE_MATH_FIELDS.representations],
+    operations: [...INACTIVE_MATH_FIELDS.operations],
+  };
 }
 
-function relevantMaximumKeys(
+function arithmeticMath(
+  focus: ArithmeticFocusV2,
+  understandsEquality: boolean,
+): EffectiveMathSkillsV1 {
+  return {
+    ...inactiveMath(),
+    representations: ["equations"],
+    understandsEquality,
+    operations: [...focus.operations],
+    operandMax: focus.operandMax,
+    resultMax: focus.resultMax,
+  };
+}
+
+/**
+ * The exact capabilities one selection projects for one family (DD13's
+ * table). Each family reads only its own focus; every field it does not read
+ * is pinned to `INACTIVE_MATH_FIELDS` or `INACTIVE_WRITING_CAPABILITIES`, and
+ * the representation is implied by the family and, for Two Whats and a Wow,
+ * by its Statements variant, so the variant is the only mode the family's
+ * capability rule can resolve.
+ */
+export function projectWorksheetCapabilities(
+  selection: WorksheetSelectionV2,
   worksheetType: WorksheetType,
-): readonly (keyof Pick<
-  EffectiveMathSkillsV1,
-  "countingMax" | "numeralMax" | "compareMax" | "operandMax" | "resultMax"
->)[] {
+): EffectiveCapabilitiesV1 {
   switch (worksheetType) {
     case "dry-math":
-      return ["operandMax", "resultMax"];
+      return {
+        ...INACTIVE_WRITING_CAPABILITIES,
+        mathSkills: arithmeticMath(selection.dryMath, false),
+      };
     case "find-the-wow":
-      return ["countingMax", "numeralMax", "operandMax", "resultMax"];
+      return {
+        ...INACTIVE_WRITING_CAPABILITIES,
+        mathSkills:
+          selection.findTheWow.variant === "equation"
+            ? arithmeticMath(selection.findTheWow.equation, true)
+            : {
+                ...inactiveMath(),
+                representations: ["quantities"],
+                countingMax: selection.findTheWow.quantity.countingMax,
+                numeralMax: selection.findTheWow.quantity.numeralMax,
+              },
+      };
     case "count-compare-make":
-      return ["countingMax", "numeralMax", "compareMax"];
+      return {
+        ...INACTIVE_WRITING_CAPABILITIES,
+        mathSkills: {
+          ...inactiveMath(),
+          representations: ["quantities"],
+          countingMax: selection.countCompareMake.countingMax,
+          numeralMax: selection.countCompareMake.numeralMax,
+          compareMax: selection.countCompareMake.compareMax,
+        },
+      };
     case "sentence-builder":
-      return [];
+      return {
+        presentationBand: presentationBandForVocabulary(
+          selection.sentenceBuilder.vocabulary,
+        ),
+        writingMode: selection.sentenceBuilder.variant,
+        mathSkills: inactiveMath(),
+      };
   }
 }
 
-function applyDifficulty(
-  skills: MathSkillsV1,
-  worksheetType: WorksheetType,
-  requestedDifficulty: GenerationDefaultsV1["difficulty"],
-  stretchConfirmed: boolean,
-):
-  | {
-      readonly ok: true;
-      readonly difficulty: GenerationDefaultsV1["difficulty"];
-      readonly mathSkills: EffectiveMathSkillsV1;
-    }
-  | ProjectionFailure {
-  const numeric = {
-    countingMax: clampPositive(skills.countingMax, worksheetMaximum(worksheetType, "countingMax")),
-    numeralMax: clampPositive(skills.numeralMax, worksheetMaximum(worksheetType, "numeralMax")),
-    compareMax: clampPositive(skills.compareMax, worksheetMaximum(worksheetType, "compareMax")),
-    operandMax: clampPositive(skills.operandMax, worksheetMaximum(worksheetType, "operandMax")),
-    resultMax: clampPositive(skills.resultMax, worksheetMaximum(worksheetType, "resultMax")),
-  };
-  const relevantKeys = relevantMaximumKeys(worksheetType).filter(
-    (key) => numeric[key] > 0,
-  );
-  let effectiveDifficulty =
-    worksheetType === "sentence-builder" ? "practice" : requestedDifficulty;
-
-  if (
-    effectiveDifficulty === "stretch" &&
-    (relevantKeys.length === 0 ||
-      relevantKeys.every((key) => numeric[key] === worksheetMaximum(worksheetType, key)))
-  ) {
-    effectiveDifficulty = "practice";
-  } else if (effectiveDifficulty === "stretch" && !stretchConfirmed) {
-    return {
-      ok: false,
-      code: GENERATION_CONSTRAINT_CONFLICT,
-      message: "Confirm the one-time stretch limits before generating this worksheet.",
-    };
-  }
-
-  for (const key of relevantKeys) {
-    const base = numeric[key];
-    if (effectiveDifficulty === "confidence") {
-      numeric[key] = Math.max(1, Math.floor(base * 0.75));
-    } else if (effectiveDifficulty === "stretch") {
-      numeric[key] = Math.min(
-        worksheetMaximum(worksheetType, key),
-        base + Math.max(1, Math.ceil(base * 0.25)),
-      );
-    }
-  }
-
-  return {
-    ok: true,
-    difficulty: effectiveDifficulty,
-    mathSkills: {
-      ...numeric,
-      representations: [...skills.representations],
-      understandsEquality: skills.understandsEquality,
-      operations: [...skills.operations],
-      allowRegrouping: false,
-      allowNegativeResults: false,
-    },
-  };
-}
-
-function projectTopics(profile: CapabilityProfileV1): readonly TopicId[] {
+function projectTopics(child: ProjectionChild): readonly TopicId[] {
   const topics: TopicId[] = [];
-  for (const interest of profile.interests) {
+  for (const interest of child.interests) {
     const normalized = normalizedInterestKey(interest) as TopicId;
     if (REVIEWED_TOPIC_ID_SET.has(normalized) && !topics.includes(normalized)) {
       topics.push(normalized);
@@ -232,7 +186,21 @@ function worksheetUsesInterests(worksheetType: WorksheetType): boolean {
   return worksheetType === "sentence-builder" || worksheetType === "count-compare-make";
 }
 
-/** The only production boundary from a stored child profile to generation data. */
+/** The canonical length: the two no-bank Sentence activities always print standard. */
+function projectedLength(selection: WorksheetSelectionV2): WorksheetSelectionV2["length"] {
+  return selection.worksheetType === "sentence-builder" &&
+    (selection.sentenceBuilder.variant === "draw-and-tell" ||
+      selection.sentenceBuilder.variant === "copy-with-model")
+    ? "standard"
+    : selection.length;
+}
+
+/**
+ * The only production boundary from a worksheet selection (and the selected
+ * child's personalization) to generation data. The request carries exactly
+ * the stated practice focus: nothing is scaled, and no child capability is
+ * read.
+ */
 export function projectGenerationRequest(
   input: ProjectGenerationRequestInput,
 ): ProjectionResult {
@@ -253,22 +221,16 @@ export function projectGenerationRequest(
     };
   }
 
-  const effective = applyDifficulty(
-    input.profile.mathSkills,
-    input.worksheetType,
-    input.preferences.difficulty,
-    input.stretchConfirmed === true,
-  );
-  if (!effective.ok) {
-    return effective;
-  }
-
+  const { selection } = input;
+  const worksheetType = selection.worksheetType;
   const topicIds =
-    input.preferences.useInterests && worksheetUsesInterests(input.worksheetType)
+    input.profile !== undefined &&
+    selection.useInterests &&
+    worksheetUsesInterests(worksheetType)
       ? projectTopics(input.profile)
       : [];
   const displayName =
-    input.preferences.useDisplayName && input.profile.displayName !== undefined
+    selection.useDisplayName && input.profile?.displayName !== undefined
       ? input.profile.displayName
       : undefined;
 
@@ -276,33 +238,20 @@ export function projectGenerationRequest(
     ok: true,
     request: {
       schemaVersion: 1,
-      worksheetType: input.worksheetType,
+      worksheetType,
       generatorVersion: input.generatorVersion,
       seed: input.seed,
-      capabilities: {
-        presentationBand: input.profile.presentationBand,
-        writingMode: input.profile.writingMode,
-        mathSkills: effective.mathSkills,
-      },
+      capabilities: projectWorksheetCapabilities(selection, worksheetType),
       options: {
-        difficulty: effective.difficulty,
-        length:
-          input.worksheetType === "sentence-builder" &&
-          (input.profile.writingMode === "draw-and-tell" ||
-            input.profile.writingMode === "copy-with-model")
-            ? "standard"
-            : input.preferences.length,
+        length: projectedLength(selection),
         includeDecorativeGraphics:
-          input.worksheetType === "dry-math" ||
-          input.worksheetType === "find-the-wow"
+          worksheetType === "dry-math" || worksheetType === "find-the-wow"
             ? false
-            : input.preferences.includeDecorativeGraphics,
+            : selection.includeDecorativeGraphics,
         includeAnswerKey:
-          input.worksheetType === "sentence-builder"
-            ? false
-            : input.preferences.includeAnswerKey,
-        paperSize: input.preferences.paperSize,
-        printScale: input.preferences.printScale,
+          worksheetType === "sentence-builder" ? false : selection.includeAnswerKey,
+        paperSize: selection.paperSize,
+        printScale: selection.printScale,
       },
       ...(displayName === undefined ? {} : { displayName }),
       ...(topicIds.length === 0 ? {} : { topicIds }),

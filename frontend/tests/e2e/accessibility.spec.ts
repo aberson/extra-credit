@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
+import type { AppConfigV1 } from "../../src/shared/config/schema.js";
 import { acceptanceConfig } from "../fixtures/print/matrix.js";
 import { expect, test } from "./fixtures/app-server.js";
 import { chooseChild, chooseWorksheet } from "./fixtures/worksheet-controls.js";
@@ -21,6 +22,49 @@ test.beforeEach(async ({ page }) => {
     });
   });
 });
+
+/**
+ * The "unavailable" state's source (D34): a fictional version 1 child built
+ * here, whose earlier Dry Math setting is addition with operand and result
+ * maxima of 1. Its three facts fill no length at either scale, so Create stays
+ * disabled with the practice-focus remedy. Migration turns seeding on.
+ */
+const narrowDryMathConfig: AppConfigV1 = {
+  schemaVersion: 1,
+  profiles: [
+    {
+      id: "5f6a7b8c-9d0e-4f1a-8b2c-3d4e5f6a7b8c",
+      displayName: "Fictional Narrow",
+      ageYears: 6,
+      presentationBand: "preschool",
+      reviewedOn: "2026-09-01",
+      mathSkills: {
+        countingMax: 10,
+        numeralMax: 10,
+        compareMax: 10,
+        representations: ["quantities", "equations"],
+        understandsEquality: false,
+        operations: ["addition"],
+        operandMax: 1,
+        resultMax: 1,
+        allowRegrouping: false,
+        allowNegativeResults: false,
+      },
+      writingMode: "label",
+      interests: [],
+    },
+  ],
+  defaults: {
+    useDisplayName: true,
+    useInterests: true,
+    includeDecorativeGraphics: true,
+    difficulty: "practice",
+    length: "standard",
+    includeAnswerKey: true,
+    paperSize: "letter",
+    printScale: "standard",
+  },
+};
 
 const states = ["setup", "generator", "preview", "invalid-file-recovery", "stale-conflict", "unavailable", "server-unavailable", "invariant-error"] as const;
 
@@ -76,6 +120,7 @@ for (const state of states) {
     page.on("pageerror", (error) => errors.push(error.name));
     page.on("console", (message) => { if (message.type() === "error") consoleKinds.push(message.type()); });
     if (state === "invalid-file-recovery") await appServer.seedRaw(Buffer.from("{fictional-invalid"));
+    else if (state === "unavailable") await appServer.seedConfig(narrowDryMathConfig);
     else if (state !== "setup") await appServer.seedConfig(acceptanceConfig);
     // A transport failure, not a replacement UI, drives the production unavailable state.
     if (state === "server-unavailable") await page.route("**/api/health", (route) => route.abort("connectionfailed"));
@@ -88,8 +133,15 @@ for (const state of states) {
       await page.getByRole("button", { name: "Create first profile" }).click();
     } else {
       await expect(page.getByRole("heading", { name: "Create a practice worksheet" })).toBeVisible();
-      await chooseChild(page, acceptanceConfig.profiles[state === "unavailable" ? 0 : 1]!.id);
-      if (state === "unavailable") await expect(page.getByRole("button", { name: "Create worksheet", exact: true })).toBeDisabled();
+      if (state === "unavailable") {
+        await chooseChild(page, narrowDryMathConfig.profiles[0]!.id);
+        await expect(page.getByRole("button", { name: "Create worksheet", exact: true })).toBeDisabled();
+        await expect(page.locator("[data-capacity-conflict]")).toHaveText(
+          /^This practice focus provides 3 unique facts, but this length needs \d+\. Choose a practice focus with a wider results range\.$/u,
+        );
+      } else {
+        await chooseChild(page, acceptanceConfig.profiles[1]!.id);
+      }
       if (state === "preview" || state === "invariant-error") {
         if (state === "invariant-error") await page.evaluate(() => {
           Object.defineProperty(Crypto.prototype, "randomUUID", { configurable: true, value: () => "invalid-worksheet-id" });

@@ -5,19 +5,25 @@ import {
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
   WRITING_MODES,
-  type GenerationDefaultsV1,
   type PresentationBand,
+  type WorksheetSelectionV2,
   type WritingMode,
 } from "../../shared/config/schema.js";
+import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../../shared/config/defaults.js";
+import {
+  profileWithLegacyChoices,
+  selectionFromEarlierSettings,
+  type CapabilityProfileV1,
+} from "../../shared/config/earlier-settings.js";
 import {
   canonicalContentKey,
   containsPersonalizationValue,
   objectiveAnswerEntries,
 } from "../../shared/worksheet/invariants.js";
-import {
-  projectGenerationRequest,
-  type CapabilityProfileV1,
-} from "../../shared/worksheet/project-request.js";
+import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
 import type {
   GenerationRequestV1,
   SentenceItemV1,
@@ -55,11 +61,22 @@ import {
 
 const WORKSHEET_ID = "11111111-1111-4111-8111-111111111111";
 
-const defaults: GenerationDefaultsV1 = {
+/** The layout and personalization choices a selection carries beside its practice focus. */
+type Layout = Pick<
+  WorksheetSelectionV2,
+  | "useDisplayName"
+  | "useInterests"
+  | "includeDecorativeGraphics"
+  | "includeAnswerKey"
+  | "length"
+  | "paperSize"
+  | "printScale"
+>;
+
+const defaults: Layout = {
   useDisplayName: true,
   useInterests: true,
   includeDecorativeGraphics: true,
-  difficulty: "practice",
   length: "standard",
   includeAnswerKey: true,
   paperSize: "letter",
@@ -93,16 +110,31 @@ function profileFor(
   };
 }
 
+/**
+ * The Sentence Builder selection a child's earlier settings describe: its
+ * writing mode and band read as the Writing activity and Vocabulary over the
+ * built-in defaults with this layout, then projected.
+ */
 function requestFor(
   profile: CapabilityProfileV1,
-  preferences: Partial<GenerationDefaultsV1> = {},
+  preferences: Partial<Layout> = {},
   seed = "00000001",
 ): GenerationRequestV1 {
-  const merged = { ...defaults, ...preferences };
-  const projection = projectGenerationRequest({
-    profile,
-    preferences: merged,
+  const stored = profileWithLegacyChoices(profile);
+  if (stored.legacyChoices === undefined) {
+    throw new Error("The fixture profile unexpectedly carried no earlier settings.");
+  }
+  const selection: WorksheetSelectionV2 = {
+    ...selectionFromEarlierSettings(stored.legacyChoices, {
+      ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+      ...defaults,
+      ...preferences,
+    }).selection,
     worksheetType: SENTENCE_BUILDER_DEFINITION.id,
+  };
+  const projection = projectGenerationRequest({
+    profile: stored,
+    selection,
     generatorVersion: SENTENCE_BUILDER_DEFINITION.generatorVersion,
     seed,
   });
@@ -331,15 +363,14 @@ describe("Sentence Builder length budget", () => {
 });
 
 describe("hidden control normalization", () => {
-  test("every projected request is practice, key-free, and canonical in length", () => {
+  test("every projected request is key-free, canonical in length, and carries no difficulty", () => {
     for (const writingMode of ALL_MODES) {
       for (const length of WORKSHEET_LENGTHS) {
         const request = requestFor(profileFor(writingMode), {
-          difficulty: "stretch",
           includeAnswerKey: true,
           length,
         });
-        expect(request.options.difficulty).toBe("practice");
+        expect("difficulty" in request.options).toBe(false);
         expect(request.options.includeAnswerKey).toBe(false);
         expect(request.options.length).toBe(
           getSentenceBuilderCanonicalLength(writingMode, length),
@@ -350,10 +381,13 @@ describe("hidden control normalization", () => {
 
   test("rejects a hand-built request that skipped the canonical normalization", () => {
     const canonical = requestFor(profileFor("draw-and-tell"));
+    // Calibration: the canonical request itself generates, so each refusal
+    // below comes from the drifted hidden value alone.
+    expect(generateSentenceBuilder(canonical, { worksheetId: WORKSHEET_ID }).ok).toBe(true);
     const drifted: readonly GenerationRequestV1[] = [
-      { ...canonical, options: { ...canonical.options, difficulty: "stretch" } },
       { ...canonical, options: { ...canonical.options, includeAnswerKey: true } },
       { ...canonical, options: { ...canonical.options, length: "long" } },
+      { ...canonical, options: { ...canonical.options, length: "short" } },
     ];
     for (const request of drifted) {
       const result = generateSentenceBuilder(request, { worksheetId: WORKSHEET_ID });
@@ -363,6 +397,33 @@ describe("hidden control normalization", () => {
       });
       expect("document" in result).toBe(false);
     }
+  });
+
+  test("the Writing activity and Vocabulary alone set the projected mode and band", () => {
+    const stored = profileWithLegacyChoices(profileFor("independent", "early-primary"));
+    const base = worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2);
+    const project = (sentenceBuilder: WorksheetSelectionV2["sentenceBuilder"]) => {
+      const projection = projectGenerationRequest({
+        profile: stored,
+        selection: { ...base, worksheetType: "sentence-builder", sentenceBuilder },
+        generatorVersion: SENTENCE_BUILDER_DEFINITION.generatorVersion,
+        seed: "00000001",
+      });
+      if (!projection.ok) {
+        throw new Error(projection.message);
+      }
+      return projection.request.capabilities;
+    };
+    // The child's earlier settings say independent/early-primary; the
+    // selection says otherwise, and only the selection reaches the request.
+    expect(project({ variant: "label", vocabulary: "simpler-words" })).toMatchObject({
+      presentationBand: "preschool",
+      writingMode: "label",
+    });
+    expect(project({ variant: "sentence-frame", vocabulary: "all-words" })).toMatchObject({
+      presentationBand: "early-primary",
+      writingMode: "sentence-frame",
+    });
   });
 
   test("a bank mode keeps the parent's length because it selects bank width", () => {
@@ -538,7 +599,7 @@ describe("fail-closed capacity", () => {
   function conflictFor(
     writingMode: WritingMode,
     vocabulary: SentenceVocabularyV1,
-    preferences: Partial<GenerationDefaultsV1> = {},
+    preferences: Partial<Layout> = {},
   ) {
     const request = requestFor(profileFor(writingMode), preferences);
     return generateSentenceBuilder(request, { worksheetId: WORKSHEET_ID }, vocabulary);
@@ -551,6 +612,9 @@ describe("fail-closed capacity", () => {
     );
     expect(result).toMatchObject({ code: "GENERATION_CONSTRAINT_CONFLICT", ok: false });
     expect("document" in result).toBe(false);
+    expect(result.ok ? "" : result.message).toBe(
+      "No reviewed Draw & Tell prompt is available for this vocabulary and these interests. Choose a different Writing activity or Vocabulary.",
+    );
   });
 
   test("a copy-with-model record without a model sentence is a shortage, not a blank sheet", () => {
@@ -616,7 +680,9 @@ describe("fail-closed capacity", () => {
     );
     expect(result).toMatchObject({ code: "GENERATION_CONSTRAINT_CONFLICT", ok: false });
     expect("document" in result).toBe(false);
-    expect(result.ok ? "" : result.message).toContain("10 unique reviewed word-bank words");
+    expect(result.ok ? "" : result.message).toBe(
+      "This length needs 10 unique reviewed word-bank words, but only 5 are available. Choose a shorter worksheet or a different Writing activity.",
+    );
   });
 
 });
@@ -973,7 +1039,9 @@ describe("capability support agrees with the generator", () => {
       bandless,
     );
     expect(support).toMatchObject({ available: false });
-    expect(support.available ? "" : support.reason).toContain("copy with a model");
+    expect(support.available ? "" : support.reason).toBe(
+      "Sentence Builder has no reviewed Copy a Sentence prompt for this vocabulary. Choose a different Writing activity or Vocabulary.",
+    );
   });
 });
 

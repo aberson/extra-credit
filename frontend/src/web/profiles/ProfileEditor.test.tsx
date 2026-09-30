@@ -17,7 +17,9 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import {
   DEFAULT_WORKSHEET_DEFAULTS_V2,
   cloneWorksheetDefaults,
+  worksheetSelectionOf,
 } from "../../shared/config/defaults";
+import { selectionFromEarlierSettings } from "../../shared/config/earlier-settings";
 import {
   MathSkillsV1Schema,
   type AppConfigV2,
@@ -1587,10 +1589,27 @@ describe("App over a file an earlier version saved", () => {
         quantity: { countingMax: 4, numeralMax: 6 },
         equation: { operations: ["subtraction"], operandMax: 11, resultMax: 3 },
       },
-      sentenceBuilder: { variant: "independent", vocabulary: "all-words" },
+      sentenceBuilder: { variant: "draw-and-tell", vocabulary: "simpler-words" },
       countCompareMake: { countingMax: 5, numeralMax: 6, compareMax: 7 },
     };
     const before = structuredClone(loaded);
+    // The child the parent selects covers every worksheet group with earlier
+    // settings that differ from the saved defaults, so a save that wrote the
+    // selected child's values instead of passing the defaults through would
+    // change every group below.
+    const selectedChild = canonicalAvery;
+    const childSelection = selectionFromEarlierSettings(
+      selectedChild.legacyChoices!,
+      worksheetSelectionOf(loaded.defaults),
+    ).selection;
+    for (const group of [
+      "dryMath",
+      "findTheWow",
+      "sentenceBuilder",
+      "countCompareMake",
+    ] as const) {
+      expect(childSelection[group], group).not.toEqual(loaded.defaults[group]);
+    }
     const { puts } = stubConfigApi(loaded, 1);
 
     render(<App />);
@@ -1598,6 +1617,21 @@ describe("App over a file an earlier version saved", () => {
     fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
       target: { value: "sentence-builder" },
     });
+    // The first child's earlier writing activity is on the panel, and
+    // selecting the second child replaces it with hers: the panel really
+    // follows the selected child rather than the saved Draw & Tell default.
+    expect(
+      screen.getByText("Writing activity for Sentence Builder: Finish a Sentence."),
+    ).toBeVisible();
+    fireEvent.change(screen.getByRole("combobox", { name: "Child profile" }), {
+      target: { value: selectedChild.id },
+    });
+    expect(
+      screen.getByText("Writing activity for Sentence Builder: Independent Writing."),
+    ).toBeVisible();
+    expect(
+      screen.queryByText("Writing activity for Sentence Builder: Draw & Tell."),
+    ).toBeNull();
     fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content"));
     for (const details of window.document.querySelectorAll("details")) {
       details.open = true;

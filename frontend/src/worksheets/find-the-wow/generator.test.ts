@@ -1,10 +1,19 @@
 import { describe, expect, test, vi } from "vitest";
 
-import type { GenerationDefaultsV1 } from "../../shared/config/schema.js";
+import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../../shared/config/defaults.js";
+import {
+  profileWithLegacyChoices,
+  selectionFromEarlierSettings,
+  type CapabilityProfileV1,
+} from "../../shared/config/earlier-settings.js";
+import type { WorksheetSelectionV2 } from "../../shared/config/schema.js";
 import { objectiveAnswerEntries } from "../../shared/worksheet/invariants.js";
 import {
+  INACTIVE_MATH_FIELDS,
   projectGenerationRequest,
-  type CapabilityProfileV1,
 } from "../../shared/worksheet/project-request.js";
 import { formatSeedHex } from "../../shared/worksheet/seeded-random.js";
 import type {
@@ -17,6 +26,7 @@ import type {
 import {
   getFindTheWowCapabilitySupport,
   getFindTheWowGroupCount,
+  type FindTheWowMode,
 } from "./definition.js";
 import {
   effectiveFindTheWowGroupCount,
@@ -28,11 +38,22 @@ import {
   type FindTheWowDocumentV1,
 } from "./generator.js";
 
-const defaults: GenerationDefaultsV1 = {
+/** The layout and personalization choices a selection carries beside its practice focus. */
+type Layout = Pick<
+  WorksheetSelectionV2,
+  | "useDisplayName"
+  | "useInterests"
+  | "includeDecorativeGraphics"
+  | "includeAnswerKey"
+  | "length"
+  | "paperSize"
+  | "printScale"
+>;
+
+const defaults: Layout = {
   useDisplayName: true,
   useInterests: true,
   includeDecorativeGraphics: true,
-  difficulty: "practice",
   length: "standard",
   includeAnswerKey: true,
   paperSize: "letter",
@@ -92,15 +113,36 @@ function quantityProfile(limit = 10): CapabilityProfileV1 {
   };
 }
 
+/**
+ * The Two Whats and a Wow selection a child's earlier settings describe:
+ * those settings mapped over the built-in defaults with this layout, then
+ * projected. `variant` overrides the Statements choice the mapping made.
+ */
 function request(
   profile: CapabilityProfileV1,
-  preferences: GenerationDefaultsV1 = defaults,
+  layout: Layout = defaults,
   seed = "00000001",
+  variant?: FindTheWowMode,
 ): GenerationRequestV1 {
-  const projection = projectGenerationRequest({
-    profile,
-    preferences,
+  const stored = profileWithLegacyChoices(profile);
+  if (stored.legacyChoices === undefined) {
+    throw new Error("The fixture profile unexpectedly carried no earlier settings.");
+  }
+  const mapped = selectionFromEarlierSettings(stored.legacyChoices, {
+    ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+    ...layout,
+  }).selection;
+  const selection: WorksheetSelectionV2 = {
+    ...mapped,
     worksheetType: "find-the-wow",
+    findTheWow: {
+      ...mapped.findTheWow,
+      variant: variant ?? mapped.findTheWow.variant,
+    },
+  };
+  const projection = projectGenerationRequest({
+    profile: stored,
+    selection,
     generatorVersion: 1,
     seed,
   });
@@ -297,19 +339,11 @@ describe("Two Whats and a Wow definition", () => {
     ).toEqual([4, 4, 6]);
   });
 
-  test("locks equation-first, confidence scaffolding, fallback, and unavailable gates", () => {
+  test("locks equation-first, fallback, and unavailable gates", () => {
     const both = equationProfile().mathSkills;
-    expect(getFindTheWowCapabilitySupport(both, "practice")).toEqual({
+    expect(getFindTheWowCapabilitySupport(both)).toEqual({
       available: true,
       mode: "equation",
-    });
-    expect(getFindTheWowCapabilitySupport(both, "stretch")).toEqual({
-      available: true,
-      mode: "equation",
-    });
-    expect(getFindTheWowCapabilitySupport(both, "confidence")).toEqual({
-      available: true,
-      mode: "quantity",
     });
 
     const noEquality = equationProfile().mathSkills;
@@ -319,13 +353,15 @@ describe("Two Whats and a Wow definition", () => {
       mode: "quantity",
     });
     noEquality.representations = ["equations"];
-    expect(getFindTheWowCapabilitySupport(noEquality)).toMatchObject({
+    expect(getFindTheWowCapabilitySupport(noEquality)).toEqual({
       available: false,
+      reason:
+        "Two Whats and a Wow needs quantities, or equations with equality understanding and an enabled operation. Choose Quantity pictures or Equations under Statements, with a practice focus that includes an operation for Equations.",
     });
 
     const equationOnly = equationProfile().mathSkills;
     equationOnly.representations = ["equations"];
-    expect(getFindTheWowCapabilitySupport(equationOnly, "confidence")).toEqual({
+    expect(getFindTheWowCapabilitySupport(equationOnly)).toEqual({
       available: true,
       mode: "equation",
     });
@@ -512,15 +548,36 @@ describe("Two Whats and a Wow finite candidate models", () => {
 });
 
 describe("Two Whats and a Wow documents", () => {
-  test("generates the quantity variant for a dual-capability confidence request", () => {
-    const confidenceRequest = request(equationProfile(), {
-      ...defaults,
-      difficulty: "confidence",
-    });
-    const document = generated(confidenceRequest);
-    expect(document.request.options.difficulty).toBe("confidence");
-    expect(document.items.every((item) => item.mode === "quantity")).toBe(true);
-    assertQuantityDocument(document);
+  test("takes the statement mode only from the Statements variant for the same child", () => {
+    const quantityRequest = request(equationProfile(), defaults, "00000001", "quantity");
+    const quantity = generated(quantityRequest);
+    expect("difficulty" in quantityRequest.options).toBe(false);
+    expect(quantityRequest.capabilities.mathSkills.representations).toEqual([
+      "quantities",
+    ]);
+    expect(quantity.items.every((item) => item.mode === "quantity")).toBe(true);
+    assertQuantityDocument(quantity);
+
+    const equationRequest = request(equationProfile(), defaults, "00000001", "equation");
+    const equation = generated(equationRequest);
+    expect(equationRequest.capabilities.mathSkills.representations).toEqual([
+      "equations",
+    ]);
+    expect(equation.items.every((item) => item.mode === "equation")).toBe(true);
+    assertEquationDocument(equation);
+  });
+
+  test("the earlier-settings mapping picks Equations only for a child with the equation gate", () => {
+    expect(
+      generated(request(equationProfile())).items.every(
+        (item) => item.mode === "equation",
+      ),
+    ).toBe(true);
+    const noEquality = equationProfile();
+    noEquality.mathSkills.understandsEquality = false;
+    expect(
+      generated(request(noEquality)).items.every((item) => item.mode === "quantity"),
+    ).toBe(true);
   });
 
   test("proves truth, bounds, uniqueness, answers, and balance over fixed seed ranges", () => {
@@ -700,9 +757,9 @@ describe("Two Whats and a Wow documents", () => {
       request(future, { ...defaults, length: "long" }, "2c6f5bd0"),
     );
     expect(document.request.capabilities.mathSkills).toMatchObject({
-      countingMax: 20,
-      numeralMax: 20,
-      compareMax: 20,
+      countingMax: INACTIVE_MATH_FIELDS.countingMax,
+      numeralMax: INACTIVE_MATH_FIELDS.numeralMax,
+      compareMax: INACTIVE_MATH_FIELDS.compareMax,
       operandMax: 20,
       resultMax: 20,
       allowRegrouping: false,
@@ -730,16 +787,24 @@ describe("Two Whats and a Wow documents", () => {
   });
 
   test("fails closed for capability, metadata, and non-normalized request violations", () => {
-    const unavailable = equationProfile();
-    unavailable.mathSkills.representations = ["equations"];
-    unavailable.mathSkills.understandsEquality = false;
+    const validRequest = request(equationProfile());
     expect(
-      generateFindTheWow(request(unavailable), {
-        worksheetId: "11111111-1111-4111-8111-111111111111",
-      }),
+      generateFindTheWow(
+        {
+          ...validRequest,
+          capabilities: {
+            ...validRequest.capabilities,
+            mathSkills: {
+              ...validRequest.capabilities.mathSkills,
+              representations: ["equations"],
+              understandsEquality: false,
+            },
+          },
+        },
+        { worksheetId: "11111111-1111-4111-8111-111111111111" },
+      ),
     ).toMatchObject({ ok: false, code: "GENERATION_CONSTRAINT_CONFLICT" });
 
-    const validRequest = request(equationProfile());
     expect(
       generateFindTheWow(
         { ...validRequest, worksheetType: "dry-math" },

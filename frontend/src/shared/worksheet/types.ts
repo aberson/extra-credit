@@ -1,5 +1,9 @@
 import type {
-  GenerationDefaultsV1,
+  PAPER_SIZES,
+  PRINT_SCALES,
+  WORKSHEET_LENGTHS,
+} from "../config/enums.js";
+import type {
   MathSkillsV1,
   PresentationBand,
   WritingMode,
@@ -106,10 +110,11 @@ export type SeedHex = string;
 
 export type MathOperation = MathSkillsV1["operations"][number];
 export type MathRepresentation = MathSkillsV1["representations"][number];
-export type Difficulty = GenerationDefaultsV1["difficulty"];
-export type WorksheetLength = GenerationDefaultsV1["length"];
-export type PaperSize = GenerationDefaultsV1["paperSize"];
-export type PrintScale = GenerationDefaultsV1["printScale"];
+// `enums.ts` imports `TOPIC_IDS` from this module as a value, so these three
+// derive from its arrays through `import type` only (D30).
+export type WorksheetLength = (typeof WORKSHEET_LENGTHS)[number];
+export type PaperSize = (typeof PAPER_SIZES)[number];
+export type PrintScale = (typeof PRINT_SCALES)[number];
 
 export interface EffectiveMathSkillsV1 {
   readonly countingMax: number;
@@ -131,7 +136,6 @@ export interface EffectiveCapabilitiesV1 {
 }
 
 export interface GenerationOptionsV1 {
-  readonly difficulty: Difficulty;
   readonly length: WorksheetLength;
   readonly includeDecorativeGraphics: boolean;
   readonly includeAnswerKey: boolean;

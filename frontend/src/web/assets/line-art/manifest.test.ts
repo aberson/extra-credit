@@ -5,13 +5,19 @@ import { createElement } from "react";
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
-  ChildProfileV2Schema,
-  type GenerationDefaultsV1,
-} from "../../../shared/config/schema";
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../../../shared/config/defaults";
 import {
-  projectGenerationRequest,
+  profileWithLegacyChoices,
+  selectionFromEarlierSettings,
   type CapabilityProfileV1,
-} from "../../../shared/worksheet/project-request";
+} from "../../../shared/config/earlier-settings";
+import {
+  ChildProfileV2Schema,
+  type WorksheetSelectionV2,
+} from "../../../shared/config/schema";
+import { projectGenerationRequest } from "../../../shared/worksheet/project-request";
 import {
   TOPIC_IDS,
   type TopicId,
@@ -656,11 +662,19 @@ describe("decorative selection", () => {
 
 const WORKSHEET_ID = "77777777-7777-4777-8777-777777777777";
 
-const defaults: GenerationDefaultsV1 = {
+const defaults: Pick<
+  WorksheetSelectionV2,
+  | "useDisplayName"
+  | "useInterests"
+  | "includeDecorativeGraphics"
+  | "includeAnswerKey"
+  | "length"
+  | "paperSize"
+  | "printScale"
+> = {
   useDisplayName: false,
   useInterests: true,
   includeDecorativeGraphics: true,
-  difficulty: "practice",
   length: "standard",
   includeAnswerKey: false,
   paperSize: "letter",
@@ -692,10 +706,20 @@ function sentenceDocumentFor(
   includeDecorativeGraphics: boolean,
   seed = "0000002a",
 ): WorksheetDocumentV1 {
+  const stored = profileWithLegacyChoices(profile);
+  if (stored.legacyChoices === undefined) {
+    throw new Error("The fixture profile unexpectedly carried no earlier settings.");
+  }
   const projection = projectGenerationRequest({
-    profile,
-    preferences: { ...defaults, includeDecorativeGraphics },
-    worksheetType: SENTENCE_BUILDER_DEFINITION.id,
+    profile: stored,
+    selection: {
+      ...selectionFromEarlierSettings(stored.legacyChoices, {
+        ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+        ...defaults,
+        includeDecorativeGraphics,
+      }).selection,
+      worksheetType: SENTENCE_BUILDER_DEFINITION.id,
+    },
     generatorVersion: SENTENCE_BUILDER_DEFINITION.generatorVersion,
     seed,
   });

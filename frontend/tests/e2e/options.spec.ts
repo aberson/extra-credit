@@ -115,34 +115,54 @@ const profiles = [
   },
 ] as const satisfies readonly ChildProfileV1[];
 
+/**
+ * D36: a fictional child built at runtime whose earlier settings are
+ * quantities to 7, so its Two Whats and a Wow focus holds seven stems - one
+ * short of Long at standard scale, enough for Standard's six.
+ */
+const narrowQuantityChild = {
+  ...profiles[1],
+  id: "4e5f6a7b-8c9d-4e0f-8a1b-2c3d4e5f6a7b",
+  displayName: "Distinctive Private Narrow",
+  mathSkills: { ...profiles[1].mathSkills, countingMax: 7, numeralMax: 7, compareMax: 7 },
+} satisfies ChildProfileV1;
+
 test("refuses a length the confirmed limits cannot fill before the click", async ({
   appServer,
   page,
 }) => {
-  await appServer.seedConfig({ schemaVersion: 1, profiles: [...profiles], defaults });
+  await appServer.seedConfig({
+    schemaVersion: 1,
+    profiles: [...profiles, narrowQuantityChild],
+    defaults,
+  });
   await page.goto(appServer.origin);
   await expect(
-    page.getByRole("heading", { name: "Distinctive Private Riley" }),
+    page.getByRole("heading", { name: "Distinctive Private Narrow" }),
   ).toBeVisible();
 
-  await chooseChild(page, profiles[1].id);
+  await chooseChild(page, narrowQuantityChild.id);
   await chooseWorksheet(page, "find-the-wow");
   await openMoreOptions(page);
+  // Difficulty and its stretch confirmation are gone; the practice focus alone
+  // decides the range.
+  await expect(page.getByRole("combobox", { name: "Difficulty" })).toHaveCount(0);
+  // The upgrade notice outside the panel names the retired Stretch on purpose.
+  await expect(
+    page.getByRole("region", { name: "Create a practice worksheet" }).getByText(/stretch/iu),
+  ).toHaveCount(0);
 
   const createButton = page.getByRole("button", { name: "Create worksheet" });
   const conflict = page.locator("[data-capacity-conflict]");
   await expect(createButton).toBeEnabled();
   await expect(conflict).toHaveCount(0);
 
-  await page
-    .getByRole("combobox", { name: "Difficulty" })
-    .selectOption("confidence");
   await chooseLength(page, "long");
 
-  // The confidence downgrade leaves seven distinct quantity stems for a length
-  // that needs eight, so the page must say so instead of offering the click.
+  // The earlier setting holds seven distinct quantity stems for a length that
+  // needs eight, so the page must say so instead of offering the click.
   await expect(conflict).toHaveText(
-    "The confirmed limits provide 7 unique quantity groups, but this length needs 8. Choose a shorter worksheet or review the profile's counting and numerals limits. Setting Difficulty to Practice also fills this selection, without changing the profile.",
+    "This practice focus provides 7 unique quantity groups, but this length needs 8. Choose a shorter length under More options, or a practice focus with a wider counting and numerals range.",
   );
   await expect(createButton).toBeDisabled();
   await expect(page.getByText(/This selection creates/)).toHaveCount(0);
@@ -354,16 +374,12 @@ test("shows stored capabilities Version 1 keeps but never prints", async ({
     page.getByRole("heading", { name: "Distinctive Private Jordan" }),
   ).toBeVisible();
 
-  await expect(
-    page.getByText(
-      "Stored limits reach counting 25 (this activity uses at most 20), numerals 25 (this activity uses at most 20), comparisons 25 (this activity uses at most 20).",
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "This profile also allows carrying and borrowing, and negative results; Version 1 never uses them.",
-    ),
-  ).toBeVisible();
+  // The first child stores 25 everywhere and both future permissions. Dry
+  // Math's own range reaches 100, so only the ceilings of the other families
+  // clamp; each clamp and each flag is disclosed once, from earlier-settings.ts.
+  await expect(page.locator("[data-earlier-settings-disclosure]")).toHaveText(
+    "Earlier settings this version adjusts or does not use: Two Whats and a Wow quantity pictures counting: stored 25, using 20. Two Whats and a Wow quantity pictures numerals: stored 25, using 20. Two Whats and a Wow equations operands: stored 25, using 20. Two Whats and a Wow equations results: stored 25, using 20. Count, Compare & Make counting: stored 25, using 20. Count, Compare & Make numerals: stored 25, using 20. Count, Compare & Make comparisons: stored 25, using 20. Carrying and borrowing: stored but not used. Negative results: stored but not used.",
+  );
   await page.getByRole("button", { name: "Create worksheet" }).click();
   const preview = page.getByLabel("Worksheet preview");
   await expect(preview).toHaveAttribute("data-worksheet-type", "dry-math");
@@ -458,7 +474,7 @@ test("a superseded defaults save takes the stale worksheet down with it", async 
     "large",
   );
   await expect(page.locator("[data-capacity-conflict]")).toHaveText(
-    "The confirmed limits provide 0 unique numeral-matching exercises, but this length needs 2. Review the profile's numerals limits.",
+    "This practice focus provides 0 unique numeral-matching exercises, but this length needs 2. Choose a practice focus with a wider numerals range.",
   );
 
   await save.click();
