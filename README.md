@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English practice for ages 4–8 and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Steps 1-13 and two iterative UAT revisions are implemented.** The UAT revisions expand arithmetic presets and simplify profile, worksheet and print presentation. The final combined Windows check passed 521 unit tests and 160 browser specs, lint/types, and log-privacy calibration. Physical-print and family-pilot acceptance remain pending. See [plan.md](plan.md), the [UAT review](documentation/uat-round-2-review.md), and the [next-feature seeds](documentation/feature-seeds/README.md).
+> **Steps 1-13 and two iterative UAT revisions are implemented.** The UAT revisions expand arithmetic presets and simplify profile, worksheet and print presentation. The final combined Windows check passed 521 unit tests and 160 browser specs, lint/types, and log-privacy calibration. Physical-print and family-pilot acceptance remain pending. Three follow-on plans are reviewed and none is built; the first two are issue-synced and the third is redlined: [worksheet-first controls](documentation/worksheet-first-plan.md) (Steps 14-20, issues #25-#31), [math operations and activities](documentation/math-activities-plan.md) (Steps 21-27, issues #32-#38), and [printable packets](documentation/printable-packets-plan.md) (Steps 28-34). See [plan.md](plan.md), the [UAT review](documentation/uat-round-2-review.md), and the [feature seeds](documentation/feature-seeds/README.md).
 
 ## V1 worksheets
 
@@ -166,7 +166,7 @@ A profile contains an optional nickname, age, parent-confirmed presentation band
 
 ## Roadmap
 
-The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-13 are merged; physical-print, family-pilot, and post-push Ubuntu acceptance remain pending.
+The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-13 are merged; physical-print, family-pilot, and post-push Ubuntu acceptance remain pending. Steps 14-34 are planned in three separate plan documents linked from plan.md and are not yet built.
 
 1. Application and continuous-integration foundation — complete
 2. Secure local-profile storage and setup — complete

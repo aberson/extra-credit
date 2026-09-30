@@ -1093,3 +1093,18 @@ Steps 1–13 above remain the completed historical build and are not renumbered.
 
 Physical print acceptance (M1) and the family pilot (M2) remain open human
 acceptance tasks and are not closed by any of these plans.
+
+### Planning status (2026-09-29)
+
+All three plans were authored from the seeds, adversarially reviewed and
+redlined (each has a standalone proposal under documentation/). Worksheet-first
+controls (Steps 14-20, issues #25-#31) and math operations and activities
+(Steps 21-27, issues #32-#38) have also passed plan-review, plan-wrap and issue
+sync; printable packets (Steps 28-34) is committed with blank Issue fields and
+still needs its plan-expedite run. No Step 14-34 code has merged. The "Next"
+line in section 11 above is the historical Step 9 handoff; Steps 10-13
+completed on 2026-09-28 and their status lines are authoritative. The build
+chain (01, then 02, then 03, each shipped by repo-update) starts from the
+resume prompt in local task state; the operator choices and the coordinator
+rulings that bind these plans are in
+[operator-decisions.md](documentation/feature-seeds/operator-decisions.md).
