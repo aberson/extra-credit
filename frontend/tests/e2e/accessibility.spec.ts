@@ -4,6 +4,7 @@ import { AxeBuilder } from "@axe-core/playwright";
 import type { Locator, Page } from "@playwright/test";
 import { acceptanceConfig } from "../fixtures/print/matrix.js";
 import { expect, test } from "./fixtures/app-server.js";
+import { chooseChild, chooseWorksheet } from "./fixtures/worksheet-controls.js";
 
 const evidenceRoot = fileURLToPath(new URL("../../../.build-step/accessibility-evidence/", import.meta.url));
 const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22a", "wcag22aa"];
@@ -87,7 +88,7 @@ for (const state of states) {
       await page.getByRole("button", { name: "Create first profile" }).click();
     } else {
       await expect(page.getByRole("heading", { name: "Create a practice worksheet" })).toBeVisible();
-      await page.getByRole("combobox", { name: "Child profile" }).selectOption(acceptanceConfig.profiles[state === "unavailable" ? 0 : 1]!.id);
+      await chooseChild(page, acceptanceConfig.profiles[state === "unavailable" ? 0 : 1]!.id);
       if (state === "unavailable") await expect(page.getByRole("button", { name: "Create worksheet", exact: true })).toBeDisabled();
       if (state === "preview" || state === "invariant-error") {
         if (state === "invariant-error") await page.evaluate(() => {
@@ -174,8 +175,8 @@ for (const family of ["find-the-wow", "sentence-builder", "count-compare-make"] 
   test(`accessible responsive preview: ${family}`, async ({ appServer, page }) => {
     await appServer.seedConfig(acceptanceConfig);
     await page.goto(appServer.origin);
-    await page.getByRole("combobox", { name: "Child profile" }).selectOption(acceptanceConfig.profiles[1]!.id);
-    await page.getByRole("combobox", { name: "Worksheet type" }).selectOption(family);
+    await chooseChild(page, acceptanceConfig.profiles[1]!.id);
+    await chooseWorksheet(page, family);
     await page.getByRole("button", { name: "Create worksheet", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Preview and print" })).toBeFocused();
     expect((await new AxeBuilder({ page }).withTags(tags).analyze()).violations).toEqual([]);
@@ -206,4 +207,61 @@ test("accessibility measurements reject visible overflow and missing control lab
   });
   await expect(assertNoOverflow(page)).rejects.toThrow();
   expect((await new AxeBuilder({ page }).withTags(tags).analyze()).violations.map(({ id }) => id)).toContain("button-name");
+});
+
+interface ViewportMetrics { clientHeight: number; clientWidth: number; scrollWidth: number; scrollY: number }
+async function viewportMetrics(page: Page): Promise<ViewportMetrics> {
+  return await page.evaluate<ViewportMetrics>(`({
+    clientHeight: document.documentElement.clientHeight,
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+    scrollY: window.scrollY,
+  })`);
+}
+
+// Relocated from the fixed development-stack test in foundation.spec.ts, which
+// serves whatever file sits at the canonical config path. This one runs on the
+// ephemeral compiled fixture over a temporary config. It deliberately pins no
+// document height: the empty state renders the generator panel with little
+// vertical headroom, and the canonical fictional profiles scroll vertically.
+test("compiled 1920×1080 layout: empty first screen fits and no state scrolls horizontally", async ({ appServer, page }) => {
+  await page.setViewportSize({ width: 1_920, height: 1_080 });
+
+  await appServer.seedMissing();
+  await page.goto(appServer.origin);
+  const readyStatus = page.locator(".health").getByRole("status");
+  const firstProfile = page.getByRole("button", { name: "Create first profile" });
+  const worksheetHeading = page.getByRole("heading", { name: "Create a practice worksheet" });
+  await expect(readyStatus).toContainText("Ready on this computer.");
+  await expect(firstProfile).toBeVisible();
+  await expect(worksheetHeading).toBeVisible();
+  expect(await viewportMetrics(page)).toEqual({ clientHeight: 1_080, clientWidth: 1_920, scrollWidth: 1_920, scrollY: 0 });
+  for (const element of [readyStatus, firstProfile, worksheetHeading]) {
+    const box = await element.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.y + box!.height).toBeLessThanOrEqual(1_080);
+  }
+
+  await appServer.seedConfig(acceptanceConfig);
+  await page.goto(appServer.origin);
+  await expect(worksheetHeading).toBeVisible();
+  const canonical = await viewportMetrics(page);
+  expect({ clientHeight: canonical.clientHeight, clientWidth: canonical.clientWidth, scrollWidth: canonical.scrollWidth })
+    .toEqual({ clientHeight: 1_080, clientWidth: 1_920, scrollWidth: 1_920 });
+
+  // Calibration: a synthetic wide element must break the horizontal check, and
+  // removing it must restore it.
+  await page.evaluate(`(() => {
+    const wide = document.createElement("div");
+    wide.id = "synthetic-wide-calibration";
+    wide.style.width = "2400px";
+    wide.style.height = "1px";
+    document.body.append(wide);
+  })()`);
+  const widened = await viewportMetrics(page);
+  expect(widened.scrollWidth).toBeGreaterThan(widened.clientWidth);
+  await page.evaluate(`document.getElementById("synthetic-wide-calibration").remove()`);
+  const restored = await viewportMetrics(page);
+  expect(restored.scrollWidth).toBe(restored.clientWidth);
+  expect(restored.clientWidth).toBe(1_920);
 });

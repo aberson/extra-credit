@@ -465,6 +465,7 @@ These standing checks must also hold at every step's gate once they exist, and e
   7. **Helper routing (D26):** the §7 standing grep over helper-routed control names finds nothing; the header's `playwright test --list` title list equals the 5c22159 list plus exactly the one new `accessibility.spec.ts` title (160 and 161 listed tests, both recorded in the evidence section); and every routed spec passes.
   8. **Full gate:** `npm --prefix frontend run check` passes with Vitest ≥ 521 and Playwright ≥ 161, counted as the header declares, and `npm --prefix frontend run release:verify` exits 0. This step's evidence section names the suites that ran and both counts, and records that it deletes no test (D23).
 - **Depends on:** none (Steps 1–13 are merged)
+- **Status:** DONE (2026-09-29)
 
 ### Step 15: Config schema v2 with lossless v1 upgrade and age-free profiles
 

@@ -1,0 +1,2 @@
+frontend/tests/fixtures/config/*.json text eol=lf
+frontend/tests/fixtures/golden/*.json text eol=lf

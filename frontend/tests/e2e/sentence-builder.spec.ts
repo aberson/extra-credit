@@ -6,6 +6,15 @@ import type {
   GenerationDefaultsV1,
 } from "../../src/shared/config/schema.ts";
 import { expect, test } from "./fixtures/app-server.ts";
+import {
+  chooseChild,
+  chooseLength,
+  choosePrintLayout,
+  chooseWorksheet,
+  controls,
+  openMoreOptions,
+  setPersonalization,
+} from "./fixtures/worksheet-controls.ts";
 
 const defaults: GenerationDefaultsV1 = {
   useDisplayName: false,
@@ -291,16 +300,15 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
     page.getByText("Saved profiles reloaded from the local file."),
   ).toBeVisible();
 
-  const profileSelect = page.getByRole("combobox", { name: "Child profile" });
-  const worksheetSelect = page.getByRole("combobox", { name: "Worksheet type" });
+  const worksheetSelect = controls(page).worksheetType();
   const createButton = page.getByRole("button", { name: "Create worksheet" });
   const preview = page.getByLabel("Worksheet preview");
 
   await expect(
     worksheetSelect.locator('option[value="sentence-builder"]'),
   ).toHaveText("Sentence Builder");
-  await worksheetSelect.selectOption("sentence-builder");
-  await page.getByText("More options").click();
+  await chooseWorksheet(page, "sentence-builder");
+  await openMoreOptions(page);
 
   for (const [index, profileFixture] of profiles.entries()) {
     const writingMode = profileFixture.writingMode;
@@ -308,7 +316,7 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
     if (expectedSheet === undefined) {
       throw new Error(`No expectation for writing mode ${writingMode}.`);
     }
-    await profileSelect.selectOption(profileFixture.id);
+    await chooseChild(page, profileFixture.id);
     await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
     await expect(
       page.getByText(
@@ -320,13 +328,13 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
     await expect(
       page.getByRole("combobox", { name: "Difficulty" }),
     ).toHaveCount(0);
-    await expect(page.getByLabel("Include a parent answer key")).toHaveCount(0);
+    await expect(controls(page).answerKey()).toHaveCount(0);
     await expect(
-      page.getByLabel("Use reviewed interests in worksheet content"),
+      controls(page).interests(),
     ).toBeVisible();
-    await expect(page.getByLabel("Include decorative graphics")).toBeVisible();
+    await expect(controls(page).graphics()).toBeVisible();
 
-    const lengthSelect = page.getByRole("combobox", { name: "Length" });
+    const lengthSelect = controls(page).length();
     if (BANK_MODES.has(writingMode)) {
       await expect(lengthSelect).toHaveCount(1);
       await expect(
@@ -394,18 +402,18 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
 
   // Decoration is decoration: the prompt, bank, item count, required response,
   // and response-panel geometry survive the toggle unchanged.
-  await profileSelect.selectOption(profiles[4].id);
+  await chooseChild(page, profiles[4].id);
   await setFixedSeed(page, 9);
   await createButton.click();
   const withGraphics = await readSheet(preview);
-  await page.getByLabel("Include decorative graphics").uncheck();
+  await setPersonalization(page, { graphics: false });
   await setFixedSeed(page, 9);
   await createButton.click();
   expect(await readSheet(preview)).toEqual(withGraphics);
-  await page.getByLabel("Include decorative graphics").check();
+  await setPersonalization(page, { graphics: true });
 
   // Length selects bank breadth, never prompt count.
-  const lengthSelect = page.getByRole("combobox", { name: "Length" });
+  const lengthSelect = controls(page).length();
   await expect(lengthSelect.locator('option[value="short"]')).toHaveText(
     "Short · 6 word-bank words",
   );
@@ -415,7 +423,7 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
   await expect(lengthSelect.locator('option[value="long"]')).toHaveText(
     "Long · 10 word-bank words",
   );
-  await lengthSelect.selectOption("long");
+  await chooseLength(page, "long");
   await setFixedSeed(page, 11);
   await createButton.click();
   const longSheet = await readSheet(preview);
@@ -425,8 +433,7 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
   expect(longSheet.writingLines).toBeGreaterThan(withGraphics.writingLines);
 
   // Large print steps a bank-bearing page down one budget on the same one page.
-  const printScaleSelect = page.getByRole("combobox", { name: "Print scale" });
-  await printScaleSelect.selectOption("large");
+  await choosePrintLayout(page, { printScale: "large" });
   await expect(lengthSelect.locator('option[value="long"]')).toHaveText(
     "Long · 8 word-bank words",
   );
@@ -438,10 +445,10 @@ test("renders every Sentence Builder writing mode through the compiled UI", asyn
   // Response space follows the EFFECTIVE length, so the large-print step-down
   // takes the writing lines back to the standard budget with the bank.
   expect(largeSheet.writingLines).toBe(withGraphics.writingLines);
-  await printScaleSelect.selectOption("standard");
+  await choosePrintLayout(page, { printScale: "standard" });
 
   // Nickname personalization reaches only the header.
-  await page.getByLabel("Put the nickname in the worksheet header").check();
+  await setPersonalization(page, { nickname: true });
   await setFixedSeed(page, 13);
   await createButton.click();
   await expect(

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "profiles": [
+    {
+      "id": "d2c05a44-73ad-4fa0-a4b3-9db5c5f6e321",
+      "displayName": "Riley",
+      "ageYears": 4,
+      "presentationBand": "preschool",
+      "reviewedOn": "2026-08-22",
+      "mathSkills": {
+        "countingMax": 10,
+        "numeralMax": 10,
+        "compareMax": 10,
+        "representations": ["quantities"],
+        "understandsEquality": false,
+        "operations": [],
+        "operandMax": 0,
+        "resultMax": 0,
+        "allowRegrouping": false,
+        "allowNegativeResults": false
+      },
+      "writingMode": "label",
+      "interests": ["animals", "space"]
+    },
+    {
+      "id": "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
+      "displayName": "Morgan",
+      "ageYears": 6,
+      "presentationBand": "early-primary",
+      "reviewedOn": "2026-08-22",
+      "mathSkills": {
+        "countingMax": 20,
+        "numeralMax": 20,
+        "compareMax": 20,
+        "representations": ["quantities", "equations"],
+        "understandsEquality": true,
+        "operations": ["addition", "subtraction"],
+        "operandMax": 10,
+        "resultMax": 10,
+        "allowRegrouping": false,
+        "allowNegativeResults": false
+      },
+      "writingMode": "sentence-frame",
+      "interests": ["nature", "vehicles"]
+    },
+    {
+      "id": "93c7a8d2-4b1e-4a6f-9d30-7b8e2f1c5a64",
+      "displayName": "Avery",
+      "ageYears": 8,
+      "presentationBand": "early-primary",
+      "reviewedOn": "2026-08-22",
+      "mathSkills": {
+        "countingMax": 20,
+        "numeralMax": 20,
+        "compareMax": 20,
+        "representations": ["quantities", "equations"],
+        "understandsEquality": true,
+        "operations": ["addition", "subtraction"],
+        "operandMax": 20,
+        "resultMax": 20,
+        "allowRegrouping": false,
+        "allowNegativeResults": false
+      },
+      "writingMode": "independent",
+      "interests": ["sports", "nature"]
+    }
+  ],
+  "defaults": {
+    "useDisplayName": true,
+    "useInterests": true,
+    "includeDecorativeGraphics": true,
+    "difficulty": "practice",
+    "length": "standard",
+    "includeAnswerKey": true,
+    "paperSize": "letter",
+    "printScale": "standard"
+  }
+}

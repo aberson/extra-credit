@@ -7,6 +7,14 @@ import type {
   ChildProfileV1,
 } from "../../src/shared/config/schema.js";
 import { expect, test } from "./fixtures/app-server.js";
+import {
+  chooseChild,
+  chooseLength,
+  choosePrintLayout,
+  controls,
+  openMoreOptions,
+  setPersonalization,
+} from "./fixtures/worksheet-controls.js";
 
 const defaults: AppConfigV1["defaults"] = {
   useDisplayName: true,
@@ -172,12 +180,11 @@ test("expanded presets save, generate their real range, and print matching singl
       operandMax: maximum, resultMax: maximum, operations,
     });
     await page.reload();
-    await page.getByText("More options", { exact: true }).click();
-    await page.getByRole("combobox", { name: "Length", exact: true }).selectOption("long");
+    await openMoreOptions(page);
+    await chooseLength(page, "long");
     for (const paper of ["letter", "a4"] as const) {
       for (const scale of ["standard", "large"] as const) {
-        await page.getByRole("combobox", { name: "Paper size" }).selectOption(paper);
-        await page.getByRole("combobox", { name: "Print scale" }).selectOption(scale);
+        await choosePrintLayout(page, { paperSize: paper, printScale: scale });
         await page.getByRole("button", { name: "Create worksheet" }).click();
         const preview = page.getByLabel("Worksheet preview");
         const items = preview.locator("[data-item-id]");
@@ -260,7 +267,6 @@ test("creates, keys, varies, and prints Dry Math through the real local UI", asy
     "Saved profiles reloaded from the local file.",
   );
   await expect(reloadStatus).toBeVisible();
-  const profileSelect = page.getByRole("combobox", { name: "Child profile" });
   const createButton = page.getByRole("button", { name: "Create worksheet" });
 
   await expect(
@@ -273,22 +279,21 @@ test("creates, keys, varies, and prints Dry Math through the real local UI", asy
   await expect(page.getByText(/This selection creates/)).toHaveCount(0);
   await expect(createButton).toBeDisabled();
 
-  await profileSelect.selectOption(profiles[2].id);
+  await chooseChild(page, profiles[2].id);
   await expect(
     page.getByText(/Version 1 worksheets support ages 4–8/),
   ).toBeVisible();
   await expect(page.getByText(/This selection creates/)).toHaveCount(0);
   await expect(createButton).toBeDisabled();
 
-  await profileSelect.selectOption(profiles[1].id);
+  await chooseChild(page, profiles[1].id);
   await expect(createButton).toBeEnabled();
   await expect(
     page.getByText("This selection creates 12 unique problems on one practice page."),
   ).toBeVisible();
-  await page.getByText("More options").click();
-  const lengthSelect = page.getByRole("combobox", { name: "Length" });
-  const printScaleSelect = page.getByRole("combobox", { name: "Print scale" });
-  await printScaleSelect.selectOption("large");
+  await openMoreOptions(page);
+  const lengthSelect = controls(page).length();
+  await choosePrintLayout(page, { printScale: "large" });
   await expect(
     lengthSelect.locator('option[value="standard"]'),
   ).toHaveText("Standard · 8 problems");
@@ -298,13 +303,13 @@ test("creates, keys, varies, and prints Dry Math through the real local UI", asy
   await expect(
     page.getByText("This selection creates 8 unique problems on one practice page."),
   ).toBeVisible();
-  await printScaleSelect.selectOption("standard");
+  await choosePrintLayout(page, { printScale: "standard" });
   await expect(
     page.getByText("This selection creates 12 unique problems on one practice page."),
   ).toBeVisible();
   await expect(page.getByLabel(/interest/i)).toHaveCount(0);
   await expect(page.getByLabel(/decorative/i)).toHaveCount(0);
-  await page.getByLabel("Put the nickname in the worksheet header").uncheck();
+  await setPersonalization(page, { nickname: false });
   await createButton.click();
   await expect(page.getByText(/Worksheet ready with 12 unique problems/)).toBeVisible();
 
@@ -547,10 +552,9 @@ test("clears generated output across profile selection and profile authority cha
   await appServer.seedConfig({ schemaVersion: 1, profiles: [...profiles], defaults });
   await page.goto(appServer.origin);
   await expect(page.getByRole("heading", { name: "Riley" })).toBeVisible();
-  const profileSelect = page.getByRole("combobox", { name: "Child profile" });
   const createButton = page.getByRole("button", { name: "Create worksheet" });
 
-  await profileSelect.selectOption(profiles[1].id);
+  await chooseChild(page, profiles[1].id);
   await createButton.click();
   await expect(page.getByText(/Worksheet ready with 12 unique problems/)).toBeVisible();
   await expect(page.getByLabel("Worksheet preview")).toBeVisible();
@@ -558,7 +562,7 @@ test("clears generated output across profile selection and profile authority cha
   await page.getByRole("button", { name: "Parent answer key" }).click();
   await expect(page.getByRole("heading", { name: "Parent answer key" })).toBeVisible();
 
-  await profileSelect.selectOption(profiles[0].id);
+  await chooseChild(page, profiles[0].id);
   await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Parent answer key" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Make another" })).toHaveCount(0);
@@ -567,7 +571,7 @@ test("clears generated output across profile selection and profile authority cha
   await expect(page.getByText(/No different worksheet was found/)).toHaveCount(0);
   await expect(page.getByText(/This selection creates/)).toHaveCount(0);
 
-  await profileSelect.selectOption(profiles[1].id);
+  await chooseChild(page, profiles[1].id);
   await createButton.click();
   await expect(page.getByLabel("Worksheet preview")).toBeVisible();
   await expect(page.getByRole("button", { name: "Make another" })).toBeVisible();

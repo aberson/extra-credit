@@ -6,6 +6,14 @@ import type {
   GenerationDefaultsV1,
 } from "../../src/shared/config/schema.ts";
 import { expect, test } from "./fixtures/app-server.ts";
+import {
+  chooseChild,
+  choosePrintLayout,
+  chooseWorksheet,
+  controls,
+  openMoreOptions,
+  setPersonalization,
+} from "./fixtures/worksheet-controls.ts";
 
 const defaults: GenerationDefaultsV1 = {
   useDisplayName: true,
@@ -498,40 +506,36 @@ test("renders quantity, unavailable, equation, and confidence Wow through the co
   await expect(
     page.getByText("Saved profiles reloaded from the local file."),
   ).toBeVisible();
-  const profileSelect = page.getByRole("combobox", { name: "Child profile" });
-  const worksheetSelect = page.getByRole("combobox", {
-    name: "Worksheet type",
-  });
+  const worksheetSelect = controls(page).worksheetType();
   const createButton = page.getByRole("button", { name: "Create worksheet" });
   await expect(worksheetSelect).toBeEnabled();
   await expect(
     worksheetSelect.locator('option[value="find-the-wow"]'),
   ).toHaveText("Math — Two Whats and a Wow");
-  await worksheetSelect.selectOption("find-the-wow");
+  await chooseWorksheet(page, "find-the-wow");
 
   await expect(page.getByText(/use quantity mode for Two Whats and a Wow/)).toBeVisible();
   await expect(createButton).toBeEnabled();
   await expect(
     page.getByText("This selection creates 6 unique groups on one practice page."),
   ).toBeVisible();
-  await page.getByText("More options").click();
+  await openMoreOptions(page);
   const difficultySelect = page.getByRole("combobox", { name: "Difficulty" });
-  const lengthSelect = page.getByRole("combobox", { name: "Length" });
-  const printScaleSelect = page.getByRole("combobox", { name: "Print scale" });
-  await printScaleSelect.selectOption("large");
+  const lengthSelect = controls(page).length();
+  await choosePrintLayout(page, { printScale: "large" });
   await expect(
     lengthSelect.locator('option[value="standard"]'),
   ).toHaveText("Standard · 4 groups");
   await expect(
     page.getByText("This selection creates 4 unique groups on one practice page."),
   ).toBeVisible();
-  await printScaleSelect.selectOption("standard");
+  await choosePrintLayout(page, { printScale: "standard" });
   await expect(
     page.getByText("This selection creates 6 unique groups on one practice page."),
   ).toBeVisible();
   await expect(page.getByLabel(/interest/i)).toHaveCount(0);
   await expect(page.getByLabel(/decorative/i)).toHaveCount(0);
-  await page.getByLabel("Put the nickname in the worksheet header").uncheck();
+  await setPersonalization(page, { nickname: false });
 
   await setFixedSeed(page, 1);
   await createButton.click();
@@ -618,7 +622,7 @@ test("renders quantity, unavailable, equation, and confidence Wow through the co
   await expect(page.locator("[data-quantity-mark]")).not.toHaveCount(0);
   await page.emulateMedia({ media: "screen" });
 
-  await profileSelect.selectOption(profiles[2].id);
+  await chooseChild(page, profiles[2].id);
   await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Parent answer key" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Make another" })).toHaveCount(0);
@@ -632,7 +636,7 @@ test("renders quantity, unavailable, equation, and confidence Wow through the co
   ).toBeVisible();
   await expectAccessible(page);
 
-  await profileSelect.selectOption(profiles[1].id);
+  await chooseChild(page, profiles[1].id);
   await expect(page.getByText(/use equation mode for Two Whats and a Wow/)).toBeVisible();
   await expect(createButton).toBeEnabled();
   await setFixedSeed(page, 2);
@@ -691,7 +695,7 @@ test("renders quantity, unavailable, equation, and confidence Wow through the co
   await answerKeySurfaceButton.click();
   await readAndVerifyKey(answerSurface, confidenceAnswers);
 
-  await worksheetSelect.selectOption("dry-math");
+  await chooseWorksheet(page, "dry-math");
   await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Parent answer key" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Make another" })).toHaveCount(0);

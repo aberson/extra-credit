@@ -18,6 +18,15 @@ import {
   type RequiredPrintContent,
 } from "../fixtures/print/required-content.ts";
 import { expect, test } from "./fixtures/app-server.ts";
+import {
+  chooseChild,
+  chooseLength,
+  choosePrintLayout,
+  chooseWorksheet,
+  controls,
+  openMoreOptions,
+  setPersonalization,
+} from "./fixtures/worksheet-controls.ts";
 
 const evidenceRoot = fileURLToPath(
   new URL("../../../.build-step/print-evidence/", import.meta.url),
@@ -603,8 +612,8 @@ for (const paper of ["letter", "a4"] as const) {
         });
       });
       await page.goto(appServer.origin);
-      await page.getByRole("combobox", { name: "Child profile" }).selectOption(fixture.profile.id);
-      await page.getByRole("combobox", { name: "Worksheet type" }).selectOption("count-compare-make");
+      await chooseChild(page, fixture.profile.id);
+      await chooseWorksheet(page, "count-compare-make");
       await page.emulateMedia({ media: "print" });
       const bound = countOrderBound(paper, scale);
       expect(bound.permutations).toBe(scale === "standard" ? 25_200 : 2_520);
@@ -786,20 +795,19 @@ for (const fixture of printFixtures) {
               .fill(boundary.profile.interests.join(", "));
           }
           await page.getByRole("button", { name: "Save profile" }).click();
-          await page.getByRole("combobox", { name: "Child profile" }).selectOption(original.id);
-          await page.getByRole("combobox", { name: "Worksheet type" })
-            .selectOption(fixture.worksheetType);
-          await page.getByText("More options", { exact: true }).click();
-          await page.getByRole("combobox", { name: "Print scale" }).selectOption(scale);
-          await page.getByRole("combobox", { name: "Paper size" }).selectOption(paper);
-          const length = page.getByRole("combobox", { name: "Length", exact: true });
+          await chooseChild(page, original.id);
+          await chooseWorksheet(page, fixture.worksheetType);
+          await openMoreOptions(page);
+          await choosePrintLayout(page, { printScale: scale });
+          await choosePrintLayout(page, { paperSize: paper });
+          const length = controls(page).length();
           if (await length.count()) {
-            await length.selectOption("long");
+            await chooseLength(page, "long");
           }
-          const graphics = page.getByLabel("Include decorative graphics");
+          const graphics = controls(page).graphics();
           await expect(graphics).toHaveCount(decorationApplicable ? 1 : 0);
           if (decorationApplicable) {
-            await graphics.setChecked(decoration);
+            await setPersonalization(page, { graphics: decoration });
           }
           await page.getByRole("button", { name: "Create worksheet" }).click();
           const preview = page.getByLabel("Worksheet preview");
@@ -1047,8 +1055,8 @@ test("delayed startup CSS is ready for the earliest print click on either paper"
     if (profile === undefined) {
       throw new Error("Missing canonical profile.");
     }
-    await page.getByRole("combobox", { name: "Child profile" }).selectOption(profile.id);
-    await page.getByRole("combobox", { name: "Worksheet type" }).selectOption("dry-math");
+    await chooseChild(page, profile.id);
+    await chooseWorksheet(page, "dry-math");
     // Hold any CSS requested by preview mounting as well. Moving the paper
     // rules back to dynamic links must fail even on an otherwise warm page.
     cssGate = new Promise<void>((resolve) => {

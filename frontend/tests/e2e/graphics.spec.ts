@@ -17,6 +17,12 @@ import type {
   GenerationDefaultsV1,
 } from "../../src/shared/config/schema.ts";
 import { expect, test } from "./fixtures/app-server.ts";
+import {
+  chooseChild,
+  chooseWorksheet,
+  controls,
+  setPersonalization,
+} from "./fixtures/worksheet-controls.ts";
 
 /*
  * Step 7 owns two claims that only a real environment can settle.
@@ -511,14 +517,10 @@ async function openGenerator(
 ): Promise<Response | null> {
   const response = await page.goto(origin);
   await expect(
-    page.getByRole("combobox", { name: "Child profile" }),
+    controls(page).child(),
   ).toBeVisible();
-  await page
-    .getByRole("combobox", { name: "Worksheet type" })
-    .selectOption("sentence-builder");
-  await page.getByRole("combobox", { name: "Child profile" }).selectOption(
-    profile.id,
-  );
+  await chooseWorksheet(page, "sentence-builder");
+  await chooseChild(page, profile.id);
   return response;
 }
 
@@ -612,7 +614,7 @@ test("decoration changes only decoration, in the compiled browser", async ({
   expect(policy).toContain("default-src 'self'");
   expect(policy).toMatch(/(?:^|;)\s*img-src\s[^;]*\bdata:/u);
 
-  await expect(page.getByLabel("Include decorative graphics")).toBeChecked();
+  await expect(controls(page).graphics()).toBeChecked();
   const withArt = await createSheet(page, "art");
   expect(withArt.decorationState).toBe("art");
   expect(withArt.artIds).toEqual(["space-rocket"]);
@@ -625,7 +627,7 @@ test("decoration changes only decoration, in the compiled browser", async ({
   expect(withArt.decorativePanelsInsideResponse).toBe(0);
 
   // State 3: the parent turns decoration off; the panel becomes a doodle box.
-  await page.getByLabel("Include decorative graphics").uncheck();
+  await setPersonalization(page, { graphics: false });
   const withoutGraphics = await createSheet(page, "doodle");
   expect(withoutGraphics.decorationState).toBe("doodle");
   expect(withoutGraphics.doodleBoxes).toBe(1);
@@ -813,7 +815,7 @@ test("the reserved panel cannot overflow a narrow page at a large base font", as
 
   // Container-awareness must not buy itself out of the three-state equality:
   // the panel is still the same box with graphics off, at this size too.
-  await page.getByLabel("Include decorative graphics").uncheck();
+  await setPersonalization(page, { graphics: false });
   const narrowDoodle = await createSheet(page, "doodle");
   expect(narrowDoodle.decorationState).toBe("doodle");
   expect(narrowDoodle.decorativePanelBox).toEqual(narrow.decorativePanelBox);
@@ -834,7 +836,7 @@ test("the doodle caption is never cut off, at any text size", async ({
   });
   await pinSeed(page);
   await openGenerator(page, appServer.origin);
-  await page.getByLabel("Include decorative graphics").uncheck();
+  await setPersonalization(page, { graphics: false });
   await createSheet(page, "doodle");
 
   const preview = page.getByLabel("Worksheet preview");
@@ -905,7 +907,7 @@ test("both decoration states pass the accessibility scan", async ({
   const artResults = await new AxeBuilder({ page }).analyze();
   expect(artResults.violations).toEqual([]);
 
-  await page.getByLabel("Include decorative graphics").uncheck();
+  await setPersonalization(page, { graphics: false });
   const withoutGraphics = await createSheet(page, "doodle");
   expect(withoutGraphics.doodleBoxes).toBe(1);
   const doodleResults = await new AxeBuilder({ page }).analyze();

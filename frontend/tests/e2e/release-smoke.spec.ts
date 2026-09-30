@@ -7,6 +7,7 @@ import { PDFDocument } from "pdf-lib";
 import type { ChildProfileV1, WritingMode } from "../../src/shared/config/schema.js";
 import { acceptanceConfig } from "../fixtures/profiles.js";
 import { expect, test } from "./fixtures/app-server.js";
+import { chooseChild, chooseWorksheet, openMoreOptions } from "./fixtures/worksheet-controls.js";
 
 const families = ["dry-math", "find-the-wow", "sentence-builder", "count-compare-make"] as const;
 
@@ -98,8 +99,6 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   }
   expect(new Set(saved.profiles.map(({ id }) => id)).size).toBe(3);
   await page.reload();
-  const profileSelect = page.getByRole("combobox", { name: "Child profile" });
-  const worksheetSelect = page.getByRole("combobox", { name: "Worksheet type" });
   const create = page.getByRole("button", { name: "Create worksheet", exact: true });
 
   async function editWriting(profile: ChildProfileV1, mode: WritingMode): Promise<void> {
@@ -111,8 +110,8 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   }
 
   async function generate(profile: ChildProfileV1, family: typeof families[number], variant?: string): Promise<void> {
-    await profileSelect.selectOption(profile.id);
-    await worksheetSelect.selectOption(family);
+    await chooseChild(page, profile.id);
+    await chooseWorksheet(page, family);
     await create.click();
     const preview = page.getByLabel("Worksheet preview");
     await expect(preview).toHaveAttribute("data-worksheet-type", family);
@@ -167,8 +166,8 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
 
   const [young, middle, oldest] = saved.profiles;
   if (young === undefined || middle === undefined || oldest === undefined) throw new Error("Canonical fixture missing.");
-  await profileSelect.selectOption(young.id);
-  await worksheetSelect.selectOption("dry-math");
+  await chooseChild(page, young.id);
+  await chooseWorksheet(page, "dry-math");
   await expect(create).toBeDisabled();
   await expect(page.getByText(/Dry Math needs equations and an enabled operation/)).toBeVisible();
   await generate(young, "count-compare-make");
@@ -188,11 +187,11 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   await page.getByRole("checkbox", { name: "quantities", exact: true }).uncheck();
   await page.getByRole("checkbox", { name: "Parent confirms understanding of equality", exact: true }).uncheck();
   await page.getByRole("button", { name: "Save profile", exact: true }).click();
-  await profileSelect.selectOption(middle.id);
+  await chooseChild(page, middle.id);
   expect((await appServer.readConfig()).profiles.find(({ id }) => id === middle.id)?.mathSkills).toMatchObject({
     representations: ["equations"], understandsEquality: false,
   });
-  await worksheetSelect.selectOption("find-the-wow");
+  await chooseWorksheet(page, "find-the-wow");
   await expect(create).toBeDisabled();
   await expect(page.getByText(/needs confirmed quantities, or equations with equality understanding and an enabled operation/)).toBeVisible();
   await page.getByRole("button", { name: `Edit ${middle.displayName}` }).click();
@@ -202,7 +201,7 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   await generate(oldest, "count-compare-make");
   await generate(oldest, "sentence-builder", "independent");
   await generate(oldest, "find-the-wow", "equation");
-  await page.getByText("More options", { exact: true }).click();
+  await openMoreOptions(page);
   await page.getByRole("combobox", { name: "Difficulty" }).selectOption("confidence");
   await generate(oldest, "find-the-wow", "quantity");
 
@@ -211,9 +210,9 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   expect(retained).toBeDefined();
   if (retained !== undefined) await recordPrivateValues([retained]);
   await page.reload();
-  await profileSelect.selectOption(retained?.id ?? "missing");
+  await chooseChild(page, retained?.id ?? "missing");
   for (const family of families) {
-    await worksheetSelect.selectOption(family);
+    await chooseWorksheet(page, family);
     await expect(create).toBeDisabled();
     await expect(page.getByText(/Version 1 worksheets support ages/)).toBeVisible();
     await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);

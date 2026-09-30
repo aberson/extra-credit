@@ -3,6 +3,15 @@ import type {
   GenerationDefaultsV1,
 } from "../../src/shared/config/schema.ts";
 import { expect, test } from "./fixtures/app-server.ts";
+import {
+  chooseChild,
+  chooseLength,
+  choosePrintLayout,
+  chooseWorksheet,
+  controls,
+  openMoreOptions,
+  setAnswerKey,
+} from "./fixtures/worksheet-controls.ts";
 
 /*
  * Step 9's worksheet-option contract, proved where only the compiled
@@ -99,13 +108,9 @@ test("refuses a length the confirmed limits cannot fill before the click", async
     page.getByRole("heading", { name: "Distinctive Private Riley" }),
   ).toBeVisible();
 
-  await page
-    .getByRole("combobox", { name: "Child profile" })
-    .selectOption(profiles[1].id);
-  await page
-    .getByRole("combobox", { name: "Worksheet type" })
-    .selectOption("find-the-wow");
-  await page.getByText("More options").click();
+  await chooseChild(page, profiles[1].id);
+  await chooseWorksheet(page, "find-the-wow");
+  await openMoreOptions(page);
 
   const createButton = page.getByRole("button", { name: "Create worksheet" });
   const conflict = page.locator("[data-capacity-conflict]");
@@ -115,7 +120,7 @@ test("refuses a length the confirmed limits cannot fill before the click", async
   await page
     .getByRole("combobox", { name: "Difficulty" })
     .selectOption("confidence");
-  await page.getByRole("combobox", { name: "Length" }).selectOption("long");
+  await chooseLength(page, "long");
 
   // The confidence downgrade leaves seven distinct quantity stems for a length
   // that needs eight, so the page must say so instead of offering the click.
@@ -125,7 +130,7 @@ test("refuses a length the confirmed limits cannot fill before the click", async
   await expect(createButton).toBeDisabled();
   await expect(page.getByText(/This selection creates/)).toHaveCount(0);
 
-  await page.getByRole("combobox", { name: "Length" }).selectOption("standard");
+  await chooseLength(page, "standard");
   await expect(conflict).toHaveCount(0);
   await expect(
     page.getByText("This selection creates 6 unique groups on one practice page."),
@@ -149,11 +154,11 @@ test("saved worksheet defaults reload without changing a child profile", async (
   await expect(
     page.getByRole("heading", { name: "Distinctive Private Jordan" }),
   ).toBeVisible();
-  await page.getByText("More options").click();
-  await page.getByRole("combobox", { name: "Length" }).selectOption("long");
-  await page.getByRole("combobox", { name: "Print scale" }).selectOption("large");
-  await page.getByRole("combobox", { name: "Paper size" }).selectOption("a4");
-  await page.getByLabel("Include a parent answer key").uncheck();
+  await openMoreOptions(page);
+  await chooseLength(page, "long");
+  await choosePrintLayout(page, { printScale: "large" });
+  await choosePrintLayout(page, { paperSize: "a4" });
+  await setAnswerKey(page, false);
 
   const saveButton = page.getByRole("button", {
     name: "Save these as worksheet defaults",
@@ -224,13 +229,13 @@ test("saved worksheet defaults reload without changing a child profile", async (
   await expect(
     page.getByRole("heading", { name: "Distinctive Private Jordan" }),
   ).toBeVisible();
-  await page.getByText("More options").click();
-  await expect(page.getByRole("combobox", { name: "Length" })).toHaveValue("long");
-  await expect(page.getByRole("combobox", { name: "Print scale" })).toHaveValue(
+  await openMoreOptions(page);
+  await expect(controls(page).length()).toHaveValue("long");
+  await expect(controls(page).printScale()).toHaveValue(
     "large",
   );
-  await expect(page.getByRole("combobox", { name: "Paper size" })).toHaveValue("a4");
-  await expect(page.getByLabel("Include a parent answer key")).not.toBeChecked();
+  await expect(controls(page).paperSize()).toHaveValue("a4");
+  await expect(controls(page).answerKey()).not.toBeChecked();
 });
 
 test("saving defaults keeps the generated page and the parent's selection", async ({
@@ -246,10 +251,10 @@ test("saving defaults keeps the generated page and the parent's selection", asyn
   // Neither of these two is the value the panel initialises to, so a remount
   // is visible as a silent switch back to Jordan and Dry Math - which is what
   // a parent would then press Create on.
-  const childSelect = page.getByRole("combobox", { name: "Child profile" });
-  const familySelect = page.getByRole("combobox", { name: "Worksheet type" });
-  await childSelect.selectOption(profiles[1].id);
-  await familySelect.selectOption("count-compare-make");
+  const childSelect = controls(page).child();
+  const familySelect = controls(page).worksheetType();
+  await chooseChild(page, profiles[1].id);
+  await chooseWorksheet(page, "count-compare-make");
 
   await page.getByRole("button", { name: "Create worksheet" }).click();
   const preview = page.getByLabel("Worksheet preview");
@@ -285,8 +290,8 @@ test("a superseded defaults save refreshes instead of stranding the control", as
   await expect(
     page.getByRole("heading", { name: "Distinctive Private Jordan" }),
   ).toBeVisible();
-  await page.getByText("More options").click();
-  await page.getByRole("combobox", { name: "Print scale" }).selectOption("large");
+  await openMoreOptions(page);
+  await choosePrintLayout(page, { printScale: "large" });
 
   // Another writer changes the same file, so the ETag the open page holds is
   // no longer the current one - the situation that used to leave every later
@@ -311,7 +316,7 @@ test("a superseded defaults save refreshes instead of stranding the control", as
   await expect(
     page.getByRole("heading", { name: "Distinctive Private Renamed" }),
   ).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Print scale" })).toHaveValue(
+  await expect(controls(page).printScale()).toHaveValue(
     "large",
   );
 
@@ -376,12 +381,12 @@ test("a superseded defaults save takes the stale worksheet down with it", async 
     page.getByRole("heading", { name: "Distinctive Private Riley" }),
   ).toBeVisible();
 
-  const childSelect = page.getByRole("combobox", { name: "Child profile" });
-  const familySelect = page.getByRole("combobox", { name: "Worksheet type" });
-  await childSelect.selectOption(profiles[1].id);
-  await familySelect.selectOption("count-compare-make");
-  await page.getByText("More options").click();
-  await page.getByRole("combobox", { name: "Print scale" }).selectOption("large");
+  const childSelect = controls(page).child();
+  const familySelect = controls(page).worksheetType();
+  await chooseChild(page, profiles[1].id);
+  await chooseWorksheet(page, "count-compare-make");
+  await openMoreOptions(page);
+  await choosePrintLayout(page, { printScale: "large" });
 
   await page.getByRole("button", { name: "Create worksheet" }).click();
   const preview = page.getByLabel("Worksheet preview");
@@ -432,7 +437,7 @@ test("a superseded defaults save takes the stale worksheet down with it", async 
   // The panel is not remounted: the selections and the retry survive the drop.
   await expect(childSelect).toHaveValue(profiles[1].id);
   await expect(familySelect).toHaveValue("count-compare-make");
-  await expect(page.getByRole("combobox", { name: "Print scale" })).toHaveValue(
+  await expect(controls(page).printScale()).toHaveValue(
     "large",
   );
   await expect(page.locator("[data-capacity-conflict]")).toHaveText(

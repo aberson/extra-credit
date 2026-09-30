@@ -769,32 +769,17 @@ test("fixed development stack proxies health and rejects repository config throu
     const healthResponsePromise = page.waitForResponse(
       (response) => response.url() === `${developmentWebURL}/api/health`,
     );
-    await page.setViewportSize({ height: 1_080, width: 1_920 });
     await page.goto(developmentWebURL);
     expect((await healthResponsePromise).ok()).toBe(true);
-    await expect(page.getByRole("status")).toContainText(
+    // Scoped to the health region: this server reads whatever file sits at
+    // the canonical config path, which can render other status regions. The
+    // 1920x1080 layout check lives on the ephemeral compiled fixture in
+    // accessibility.spec.ts.
+    await expect(page.locator(".health").getByRole("status")).toContainText(
       "Ready on this computer.",
     );
     expect(failedRequests).toEqual([]);
     expect(healthRequests).toEqual([`${developmentWebURL}/api/health`]);
-
-    const viewportMetrics = (await page.evaluate(`({
-      clientHeight: document.documentElement.clientHeight,
-      clientWidth: document.documentElement.clientWidth,
-      scrollHeight: document.documentElement.scrollHeight,
-      scrollWidth: document.documentElement.scrollWidth,
-    })`)) as {
-      clientHeight: number;
-      clientWidth: number;
-      scrollHeight: number;
-      scrollWidth: number;
-    };
-    expect(viewportMetrics).toEqual({
-      clientHeight: 1_080,
-      clientWidth: 1_920,
-      scrollHeight: 1_080,
-      scrollWidth: 1_920,
-    });
 
     const configPath = resolve(
       repositoryRoot,

@@ -6,6 +6,14 @@ import type {
   GenerationDefaultsV1,
 } from "../../src/shared/config/schema.ts";
 import { expect, test } from "./fixtures/app-server.ts";
+import {
+  chooseChild,
+  chooseLength,
+  chooseWorksheet,
+  controls,
+  openMoreOptions,
+  setPersonalization,
+} from "./fixtures/worksheet-controls.ts";
 
 const defaults: GenerationDefaultsV1 = {
   useDisplayName: false,
@@ -270,27 +278,26 @@ test("renders Count, Compare & Make through the compiled UI", async ({
     page.getByText("Saved profiles reloaded from the local file."),
   ).toBeVisible();
 
-  const profileSelect = page.getByRole("combobox", { name: "Child profile" });
-  const worksheetSelect = page.getByRole("combobox", { name: "Worksheet type" });
+  const worksheetSelect = controls(page).worksheetType();
   const createButton = page.getByRole("button", { name: "Create worksheet" });
   const preview = page.getByLabel("Worksheet preview");
 
   await expect(
     worksheetSelect.locator('option[value="count-compare-make"]'),
   ).toHaveText("Count, Compare & Make");
-  await worksheetSelect.selectOption("count-compare-make");
-  await page.getByText("More options").click();
+  await chooseWorksheet(page, "count-compare-make");
+  await openMoreOptions(page);
 
   // Without a confirmed quantities representation the activity is unavailable,
   // and no numeric maximum can authorize it on its own.
-  await profileSelect.selectOption(profiles[2].id);
+  await chooseChild(page, profiles[2].id);
   await expect(
     page.getByText(/Count, Compare & Make needs confirmed quantities/),
   ).toBeVisible();
   await expect(createButton).toBeDisabled();
   await expect(page.getByText(/This selection creates/)).toHaveCount(0);
 
-  await profileSelect.selectOption(profiles[0].id);
+  await chooseChild(page, profiles[0].id);
   await expect(
     page.getByText(
       "This selection creates 8 unique items on one practice page.",
@@ -404,7 +411,7 @@ test("renders Count, Compare & Make through the compiled UI", async ({
 
   // Decoration is decoration: turning it off changes the panel and nothing a
   // child must look at, count, or draw into.
-  await page.getByLabel("Include decorative graphics").uncheck();
+  await setPersonalization(page, { graphics: false });
   await setFixedSeed(page, 0x0004_2021);
   await createButton.click();
   const undecorated = await readSheet(preview);
@@ -413,19 +420,19 @@ test("renders Count, Compare & Make through the compiled UI", async ({
   expect(instructionalReading(undecorated)).toBe(
     instructionalReading(standard),
   );
-  await page.getByLabel("Include decorative graphics").check();
+  await setPersonalization(page, { graphics: true });
 
   // Length changes the item count AND the subtype mix, and this checks
   // both: the standard page above is 2/2/2/2 over 8 items, the long page
   // below is 3/3/2/2 over 10 - the two mixes plan.md:208 fixes.
-  const lengthSelect = page.getByRole("combobox", { name: "Length" });
+  const lengthSelect = controls(page).length();
   await expect(lengthSelect.locator('option[value="short"]')).toHaveText(
     "Short · 6 items",
   );
   await expect(lengthSelect.locator('option[value="long"]')).toHaveText(
     "Long · 10 items",
   );
-  await lengthSelect.selectOption("long");
+  await chooseLength(page, "long");
   await setFixedSeed(page, 0x0408_0601);
   await createButton.click();
   const long = await readSheet(preview);
@@ -436,10 +443,10 @@ test("renders Count, Compare & Make through the compiled UI", async ({
     draw: 2,
     match: 3,
   });
-  await lengthSelect.selectOption("standard");
+  await chooseLength(page, "standard");
 
   // A stored maximum above 20 is shown but can never widen v1 generation.
-  await profileSelect.selectOption(profiles[1].id);
+  await chooseChild(page, profiles[1].id);
   await expect(
     page.getByText(/Version 1 uses at most 20/),
   ).toBeVisible();
@@ -466,7 +473,7 @@ test("renders Count, Compare & Make through the compiled UI", async ({
   await expect(preview).not.toContainText(profiles[1].interests[0]);
 
   // Nickname personalization reaches only the header.
-  await page.getByLabel("Put the nickname in the worksheet header").check();
+  await setPersonalization(page, { nickname: true });
   await setFixedSeed(page, 0x1255_994f);
   await createButton.click();
   await expect(
