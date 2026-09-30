@@ -5,11 +5,13 @@ import { createElement } from "react";
 import { afterEach, describe, expect, test } from "vitest";
 
 import {
-  ChildProfileV1Schema,
-  type ChildProfileV1,
+  ChildProfileV2Schema,
   type GenerationDefaultsV1,
 } from "../../../shared/config/schema";
-import { projectGenerationRequest } from "../../../shared/worksheet/project-request";
+import {
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "../../../shared/worksheet/project-request";
 import {
   TOPIC_IDS,
   type TopicId,
@@ -239,24 +241,9 @@ describe("the manifest validator", () => {
     // `manifest.ts` cannot import `schema.ts`'s private calendar helper, so
     // the two are pinned to the same verdict here. Shape-only validation
     // would accept the impossible dates in this table.
-    const profile = ChildProfileV1Schema.parse({
+    const profile = ChildProfileV2Schema.parse({
       id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
-      ageYears: 6,
-      presentationBand: "early-primary",
       reviewedOn: "2026-08-22",
-      mathSkills: {
-        countingMax: 20,
-        numeralMax: 20,
-        compareMax: 20,
-        representations: ["quantities"],
-        understandsEquality: false,
-        operations: [],
-        operandMax: 0,
-        resultMax: 0,
-        allowRegrouping: false,
-        allowNegativeResults: false,
-      },
-      writingMode: "label",
       interests: [],
     });
 
@@ -281,7 +268,7 @@ describe("the manifest validator", () => {
           return false;
         }
       })();
-      const profileAccepts = ChildProfileV1Schema.safeParse({
+      const profileAccepts = ChildProfileV2Schema.safeParse({
         ...profile,
         reviewedOn: candidate,
       }).success;
@@ -680,10 +667,9 @@ const defaults: GenerationDefaultsV1 = {
   printScale: "standard",
 };
 
-const profile: ChildProfileV1 = {
+const profile: CapabilityProfileV1 = {
   id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
   displayName: "Private Morgan",
-  ageYears: 6,
   presentationBand: "early-primary",
   reviewedOn: "2026-08-22",
   mathSkills: {

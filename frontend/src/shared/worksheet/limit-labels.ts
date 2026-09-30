@@ -1,8 +1,8 @@
-import type { ChildProfileV1 } from "../config/schema.js";
+import type { MathSkillsV1 } from "../config/schema.js";
 import type { WorksheetLength } from "./types.js";
 
 export type WorksheetRelevantMaximumKey = keyof Pick<
-  ChildProfileV1["mathSkills"],
+  MathSkillsV1,
   "countingMax" | "numeralMax" | "compareMax" | "operandMax" | "resultMax"
 >;
 

@@ -130,8 +130,8 @@ describe("schema.ts re-exports keep one source of truth", () => {
 });
 
 describe("the frozen v1 read path keeps its 5c22159 shape", () => {
-  test("APP_CONFIG_SCHEMA_VERSION is still 1 and the v1 schema accepts only 1", () => {
-    expect(schema.APP_CONFIG_SCHEMA_VERSION).toBe(1);
+  test("APP_CONFIG_SCHEMA_VERSION is 2 while the frozen v1 schema still accepts only 1", () => {
+    expect(schema.APP_CONFIG_SCHEMA_VERSION).toBe(2);
     expectFrozen("schemaVersion literal", [...configShape.schemaVersion.values], [1]);
   });
 

@@ -23,57 +23,116 @@ import {
   ConfigStore,
   ConfigStoreFailure,
   computeConfigEtag,
+  serializeAppConfig,
   serializeAppConfigV1,
   type ConfigFileHandle,
 } from "../../src/server/config-store.js";
-import type { AppConfigV1, ChildProfileV1 } from "../../src/shared/config/schema.js";
+import { emptyAppConfigV2 } from "../../src/shared/config/defaults.js";
+import { classifyStoredConfig } from "../../src/shared/config/migrate.js";
+import type {
+  AppConfigV1,
+  AppConfigV2,
+  ChildProfileV1,
+  ChildProfileV2,
+} from "../../src/shared/config/schema.js";
 
 const temporaryDirectories: string[] = [];
 const CONFIG_SPEC_BYTE_LIMIT = 65_536;
+const V1_BACKUP_NAME = /^children\.local\.json\.v1-\d{8}T\d{6}Z-[0-9a-f]{8}\.bak$/u;
 
-function specPrettyBytes(config: AppConfigV1): Buffer {
+function specPrettyBytes(config: AppConfigV1 | AppConfigV2): Buffer {
   return Buffer.from(`${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
-function fixture(displayName = "Morgan"): AppConfigV1 {
+function fixture(displayName = "Morgan"): AppConfigV2 {
+  return {
+    ...emptyAppConfigV2(),
+    profiles: [profile(1, displayName)],
+  };
+}
+
+function profile(index: number, displayName = "A"): ChildProfileV2 {
+  return {
+    id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    displayName,
+    reviewedOn: "2026-08-22",
+    interests: [],
+    legacyChoices: {
+      presentationBand: "early-primary",
+      writingMode: "sentence-frame",
+      mathSkills: {
+        countingMax: 20,
+        numeralMax: 20,
+        compareMax: 20,
+        representations: ["quantities", "equations"],
+        understandsEquality: true,
+        operations: ["addition", "subtraction"],
+        operandMax: 10,
+        resultMax: 10,
+        allowRegrouping: false,
+        allowNegativeResults: false,
+      },
+    },
+  };
+}
+
+/** A fictional version 1 file as an earlier build wrote it. */
+function v1Profile(index: number, displayName = "A"): ChildProfileV1 {
+  const current = profile(index, displayName);
+  return {
+    id: current.id,
+    displayName,
+    ageYears: 6,
+    presentationBand: current.legacyChoices!.presentationBand,
+    reviewedOn: current.reviewedOn,
+    mathSkills: current.legacyChoices!.mathSkills,
+    writingMode: current.legacyChoices!.writingMode,
+    interests: [],
+  };
+}
+
+function v1Fixture(profileCount = 2): AppConfigV1 {
   return {
     schemaVersion: 1,
-    profiles: [profile(1, displayName)],
+    profiles: Array.from({ length: profileCount }, (_, index) =>
+      v1Profile(index + 1, `Fictional ${index + 1}`),
+    ),
     defaults: {
       useDisplayName: true,
-      useInterests: true,
+      useInterests: false,
       includeDecorativeGraphics: true,
-      difficulty: "practice",
-      length: "standard",
+      difficulty: "confidence",
+      length: "long",
       includeAnswerKey: true,
-      paperSize: "letter",
+      paperSize: "a4",
       printScale: "standard",
     },
   };
 }
 
-function profile(index: number, displayName = "A"): ChildProfileV1 {
-  return {
-    id: `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
-    displayName,
-    ageYears: 6,
-    presentationBand: "early-primary",
-    reviewedOn: "2026-08-22",
-    mathSkills: {
-      countingMax: 20,
-      numeralMax: 20,
-      compareMax: 20,
-      representations: ["quantities", "equations"],
-      understandsEquality: true,
-      operations: ["addition", "subtraction"],
-      operandMax: 10,
-      resultMax: 10,
-      allowRegrouping: false,
-      allowNegativeResults: false,
-    },
-    writingMode: "sentence-frame",
-    interests: [],
-  };
+/** What an unchanged client sends back after reading a v1 file: its migrated form. */
+function migratedOf(v1: AppConfigV1): AppConfigV2 {
+  const classified = classifyStoredConfig(v1);
+  if (classified.kind !== "legacy") {
+    throw new Error("The v1 test fixture did not classify as legacy.");
+  }
+  return classified.config;
+}
+
+async function seededV1(profileCount = 2): Promise<{
+  readonly target: string;
+  readonly raw: Buffer;
+  readonly v1: AppConfigV1;
+}> {
+  const target = await temporaryPath();
+  const v1 = v1Fixture(profileCount);
+  const raw = serializeAppConfigV1(v1);
+  await writeFile(target, raw);
+  return { target, raw, v1 };
+}
+
+async function backupNames(target: string): Promise<readonly string[]> {
+  return (await readdir(dirname(target))).filter((name) => name.endsWith(".bak"));
 }
 
 async function temporaryPath(): Promise<string> {
@@ -90,7 +149,7 @@ function independentEtag(bytes: Uint8Array): string {
   return `"sha256-${createHash("sha256").update(bytes).digest("hex")}"`;
 }
 
-function exactSizedConfig(): AppConfigV1 {
+function exactSizedConfig(): AppConfigV2 {
   const config = fixture("A");
   config.profiles = [];
   let index = 1;
@@ -144,7 +203,9 @@ describe("ConfigStore", () => {
     const independentlyHashed = `"sha256-${createHash("sha256").update(raw).digest("hex")}"`;
 
     expect(created.config.profiles[0]!.displayName).toBe("Morgan");
-    expect(serializeAppConfigV1(created.config).equals(expectedNormalizedBytes)).toBe(
+    expect(created.storedSchemaVersion).toBe(2);
+    expect(created).not.toHaveProperty("upgrade");
+    expect(serializeAppConfig(created.config).equals(expectedNormalizedBytes)).toBe(
       true,
     );
     expect(raw.equals(expectedNormalizedBytes)).toBe(true);
@@ -160,6 +221,8 @@ describe("ConfigStore", () => {
     const updated = await store.save(updatedConfig, { ifMatch: created.etag });
     expect(updated.etag).not.toBe(created.etag);
     expect((await store.load()).config).toEqual(updatedConfig);
+    expect((await store.load()).storedSchemaVersion).toBe(2);
+    expect(await backupNames(target)).toEqual([]);
   });
 
   test("allows exactly 65,536 pretty UTF-8 bytes and rejects one byte more", async () => {
@@ -421,7 +484,7 @@ describe("ConfigStore", () => {
 
     for (const stage of stages) {
       const target = await temporaryPath();
-      await writeFile(target, serializeAppConfigV1(fixture()));
+      await writeFile(target, serializeAppConfig(fixture()));
       const fault = (): never => {
         throw new Error(`private-${stage}-canary`);
       };
@@ -558,7 +621,7 @@ describe("ConfigStore", () => {
 
   test("preserves future, oversized, unsafe, and atomically failed targets", async () => {
     const futureTarget = await temporaryPath();
-    const futureRaw = Buffer.from('{"schemaVersion":2,"private":"canary"}\n');
+    const futureRaw = Buffer.from('{"schemaVersion":3,"private":"canary"}\n');
     await writeFile(futureTarget, futureRaw);
     const futureStore = new ConfigStore(futureTarget);
     await expect(futureStore.load()).rejects.toMatchObject({
@@ -637,7 +700,7 @@ describe("ConfigStore", () => {
 
     const symlinkTarget = await temporaryPath();
     const referent = `${symlinkTarget}.referent`;
-    await writeFile(referent, serializeAppConfigV1(fixture()));
+    await writeFile(referent, serializeAppConfig(fixture()));
     try {
       await symlink(referent, symlinkTarget, "file");
       await expect(new ConfigStore(symlinkTarget).load()).rejects.toMatchObject({
@@ -652,7 +715,7 @@ describe("ConfigStore", () => {
         code: CONFIG_STORE_ERROR_CODES.unsafeFile,
         etag: undefined,
       });
-      expect((await readFile(referent)).equals(serializeAppConfigV1(fixture()))).toBe(true);
+      expect((await readFile(referent)).equals(serializeAppConfig(fixture()))).toBe(true);
       expect((await readdir(dirname(symlinkTarget))).some((name) => name.endsWith(".bak"))).toBe(false);
     } catch (error) {
       if (!(error instanceof Error && "code" in error && error.code === "EPERM")) {
@@ -661,7 +724,7 @@ describe("ConfigStore", () => {
     }
 
     const validTarget = await temporaryPath();
-    const validRaw = serializeAppConfigV1(fixture("Prior"));
+    const validRaw = serializeAppConfig(fixture("Prior"));
     await writeFile(validTarget, validRaw);
     const failingStore = new ConfigStore(validTarget, {
       io: {
@@ -676,5 +739,277 @@ describe("ConfigStore", () => {
       }),
     ).rejects.toMatchObject({ code: CONFIG_STORE_ERROR_CODES.io });
     expect((await readFile(validTarget)).equals(validRaw)).toBe(true);
+  });
+});
+
+/**
+ * The first explicit save upgrades a version 1 file (plan Appendix B.2): the
+ * serialized-size check, then a byte-identical `.v1-` backup through the
+ * exclusive routine, then the atomic version 2 replace. Reads never write.
+ */
+describe("ConfigStore version 1 upgrade", () => {
+  test("three loads of v1 bytes report version 1 with the raw ETag and change nothing on disk", async () => {
+    const { target, raw, v1 } = await seededV1();
+    const before = await stat(target);
+    const listing = await readdir(dirname(target));
+    const store = new ConfigStore(target);
+    for (let read = 0; read < 3; read += 1) {
+      const loaded = await store.load();
+      expect(loaded.storedSchemaVersion).toBe(1);
+      expect(loaded.etag).toBe(independentEtag(raw));
+      expect(loaded.config).toEqual(migratedOf(v1));
+      expect(loaded).not.toHaveProperty("upgrade");
+    }
+    expect((await readFile(target)).equals(raw)).toBe(true);
+    expect((await stat(target)).mtimeMs).toBe(before.mtimeMs);
+    expect(await readdir(dirname(target))).toEqual(listing);
+  });
+
+  test("the first save writes one byte-identical v1 backup, opened wx 0600 and synced before the replace", async () => {
+    const { target, raw, v1 } = await seededV1(3);
+    const events: string[] = [];
+    const store = new ConfigStore(target, {
+      now: () => new Date("2026-09-29T08:07:06.543Z"),
+      randomBytes: () => Buffer.from("0a1b2c3d", "hex"),
+      io: {
+        async open(path, flags, mode) {
+          const handle = (await open(path, flags, mode)) as ConfigFileHandle;
+          if (flags !== "wx") {
+            return handle;
+          }
+          events.push(`open ${String(flags)} ${String(mode)}`);
+          return {
+            close: async () => {
+              events.push("close");
+              await handle.close();
+            },
+            read: async (buffer, offset, length, position) =>
+              await handle.read(buffer, offset, length, position),
+            stat: async () => await handle.stat(),
+            sync: async () => {
+              events.push("sync");
+              await handle.sync();
+            },
+            writeFile: async (data) => {
+              events.push("write");
+              await handle.writeFile(data);
+            },
+          };
+        },
+        async writeAtomic(path, data) {
+          events.push("writeAtomic");
+          await writeFile(path, data);
+        },
+      },
+    });
+
+    const saved = await store.save(migratedOf(v1), { ifMatch: independentEtag(raw) });
+    expect(events).toEqual([
+      `open wx ${CONFIG_FILE_MODE}`,
+      "write",
+      "sync",
+      "close",
+      "writeAtomic",
+    ]);
+    const backups = await backupNames(target);
+    expect(backups).toEqual(["children.local.json.v1-20260929T080706Z-0a1b2c3d.bak"]);
+    expect(backups[0]).toMatch(V1_BACKUP_NAME);
+    expect((await readFile(join(dirname(target), backups[0]!))).equals(raw)).toBe(true);
+    expect((await readFile(target)).equals(serializeAppConfig(migratedOf(v1)))).toBe(true);
+    expect(saved.storedSchemaVersion).toBe(2);
+    expect(saved.upgrade).toEqual({
+      fromVersion: 1,
+      toVersion: 2,
+      profilesUpgraded: 3,
+      legacyChoicesCarried: 3,
+      backupWritten: true,
+    });
+    const classified = classifyStoredConfig(v1);
+    expect(saved.upgrade).toEqual(
+      classified.kind === "legacy" ? { ...classified.report, backupWritten: true } : undefined,
+    );
+    const reloaded = await store.load();
+    expect(reloaded.storedSchemaVersion).toBe(2);
+    expect(reloaded.etag).toBe(saved.etag);
+  });
+
+  test("a second save writes no further backup and resolves without upgrade", async () => {
+    const { target, raw, v1 } = await seededV1();
+    const store = new ConfigStore(target);
+    const first = await store.save(migratedOf(v1), { ifMatch: independentEtag(raw) });
+    expect(first.upgrade?.backupWritten).toBe(true);
+    const second = await store.save(
+      { ...migratedOf(v1), profiles: [profile(9, "Added")] },
+      { ifMatch: first.etag },
+    );
+    expect(second).not.toHaveProperty("upgrade");
+    expect(second.storedSchemaVersion).toBe(2);
+    expect(await backupNames(target)).toHaveLength(1);
+  });
+
+  test("a create on a missing file and a recovery save resolve without upgrade", async () => {
+    const created = await new ConfigStore(await temporaryPath()).save(fixture(), {
+      ifNoneMatch: "*",
+    });
+    expect(created).not.toHaveProperty("upgrade");
+
+    const recoveryTarget = await temporaryPath();
+    const invalidRaw = Buffer.from('{"schemaVersion":1,"profiles":"broken"}', "utf8");
+    await writeFile(recoveryTarget, invalidRaw);
+    const recovered = await new ConfigStore(recoveryTarget, {
+      randomBytes: () => Buffer.from("55555555", "hex"),
+    }).save(fixture("Recovered"), {
+      ifMatch: independentEtag(invalidRaw),
+      recovery: "backup-and-replace",
+    });
+    expect(recovered).not.toHaveProperty("upgrade");
+    expect(recovered.storedSchemaVersion).toBe(2);
+    const backups = await backupNames(recoveryTarget);
+    expect(backups).toHaveLength(1);
+    expect(backups[0]).toMatch(/\.invalid-\d{8}T\d{6}Z-55555555\.bak$/u);
+  });
+
+  test("an EEXIST collision succeeds within eight attempts", async () => {
+    const { target, raw, v1 } = await seededV1();
+    const timestamp = "20260929T010203Z";
+    const suffixes = Array.from({ length: 8 }, (_, index) => `${index + 1}`.repeat(8));
+    for (const suffix of suffixes.slice(0, 7)) {
+      await writeFile(`${target}.v1-${timestamp}-${suffix}.bak`, "occupied");
+    }
+    const drawn = [...suffixes];
+    const store = new ConfigStore(target, {
+      now: () => new Date("2026-09-29T01:02:03Z"),
+      randomBytes: () => Buffer.from(drawn.shift()!, "hex"),
+    });
+    const saved = await store.save(migratedOf(v1), { ifMatch: independentEtag(raw) });
+    expect(saved.upgrade?.backupWritten).toBe(true);
+    expect(drawn).toEqual([]);
+    expect(
+      (await readFile(`${target}.v1-${timestamp}-${suffixes[7]}.bak`)).equals(raw),
+    ).toBe(true);
+    for (const suffix of suffixes.slice(0, 7)) {
+      expect(await readFile(`${target}.v1-${timestamp}-${suffix}.bak`, "utf8")).toBe("occupied");
+    }
+  });
+
+  test("the eighth collision returns CONFIG_IO_ERROR with the v1 target byte-identical", async () => {
+    const { target, raw, v1 } = await seededV1();
+    await writeFile(`${target}.v1-20260929T010203Z-77777777.bak`, "occupied");
+    let draws = 0;
+    const store = new ConfigStore(target, {
+      now: () => new Date("2026-09-29T01:02:03Z"),
+      randomBytes: () => {
+        draws += 1;
+        return Buffer.from("77777777", "hex");
+      },
+    });
+    await expect(
+      store.save(migratedOf(v1), { ifMatch: independentEtag(raw) }),
+    ).rejects.toMatchObject({ code: CONFIG_STORE_ERROR_CODES.io });
+    expect(draws).toBe(8);
+    expect((await readFile(target)).equals(raw)).toBe(true);
+    expect(await backupNames(target)).toEqual(["children.local.json.v1-20260929T010203Z-77777777.bak"]);
+  });
+
+  test("a non-EEXIST backup failure returns CONFIG_IO_ERROR with the v1 target byte-identical", async () => {
+    const { target, raw, v1 } = await seededV1();
+    let atomicWrites = 0;
+    const store = new ConfigStore(target, {
+      io: {
+        async open(path, flags, mode) {
+          if (flags === "wx") {
+            const error = new Error("private backup canary") as NodeJS.ErrnoException;
+            error.code = "EACCES";
+            throw error;
+          }
+          return (await open(path, flags, mode)) as ConfigFileHandle;
+        },
+        async writeAtomic() {
+          atomicWrites += 1;
+        },
+      },
+    });
+    await expect(
+      store.save(migratedOf(v1), { ifMatch: independentEtag(raw) }),
+    ).rejects.toMatchObject({ code: CONFIG_STORE_ERROR_CODES.io });
+    expect(atomicWrites).toBe(0);
+    expect((await readFile(target)).equals(raw)).toBe(true);
+    expect(await backupNames(target)).toEqual([]);
+  });
+
+  test("a stale ETag against v1 returns CONFIG_CONFLICT and writes no backup", async () => {
+    const { target, raw, v1 } = await seededV1();
+    await expect(
+      new ConfigStore(target).save(migratedOf(v1), { ifMatch: '"sha256-stale"' }),
+    ).rejects.toMatchObject({ code: CONFIG_STORE_ERROR_CODES.conflict });
+    await expect(
+      new ConfigStore(target).save(migratedOf(v1), {
+        ifMatch: independentEtag(raw),
+        recovery: "backup-and-replace",
+      }),
+    ).rejects.toMatchObject({ code: CONFIG_STORE_ERROR_CODES.recoveryNotAllowed });
+    expect((await readFile(target)).equals(raw)).toBe(true);
+    expect(await backupNames(target)).toEqual([]);
+  });
+
+  test("an upgrade whose v2 bytes exceed 65,536 returns CONFIG_SERIALIZED_TOO_LARGE with no backup and no change", async () => {
+    const { target, raw } = await seededV1(1);
+    const oversized = exactSizedConfig();
+    const extendable = oversized.profiles.find(
+      ({ displayName }) => (displayName?.length ?? 0) < 40,
+    );
+    if (extendable === undefined || extendable.displayName === undefined) {
+      throw new Error("The oversized upgrade fixture had no extendable field.");
+    }
+    extendable.displayName += "z";
+    expect(specPrettyBytes(oversized).byteLength).toBe(CONFIG_SPEC_BYTE_LIMIT + 1);
+    await expect(
+      new ConfigStore(target).save(oversized, { ifMatch: independentEtag(raw) }),
+    ).rejects.toMatchObject({ code: CONFIG_STORE_ERROR_CODES.serializedTooLarge });
+    expect((await readFile(target)).equals(raw)).toBe(true);
+    expect(await backupNames(target)).toEqual([]);
+  });
+
+  test("a failed replace after the backup keeps the v1 target and the backup; the next save backs up again", async () => {
+    const { target, raw, v1 } = await seededV1();
+    const suffixes = ["abababab", "cdcdcdcd"];
+    let failReplace = true;
+    const store = new ConfigStore(target, {
+      randomBytes: () => Buffer.from(suffixes.shift()!, "hex"),
+      io: {
+        async writeAtomic(path, data) {
+          if (failReplace) {
+            throw new Error("private replace canary");
+          }
+          await writeFile(path, data);
+        },
+      },
+    });
+    await expect(
+      store.save(migratedOf(v1), { ifMatch: independentEtag(raw) }),
+    ).rejects.toMatchObject({ code: CONFIG_STORE_ERROR_CODES.io });
+    expect((await readFile(target)).equals(raw)).toBe(true);
+    expect(await backupNames(target)).toHaveLength(1);
+
+    failReplace = false;
+    const saved = await store.save(migratedOf(v1), { ifMatch: independentEtag(raw) });
+    expect(saved.upgrade?.backupWritten).toBe(true);
+    const backups = await backupNames(target);
+    expect(backups).toHaveLength(2);
+    for (const name of backups) {
+      expect(name).toMatch(V1_BACKUP_NAME);
+      expect((await readFile(join(dirname(target), name))).equals(raw)).toBe(true);
+    }
+  });
+
+  test("a version 1 PUT body is refused before it can touch a v1 file", async () => {
+    const { target, raw, v1 } = await seededV1();
+    await expect(
+      new ConfigStore(target).save(v1 as unknown as AppConfigV2, {
+        ifMatch: independentEtag(raw),
+      }),
+    ).rejects.toMatchObject({ code: CONFIG_STORE_ERROR_CODES.invalid });
+    expect((await readFile(target)).equals(raw)).toBe(true);
+    expect(await backupNames(target)).toEqual([]);
   });
 });

@@ -591,7 +591,7 @@ for (const paper of ["letter", "a4"] as const) {
       await appServer.seedConfig({
         ...acceptanceConfig,
         profiles: acceptanceConfig.profiles.map((profile, index) => index === 2 ? fixture.profile : profile),
-        defaults: fixture.preferences,
+        defaults: fixture.defaults,
       });
       await page.addInitScript(() => {
         const scope = globalThis as unknown as {
@@ -1137,7 +1137,9 @@ test("manual print uses the compiled app with canonical temporary profiles and c
     const config = await request.get(`${harness.origin}/api/config`, {
       headers: { "X-Extra-Credit-Token": token },
     });
-    expect(await config.json()).toEqual({ config: acceptanceConfig });
+    // The harness writes the committed example's own version 1 bytes, so the
+    // app reads them through the upgrade path without writing.
+    expect(await config.json()).toEqual({ config: acceptanceConfig, storedSchemaVersion: 1 });
     expect((await request.get(`${harness.origin}/api/health`, {
       headers: { Host: "127.0.0.1:1" },
     })).status()).toBe(403);

@@ -176,7 +176,7 @@ test("expanded presets save, generate their real range, and print matching singl
     await page.getByRole("radio", { name: label, exact: true }).check();
     await page.getByRole("button", { name: "Save profile", exact: true }).click();
     await expect(page.getByRole("button", { name: "Edit Morgan" })).toBeVisible();
-    expect((await appServer.readConfig()).profiles[0]?.mathSkills).toMatchObject({
+    expect((await appServer.readConfig()).profiles[0]?.legacyChoices?.mathSkills).toMatchObject({
       operandMax: maximum, resultMax: maximum, operations,
     });
     await page.reload();
@@ -279,12 +279,12 @@ test("creates, keys, varies, and prints Dry Math through the real local UI", asy
   await expect(page.getByText(/This selection creates/)).toHaveCount(0);
   await expect(createButton).toBeDisabled();
 
+  // Age no longer gates generation (P2): a child the version 1 file stored at
+  // nine creates Dry Math from its earlier settings like any other child.
   await chooseChild(page, profiles[2].id);
-  await expect(
-    page.getByText(/Version 1 worksheets support ages 4–8/),
-  ).toBeVisible();
-  await expect(page.getByText(/This selection creates/)).toHaveCount(0);
-  await expect(createButton).toBeDisabled();
+  await expect(page.getByText(/support ages/)).toHaveCount(0);
+  await expect(page.getByText(/This selection creates/)).toBeVisible();
+  await expect(createButton).toBeEnabled();
 
   await chooseChild(page, profiles[1].id);
   await expect(createButton).toBeEnabled();
@@ -461,10 +461,13 @@ test("creates, keys, varies, and prints Dry Math through the real local UI", asy
   await page.emulateMedia({ media: "print" });
   await expect(page.locator(".profile-workspace")).toBeHidden();
   const printControls = page.locator(".print-controls");
-  await expect(printControls).toHaveCount(3);
+  // The version 1 seed also shows the upgrade notice, which never prints.
+  await expect(printControls).toHaveCount(4);
+  await expect(page.locator(".print-controls[data-upgrade-notice]")).toHaveCount(1);
   await expect(printControls.nth(0)).toBeHidden();
   await expect(printControls.nth(1)).toBeHidden();
   await expect(printControls.nth(2)).toBeHidden();
+  await expect(printControls.nth(3)).toBeHidden();
   await expect(reloadStatus).toBeHidden();
   await expect(answerSurface).toBeVisible();
   await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);

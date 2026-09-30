@@ -1,16 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { expandMathPreset } from "../../shared/config/math-presets.js";
 
-import type {
-  ChildProfileV1,
-  GenerationDefaultsV1,
-} from "../../shared/config/schema.js";
+import type { GenerationDefaultsV1 } from "../../shared/config/schema.js";
 import {
   objectiveAnswerEntries,
   recomputeDryMathAnswer,
   validateWorksheetInvariants,
 } from "../../shared/worksheet/invariants.js";
-import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
+import {
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "../../shared/worksheet/project-request.js";
 import {
   createSeededRandom,
   formatSeedHex,
@@ -42,15 +42,14 @@ const defaults: GenerationDefaultsV1 = {
 function profile(
   operandMax = 10,
   resultMax = operandMax,
-  operations: ChildProfileV1["mathSkills"]["operations"] = [
+  operations: CapabilityProfileV1["mathSkills"]["operations"] = [
     "addition",
     "subtraction",
   ],
-): ChildProfileV1 {
+): CapabilityProfileV1 {
   return {
     id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
     displayName: "Morgan Private",
-    ageYears: 6,
     presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
     mathSkills: {

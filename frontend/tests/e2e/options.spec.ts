@@ -1,4 +1,7 @@
+import { classifyStoredConfig } from "../../src/shared/config/migrate.ts";
 import type {
+  AppConfigV1,
+  AppConfigV2,
   ChildProfileV1,
   GenerationDefaultsV1,
 } from "../../src/shared/config/schema.ts";
@@ -52,6 +55,20 @@ const defaults: GenerationDefaultsV1 = {
   paperSize: "letter",
   printScale: "standard",
 };
+
+/**
+ * The version 2 config the app holds for an in-spec version 1 fixture: the
+ * store's classifier upgrades it in memory, and the first explicit save
+ * writes exactly that shape.
+ */
+function upgraded(profiles: readonly ChildProfileV1[]): AppConfigV2 {
+  const stored: AppConfigV1 = { schemaVersion: 1, profiles: [...profiles], defaults };
+  const classified = classifyStoredConfig(stored);
+  if (classified.kind !== "legacy") {
+    throw new Error("The in-spec version 1 fixture did not classify as legacy.");
+  }
+  return classified.config;
+}
 
 const profiles = [
   {
@@ -217,7 +234,7 @@ test("saved worksheet defaults reload without changing a child profile", async (
 
   const saved = await appServer.readConfig();
   expect(saved.defaults).toEqual({
-    ...defaults,
+    ...upgraded(profiles).defaults,
     length: "long",
     printScale: "large",
     paperSize: "a4",
@@ -278,7 +295,7 @@ test("saving defaults keeps the generated page and the parent's selection", asyn
   await expect(familySelect).toHaveValue("count-compare-make");
 
   const saved = await appServer.readConfig();
-  expect(saved.profiles).toEqual([...profiles]);
+  expect(saved.profiles).toEqual(upgraded(profiles).profiles);
 });
 
 test("a superseded defaults save refreshes instead of stranding the control", async ({
@@ -323,8 +340,8 @@ test("a superseded defaults save refreshes instead of stranding the control", as
   await save.click();
   await expect(page.getByText("Worksheet defaults saved locally.")).toBeVisible();
   const saved = await appServer.readConfig();
-  expect(saved.defaults).toEqual({ ...defaults, printScale: "large" });
-  expect(saved.profiles).toEqual(renamed);
+  expect(saved.defaults).toEqual({ ...upgraded(renamed).defaults, printScale: "large" });
+  expect(saved.profiles).toEqual(upgraded(renamed).profiles);
 });
 
 test("shows stored capabilities Version 1 keeps but never prints", async ({
@@ -447,6 +464,6 @@ test("a superseded defaults save takes the stale worksheet down with it", async 
   await save.click();
   await expect(page.getByText("Worksheet defaults saved locally.")).toBeVisible();
   const saved = await appServer.readConfig();
-  expect(saved.defaults).toEqual({ ...defaults, printScale: "large" });
-  expect(saved.profiles).toEqual(superseded);
+  expect(saved.defaults).toEqual({ ...upgraded(superseded).defaults, printScale: "large" });
+  expect(saved.profiles).toEqual(upgraded(superseded).profiles);
 });

@@ -154,36 +154,3 @@ export function expandMathPreset(
     },
   };
 }
-
-export type AgePresetSuggestion =
-  | { readonly status: "selected"; readonly presetId: ConcreteMathPresetId }
-  | {
-      readonly status: "choice";
-      readonly presetIds: readonly [
-        "quantities-to-10",
-        "emerging-equations-within-5",
-      ];
-    }
-  | { readonly status: "unsupported" };
-
-export function getAgePresetSuggestion(ageYears: number): AgePresetSuggestion {
-  if (ageYears === 4) {
-    return { status: "selected", presetId: "quantities-to-10" };
-  }
-  if (ageYears === 5) {
-    return {
-      status: "choice",
-      presetIds: [
-        "quantities-to-10",
-        "emerging-equations-within-5",
-      ],
-    };
-  }
-  if (ageYears === 6 || ageYears === 7) {
-    return { status: "selected", presetId: "early-primary-within-10" };
-  }
-  if (ageYears === 8) {
-    return { status: "selected", presetId: "early-primary-within-20" };
-  }
-  return { status: "unsupported" };
-}

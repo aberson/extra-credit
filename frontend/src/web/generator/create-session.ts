@@ -1,9 +1,11 @@
 import type {
-  ChildProfileV1,
+  ChildProfileV2,
   GenerationDefaultsV1,
 } from "../../shared/config/schema";
 import { canonicalContentKey } from "../../shared/worksheet/invariants";
 import {
+  capabilityProfileOf,
+  NO_EARLIER_SETTINGS_MESSAGE,
   projectGenerationRequest,
   type ProjectAndGenerateResult,
 } from "../../shared/worksheet/project-request";
@@ -21,8 +23,12 @@ export const MAX_ALTERNATIVE_SEED_ATTEMPTS = 16;
 
 export type SeedSource = () => number;
 
+/**
+ * One Create: the stored profile, and (interim, D-interim) the unchanged
+ * projection's preferences, whose Difficulty is the session-only select.
+ */
 export interface GenerationSelection {
-  readonly profile: ChildProfileV1;
+  readonly profile: ChildProfileV2;
   readonly preferences: GenerationDefaultsV1;
   readonly stretchConfirmed: boolean;
   readonly worksheetType: RegisteredWorksheetType;
@@ -76,10 +82,14 @@ export function productionSeedSource(): number {
  * move `getEffectiveUnit` already makes for unit labels.
  */
 function limitingResourceAdvice(selection: GenerationSelection): string {
+  const capabilities = capabilityProfileOf(selection.profile);
+  if (capabilities === undefined) {
+    return NO_EARLIER_SETTINGS_MESSAGE;
+  }
   return getWorksheetRegistration(
     selection.worksheetType,
   ).controls.getLimitingResourceAdvice({
-    profile: selection.profile,
+    profile: capabilities,
     difficulty: selection.preferences.difficulty,
     length: selection.preferences.length,
     printScale: selection.preferences.printScale,
@@ -114,9 +124,19 @@ export function createWorksheetSessionForSeed(
       message: "A valid nonzero worksheet seed could not be created.",
     };
   }
+  // Interim (D-interim): a profile stored without earlier settings is refused
+  // here, before a lifecycle ID or any generator is reached.
+  const capabilities = capabilityProfileOf(selection.profile);
+  if (capabilities === undefined) {
+    return {
+      ok: false,
+      code: "GENERATION_CONSTRAINT_CONFLICT",
+      message: NO_EARLIER_SETTINGS_MESSAGE,
+    };
+  }
   const registration = getWorksheetRegistration(selection.worksheetType);
   const projection = projectGenerationRequest({
-    profile: selection.profile,
+    profile: capabilities,
     preferences: selection.preferences,
     stretchConfirmed: selection.stretchConfirmed,
     worksheetType: selection.worksheetType,

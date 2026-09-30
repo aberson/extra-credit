@@ -1,11 +1,11 @@
 import { describe, expect, test, vi } from "vitest";
 
-import type {
-  ChildProfileV1,
-  GenerationDefaultsV1,
-} from "../../shared/config/schema.js";
+import type { GenerationDefaultsV1 } from "../../shared/config/schema.js";
 import { objectiveAnswerEntries } from "../../shared/worksheet/invariants.js";
-import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
+import {
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "../../shared/worksheet/project-request.js";
 import { formatSeedHex } from "../../shared/worksheet/seeded-random.js";
 import type {
   EquationWowGroupItemV1,
@@ -42,15 +42,14 @@ const defaults: GenerationDefaultsV1 = {
 function equationProfile(
   operandMax = 10,
   resultMax = operandMax,
-  operations: ChildProfileV1["mathSkills"]["operations"] = [
+  operations: CapabilityProfileV1["mathSkills"]["operations"] = [
     "addition",
     "subtraction",
   ],
-): ChildProfileV1 {
+): CapabilityProfileV1 {
   return {
     id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
     displayName: "Private Morgan",
-    ageYears: 6,
     presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
     mathSkills: {
@@ -70,11 +69,10 @@ function equationProfile(
   };
 }
 
-function quantityProfile(limit = 10): ChildProfileV1 {
+function quantityProfile(limit = 10): CapabilityProfileV1 {
   return {
     id: "d2c05a44-73ad-4fa0-a4b3-9db5c5f6e321",
     displayName: "Private Riley",
-    ageYears: 4,
     presentationBand: "preschool",
     reviewedOn: "2026-08-22",
     mathSkills: {
@@ -95,7 +93,7 @@ function quantityProfile(limit = 10): ChildProfileV1 {
 }
 
 function request(
-  profile: ChildProfileV1,
+  profile: CapabilityProfileV1,
   preferences: GenerationDefaultsV1 = defaults,
   seed = "00000001",
 ): GenerationRequestV1 {

@@ -4,23 +4,47 @@ import { appendFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import { PDFDocument } from "pdf-lib";
 
-import type { ChildProfileV1, WritingMode } from "../../src/shared/config/schema.js";
+import { MATH_PRESETS } from "../../src/shared/config/math-presets.js";
+import type { ChildProfileV2, WritingMode } from "../../src/shared/config/schema.js";
 import { acceptanceConfig } from "../fixtures/profiles.js";
 import { expect, test } from "./fixtures/app-server.js";
 import { chooseChild, chooseWorksheet, openMoreOptions } from "./fixtures/worksheet-controls.js";
 
 const families = ["dry-math", "find-the-wow", "sentence-builder", "count-compare-make"] as const;
 
-async function createProfile(page: Page, profile: ChildProfileV1): Promise<void> {
+/** The preset radio whose expansion equals a canonical child's earlier settings. */
+const PRESET_LABELS = {
+  "quantities-to-10": "Quantities to 10",
+  "early-primary-within-10": "Early primary within 10",
+  "early-primary-within-20": "Early primary within 20",
+} as const;
+
+function presetLabel(profile: ChildProfileV2): string {
+  const legacy = profile.legacyChoices;
+  const match = (Object.keys(PRESET_LABELS) as (keyof typeof PRESET_LABELS)[]).find(
+    (key) =>
+      JSON.stringify(MATH_PRESETS[key].mathSkills) === JSON.stringify(legacy?.mathSkills) &&
+      MATH_PRESETS[key].presentationBand === legacy?.presentationBand,
+  );
+  if (match === undefined) throw new Error("No preset matches the canonical earlier settings.");
+  return PRESET_LABELS[match];
+}
+
+/** The earlier writing mode a stored profile carries in its `legacyChoices`. */
+function writingModeOf(profile: ChildProfileV2): WritingMode {
+  const mode = profile.legacyChoices?.writingMode;
+  if (mode === undefined) throw new Error("A canonical profile carried no earlier writing mode.");
+  return mode;
+}
+
+async function createProfile(page: Page, profile: ChildProfileV2): Promise<void> {
   await page.getByRole("button", { name: /^(Create first profile|Add profile)$/u }).click();
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill(profile.displayName ?? "");
-  await page.getByRole("spinbutton", { name: "Age in years" }).fill(String(profile.ageYears));
-  if (profile.ageYears === 9) {
-    await page.getByRole("radio", { name: "Early primary within 20", exact: true }).check();
-  } else {
-    await page.getByRole("button", { name: "Confirm suggested capabilities" }).click();
-  }
-  await page.getByRole("combobox", { name: "Writing mode" }).selectOption(profile.writingMode);
+  // No age field exists: the parent chooses the preset explicitly.
+  await expect(page.getByRole("spinbutton", { name: "Age in years" })).toHaveCount(0);
+  await expect(page.getByLabel(/\bages?\b/iu)).toHaveCount(0);
+  await page.getByRole("radio", { name: presetLabel(profile), exact: true }).check();
+  await page.getByRole("combobox", { name: "Writing mode" }).selectOption(writingModeOf(profile));
   await page.getByLabel("Reviewed on").fill(profile.reviewedOn);
   await page.getByRole("textbox", { name: /Broad interests/ }).fill(profile.interests.join(", "));
   const saved = page.waitForResponse((response) =>
@@ -85,7 +109,7 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   const saved = await appServer.readConfig();
   const privacyEvidencePath = process.env.EXTRA_CREDIT_E2E_PRIVACY_EVIDENCE;
   if (!privacyEvidencePath) throw new Error("The smoke requires the private harness evidence channel.");
-  async function recordPrivateValues(profiles: readonly ChildProfileV1[]): Promise<void> {
+  async function recordPrivateValues(profiles: readonly ChildProfileV2[]): Promise<void> {
     const values = profiles.flatMap(({ id, displayName, interests }) => [id, displayName, ...interests])
       .filter((value): value is string => typeof value === "string" && value.length > 0);
     await appendFile(privacyEvidencePath!, `${JSON.stringify(values)}\n`, "utf8");
@@ -101,15 +125,28 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   await page.reload();
   const create = page.getByRole("button", { name: "Create worksheet", exact: true });
 
-  async function editWriting(profile: ChildProfileV1, mode: WritingMode): Promise<void> {
+  async function editWriting(profile: ChildProfileV2, mode: WritingMode): Promise<void> {
     await page.getByRole("button", { name: `Edit ${profile.displayName}` }).click();
     await page.getByRole("combobox", { name: "Writing mode" }).selectOption(mode);
     await page.getByRole("button", { name: "Save profile", exact: true }).click();
     await expect(page.getByRole("heading", { name: profile.displayName ?? "", exact: true })).toBeVisible();
-    expect((await appServer.readConfig()).profiles.find(({ id }) => id === profile.id)?.writingMode).toBe(mode);
+    // Earlier capabilities are read from the stored `legacyChoices`.
+    expect((await appServer.readConfig()).profiles.find(({ id }) => id === profile.id)?.legacyChoices?.writingMode).toBe(mode);
   }
 
-  async function generate(profile: ChildProfileV1, family: typeof families[number], variant?: string): Promise<void> {
+  /** The profile list and the generator panel never name age (U3). */
+  async function expectAgeFreeRegions(): Promise<void> {
+    const regions = [
+      page.locator('section[aria-labelledby="profiles-title"]'),
+      page.getByRole("region", { name: "Create a practice worksheet" }),
+    ];
+    for (const region of regions) {
+      await expect(region).toHaveCount(1);
+      expect(await region.innerText()).not.toMatch(/\bages?\b/iu);
+    }
+  }
+
+  async function generate(profile: ChildProfileV2, family: typeof families[number], variant?: string): Promise<void> {
     await chooseChild(page, profile.id);
     await chooseWorksheet(page, family);
     await create.click();
@@ -166,6 +203,7 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
 
   const [young, middle, oldest] = saved.profiles;
   if (young === undefined || middle === undefined || oldest === undefined) throw new Error("Canonical fixture missing.");
+  await expectAgeFreeRegions();
   await chooseChild(page, young.id);
   await chooseWorksheet(page, "dry-math");
   await expect(create).toBeDisabled();
@@ -176,7 +214,7 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
     await editWriting(young, mode);
     await generate(young, "sentence-builder", mode);
   }
-  await editWriting(young, young.writingMode);
+  await editWriting(young, writingModeOf(young));
   await generate(middle, "sentence-builder", "sentence-frame");
   await generate(middle, "dry-math");
   // Equation-only capability without confirmed equality must not silently
@@ -188,7 +226,7 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   await page.getByRole("checkbox", { name: "Parent confirms understanding of equality", exact: true }).uncheck();
   await page.getByRole("button", { name: "Save profile", exact: true }).click();
   await chooseChild(page, middle.id);
-  expect((await appServer.readConfig()).profiles.find(({ id }) => id === middle.id)?.mathSkills).toMatchObject({
+  expect((await appServer.readConfig()).profiles.find(({ id }) => id === middle.id)?.legacyChoices?.mathSkills).toMatchObject({
     representations: ["equations"], understandsEquality: false,
   });
   await chooseWorksheet(page, "find-the-wow");
@@ -205,18 +243,23 @@ test("compiled release profile-to-print and privacy gate", async ({ appServer, p
   await page.getByRole("combobox", { name: "Difficulty" }).selectOption("confidence");
   await generate(oldest, "find-the-wow", "quantity");
 
-  await createProfile(page, { ...oldest, displayName: "Temporary", ageYears: 9 });
-  const retained = (await appServer.readConfig()).profiles.find(({ ageYears }) => ageYears === 9);
+  // A retained profile with no age: its capabilities copy the oldest canonical
+  // child's into `legacyChoices`, and age no longer gates any family.
+  await createProfile(page, { ...oldest, displayName: "Temporary" });
+  const retained = (await appServer.readConfig()).profiles.find(({ displayName }) => displayName === "Temporary");
   expect(retained).toBeDefined();
+  expect(retained).not.toHaveProperty("ageYears");
+  expect(retained?.legacyChoices).toEqual(oldest.legacyChoices);
   if (retained !== undefined) await recordPrivateValues([retained]);
   await page.reload();
   await chooseChild(page, retained?.id ?? "missing");
   for (const family of families) {
     await chooseWorksheet(page, family);
-    await expect(create).toBeDisabled();
-    await expect(page.getByText(/Version 1 worksheets support ages/)).toBeVisible();
+    await expect(create).toBeEnabled();
+    await expect(page.getByText(/support ages|\bages? \d/iu)).toHaveCount(0);
     await expect(page.getByLabel("Worksheet preview")).toHaveCount(0);
   }
+  await expectAgeFreeRegions();
   expect((await appServer.readConfig()).profiles.find(({ id }) => id === retained?.id)).toEqual(retained);
   await page.getByRole("button", { name: "Delete Temporary", exact: true }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "Confirm delete" }).click();

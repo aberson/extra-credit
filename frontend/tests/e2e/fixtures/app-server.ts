@@ -14,17 +14,28 @@ import { test as base, expect } from "@playwright/test";
 import type { FastifyInstance } from "fastify";
 import { createServer as createViteServer, type ViteDevServer } from "vite";
 
-import type { AppConfigV1 } from "../../../src/shared/config/schema.ts";
+import { classifyStoredConfig } from "../../../src/shared/config/migrate.ts";
+import type {
+  AppConfigV1,
+  AppConfigV2,
+} from "../../../src/shared/config/schema.ts";
 
 interface AppServerFixture {
   readonly origin: string;
   serverErrors(): readonly string[];
   backupContents(): Promise<readonly Buffer[]>;
-  readConfig(): Promise<AppConfigV1>;
+  /**
+   * The stored config as the app reads it: the store's own classifier's
+   * `config`, so a seeded version 1 file reads back migrated in memory without
+   * a write (D41). It throws on a future or invalid file. A test that needs
+   * the stored version or the bytes uses `readRaw()`.
+   */
+  readConfig(): Promise<AppConfigV2>;
   readRaw(): Promise<Buffer>;
   readSiblingBackup(): Promise<Buffer>;
   restart(): Promise<void>;
-  seedConfig(config: AppConfigV1): Promise<void>;
+  /** Writes a version 1 or version 2 config as pretty JSON, as a real store would. */
+  seedConfig(config: AppConfigV1 | AppConfigV2): Promise<void>;
   seedMissing(): Promise<void>;
   seedRaw(raw: Uint8Array): Promise<void>;
   writeSiblingBackup(raw: Uint8Array): Promise<void>;
@@ -128,7 +139,11 @@ export const test = base.extend<ProfileFixtures>({
         },
         async readConfig() {
           const value: unknown = JSON.parse(await readFile(configPath, "utf8"));
-          return value as AppConfigV1;
+          const classified = classifyStoredConfig(value);
+          if (classified.kind === "future" || classified.kind === "invalid") {
+            throw new Error(`The stored config is ${classified.kind}.`);
+          }
+          return classified.config;
         },
         async readRaw() {
           return await readFile(configPath);

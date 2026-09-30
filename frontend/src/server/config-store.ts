@@ -9,8 +9,16 @@ import {
 import writeFileAtomic from "write-file-atomic";
 
 import {
-  AppConfigV1Schema,
+  classifyStoredConfig,
+  type ConfigMigrationReport,
+  type LegacySchemaVersion,
+} from "../shared/config/migrate.js";
+import {
+  APP_CONFIG_SCHEMA_VERSION,
+  AppConfigV2Schema,
   type AppConfigV1,
+  type AppConfigV2,
+  type StoredSchemaVersion,
 } from "../shared/config/schema.js";
 
 export const CONFIG_BYTE_LIMIT = 65_536;
@@ -99,8 +107,16 @@ export interface SaveConfigOptions {
 }
 
 export interface StoredConfig {
-  readonly config: AppConfigV1;
+  readonly config: AppConfigV2;
   readonly etag: string;
+  /** The version on disk: 1 for a v1 file read through migration, else 2. */
+  readonly storedSchemaVersion: StoredSchemaVersion;
+  /**
+   * Present only on the save that upgraded an earlier file: the classifier's
+   * counts-only report with `backupWritten: true`. The routes never send or
+   * log it.
+   */
+  readonly upgrade?: ConfigMigrationReport;
 }
 
 type CurrentConfigState =
@@ -118,8 +134,17 @@ type CurrentConfigState =
     }
   | {
       readonly kind: "valid";
-      readonly config: AppConfigV1;
+      readonly config: AppConfigV2;
       readonly etag: string;
+    }
+  | {
+      /** A valid earlier-version file, migrated in memory and never written by a read. */
+      readonly kind: "legacy";
+      readonly bytes: Buffer;
+      readonly config: AppConfigV2;
+      readonly etag: string;
+      readonly fromVersion: LegacySchemaVersion;
+      readonly report: ConfigMigrationReport;
     };
 
 const defaultIo: ConfigStoreIo = {
@@ -147,15 +172,6 @@ function rawEtag(bytes: Uint8Array): string {
   return `"sha256-${digest}"`;
 }
 
-function isFutureVersion(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return false;
-  }
-
-  const version = (value as { schemaVersion?: unknown }).schemaVersion;
-  return typeof version === "number" && Number.isInteger(version) && version > 1;
-}
-
 function recoveryTimestamp(date: Date): string {
   return date
     .toISOString()
@@ -164,7 +180,16 @@ function recoveryTimestamp(date: Date): string {
     .replace(/\.\d{3}Z$/u, "Z");
 }
 
+/**
+ * The frozen version 1 byte writer. The store never writes version 1 any
+ * more; tests use it to seed the files an earlier build wrote.
+ */
 export function serializeAppConfigV1(config: AppConfigV1): Buffer {
+  return Buffer.from(`${JSON.stringify(config, null, 2)}\n`, "utf8");
+}
+
+/** The bytes the store writes: pretty-printed version 2 JSON plus one LF. */
+export function serializeAppConfig(config: AppConfigV2): Buffer {
   return Buffer.from(`${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
@@ -212,15 +237,34 @@ export class ConfigStore {
           state.etag,
         );
       case "valid":
-        return { config: state.config, etag: state.etag };
+        return {
+          config: state.config,
+          etag: state.etag,
+          storedSchemaVersion: APP_CONFIG_SCHEMA_VERSION,
+        };
+      case "legacy":
+        return {
+          config: state.config,
+          etag: state.etag,
+          storedSchemaVersion: state.fromVersion,
+        };
     }
   }
 
+  /**
+   * Replaces the file with a version 2 config under an ETag precondition.
+   *
+   * Against a valid earlier-version file this is the upgrade (plan Appendix
+   * B.2): the serialized-size check, then a byte-identical
+   * `.v<version>-<UTC>-<8hex>.bak` of the earlier file, then the atomic
+   * replace. Any failure before the replace leaves the earlier file
+   * unchanged; a failed replace keeps the backup and changes nothing else.
+   */
   async save(
-    config: AppConfigV1,
+    config: AppConfigV2,
     options: SaveConfigOptions,
   ): Promise<StoredConfig> {
-    const normalized = AppConfigV1Schema.safeParse(config);
+    const normalized = AppConfigV2Schema.safeParse(config);
     if (!normalized.success) {
       throw new ConfigStoreFailure(CONFIG_STORE_ERROR_CODES.invalid);
     }
@@ -240,7 +284,7 @@ export class ConfigStore {
       );
     }
 
-    const serialized = serializeAppConfigV1(normalized.data);
+    const serialized = serializeAppConfig(normalized.data);
 
     return await this.#withMutationLock(async () => {
       const state = await this.#readCurrentState();
@@ -266,7 +310,7 @@ export class ConfigStore {
         if (!hasCreateCondition) {
           throw new ConfigStoreFailure(CONFIG_STORE_ERROR_CODES.conflict);
         }
-      } else if (state.kind === "valid") {
+      } else if (state.kind === "valid" || state.kind === "legacy") {
         if (options.recovery !== undefined) {
           throw new ConfigStoreFailure(
             CONFIG_STORE_ERROR_CODES.recoveryNotAllowed,
@@ -293,10 +337,19 @@ export class ConfigStore {
       }
 
       if (state.kind === "invalid") {
-        await this.#writeRecoveryBackup(state.bytes);
+        await this.#writeBackup(state.bytes, "invalid");
+      } else if (state.kind === "legacy") {
+        await this.#writeBackup(state.bytes, `v${state.report.fromVersion}`);
       }
       await this.#replaceTarget(serialized);
-      return { config: normalized.data, etag: rawEtag(serialized) };
+      return {
+        config: normalized.data,
+        etag: rawEtag(serialized),
+        storedSchemaVersion: APP_CONFIG_SCHEMA_VERSION,
+        ...(state.kind === "legacy"
+          ? { upgrade: { ...state.report, backupWritten: true } }
+          : {}),
+      };
     });
   }
 
@@ -410,16 +463,24 @@ export class ConfigStore {
       return { kind: "invalid", bytes, etag };
     }
 
-    if (isFutureVersion(parsed)) {
-      return { kind: "future-version", etag };
+    const classified = classifyStoredConfig(parsed);
+    switch (classified.kind) {
+      case "future":
+        return { kind: "future-version", etag };
+      case "invalid":
+        return { kind: "invalid", bytes, etag };
+      case "current":
+        return { kind: "valid", config: classified.config, etag };
+      case "legacy":
+        return {
+          kind: "legacy",
+          bytes,
+          config: classified.config,
+          etag,
+          fromVersion: classified.fromVersion,
+          report: classified.report,
+        };
     }
-
-    const validated = AppConfigV1Schema.safeParse(parsed);
-    if (!validated.success) {
-      return { kind: "invalid", bytes, etag };
-    }
-
-    return { kind: "valid", config: validated.data, etag };
   }
 
   async #readBounded(handle: ConfigFileHandle): Promise<Buffer> {
@@ -455,7 +516,13 @@ export class ConfigStore {
     await this.#applyModeBestEffort(this.#targetPath);
   }
 
-  async #writeRecoveryBackup(bytes: Buffer): Promise<void> {
+  /**
+   * Writes a byte-identical sibling backup, exclusively (`wx`, mode 0600,
+   * fsync), before any replace: `.invalid-` ahead of a recovery and
+   * `.v<version>-` ahead of an upgrade. At most `RECOVERY_ATTEMPT_LIMIT`
+   * names are tried, and only an `EEXIST` collision moves to the next one.
+   */
+  async #writeBackup(bytes: Buffer, prefix: string): Promise<void> {
     let timestamp: string;
     try {
       timestamp = recoveryTimestamp(this.#now());
@@ -473,7 +540,7 @@ export class ConfigStore {
       if (!/^[0-9a-f]{8}$/u.test(suffix)) {
         throw new ConfigStoreFailure(CONFIG_STORE_ERROR_CODES.io);
       }
-      const backupPath = `${this.#targetPath}.invalid-${timestamp}-${suffix}.bak`;
+      const backupPath = `${this.#targetPath}.${prefix}-${timestamp}-${suffix}.bak`;
       let handle: ConfigFileHandle;
 
       try {

@@ -55,10 +55,11 @@ try {
     '            for (const profile of stored.config.profiles) process.stdout.write(profile.id + "\\n");\n' + anchor));
   await gate("dedicated stdout leak", ["--project=release-smoke"], true);
 
-  // The fourth profile is deleted before exit. This also proves the evidence
-  // retains deleted IDs and the default/full-check selector checks stderr.
+  // The fourth profile, nicknamed "Temporary", is deleted before exit. This
+  // also proves the evidence retains deleted IDs and the default/full-check
+  // selector checks stderr.
   await writeFile(routePath, source.replaceAll(anchor,
-    '            for (const profile of stored.config.profiles) if (profile.ageYears === 9) process.stderr.write(profile.id + "\\n");\n' + anchor));
+    '            for (const profile of stored.config.profiles) if (profile.displayName === "Temporary") process.stderr.write(profile.id + "\\n");\n' + anchor));
   await gate("default-selector deleted-ID stderr leak", ["--grep=compiled release profile-to-print and privacy gate"], true);
 } finally {
   await writeFile(routePath, original);

@@ -5,7 +5,6 @@ import {
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
   WRITING_MODES,
-  type ChildProfileV1,
   type GenerationDefaultsV1,
   type PresentationBand,
   type WritingMode,
@@ -15,7 +14,10 @@ import {
   containsPersonalizationValue,
   objectiveAnswerEntries,
 } from "../../shared/worksheet/invariants.js";
-import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
+import {
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "../../shared/worksheet/project-request.js";
 import type {
   GenerationRequestV1,
   SentenceItemV1,
@@ -68,11 +70,10 @@ function profileFor(
   writingMode: WritingMode,
   presentationBand: PresentationBand = "early-primary",
   interests: readonly string[] = ["Distinctive Private Nonsense"],
-): ChildProfileV1 {
+): CapabilityProfileV1 {
   return {
     id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
     displayName: "Private Morgan",
-    ageYears: presentationBand === "preschool" ? 4 : 6,
     presentationBand,
     reviewedOn: "2026-08-22",
     mathSkills: {
@@ -93,7 +94,7 @@ function profileFor(
 }
 
 function requestFor(
-  profile: ChildProfileV1,
+  profile: CapabilityProfileV1,
   preferences: Partial<GenerationDefaultsV1> = {},
   seed = "00000001",
 ): GenerationRequestV1 {

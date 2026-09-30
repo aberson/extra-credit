@@ -12,7 +12,9 @@ const canonicalProfiles = new Set([
 ]);
 const stable = (v) => v && typeof v === "object" ? Array.isArray(v) ? v.map(stable)
   : Object.fromEntries(Object.keys(v).sort().map((k) => [k, stable(v[k])])) : v;
-const profileFields = ["id", "ageYears", "presentationBand", "reviewedOn", "mathSkills", "writingMode", "interests"];
+// The keys every version 1 and version 2 profile must carry, so a record of
+// either shape is detected; a strict subset of the seven v1 keys.
+const profileFields = ["id", "reviewedOn", "interests"];
 const nonempty = (value) => typeof value === "string" && value.trim().length > 0;
 const fail = (code, path) => { throw new Error(`${code}: ${path}`); };
 

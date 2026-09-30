@@ -112,3 +112,103 @@ Every file this step touched is on its Files list; none was added beyond it. Rou
 ### Release clean room (Done when 8)
 
 `npm --prefix frontend run release:verify` was re-run on the final tree, after the bounded-child change, and exited 0 with status PASS: the exported working tree passed the release audit (166 files, 6 assets), a locked clean-room install and Chromium install, and the full `check` there (Vitest 578 passed in 25 files, Playwright 161 passed, log-privacy calibration exits 1, 1, 0), and the clean room was removed. These counts equal the final tree's own `check` above. An earlier release:verify run, made before the bounded-child change added its three `practice-golden.test.ts` tests, also passed with Vitest 575; it is superseded and describes no final tree.
+
+## Step 15: Config schema v2 with lossless v1 upgrade and age-free profiles
+
+Issue #26. Worktree base `c75e047` (Step 14's checkpoint; the `WORKTREE_BASELINE`).
+
+### Gate and counts
+
+- Suites that ran, all green, on the final tree: `npm --prefix frontend run check`, which is ESLint (`eslint . --max-warnings 0`), the three `tsc --noEmit` projects (shared, web, server), the full Vitest suite, the compiled Playwright suite (`test:e2e`: build, then both Playwright projects, `chromium` and `release-smoke`) and the log-privacy calibration. `npm --prefix frontend run release:verify` also ran; its result is recorded at the end of this section.
+- Vitest count (the `npm test` stage summary): **686 passed (686)** in 27 files, from 578.
+- Playwright count (`Total: N tests in M files` from `playwright test --list` run in `frontend/` with `EXTRA_CREDIT_E2E_BASE_URL=http://127.0.0.1:1`): **162 tests in 11 files**, from 161. The gate's `test:e2e` stage printed `162 passed`.
+- Log-privacy calibration: `dedicated stdout leak` exit 1, `default-selector deleted-ID stderr leak` exit 1, `restored clean compiled app` exit 0; the script asserted the `reply.header("ETag", stored.etag);` anchor twice (GET and PUT) before injecting. The deleted-profile leak is now keyed on `profile.displayName === "Temporary"`.
+
+### Per-file test changes (D23)
+
+Taken from `npx vitest list --json` and the header's `playwright test --list` command, run in `frontend/` before the step's first edit and after its last, compared per file by full title (describe path plus name). A title that changed counts as one deletion and one addition.
+
+Vitest, 578 before and 686 after:
+
+| File | Before | After | Deleted | Added |
+|---|---:|---:|---:|---:|
+| `src/shared/config/profile-support.test.ts` (deleted with the age gate) | 15 | 0 | 15 | 0 |
+| `src/shared/config/migrate.test.ts` (new) | 0 | 21 | 0 | 21 |
+| `src/shared/config/legacy-v1.test.ts` | 19 | 19 | 1 | 1 |
+| `src/shared/worksheet/project-request.test.ts` | 22 | 27 | 12 | 17 |
+| `src/web/profiles/ProfileEditor.test.tsx` | 29 | 36 | 10 | 17 |
+| `src/web/generator/options.test.tsx` | 20 | 25 | 0 | 5 |
+| `src/web/worksheets/registry.test.ts` | 52 | 52 | 2 | 2 |
+| `tests/integration/schema-parity.test.ts` | 17 | 69 | 17 | 69 |
+| `tests/integration/config-store.test.ts` | 14 | 25 | 0 | 11 |
+| `tests/integration/config-upgrade.test.ts` (new) | 0 | 7 | 0 | 7 |
+| `tests/integration/config-shape-fingerprint.test.ts` (new) | 0 | 7 | 0 | 7 |
+| `tests/integration/migrate-fixture.test.ts` | 4 | 7 | 0 | 3 |
+| `tests/integration/release-audit.test.ts` | 60 | 65 | 0 | 5 |
+
+The other 14 Vitest files list the same titles before and after, including `limit-labels.test.ts` (10 and 10: the arm catalogue and its sweep keep their titles; see the arm record below), `practice-golden.test.ts` (28), `shipped-profile-options.test.ts`, `config-api.test.ts`, `security.test.ts`, `config-module-graph.test.ts`, `manifest.test.ts` and the four generator tests.
+
+Deleted tests and their replacements:
+
+- `profile-support.test.ts` (15: `supports age 4`–`8`, `retains but does not generate for age 9`–`18`) is removed with `profile-support.ts`. Its contract (age gates generation) is retired by P2; the replacement contract tests are the new `migrate.test.ts` (21), the `project-request.test.ts` additions below and the schema-parity rows that refuse `ageYears` at every object level.
+- `project-request.test.ts` deletes the 12 age tests (`accepts an equation-capable profile at the age-4/8 boundary`, `rejects age 9`–`18 before constructing a request or invoking a generator`) and adds 17: four `projects <family> from a capability profile with no age, identity or review field in the request`, `a malformed seed is refused before any generator runs, with no age gate ahead of it`, four `capabilityProfileOf` contract tests (verbatim flatten, `undefined` without `legacyChoices`, round trip through `profileWithLegacyChoices` with no shared arrays, the capability schema refuses an age key), and eight `a migrated v1 profile at preset <key> projects exactly as the v1 original` (one per concrete `MATH_PRESETS` key, every family).
+- `ProfileEditor.test.tsx` deletes the 10 age tests (`shows the complete exact age-4/6/7/8 suggestion`, `leaves both age-five suggestions unselected until the parent chooses`, `submits the exact expanded age-four preset after explicit confirmation`, `retains age nine as unsupported after a parent chooses capabilities`, `rejects age 3/19 without submitting`, `age changes never alter capabilities loaded as parent-confirmed`) and adds 17: four `shows the complete expansion of <preset> once the parent chooses it`, `each advanced capability field carries its frozen v1 bounds` (its min/max attributes are the frozen `MathSkillsV1Schema` fields' own bounds), `no age input exists and a new profile starts with no preset chosen`, `shows the early-primary help text verbatim, with no age word`, `a new profile cannot be saved until a preset is chosen, then saves legacyChoices and no age`, `a preset with an open vocabulary needs an explicit vocabulary before saving`, `submits the exact expanded Quantities to 10 preset chosen explicitly`, `a migrated profile opens on its stored preset and vocabulary`, `editing only a migrated profile's nickname preserves its legacyChoices deep-equal`, `a profile stored without earlier settings must choose a preset before it saves`, and the new App-level describe `App over a file an earlier version saved`: `the interim defaults save passes every worksheet group and the seeding flag through` (Done when 7, D-save), `shows the upgrade notice for a version 1 file until the first save upgrades it`, `a version 2 file shows no upgrade notice`, `the recovery panel states what stays only in the backup before confirmation`.
+- `registry.test.ts` replaces `Make another > age support fails before a lifecycle ID or injected generator is called` with the same-shape `Make another > a profile without earlier settings is refused before a lifecycle ID or injected generator is called` (§4). It also renames `a stored stretch default never blocks a family that hides difficulty` to `a stretch chosen on another family never blocks a family that hides difficulty`: Difficulty is session-only from this step, so no stored stretch default exists; the test now chooses Stretch on Dry Math before switching to Sentence Builder and keeps every assertion.
+- `legacy-v1.test.ts` renames `APP_CONFIG_SCHEMA_VERSION is still 1 and the v1 schema accepts only 1` to `APP_CONFIG_SCHEMA_VERSION is 2 while the frozen v1 schema still accepts only 1` (the version assertion moves to 2; the frozen `AppConfigV1Schema` literal is still pinned at 1).
+- `schema-parity.test.ts` is rebuilt around one parity row per transport key path (Done when 4). All 17 earlier titles change: the nine `classifies age N identically` tests and `pins every age suggestion without silently advancing a profile` are retired with age; the three `rejects … unknown at both validation layers` tests, `rejects duplicate identities/tags and invalid capability ordering`, the v1 code-set pin and `keeps transport transform-free and Zod authoritative` are replaced by the 58 per-path parity rows (one per key path the composed transport schema declares) (every object level refuses `ageYears`, `difficulty` and an unknown key; duplicate ids, case-insensitive duplicate interests, reversed canonical order and mismatched legacy limits are explicit probes), `calibration: the row identity check rejects exactly the one enum restated as a copy` (the per-path rows' own identity function, run over a structured copy of the transport schema in which only `$.defaults.theme` is a restated copy, rejects exactly that path), `the legacy mathSkills transport bounds are the frozen v1 fields' own bounds`, `calibration: the bound reader follows the field and refuses an unbounded one`, two `<file> never restates a frozen legacy ceiling as a literal` (the transport schema and `MathSkillsEditor.tsx`, scanned as TypeScript syntax trees, with a planted-literal calibration), `pins the complete public machine-code set at 20, without the retired age code`, the retitled `keeps transport transform-free and Zod authoritative`, and `parses the committed fictional example and pins exact presets` under the new describe `the frozen version 1 read path`, which also adds `the frozen v1 schema refuses a version 2 body, and the v2 schema a version 1 body`.
+
+Playwright, 161 before and 162 after:
+
+| File | Before | After | Deleted | Added |
+|---|---:|---:|---:|---:|
+| `tests/e2e/profile-flow.spec.ts` | 4 | 5 | 0 | 1 |
+
+The added title is `[chromium] upgrades a version 1 file only on the first explicit save, behind one byte-identical backup`. Every other title is unchanged, including `compiled release profile-to-print and privacy gate` and the Step 14 title `compiled 1920×1080 layout: empty first screen fits and no state scrolls horizontally`. No title contains an example id, nickname or interest word.
+
+Assertion changes inside unchanged titles, as the Done when requires:
+
+- `release-smoke.spec.ts`: profiles are created by choosing a preset explicitly (no age field exists, asserted); earlier capabilities are read from `legacyChoices`; the four-family age-unavailable loop is replaced by the age-free Temporary profile, whose `legacyChoices` equal the oldest canonical child's: every family's Create is enabled, no age-support message renders, and the retained record still deep-equals after the reload. The profile list and generator panel text match no `/\bages?\b/i` (asserted before and after the Temporary profile).
+- `profile-flow.spec.ts`: profiles are created through explicit presets; the created file is version 2 (`createdConfig`), external reloads use in-spec v1 seeds as read-path coverage; the recovery panel shows the fixed disclosure text verbatim before confirmation, its draft-download copy matches no `/\bages?\b/i`, and the downloaded draft is a version 2 config with no age.
+- `accessibility.spec.ts`: the keyboard flow selects the preset radio by keyboard instead of typing an age.
+- `dry-math.spec.ts`: the stored-age-9 child is now available (no age message, Create enabled); a version 1 seed also renders the upgrade notice, so the print-hidden `.print-controls` count is 4, with the notice among them.
+- `options.spec.ts`: saved configs are compared with the classifier's upgrade of each in-spec v1 fixture.
+- `print.spec.ts`: the manual-harness body is `{ config: acceptanceConfig, storedSchemaVersion: 1 }`; the count-order test seeds the fixture's version 2 `defaults`.
+- `foundation.spec.ts` is unchanged.
+
+### Arm catalogue (Done when 10)
+
+`limit-labels.test.ts` re-declares `PS-projection-fail` as dead with the age-removal reason (the sweep projects only confirmed stretch, and the age-9 `beyondV1AgeProfile` was its only producer), drops `beyondV1AgeProfile` from `PROBE_PROFILES` (one probe fewer), and removes the age message from `DECLARED_SENTENCE_SHAPES`. The observed arm set equals the declared reachable set, `PS-projection-fail` is not observed, and the observed sentence shapes equal the declared list. The file's test count is unchanged (10 and 10).
+
+### Golden continuity (Done when 9, §7 standing check)
+
+`practice-golden.test.ts` reproduces every committed hash through `classifyStoredConfig`, then `capabilityProfileOf` and the unchanged projection at Practice (the canonical records from `children.v1.json`, the runtime records wrapped in a runtime-built v1 file); the perturbation case still changes hashes. `git diff --exit-code c75e047 -- frontend/tests/fixtures/golden` exits 0.
+
+`node frontend/scripts/capture-practice-golden.mjs 5c22159 --compare frontend/tests/fixtures/golden/practice-content-keys.json`, run from the repository root by this step's developer: exit 0.
+
+```text
+temporary export removed: <TEMP>\extra-credit-golden-fT5zdv
+checkout dependencies intact: frontend/node_modules/vitest/package.json
+captured 5c22159 (5c2215943cb92222b864736ddf5e90e052fe8bb2)
+capture sha256:   49e27e1e8bb5aea0e0f0b17635f20775787351611b3ce84d6415438bc238cb41
+committed sha256: 49e27e1e8bb5aea0e0f0b17635f20775787351611b3ce84d6415438bc238cb41
+MATCH
+```
+
+### Upgrade digests (Done when 1)
+
+- The v1 fixture byte pin is unchanged: `bea454916bfa6383d07662f9b97fa8ac7dd2ab1cfbbeb3eebc8b41dbe22bd359` (`git ls-files --eol` still reports `i/lf w/lf` for `children.v1.json` and the golden grid).
+- The golden upgraded digest, the SHA-256 of `serializeAppConfig(AppConfigV2Schema.parse(migrateConfigV1ToV2(v1)))` over the fixture (3,265 bytes): `2bf677155c66df8c302c868bec35a8144bd2f7564a506a3ba44d21a2c2136528`. `migrate-fixture.test.ts` pins it (as `GOLDEN_UPGRADED_V1_FIXTURE_SHA256` in `tests/fixtures/profiles.ts`), shows `classifyStoredConfig` returns that parsed object, and shows a one-field change to a runtime copy moves it; `config-upgrade.test.ts` finds the same digest on the file a real first PUT wrote.
+
+### Files and notes
+
+- One file outside the Files list: `frontend/tests/fixtures/config-shape.ts`, the shared reader of the composed transport schema that both `schema-parity.test.ts` (one parity row per key path) and `config-shape-fingerprint.test.ts` (the pinned lines) use, so both tests list exactly the same paths.
+- `CapabilityProfileV1`, its schema, `capabilityProfileOf`, `profileWithLegacyChoices` and `NO_EARLIER_SETTINGS_MESSAGE` live in `project-request.ts` (interim, D-interim). `GenerationSelection.profile` is the stored version 2 profile, so `createWorksheetSessionForSeed` refuses a profile without `legacyChoices` before a lifecycle ID or generator; the controls show the same message.
+- The four generator tests and `manifest.test.ts` also retype their fixtures from `ChildProfileV1` to `CapabilityProfileV1` (a v1 profile without age would not typecheck as `ChildProfileV1`); `manifest.test.ts`'s review-date parity test now compares against the version 2 profile schema.
+- `UpgradeNotice` carries `print-controls`, the existing print-hidden class, so the notice never prints; no print CSS changed.
+- `MathSkillsEditor` loses its "Confirm suggested capabilities" button with the age suggestion that was its only producer: every preset is now chosen explicitly.
+- The legacy `mathSkills` integer bounds are written only in the frozen `legacy-v1.ts`. `transport-schemas.ts` builds each of the five legacy integer nodes with `zodIntegerBounds(MathSkillsV1Schema.shape.<field>)`, which reads Zod's `minValue`/`maxValue` and throws on a non-integer or one-sided field; `MathSkillsEditor`'s advanced inputs read the same fields for `min`/`max`. The previous hand-written `LEGACY_MATH_MAXIMUM = 1_000` constant and the editor's `max={1_000}` are gone, and `CONTRIBUTING.md` § "One source for every value" names the frozen fields as the only source.
+- `seedConfig` accepts v1 or v2; `readConfig()` returns the classifier's `config` and throws on `future` or `invalid` (D41).
+
+### Release clean room (Done when 6 and 11)
+
+`npm --prefix frontend run release:verify` ran as the last command, after every edit including this subsection, and exited 0 with status PASS: the exported working tree passed the release audit (171 files, 6 assets) with the detector keyed on `id`, `reviewedOn` and `interests`, then a locked clean-room install, Chromium install and the full `check` there (Vitest 686 passed in 27 files, Playwright 162 passed, log-privacy calibration exits 1, 1, 0), and the clean room was removed. These counts equal the final tree's own `check` above.

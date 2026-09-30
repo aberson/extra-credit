@@ -1,23 +1,22 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
 import { describe, expect, test } from "vitest";
 
 import {
   DIFFICULTIES,
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
-  parseAppConfigV1,
-  type ChildProfileV1,
   type GenerationDefaultsV1,
 } from "../../src/shared/config/schema.js";
-import { projectAndGenerateWorksheet } from "../../src/shared/worksheet/project-request.js";
+import {
+  capabilityProfileOf,
+  projectAndGenerateWorksheet,
+  type CapabilityProfileV1,
+} from "../../src/shared/worksheet/project-request.js";
 import {
   REGISTERED_WORKSHEET_IDS,
   getWorksheetRegistration,
   type WorksheetControlContextV1,
 } from "../../src/shared/worksheet/registry.js";
+import { acceptanceConfig } from "../fixtures/profiles.js";
 
 /*
  * The capacity guard for issue #14, run over the profiles a parent is really
@@ -32,19 +31,20 @@ import {
  * assertions.
  */
 
-const repositoryRoot = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../..",
+/**
+ * The shipped example read as the store reads it (the classifier upgrades the
+ * version 1 file in memory), then flattened to the capabilities the interim
+ * projection reads.
+ */
+const shippedProfiles: readonly CapabilityProfileV1[] = acceptanceConfig.profiles.map(
+  (profile) => {
+    const capabilities = capabilityProfileOf(profile);
+    if (capabilities === undefined) {
+      throw new Error("A shipped example profile carried no earlier settings.");
+    }
+    return capabilities;
+  },
 );
-
-const shippedProfiles: readonly ChildProfileV1[] = parseAppConfigV1(
-  JSON.parse(
-    readFileSync(
-      resolve(repositoryRoot, "config/children.example.json"),
-      "utf8",
-    ),
-  ),
-).profiles;
 
 const basePreferences: GenerationDefaultsV1 = {
   useDisplayName: true,

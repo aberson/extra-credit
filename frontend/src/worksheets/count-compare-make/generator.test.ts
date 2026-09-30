@@ -4,12 +4,14 @@ import { describe, expect, test } from "vitest";
 import {
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
-  ChildProfileV1Schema,
-  type ChildProfileV1,
   type GenerationDefaultsV1,
 } from "../../shared/config/schema.js";
 import { objectiveAnswerEntries } from "../../shared/worksheet/invariants.js";
-import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
+import {
+  CapabilityProfileV1Schema,
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "../../shared/worksheet/project-request.js";
 import { formatSeedHex } from "../../shared/worksheet/seeded-random.js";
 import {
   REVIEWED_TOPIC_IDS,
@@ -58,7 +60,7 @@ interface ProfileShape {
   readonly compareMax?: number;
   readonly countingMax?: number;
   readonly numeralMax?: number;
-  readonly representations?: ChildProfileV1["mathSkills"]["representations"];
+  readonly representations?: CapabilityProfileV1["mathSkills"]["representations"];
 }
 
 /**
@@ -74,11 +76,10 @@ function buildQuantityProfile({
   countingMax = 10,
   numeralMax,
   representations = ["quantities"],
-}: ProfileShape = {}): ChildProfileV1 {
+}: ProfileShape = {}): CapabilityProfileV1 {
   return {
     id: "d2c05a44-73ad-4fa0-a4b3-9db5c5f6e321",
     displayName: "Private Riley",
-    ageYears: 4,
     presentationBand: "preschool",
     reviewedOn: "2026-08-22",
     mathSkills: {
@@ -105,12 +106,12 @@ function buildQuantityProfile({
  * profile that can never reach production, so a property drawing them proves
  * its invariant partly over shapes no parent can produce.
  */
-function quantityProfile(shape: ProfileShape = {}): ChildProfileV1 {
-  return ChildProfileV1Schema.parse(buildQuantityProfile(shape));
+function quantityProfile(shape: ProfileShape = {}): CapabilityProfileV1 {
+  return CapabilityProfileV1Schema.parse(buildQuantityProfile(shape));
 }
 
 function request(
-  profile: ChildProfileV1,
+  profile: CapabilityProfileV1,
   preferences: Partial<GenerationDefaultsV1> = {},
   seed = "00000001",
 ): GenerationRequestV1 {

@@ -5,7 +5,7 @@ import type {
 } from "fastify";
 
 import {
-  AppConfigV1Schema,
+  AppConfigV2Schema,
 } from "../../shared/config/schema.js";
 import {
   CONFIG_STORE_ERROR_CODES,
@@ -112,7 +112,10 @@ export const configRoutes: FastifyPluginAsync<ConfigRouteOptions> = async (
       try {
         const stored = await options.store.load();
         reply.header("ETag", stored.etag);
-        return { config: stored.config };
+        return {
+          config: stored.config,
+          storedSchemaVersion: stored.storedSchemaVersion,
+        };
       } catch (error) {
         await sendStoreFailure(error, reply);
         return reply;
@@ -127,7 +130,9 @@ export const configRoutes: FastifyPluginAsync<ConfigRouteOptions> = async (
       schema: { body: APP_CONFIG_TRANSPORT_SCHEMA },
     },
     async (request, reply) => {
-      const validated = AppConfigV1Schema.safeParse(request.body);
+      // Only a version 2 body is accepted: a stale tab still sending the v1
+      // shape is refused before it can touch the file.
+      const validated = AppConfigV2Schema.safeParse(request.body);
       if (!validated.success) {
         await reply
           .code(422)
@@ -147,7 +152,12 @@ export const configRoutes: FastifyPluginAsync<ConfigRouteOptions> = async (
           ...(recovery === undefined ? {} : { recovery }),
         });
         reply.header("ETag", stored.etag);
-        return { config: stored.config };
+        // The store's upgrade report stays on the server: it is never sent
+        // and never logged.
+        return {
+          config: stored.config,
+          storedSchemaVersion: stored.storedSchemaVersion,
+        };
       } catch (error) {
         await sendStoreFailure(error, reply);
         return reply;

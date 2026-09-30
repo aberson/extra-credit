@@ -14,72 +14,90 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import type { AppConfigV1, ChildProfileV1 } from "../../shared/config/schema";
+import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  cloneWorksheetDefaults,
+} from "../../shared/config/defaults";
+import {
+  MathSkillsV1Schema,
+  type AppConfigV2,
+  type ChildProfileV2,
+  type StoredSchemaVersion,
+  type WorksheetDefaultsV2,
+} from "../../shared/config/schema";
 import { App } from "../App";
 import { ConfigApiError, resetSessionForTests } from "../api/client";
-import { ProfileEditor } from "./ProfileEditor";
+import { EARLY_PRIMARY_HELP_TEXT, ProfileEditor } from "./ProfileEditor";
+import { RECOVERY_DISCLOSURE_TEXT } from "./RecoveryPanel";
+import { UPGRADE_NOTICE_TEXT } from "./UpgradeNotice";
 
-const canonicalSixYearOld: ChildProfileV1 = {
+/*
+ * Every child here is fictional and stored as a version 2 profile. Its earlier
+ * writing mode, vocabulary band and math values sit in the read-only
+ * `legacyChoices` that migration writes, which the interim editor still edits
+ * (D-interim). No profile carries an age.
+ */
+
+const canonicalMorgan: ChildProfileV2 = {
   id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
   displayName: "Morgan",
-  ageYears: 6,
-  presentationBand: "early-primary",
   reviewedOn: "2026-08-22",
-  mathSkills: {
-    countingMax: 20,
-    numeralMax: 20,
-    compareMax: 20,
-    representations: ["quantities", "equations"],
-    understandsEquality: true,
-    operations: ["addition", "subtraction"],
-    operandMax: 10,
-    resultMax: 10,
-    allowRegrouping: false,
-    allowNegativeResults: false,
-  },
-  writingMode: "sentence-frame",
   interests: ["nature", "vehicles"],
+  legacyChoices: {
+    presentationBand: "early-primary",
+    writingMode: "sentence-frame",
+    mathSkills: {
+      countingMax: 20,
+      numeralMax: 20,
+      compareMax: 20,
+      representations: ["quantities", "equations"],
+      understandsEquality: true,
+      operations: ["addition", "subtraction"],
+      operandMax: 10,
+      resultMax: 10,
+      allowRegrouping: false,
+      allowNegativeResults: false,
+    },
+  },
 };
 
-const canonicalEightYearOld: ChildProfileV1 = {
+const canonicalAvery: ChildProfileV2 = {
   id: "93c7a8d2-4b1e-4a6f-9d30-7b8e2f1c5a64",
   displayName: "Avery",
-  ageYears: 8,
-  presentationBand: "early-primary",
   reviewedOn: "2026-08-22",
-  mathSkills: {
-    countingMax: 20,
-    numeralMax: 20,
-    compareMax: 20,
-    representations: ["quantities", "equations"],
-    understandsEquality: true,
-    operations: ["addition", "subtraction"],
-    operandMax: 20,
-    resultMax: 20,
-    allowRegrouping: false,
-    allowNegativeResults: false,
-  },
-  writingMode: "independent",
   interests: ["sports", "nature"],
+  legacyChoices: {
+    presentationBand: "early-primary",
+    writingMode: "independent",
+    mathSkills: {
+      countingMax: 20,
+      numeralMax: 20,
+      compareMax: 20,
+      representations: ["quantities", "equations"],
+      understandsEquality: true,
+      operations: ["addition", "subtraction"],
+      operandMax: 20,
+      resultMax: 20,
+      allowRegrouping: false,
+      allowNegativeResults: false,
+    },
+  },
 };
 
-const defaults: AppConfigV1["defaults"] = {
-  useDisplayName: true,
-  useInterests: true,
-  includeDecorativeGraphics: true,
-  difficulty: "practice",
-  length: "standard",
-  includeAnswerKey: true,
-  paperSize: "letter",
-  printScale: "standard",
-};
+const defaults: WorksheetDefaultsV2 = cloneWorksheetDefaults(
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+);
 
-function configWithProfiles(profiles: readonly ChildProfileV1[]): AppConfigV1 {
-  return { schemaVersion: 1, profiles: [...profiles], defaults };
+function configWithProfiles(profiles: readonly ChildProfileV2[]): AppConfigV2 {
+  return { schemaVersion: 2, profiles: [...profiles], defaults };
 }
 
-function configResponse(config: AppConfigV1, etag: string): Response {
-  return new Response(JSON.stringify({ config }), {
+function configResponse(
+  config: AppConfigV2,
+  etag: string,
+  storedSchemaVersion: StoredSchemaVersion = 2,
+): Response {
+  return new Response(JSON.stringify({ config, storedSchemaVersion }), {
     headers: { "Content-Type": "application/json", ETag: etag },
     status: 200,
   });
@@ -115,7 +133,7 @@ afterEach(() => {
 });
 
 function renderNew(
-  onSubmit = vi.fn(async (profile: ChildProfileV1) => {
+  onSubmit = vi.fn(async (profile: ChildProfileV2) => {
     void profile;
   }),
 ) {
@@ -128,11 +146,8 @@ function renderNew(
   return onSubmit;
 }
 
-async function enterAge(age: number): Promise<void> {
-  const user = userEvent.setup();
-  const ageInput = screen.getByRole("spinbutton", { name: "Age in years" });
-  await user.clear(ageInput);
-  await user.type(ageInput, String(age));
+async function choosePreset(name: string): Promise<void> {
+  await userEvent.setup().click(screen.getByRole("radio", { name }));
 }
 
 function expandedValue(term: string): string {
@@ -147,62 +162,104 @@ function expandedValue(term: string): string {
 describe("ProfileEditor form behavior", () => {
   for (const fixture of [
     {
-      age: 4,
-      checked: "Quantities to 10",
+      preset: "Quantities to 10",
       counts: "10 / 10 / 10",
       operandResult: "0 / 0",
+      vocabulary: "Preschool",
     },
     {
-      age: 6,
-      checked: "Early primary within 10",
+      preset: "Early primary within 10",
       counts: "20 / 20 / 20",
       operandResult: "10 / 10",
+      vocabulary: "Early primary",
     },
     {
-      age: 7,
-      checked: "Early primary within 10",
-      counts: "20 / 20 / 20",
-      operandResult: "10 / 10",
-    },
-    {
-      age: 8,
-      checked: "Early primary within 20",
+      preset: "Early primary within 20",
       counts: "20 / 20 / 20",
       operandResult: "20 / 20",
+      vocabulary: "Early primary",
+    },
+    {
+      preset: "Addition and subtraction within 100",
+      counts: "20 / 20 / 20",
+      operandResult: "100 / 100",
+      vocabulary: "Early primary",
     },
   ] as const) {
-    test(`shows the complete exact age-${fixture.age} suggestion`, async () => {
+    test(`shows the complete expansion of ${fixture.preset} once the parent chooses it`, async () => {
       renderNew();
-      await enterAge(fixture.age);
+      await choosePreset(fixture.preset);
 
-      expect(screen.getByRole("radio", { name: fixture.checked })).toBeChecked();
+      expect(screen.getByRole("radio", { name: fixture.preset })).toBeChecked();
       expect(expandedValue("Counting / numeral / compare")).toBe(fixture.counts);
       expect(expandedValue("Operand / result maximum")).toBe(fixture.operandResult);
-      expect(screen.getByRole("button", { name: "Confirm suggested capabilities" })).toBeEnabled();
+      expect(expandedValue("Sentence vocabulary")).toBe(fixture.vocabulary);
     });
   }
 
-  test("leaves both age-five suggestions unselected until the parent chooses", async () => {
+  test("no age input exists and a new profile starts with no preset chosen", () => {
+    renderNew();
+    expect(screen.queryByRole("spinbutton", { name: /\bages?\b/iu })).toBeNull();
+    expect(screen.queryByLabelText(/\bages?\b/iu)).toBeNull();
+    for (const radio of screen.getAllByRole("radio")) {
+      expect(radio).not.toBeChecked();
+    }
+    expect(
+      screen.queryByRole("button", { name: /Confirm suggested capabilities/u }),
+    ).toBeNull();
+  });
+
+  test("shows the early-primary help text verbatim, with no age word", () => {
+    renderNew();
+    const help = screen.getByText(EARLY_PRIMARY_HELP_TEXT);
+    expect(help).toBeVisible();
+    expect(help.textContent).toBe(
+      "Extra Credit's worksheets are designed for early primary practice. Choose the worksheet and practice focus that fit your child.",
+    );
+    expect(help.textContent).not.toMatch(/\bages?\b/iu);
+  });
+
+  test("a new profile cannot be saved until a preset is chosen, then saves legacyChoices and no age", async () => {
     const onSubmit = renderNew();
     const user = userEvent.setup();
-    await enterAge(5);
-
-    expect(screen.getByRole("radio", { name: "Quantities to 10" })).not.toBeChecked();
-    expect(screen.getByRole("radio", { name: "Emerging equations within 5" })).not.toBeChecked();
-    expect(screen.getByText(/neither is selected for you/i)).toBeVisible();
-
-    await user.click(screen.getByRole("radio", { name: "Preschool" }));
+    await user.type(screen.getByRole("textbox", { name: "Nickname (optional)" }), "Kit");
     await user.click(screen.getByRole("button", { name: "Save profile" }));
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByRole("alert")).toHaveTextContent("confirm a capability preset");
 
-    await user.click(screen.getByRole("radio", { name: "Emerging equations within 5" }));
+    await choosePreset("Early primary within 10");
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    const submitted = onSubmit.mock.calls[0]?.[0];
+    expect(submitted).not.toHaveProperty("ageYears");
+    expect(submitted).toMatchObject({
+      displayName: "Kit",
+      interests: [],
+      legacyChoices: {
+        presentationBand: "early-primary",
+        writingMode: "label",
+        mathSkills: canonicalMorgan.legacyChoices?.mathSkills,
+      },
+    });
+    expect(Object.keys(submitted ?? {}).sort()).toEqual(
+      ["displayName", "id", "interests", "legacyChoices", "reviewedOn"],
+    );
+  });
+
+  test("a preset with an open vocabulary needs an explicit vocabulary before saving", async () => {
+    const onSubmit = renderNew();
+    const user = userEvent.setup();
+    await choosePreset("Emerging equations within 5");
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("presentation band");
+
     await user.click(screen.getByRole("radio", { name: "Preschool" }));
     await user.click(screen.getByRole("button", { name: "Save profile" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
-      ageYears: 5,
+    expect(onSubmit.mock.calls[0]?.[0].legacyChoices).toEqual({
       presentationBand: "preschool",
+      writingMode: "label",
       mathSkills: {
         countingMax: 10,
         numeralMax: 10,
@@ -218,11 +275,10 @@ describe("ProfileEditor form behavior", () => {
     });
   });
 
-  test("submits the exact expanded age-four preset after explicit confirmation", async () => {
+  test("submits the exact expanded Quantities to 10 preset chosen explicitly", async () => {
     const onSubmit = renderNew();
     const user = userEvent.setup();
-    await enterAge(4);
-    await user.click(screen.getByRole("button", { name: "Confirm suggested capabilities" }));
+    await choosePreset("Quantities to 10");
     await user.type(screen.getByRole("textbox", { name: "Nickname (optional)" }), "  Riley  ");
     await user.type(
       screen.getByRole("textbox", { name: /Broad interests/ }),
@@ -231,91 +287,113 @@ describe("ProfileEditor form behavior", () => {
     await user.click(screen.getByRole("button", { name: "Save profile" }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    const submitted = onSubmit.mock.calls[0]?.[0];
-    expect(submitted).toMatchObject({
-      displayName: "Riley",
-      ageYears: 4,
-      presentationBand: "preschool",
-      mathSkills: {
-        countingMax: 10,
-        numeralMax: 10,
-        compareMax: 10,
-        representations: ["quantities"],
-        understandsEquality: false,
-        operations: [],
-        operandMax: 0,
-        resultMax: 0,
-        allowRegrouping: false,
-        allowNegativeResults: false,
-      },
-      writingMode: "label",
-      interests: ["animals", "space"],
-    });
-  });
-
-  test("retains age nine as unsupported after a parent chooses capabilities", async () => {
-    const onSubmit = renderNew();
-    const user = userEvent.setup();
-    await enterAge(9);
-    expect(screen.getByText(/generation is not yet supported for age 9/i)).toBeVisible();
-    await user.click(screen.getByRole("radio", { name: "Quantities to 10" }));
-    await user.click(screen.getByRole("button", { name: "Save profile" }));
-
-    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0]?.[0]).toMatchObject({
-      ageYears: 9,
-      presentationBand: "preschool",
-      mathSkills: { operandMax: 0, resultMax: 0 },
+      displayName: "Riley",
+      interests: ["animals", "space"],
+      legacyChoices: {
+        presentationBand: "preschool",
+        writingMode: "label",
+        mathSkills: {
+          countingMax: 10,
+          numeralMax: 10,
+          compareMax: 10,
+          representations: ["quantities"],
+          understandsEquality: false,
+          operations: [],
+          operandMax: 0,
+          resultMax: 0,
+          allowRegrouping: false,
+          allowNegativeResults: false,
+        },
+      },
     });
   });
 
-  for (const age of [3, 19]) {
-    test(`rejects age ${age} without submitting`, async () => {
-      const onSubmit = renderNew();
-      await enterAge(age);
-      const ageInput = screen.getByRole("spinbutton", { name: "Age in years" });
-      expect(ageInput).toBeInvalid();
-      await userEvent.setup().click(screen.getByRole("button", { name: "Save profile" }));
-      expect(onSubmit).not.toHaveBeenCalled();
-    });
-  }
-
-  test("age changes never alter capabilities loaded as parent-confirmed", async () => {
-    const onSubmit = vi.fn(async (profile: ChildProfileV1) => {
-      void profile;
-    });
+  test("a migrated profile opens on its stored preset and vocabulary", () => {
     render(
       <ProfileEditor
         onCancel={() => undefined}
-        onSubmit={onSubmit}
-        profile={canonicalSixYearOld}
+        onSubmit={vi.fn(async () => undefined)}
+        profile={canonicalMorgan}
       />,
     );
-    const user = userEvent.setup();
-    const ageInput = screen.getByRole("spinbutton", { name: "Age in years" });
-    await user.clear(ageInput);
-    await user.type(ageInput, "8");
-    await user.clear(ageInput);
-    await user.type(ageInput, "9");
-
     expect(screen.getByRole("radio", { name: "Early primary within 10" })).toBeChecked();
     expect(expandedValue("Operand / result maximum")).toBe("10 / 10");
     expect(expandedValue("Sentence vocabulary")).toBe("Early primary");
     expect(screen.queryByRole("radio", { name: "Early primary" })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Save profile" }));
+    expect(screen.getByRole("combobox", { name: "Writing mode" })).toHaveValue("sentence-frame");
+  });
 
+  test("editing only a migrated profile's nickname preserves its legacyChoices deep-equal", async () => {
+    // Custom values above every activity ceiling and both stored-but-unused
+    // permission flags: nothing a preset could produce.
+    const migrated: ChildProfileV2 = {
+      ...canonicalMorgan,
+      legacyChoices: {
+        presentationBand: "preschool",
+        writingMode: "copy-with-model",
+        mathSkills: {
+          countingMax: 1_000,
+          numeralMax: 45,
+          compareMax: 3,
+          representations: ["equations"],
+          understandsEquality: false,
+          operations: ["subtraction"],
+          operandMax: 700,
+          resultMax: 9,
+          allowRegrouping: true,
+          allowNegativeResults: true,
+        },
+      },
+    };
+    const onSubmit = vi.fn(async (profile: ChildProfileV2) => {
+      void profile;
+    });
+    render(
+      <ProfileEditor onCancel={() => undefined} onSubmit={onSubmit} profile={migrated} />,
+    );
+    const user = userEvent.setup();
+    const nickname = screen.getByRole("textbox", { name: "Nickname (optional)" });
+    await user.clear(nickname);
+    await user.type(nickname, "Morgan renamed");
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit.mock.calls[0]?.[0]).toEqual({
-      ...canonicalSixYearOld,
-      ageYears: 9,
+      ...migrated,
+      displayName: "Morgan renamed",
+    });
+    expect(onSubmit.mock.calls[0]?.[0].legacyChoices).toEqual(migrated.legacyChoices);
+  });
+
+  test("a profile stored without earlier settings must choose a preset before it saves", async () => {
+    const { legacyChoices: _unused, ...identityOnly } = canonicalMorgan;
+    void _unused;
+    const onSubmit = vi.fn(async (profile: ChildProfileV2) => {
+      void profile;
+    });
+    render(
+      <ProfileEditor onCancel={() => undefined} onSubmit={onSubmit} profile={identityOnly} />,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    await choosePreset("Early primary within 20");
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0]?.[0]).toEqual({
+      ...identityOnly,
+      legacyChoices: {
+        presentationBand: "early-primary",
+        writingMode: "label",
+        mathSkills: canonicalAvery.legacyChoices?.mathSkills,
+      },
     });
   });
 
   test("turns edited advanced fields into a canonical custom capability set", async () => {
     const onSubmit = renderNew();
     const user = userEvent.setup();
-    await enterAge(6);
-    await user.click(screen.getByRole("button", { name: "Confirm suggested capabilities" }));
+    await choosePreset("Early primary within 10");
     await user.click(screen.getByRole("radio", { name: "Custom capabilities" }));
     const operations = within(screen.getByRole("group", { name: "Operations" }));
     await user.click(operations.getByRole("checkbox", { name: "subtraction" }));
@@ -323,7 +401,25 @@ describe("ProfileEditor form behavior", () => {
     expect(screen.getByRole("radio", { name: "Custom capabilities" })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Save profile" }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-    expect(onSubmit.mock.calls[0]?.[0].mathSkills.operations).toEqual(["addition"]);
+    expect(onSubmit.mock.calls[0]?.[0].legacyChoices?.mathSkills.operations).toEqual(["addition"]);
+  });
+
+  test("each advanced capability field carries its frozen v1 bounds", async () => {
+    renderNew();
+    await choosePreset("Early primary within 10");
+    await userEvent.setup().click(screen.getByRole("radio", { name: "Custom capabilities" }));
+    for (const [label, key] of [
+      ["Counting maximum", "countingMax"],
+      ["Numeral maximum", "numeralMax"],
+      ["Comparison maximum", "compareMax"],
+      ["Operand maximum", "operandMax"],
+      ["Result maximum", "resultMax"],
+    ] as const) {
+      const field = MathSkillsV1Schema.shape[key];
+      const input = screen.getByRole("spinbutton", { name: label });
+      expect(input, label).toHaveAttribute("min", String(field.minValue));
+      expect(input, label).toHaveAttribute("max", String(field.maxValue));
+    }
   });
 
   test("disables browser autocomplete for every free-text profile field", () => {
@@ -342,8 +438,7 @@ describe("ProfileEditor form behavior", () => {
     });
     renderNew(onSubmit);
     const user = userEvent.setup();
-    await enterAge(6);
-    await user.click(screen.getByRole("button", { name: "Confirm suggested capabilities" }));
+    await choosePreset("Early primary within 10");
     await user.type(screen.getByRole("textbox", { name: "Nickname (optional)" }), "Preserved Draft");
     await user.selectOptions(screen.getByRole("combobox", { name: "Writing mode" }), "sentence-frame");
     await user.type(screen.getByRole("textbox", { name: /Broad interests/ }), "nature, vehicles");
@@ -351,7 +446,6 @@ describe("ProfileEditor form behavior", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("unsaved changes are still here");
     expect(screen.getByRole("textbox", { name: "Nickname (optional)" })).toHaveValue("Preserved Draft");
-    expect(screen.getByRole("spinbutton", { name: "Age in years" })).toHaveValue(6);
     expect(screen.getByRole("combobox", { name: "Writing mode" })).toHaveValue("sentence-frame");
     expect(screen.getByRole("textbox", { name: /Broad interests/ })).toHaveValue("nature, vehicles");
     expect(screen.getByRole("radio", { name: "Early primary within 10" })).toBeChecked();
@@ -403,7 +497,7 @@ describe("ProfileEditor form behavior", () => {
         <ProfileEditor
           onCancel={() => undefined}
           onSubmit={onSubmit}
-          profile={{ ...canonicalSixYearOld, reviewedOn: fixture.reviewedOn }}
+          profile={{ ...canonicalMorgan, reviewedOn: fixture.reviewedOn }}
         />,
       );
 
@@ -420,7 +514,7 @@ describe("ProfileEditor form behavior", () => {
       fireEvent.click(save);
       await drainScheduledWork();
       expect(onSubmit).toHaveBeenCalledWith({
-        ...canonicalSixYearOld,
+        ...canonicalMorgan,
         reviewedOn: fixture.reviewedOn,
       });
     });
@@ -431,15 +525,15 @@ describe("App profile authority behavior", () => {
 
   test("keeps a deferred delete authoritative and blocks a competing reload", async () => {
     const initialConfig = configWithProfiles([
-      canonicalSixYearOld,
-      canonicalEightYearOld,
+      canonicalMorgan,
+      canonicalAvery,
     ]);
     const deletedConfig = configWithProfiles([
-      { ...canonicalEightYearOld, displayName: "Avery from another tab" },
+      { ...canonicalAvery, displayName: "Avery from another tab" },
     ]);
     const pendingDelete = deferred<Response>();
     let configReads = 0;
-    const putRequests: Array<{ config: AppConfigV1; ifMatch: string | null }> = [];
+    const putRequests: Array<{ config: AppConfigV2; ifMatch: string | null }> = [];
 
     vi.stubGlobal(
       "fetch",
@@ -463,7 +557,7 @@ describe("App profile authority behavior", () => {
           return configResponse(initialConfig, '"etag-initial"');
         }
         if (url.endsWith("/api/config") && method === "PUT") {
-          const config = JSON.parse(String(init?.body)) as AppConfigV1;
+          const config = JSON.parse(String(init?.body)) as AppConfigV2;
           putRequests.push({
             config,
             ifMatch: new Headers(init?.headers).get("If-Match"),
@@ -513,7 +607,7 @@ describe("App profile authority behavior", () => {
     expect(configReads).toBe(1);
     expect(putRequests).toHaveLength(1);
     expect(putRequests[0]?.config).toEqual(
-      configWithProfiles([canonicalEightYearOld]),
+      configWithProfiles([canonicalAvery]),
     );
     expect(putRequests[0]?.ifMatch).toBe('"etag-initial"');
 
@@ -530,8 +624,8 @@ describe("App profile authority behavior", () => {
 
   test("blocks a confirmed delete while a deferred read owns the config authority", async () => {
     const initialConfig = configWithProfiles([
-      canonicalSixYearOld,
-      canonicalEightYearOld,
+      canonicalMorgan,
+      canonicalAvery,
     ]);
     const pendingReload = deferred<Response>();
     let configReads = 0;
@@ -588,27 +682,28 @@ describe("App profile authority behavior", () => {
   });
 
   test("reconciles a conflict onto the fresh revision without losing or auto-saving the draft", async () => {
+    const morganLegacy = canonicalMorgan.legacyChoices!;
     const initialConfig = configWithProfiles([
-      { ...canonicalSixYearOld, mathSkills: {
-        ...canonicalSixYearOld.mathSkills, allowRegrouping: true, allowNegativeResults: true,
-      } },
-      canonicalEightYearOld,
+      { ...canonicalMorgan, legacyChoices: { ...morganLegacy, mathSkills: {
+        ...morganLegacy.mathSkills, allowRegrouping: true, allowNegativeResults: true,
+      } } },
+      canonicalAvery,
     ]);
     const externalSibling = {
-      ...canonicalEightYearOld,
+      ...canonicalAvery,
       displayName: "Avery from another tab",
       interests: ["nature", "music"],
-    } satisfies ChildProfileV1;
+    } satisfies ChildProfileV2;
     const latestConfig = configWithProfiles([
       {
-        ...canonicalSixYearOld,
+        ...canonicalMorgan,
         displayName: "Morgan from another tab",
         interests: ["music"],
       },
       externalSibling,
     ]);
     const pendingReconciliation = deferred<Response>();
-    const putRequests: Array<{ config: AppConfigV1; ifMatch: string | null }> = [];
+    const putRequests: Array<{ config: AppConfigV2; ifMatch: string | null }> = [];
     let configReads = 0;
 
     vi.stubGlobal(
@@ -635,7 +730,7 @@ describe("App profile authority behavior", () => {
             : await pendingReconciliation.promise;
         }
         if (url.endsWith("/api/config") && method === "PUT") {
-          const config = JSON.parse(String(init?.body)) as AppConfigV1;
+          const config = JSON.parse(String(init?.body)) as AppConfigV2;
           putRequests.push({
             config,
             ifMatch: new Headers(init?.headers).get("If-Match"),
@@ -662,13 +757,10 @@ describe("App profile authority behavior", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Edit Morgan" }));
     const nickname = screen.getByRole("textbox", { name: "Nickname (optional)" });
-    const age = screen.getByRole("spinbutton", { name: "Age in years" });
     const reviewed = screen.getByLabelText("Reviewed on");
     const interests = screen.getByRole("textbox", { name: /Broad interests/ });
     await user.clear(nickname);
     await user.type(nickname, "Morgan Unsaved Draft");
-    await user.clear(age);
-    await user.type(age, "7");
     await user.selectOptions(screen.getByRole("combobox", { name: "Writing mode" }), "independent");
     await user.clear(reviewed);
     await user.type(reviewed, "2026-01-15");
@@ -716,7 +808,6 @@ describe("App profile authority behavior", () => {
     expect(putRequests).toHaveLength(1);
     expect(configReads).toBe(2);
     expect(nickname).toHaveValue("Morgan Unsaved Draft");
-    expect(age).toHaveValue(7);
     expect(screen.getByRole("combobox", { name: "Writing mode" })).toHaveValue("independent");
     expect(reviewed).toHaveValue("2026-01-15");
     expect(interests).toHaveValue("art, music");
@@ -747,34 +838,35 @@ describe("App profile authority behavior", () => {
     expect(putRequests).toHaveLength(2);
     expect(putRequests[1]?.ifMatch).toBe('"etag-latest"');
     expect(putRequests[1]?.config.profiles[0]).toEqual({
-      ...canonicalSixYearOld,
+      ...canonicalMorgan,
       displayName: "Morgan Unsaved Draft",
-      ageYears: 7,
-      presentationBand: "preschool",
       reviewedOn: "2026-01-15",
-      mathSkills: {
-        countingMax: 33,
-        numeralMax: 34,
-        compareMax: 35,
-        representations: ["equations"],
-        understandsEquality: false,
-        operations: ["addition"],
-        operandMax: 9,
-        resultMax: 12,
-        allowRegrouping: true,
-        allowNegativeResults: true,
-      },
-      writingMode: "independent",
       interests: ["art", "music"],
+      legacyChoices: {
+        presentationBand: "preschool",
+        writingMode: "independent",
+        mathSkills: {
+          countingMax: 33,
+          numeralMax: 34,
+          compareMax: 35,
+          representations: ["equations"],
+          understandsEquality: false,
+          operations: ["addition"],
+          operandMax: 9,
+          resultMax: 12,
+          allowRegrouping: true,
+          allowNegativeResults: true,
+        },
+      },
     });
     expect(putRequests[1]?.config.profiles[1]).toEqual(externalSibling);
   });
 
   test("refreshes a stale session without replaying the failed mutation", async () => {
-    const initialConfig = configWithProfiles([canonicalSixYearOld]);
+    const initialConfig = configWithProfiles([canonicalMorgan]);
     const freshSession = deferred<Response>();
     const putRequests: Array<{
-      config: AppConfigV1;
+      config: AppConfigV2;
       ifMatch: string | null;
       token: string | null;
     }> = [];
@@ -807,7 +899,7 @@ describe("App profile authority behavior", () => {
         }
         if (url.endsWith("/api/config") && method === "PUT") {
           const headers = new Headers(init?.headers);
-          const config = JSON.parse(String(init?.body)) as AppConfigV1;
+          const config = JSON.parse(String(init?.body)) as AppConfigV2;
           putRequests.push({
             config,
             ifMatch: headers.get("If-Match"),
@@ -878,19 +970,19 @@ describe("App profile authority behavior", () => {
 
   for (const readOutcome of ["valid", "missing"] as const) {
     test(`re-adopts ${readOutcome} authority after stale recovery without losing the draft`, async () => {
-      const latestDefaults: AppConfigV1["defaults"] = {
+      const latestDefaults: AppConfigV2["defaults"] = {
         ...defaults,
-        difficulty: "stretch",
+        worksheetType: "count-compare-make",
         includeAnswerKey: false,
         paperSize: "a4",
       };
-      const latestConfig: AppConfigV1 = {
-        schemaVersion: 1,
-        profiles: [canonicalEightYearOld],
+      const latestConfig: AppConfigV2 = {
+        schemaVersion: 2,
+        profiles: [canonicalAvery],
         defaults: latestDefaults,
       };
       const putRequests: Array<{
-        config: AppConfigV1;
+        config: AppConfigV2;
         ifMatch: string | null;
         ifNoneMatch: string | null;
         recovery: string | null;
@@ -948,7 +1040,7 @@ describe("App profile authority behavior", () => {
           }
           if (url.endsWith("/api/config") && method === "PUT") {
             const headers = new Headers(init?.headers);
-            const config = JSON.parse(String(init?.body)) as AppConfigV1;
+            const config = JSON.parse(String(init?.body)) as AppConfigV2;
             putRequests.push({
               config,
               ifMatch: headers.get("If-Match"),
@@ -980,14 +1072,10 @@ describe("App profile authority behavior", () => {
       ).toBeVisible();
       const user = userEvent.setup();
       const nickname = screen.getByRole("textbox", { name: "Nickname (optional)" });
-      const age = screen.getByRole("spinbutton", { name: "Age in years" });
       const reviewed = screen.getByLabelText("Reviewed on");
       const interests = screen.getByRole("textbox", { name: /Broad interests/ });
       await user.type(nickname, `Recovery draft ${readOutcome}`);
-      await user.type(age, "4");
-      await user.click(
-        screen.getByRole("button", { name: "Confirm suggested capabilities" }),
-      );
+      await user.click(screen.getByRole("radio", { name: "Quantities to 10" }));
       await user.selectOptions(
         screen.getByRole("combobox", { name: "Writing mode" }),
         "copy-with-model",
@@ -1028,7 +1116,6 @@ describe("App profile authority behavior", () => {
         }),
       ).not.toBeInTheDocument();
       expect(nickname).toHaveValue(`Recovery draft ${readOutcome}`);
-      expect(age).toHaveValue(4);
       expect(reviewed).toHaveValue("2026-01-31");
       expect(interests).toHaveValue("art, music");
       expect(screen.getByRole("combobox", { name: "Writing mode" })).toHaveValue(
@@ -1056,20 +1143,26 @@ describe("App profile authority behavior", () => {
           ({ displayName }) => displayName === `Recovery draft ${readOutcome}`,
         ),
       ).toMatchObject({
-        ageYears: 4,
-        presentationBand: "preschool",
         reviewedOn: "2026-01-31",
-        writingMode: "copy-with-model",
         interests: ["art", "music"],
-        mathSkills: {
-          representations: ["quantities"],
-          operations: [],
-          operandMax: 0,
-          resultMax: 0,
+        legacyChoices: {
+          presentationBand: "preschool",
+          writingMode: "copy-with-model",
+          mathSkills: {
+            representations: ["quantities"],
+            operations: [],
+            operandMax: 0,
+            resultMax: 0,
+          },
         },
       });
+      expect(
+        explicitSave?.config.profiles.find(
+          ({ displayName }) => displayName === `Recovery draft ${readOutcome}`,
+        ),
+      ).not.toHaveProperty("ageYears");
       if (readOutcome === "valid") {
-        expect(explicitSave?.config.profiles[0]).toEqual(canonicalEightYearOld);
+        expect(explicitSave?.config.profiles[0]).toEqual(canonicalAvery);
         expect(explicitSave?.config.defaults).toEqual(latestDefaults);
       } else {
         expect(explicitSave?.config.profiles).toHaveLength(1);
@@ -1145,15 +1238,11 @@ describe("App profile authority behavior", () => {
     ).toBeVisible();
     const user = userEvent.setup();
     const nickname = screen.getByRole("textbox", { name: "Nickname (optional)" });
-    const age = screen.getByRole("spinbutton", { name: "Age in years" });
     const confirmation = screen.getByRole("checkbox", {
       name: /I understand that Back up invalid file and replace/,
     });
     await user.type(nickname, "Invalid revision draft");
-    await user.type(age, "4");
-    await user.click(
-      screen.getByRole("button", { name: "Confirm suggested capabilities" }),
-    );
+    await user.click(screen.getByRole("radio", { name: "Quantities to 10" }));
     await user.click(confirmation);
     await user.click(
       screen.getByRole("button", { name: "Back up invalid file and replace" }),
@@ -1203,7 +1292,6 @@ describe("App profile authority behavior", () => {
     expect(confirmation).toBeEnabled();
     expect(confirmation).not.toBeChecked();
     expect(nickname).toHaveValue("Invalid revision draft");
-    expect(age).toHaveValue(4);
     expect(screen.getByRole("radio", { name: "Quantities to 10" })).toBeChecked();
     expect(configPuts).toBe(1);
   });
@@ -1276,12 +1364,15 @@ describe("App profile authority behavior", () => {
  */
 describe("App worksheet authority across a defaults save", () => {
   /** Enough operand and result room to fill any Dry Math length. */
-  const generatableProfile: ChildProfileV1 = {
-    ...canonicalSixYearOld,
-    mathSkills: {
-      ...canonicalSixYearOld.mathSkills,
-      operandMax: 20,
-      resultMax: 20,
+  const generatableProfile: ChildProfileV2 = {
+    ...canonicalMorgan,
+    legacyChoices: {
+      ...canonicalMorgan.legacyChoices!,
+      mathSkills: {
+        ...canonicalMorgan.legacyChoices!.mathSkills,
+        operandMax: 20,
+        resultMax: 20,
+      },
     },
   };
 
@@ -1290,18 +1381,18 @@ describe("App worksheet authority across a defaults save", () => {
    * low for any Dry Math page: a worksheet built against the first config is
    * not merely stale here, it is a page the current file could not produce.
    */
-  const supersededProfile: ChildProfileV1 = {
+  const supersededProfile: ChildProfileV2 = {
     id: generatableProfile.id,
-    ageYears: generatableProfile.ageYears,
-    presentationBand: generatableProfile.presentationBand,
     reviewedOn: generatableProfile.reviewedOn,
-    mathSkills: {
-      ...generatableProfile.mathSkills,
-      operandMax: 1,
-      resultMax: 1,
-    },
-    writingMode: generatableProfile.writingMode,
     interests: [...generatableProfile.interests],
+    legacyChoices: {
+      ...generatableProfile.legacyChoices!,
+      mathSkills: {
+        ...generatableProfile.legacyChoices!.mathSkills,
+        operandMax: 1,
+        resultMax: 1,
+      },
+    },
   };
 
   function stubDefaultsSave(putStatus: "saved" | "conflict"): {
@@ -1338,7 +1429,7 @@ describe("App worksheet authority across a defaults save", () => {
               );
         }
         if (url.endsWith("/api/config") && method === "PUT") {
-          const config = JSON.parse(String(init?.body)) as AppConfigV1;
+          const config = JSON.parse(String(init?.body)) as AppConfigV2;
           return putStatus === "saved"
             ? configResponse(config, '"etag-saved"')
             : new Response(
@@ -1429,5 +1520,194 @@ describe("App worksheet authority across a defaults save", () => {
     expect(
       screen.getByRole("button", { name: "Save these as worksheet defaults" }),
     ).toBeEnabled();
+  });
+});
+
+/**
+ * Stubs the local API for the App-level cases below: health, a session token,
+ * one config read and a PUT that echoes the saved body back at version 2.
+ */
+function stubConfigApi(
+  loaded: AppConfigV2,
+  storedSchemaVersion: StoredSchemaVersion,
+): { readonly puts: AppConfigV2[] } {
+  const puts: AppConfigV2[] = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+      if (url.endsWith("/api/health")) {
+        return new Response(JSON.stringify({ status: "ok", version: "0.1.0" }), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      if (url.endsWith("/api/session")) {
+        return new Response(JSON.stringify({ token: "fixture-token" }), {
+          headers: { "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      if (url.endsWith("/api/config") && method === "GET") {
+        return configResponse(loaded, '"etag-loaded"', storedSchemaVersion);
+      }
+      if (url.endsWith("/api/config") && method === "PUT") {
+        const config = JSON.parse(String(init?.body)) as AppConfigV2;
+        puts.push(config);
+        return configResponse(config, `"etag-saved-${puts.length}"`, 2);
+      }
+      throw new Error("Unexpected request in the App-level upgrade test.");
+    }),
+  );
+  return { puts };
+}
+
+/** A migrated v1 file: both children carry `legacyChoices`, seeding is on. */
+function migratedConfig(): AppConfigV2 {
+  return {
+    schemaVersion: 2,
+    profiles: [canonicalMorgan, canonicalAvery],
+    defaults: { ...cloneWorksheetDefaults(defaults), useEarlierChildSettings: true },
+  };
+}
+
+describe("App over a file an earlier version saved", () => {
+  test("the interim defaults save passes every worksheet group and the seeding flag through", async () => {
+    // Worksheet groups a built-in rebuild could never produce, so writing
+    // DEFAULT values, or anything derived from a child's earlier settings,
+    // instead of passing them through is visible in the PUT body.
+    const loaded = migratedConfig();
+    loaded.defaults = {
+      ...loaded.defaults,
+      worksheetType: "find-the-wow",
+      dryMath: { operations: ["addition"], operandMax: 7, resultMax: 9 },
+      findTheWow: {
+        variant: "equation",
+        quantity: { countingMax: 4, numeralMax: 6 },
+        equation: { operations: ["subtraction"], operandMax: 11, resultMax: 3 },
+      },
+      sentenceBuilder: { variant: "independent", vocabulary: "all-words" },
+      countCompareMake: { countingMax: 5, numeralMax: 6, compareMax: 7 },
+    };
+    const before = structuredClone(loaded);
+    const { puts } = stubConfigApi(loaded, 1);
+
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+    fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
+      target: { value: "sentence-builder" },
+    });
+    fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content"));
+    for (const details of window.document.querySelectorAll("details")) {
+      details.open = true;
+    }
+    fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
+      target: { value: "large" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save these as worksheet defaults" }),
+    );
+    expect(await screen.findByText("Worksheet defaults saved locally.")).toBeVisible();
+
+    expect(puts).toHaveLength(1);
+    const saved = puts[0]!;
+    for (const group of [
+      "worksheetType",
+      "dryMath",
+      "findTheWow",
+      "sentenceBuilder",
+      "countCompareMake",
+    ] as const) {
+      expect(saved.defaults[group], group).toEqual(before.defaults[group]);
+    }
+    expect(saved.defaults.useEarlierChildSettings).toBe(true);
+    expect(saved.defaults.useInterests).toBe(false);
+    // Until the Theme control exists, the saved theme follows interests (D33).
+    expect(saved.defaults.theme).toBe("neutral");
+    expect(saved.defaults.printScale).toBe("large");
+    expect(saved.defaults).not.toHaveProperty("difficulty");
+    expect(saved.profiles).toEqual(before.profiles);
+    expect(saved.schemaVersion).toBe(2);
+  });
+
+  test("shows the upgrade notice for a version 1 file until the first save upgrades it", async () => {
+    stubConfigApi(migratedConfig(), 1);
+    render(<App />);
+    const notice = await screen.findByText(UPGRADE_NOTICE_TEXT);
+    expect(notice.textContent).toBe(
+      "This profile file was saved by an earlier version. Your profiles are shown unchanged; the next save updates the file and keeps a copy of the earlier file beside it. Age is no longer used, and Practice focus replaces Difficulty. A saved Difficulty of Confidence or Stretch no longer applies; each practice focus uses exactly its stated range.",
+    );
+    const region = notice.closest("[aria-live]");
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).not.toHaveAttribute("role");
+    expect(notice.closest('[role="status"]')).toBeNull();
+    // Outside both the profile list and the generator panel (U3).
+    expect(notice.closest(".profile-workspace")).toBeNull();
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit Morgan" }));
+    const nickname = screen.getByRole("textbox", { name: "Nickname (optional)" });
+    await user.clear(nickname);
+    await user.type(nickname, "Morgan renamed");
+    await user.click(screen.getByRole("button", { name: "Save profile" }));
+    expect(await screen.findByRole("heading", { name: "Morgan renamed" })).toBeVisible();
+    expect(screen.queryByText(UPGRADE_NOTICE_TEXT)).toBeNull();
+  });
+
+  test("a version 2 file shows no upgrade notice", async () => {
+    stubConfigApi(migratedConfig(), 2);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+    expect(screen.queryByText(UPGRADE_NOTICE_TEXT)).toBeNull();
+  });
+
+  test("the recovery panel states what stays only in the backup before confirmation", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/api/health")) {
+          return new Response(JSON.stringify({ status: "ok", version: "0.1.0" }), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+        if (url.endsWith("/api/session")) {
+          return new Response(JSON.stringify({ token: "fixture-token" }), {
+            headers: { "Content-Type": "application/json" },
+            status: 200,
+          });
+        }
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "CONFIG_INVALID",
+              message: "The saved profile file is invalid. It was left unchanged.",
+            },
+          }),
+          {
+            headers: { "Content-Type": "application/json", ETag: '"sha256-fixture"' },
+            status: 409,
+          },
+        );
+      }),
+    );
+    render(<App />);
+    const heading = await screen.findByRole("heading", {
+      name: "The saved profile file needs attention",
+    });
+    const panel = heading.closest("section")!;
+    expect(within(panel).getByText(RECOVERY_DISCLOSURE_TEXT).textContent).toBe(
+      "The replacement file keeps only the one profile entered below, with the built-in worksheet defaults. Every other profile, the saved worksheet defaults and all earlier settings stay only in the backup file.",
+    );
+    expect(
+      within(panel).getByText(/Optional draft download/u).textContent,
+    ).not.toMatch(/\bages?\b/iu);
+    expect(
+      within(panel).getByRole("checkbox", {
+        name: /I understand that Back up invalid file and replace/u,
+      }),
+    ).not.toBeChecked();
   });
 });

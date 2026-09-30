@@ -13,11 +13,16 @@ import {
   type HealthResponse,
 } from "../shared/api/health";
 import {
-  AppConfigV1Schema,
-  type AppConfigV1,
-  type ChildProfileV1,
-  type GenerationDefaultsV1,
+  emptyAppConfigV2,
+  themeFromInterests,
+} from "../shared/config/defaults";
+import {
+  AppConfigV2Schema,
+  type AppConfigV2,
+  type ChildProfileV2,
+  type StoredSchemaVersion,
 } from "../shared/config/schema";
+import { capabilityProfileOf } from "../shared/worksheet/project-request";
 import { getWorksheetRegistration } from "../shared/worksheet/registry";
 import {
   ConfigApiError,
@@ -30,33 +35,22 @@ import {
 import { ProfileEditor } from "./profiles/ProfileEditor";
 import { ProfileList } from "./profiles/ProfileList";
 import { RecoveryPanel } from "./profiles/RecoveryPanel";
+import { UpgradeNotice } from "./profiles/UpgradeNotice";
 import {
   createInitialWorksheetSession,
   makeAnotherWorksheetSession,
   type GenerationSelection,
   type WorksheetSession,
 } from "./generator/create-session";
-import { GeneratorControls } from "./generator/GeneratorControls";
+import {
+  GeneratorControls,
+  type ShownWorksheetDefaults,
+} from "./generator/GeneratorControls";
 import { PrintView } from "./print/PrintView";
 
 const DOCUMENT_TITLE = "Extra Credit Worksheet";
 const HEALTH_REQUEST_TIMEOUT_MS = 500;
 const HEALTH_RETRY_DELAYS_MS = [150, 300, 600] as const;
-
-const DEFAULT_CONFIG: AppConfigV1 = {
-  schemaVersion: 1,
-  profiles: [],
-  defaults: {
-    useDisplayName: true,
-    useInterests: true,
-    includeDecorativeGraphics: true,
-    difficulty: "practice",
-    length: "standard",
-    includeAnswerKey: true,
-    paperSize: "letter",
-    printScale: "standard",
-  },
-};
 
 type HealthState =
   | { kind: "checking" }
@@ -65,10 +59,17 @@ type HealthState =
 
 type ProfileState =
   | { kind: "loading" }
-  | { kind: "ready"; config: AppConfigV1; etag?: string; revision: number }
+  | {
+      kind: "ready";
+      config: AppConfigV2;
+      etag?: string;
+      revision: number;
+      /** The version on disk; absent for a missing file, which has none. */
+      storedSchemaVersion?: StoredSchemaVersion;
+    }
   | {
       kind: "recovery";
-      config: AppConfigV1;
+      config: AppConfigV2;
       errorCode: ConfigApiErrorCode;
       etag: string;
       message: string;
@@ -82,16 +83,17 @@ type ProfileState =
 
 interface EditorSession {
   readonly etag?: string;
-  readonly profile: ChildProfileV1 | null;
+  readonly profile: ChildProfileV2 | null;
   readonly revision: number;
 }
 
 type ProfileReadOutcome =
   | {
       readonly kind: "ready";
-      readonly config: AppConfigV1;
+      readonly config: AppConfigV2;
       readonly etag?: string;
       readonly source: "loaded" | "missing";
+      readonly storedSchemaVersion?: StoredSchemaVersion;
     }
   | {
       readonly kind: "recovery";
@@ -125,7 +127,7 @@ interface ProfileControllerState {
   readonly operation: ProfileOperation | null;
   readonly profileState: ProfileState;
   readonly recoveryConfirmed: boolean;
-  readonly recoveryDraft: AppConfigV1 | undefined;
+  readonly recoveryDraft: AppConfigV2 | undefined;
   readonly successMessage: string | null;
 }
 
@@ -156,9 +158,10 @@ type ProfileControllerAction =
     }
   | {
       readonly type: "refresh-authority";
-      readonly config: AppConfigV1;
+      readonly config: AppConfigV2;
       readonly etag: string | undefined;
       readonly operation: ProfileOperation;
+      readonly storedSchemaVersion: StoredSchemaVersion | undefined;
     }
   | { readonly type: "operation-failed"; readonly operation: ProfileOperation }
   | { readonly type: "open-editor"; readonly session: EditorSession }
@@ -170,7 +173,7 @@ type ProfileControllerAction =
     }
   | {
       readonly type: "set-recovery-draft";
-      readonly draft: AppConfigV1 | undefined;
+      readonly draft: AppConfigV2 | undefined;
     };
 
 const INITIAL_PROFILE_CONTROLLER_STATE: ProfileControllerState = {
@@ -241,7 +244,7 @@ function profileControllerReducer(
         action.outcome.kind === "recovery"
           ? {
               kind: "recovery",
-              config: structuredClone(DEFAULT_CONFIG),
+              config: emptyAppConfigV2(),
               errorCode: action.outcome.errorCode,
               etag: action.outcome.etag,
               message: action.outcome.message,
@@ -252,6 +255,9 @@ function profileControllerReducer(
               config: action.outcome.config,
               ...(etag === undefined ? {} : { etag }),
               revision,
+              ...(action.outcome.storedSchemaVersion === undefined
+                ? {}
+                : { storedSchemaVersion: action.outcome.storedSchemaVersion }),
             };
       const editorSession =
         action.mode === "retain-draft"
@@ -296,6 +302,7 @@ function profileControllerReducer(
           config: action.saved.config,
           etag: action.saved.etag,
           revision,
+          storedSchemaVersion: action.saved.storedSchemaVersion,
         },
         recoveryConfirmed: false,
         recoveryDraft: undefined,
@@ -336,6 +343,7 @@ function profileControllerReducer(
           config: action.saved.config,
           etag: action.saved.etag,
           revision,
+          storedSchemaVersion: action.saved.storedSchemaVersion,
         },
         successMessage: null,
       };
@@ -363,6 +371,9 @@ function profileControllerReducer(
           config: action.config,
           ...(action.etag === undefined ? {} : { etag: action.etag }),
           revision,
+          ...(action.storedSchemaVersion === undefined
+            ? {}
+            : { storedSchemaVersion: action.storedSchemaVersion }),
         },
         successMessage: null,
       };
@@ -488,13 +499,14 @@ async function readProfileOutcome(): Promise<ProfileReadOutcome> {
       config: loaded.config,
       etag: loaded.etag,
       source: "loaded",
+      storedSchemaVersion: loaded.storedSchemaVersion,
     };
   } catch (error) {
     const failure = asProfileFailure(error);
     if (failure.code === "CONFIG_NOT_FOUND") {
       return {
         kind: "ready",
-        config: structuredClone(DEFAULT_CONFIG),
+        config: emptyAppConfigV2(),
         source: "missing",
       };
     }
@@ -643,13 +655,15 @@ export function App() {
   );
 
   const handleRecoveryDraftChange = useCallback(
-    (draft: ChildProfileV1 | undefined): void => {
+    (draft: ChildProfileV2 | undefined): void => {
+      // The recovery replacement is the built-in empty config plus this one
+      // draft profile; RecoveryPanel states what stays only in the backup.
       dispatchProfile({
         type: "set-recovery-draft",
         draft:
           draft === undefined
             ? undefined
-            : { ...structuredClone(DEFAULT_CONFIG), profiles: [draft] },
+            : { ...emptyAppConfigV2(), profiles: [draft] },
       });
     },
     [],
@@ -690,7 +704,7 @@ export function App() {
     return () => controller.abort();
   }, [reloadProfiles]);
 
-  async function persistProfile(profile: ChildProfileV1): Promise<void> {
+  async function persistProfile(profile: ChildProfileV2): Promise<void> {
     if (profileState.kind !== "ready" && profileState.kind !== "recovery") {
       throw new ConfigApiError("CONFIG_IO_ERROR", "Profiles are not ready to save.", 503);
     }
@@ -725,7 +739,7 @@ export function App() {
     } else {
       profiles[existingIndex] = profile;
     }
-    const nextConfig = AppConfigV1Schema.parse({ ...profileState.config, profiles });
+    const nextConfig = AppConfigV2Schema.parse({ ...profileState.config, profiles });
     const mutation = beginProfileOperation("mutation");
     if (mutation === undefined) {
       throw new ConfigApiError("CONFIG_IO_ERROR", "Another profile operation is pending.", 409);
@@ -800,6 +814,7 @@ export function App() {
       config: outcome.config,
       etag: outcome.etag,
       operation: refresh,
+      storedSchemaVersion: outcome.storedSchemaVersion,
     });
   }
 
@@ -812,9 +827,15 @@ export function App() {
    * or reorder a child profile. It claims the file under the `defaults`
    * operation kind, which is what keeps the generated preview and the parent's
    * child/family selection alive across the write.
+   *
+   * Before the worksheet-first panel exists this is DD9's pre-panel rule
+   * (D-save): it writes only the fields the panel shows, derives `theme` from
+   * `useInterests` by the migration rule (D33), and passes every worksheet
+   * group and `useEarlierChildSettings` through unchanged, so it never writes
+   * a group derived from a child's earlier settings.
    */
   async function saveGenerationDefaults(
-    defaults: GenerationDefaultsV1,
+    shown: ShownWorksheetDefaults,
   ): Promise<void> {
     if (profileState.kind !== "ready" || operationRef.current !== null) {
       throw new ConfigApiError(
@@ -823,9 +844,13 @@ export function App() {
         503,
       );
     }
-    const nextConfig = AppConfigV1Schema.parse({
+    const nextConfig = AppConfigV2Schema.parse({
       ...profileState.config,
-      defaults,
+      defaults: {
+        ...profileState.config.defaults,
+        ...shown,
+        theme: themeFromInterests(shown.useInterests),
+      },
     });
     const write = beginProfileOperation("defaults");
     if (write === undefined) {
@@ -860,7 +885,7 @@ export function App() {
     if (profileState.kind !== "ready" || operationRef.current !== null) {
       throw new ConfigApiError("CONFIG_IO_ERROR", "Profiles are not ready to change.", 503);
     }
-    const nextConfig = AppConfigV1Schema.parse({
+    const nextConfig = AppConfigV2Schema.parse({
       ...profileState.config,
       profiles: profileState.config.profiles.filter(({ id }) => id !== profileId),
     });
@@ -977,20 +1002,25 @@ export function App() {
         selection: currentSelection,
         session: generated.session,
       });
-      const unit = getWorksheetRegistration(
-        currentSelection.worksheetType,
-      ).controls.getEffectiveUnit({
-        profile: currentProfile,
-        difficulty: currentSelection.preferences.difficulty,
-        length: currentSelection.preferences.length,
-        printScale: currentSelection.preferences.printScale,
-      });
+      const capabilities = capabilityProfileOf(currentProfile);
       const readyCount = generated.session.document.items.length;
-      setGenerationMessage(
-        `Worksheet ready with ${readyCount} unique ${
-          readyCount === 1 ? unit.singularLabel : unit.pluralLabel
-        }.`,
-      );
+      if (capabilities === undefined) {
+        setGenerationMessage("Worksheet ready.");
+      } else {
+        const unit = getWorksheetRegistration(
+          currentSelection.worksheetType,
+        ).controls.getEffectiveUnit({
+          profile: capabilities,
+          difficulty: currentSelection.preferences.difficulty,
+          length: currentSelection.preferences.length,
+          printScale: currentSelection.preferences.printScale,
+        });
+        setGenerationMessage(
+          `Worksheet ready with ${readyCount} unique ${
+            readyCount === 1 ? unit.singularLabel : unit.pluralLabel
+          }.`,
+        );
+      }
       setMakeAnotherExhausted(false);
     } finally {
       generationActionRef.current = false;
@@ -1113,6 +1143,14 @@ export function App() {
 
         {health.kind === "ready" && profileState.kind === "loading" && (
           <p aria-live="polite">Loading saved profiles…</p>
+        )}
+        {health.kind === "ready" && (
+          <UpgradeNotice
+            visible={
+              profileState.kind === "ready" &&
+              profileState.storedSchemaVersion === 1
+            }
+          />
         )}
         {health.kind === "ready" && readPending && profileState.kind !== "loading" && (
           <p aria-live="polite" role="status">Reloading saved profiles…</p>

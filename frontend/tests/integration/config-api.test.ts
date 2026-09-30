@@ -18,9 +18,10 @@ import {
   computeConfigEtag,
   type ConfigStoreDependencies,
 } from "../../src/server/config-store.js";
+import { emptyAppConfigV2 } from "../../src/shared/config/defaults.js";
 import type {
-  AppConfigV1,
-  ChildProfileV1,
+  AppConfigV2,
+  ChildProfileV2,
 } from "../../src/shared/config/schema.js";
 
 const HOST = "127.0.0.1:4310";
@@ -29,57 +30,48 @@ const temporaryDirectories: string[] = [];
 const apps: FastifyInstance[] = [];
 const CONFIG_SPEC_BYTE_LIMIT = 65_536;
 
-function specPrettyBytes(config: AppConfigV1): Buffer {
+function specPrettyBytes(config: AppConfigV2): Buffer {
   return Buffer.from(`${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
-function fixture(displayName = "Morgan"): AppConfigV1 {
+function fixture(displayName = "Morgan"): AppConfigV2 {
   return {
-    schemaVersion: 1,
+    ...emptyAppConfigV2(),
     profiles: [
       {
         id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
         displayName,
-        ageYears: 6,
-        presentationBand: "early-primary",
         reviewedOn: "2026-08-22",
-        mathSkills: {
-          countingMax: 20,
-          numeralMax: 20,
-          compareMax: 20,
-          representations: ["quantities", "equations"],
-          understandsEquality: true,
-          operations: ["addition", "subtraction"],
-          operandMax: 10,
-          resultMax: 10,
-          allowRegrouping: false,
-          allowNegativeResults: false,
-        },
-        writingMode: "sentence-frame",
         interests: ["nature", "vehicles"],
+        legacyChoices: {
+          presentationBand: "early-primary",
+          writingMode: "sentence-frame",
+          mathSkills: {
+            countingMax: 20,
+            numeralMax: 20,
+            compareMax: 20,
+            representations: ["quantities", "equations"],
+            understandsEquality: true,
+            operations: ["addition", "subtraction"],
+            operandMax: 10,
+            resultMax: 10,
+            allowRegrouping: false,
+            allowNegativeResults: false,
+          },
+        },
       },
     ],
-    defaults: {
-      useDisplayName: true,
-      useInterests: true,
-      includeDecorativeGraphics: true,
-      difficulty: "practice",
-      length: "standard",
-      includeAnswerKey: true,
-      paperSize: "letter",
-      printScale: "standard",
-    },
   };
 }
 
-function sizingProfile(index: number, displayName = "A"): ChildProfileV1 {
+function sizingProfile(index: number, displayName = "A"): ChildProfileV2 {
   const child = structuredClone(fixture(displayName).profiles[0]!);
   child.id = `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
   child.interests = [];
   return child;
 }
 
-function exactSizedConfig(): AppConfigV1 {
+function exactSizedConfig(): AppConfigV2 {
   const config = fixture();
   config.profiles = [];
   let index = 1;
@@ -200,7 +192,12 @@ describe("profile config API", () => {
     expect(created.statusCode).toBe(200);
     expect(created.headers["cache-control"]).toBe("no-store");
     expect(created.headers.etag).toMatch(/^"sha256-[0-9a-f]{64}"$/u);
-    const createdConfig = (created.json() as { config: AppConfigV1 }).config;
+    const createdBody = created.json() as {
+      config: AppConfigV2;
+      storedSchemaVersion: number;
+    };
+    expect(createdBody.storedSchemaVersion).toBe(2);
+    const createdConfig = createdBody.config;
     expect(createdConfig.profiles[0]!.displayName).toBe("Morgan");
     expect(createdConfig.profiles[0]!.interests).toEqual(["Nature", "vehicles"]);
     expect(computeConfigEtag(await readFile(configPath))).toBe(created.headers.etag);
@@ -212,7 +209,7 @@ describe("profile config API", () => {
     });
     expect(read.statusCode).toBe(200);
     expect(read.headers.etag).toBe(created.headers.etag);
-    expect(read.json()).toEqual({ config: createdConfig });
+    expect(read.json()).toEqual({ config: createdConfig, storedSchemaVersion: 2 });
 
     const update = fixture("Avery");
     const updated = await app.inject({
@@ -226,7 +223,7 @@ describe("profile config API", () => {
     });
     expect(updated.statusCode).toBe(200);
     expect(updated.headers.etag).not.toBe(read.headers.etag);
-    expect((updated.json() as { config: AppConfigV1 }).config).toEqual(update);
+    expect(updated.json()).toEqual({ config: update, storedSchemaVersion: 2 });
   });
 
   test("maps token, parser, validation, and precondition failures exactly", async () => {
@@ -430,7 +427,7 @@ describe("profile config API", () => {
     expectSafeError(invalid, "CONFIG_INVALID", 409);
     expect(invalid.payload).not.toContain("�");
 
-    const futureRaw = Buffer.from('{"schemaVersion":2,"secret":"canary"}\n');
+    const futureRaw = Buffer.from('{"schemaVersion":3,"secret":"canary"}\n');
     await writeFile(configPath, futureRaw);
     const future = await app.inject({ method: "GET", url: "/api/config", headers });
     expect(future.statusCode).toBe(409);

@@ -1,6 +1,7 @@
 import {
-  AppConfigV1Schema,
-  type AppConfigV1,
+  ConfigResponseV2Schema,
+  type AppConfigV2,
+  type StoredSchemaVersion,
 } from "../../shared/config/schema";
 
 export const CONFIG_API_ERROR_CODES = [
@@ -64,8 +65,10 @@ export class ConfigAuthorityChangedError extends ConfigApiError {
 }
 
 export interface LoadedConfig {
-  readonly config: AppConfigV1;
+  readonly config: AppConfigV2;
   readonly etag: string;
+  /** 1 while the file on disk is still an earlier version read through migration. */
+  readonly storedSchemaVersion: StoredSchemaVersion;
 }
 
 export interface SaveConfigOptions {
@@ -173,8 +176,7 @@ async function readWithToken(token: string): Promise<LoadedConfig> {
     throw await apiFailure(response);
   }
 
-  const body = (await response.json()) as { readonly config?: unknown };
-  const parsed = AppConfigV1Schema.safeParse(body.config);
+  const parsed = ConfigResponseV2Schema.safeParse(await response.json());
   const etag = responseEtag(response);
   if (!parsed.success || etag === undefined) {
     throw new ConfigApiError(
@@ -184,7 +186,11 @@ async function readWithToken(token: string): Promise<LoadedConfig> {
     );
   }
 
-  return { config: parsed.data, etag };
+  return {
+    config: parsed.data.config,
+    etag,
+    storedSchemaVersion: parsed.data.storedSchemaVersion,
+  };
 }
 
 /** Reads may refresh and retry because they cannot mutate the profile file. */
@@ -207,7 +213,7 @@ export async function loadConfig(): Promise<LoadedConfig> {
  * for the parent's next explicit Save action, while this call still rejects.
  */
 export async function saveConfig(
-  config: AppConfigV1,
+  config: AppConfigV2,
   options: SaveConfigOptions,
 ): Promise<LoadedConfig> {
   const token = await getSessionToken();
@@ -241,8 +247,7 @@ export async function saveConfig(
     throw failure;
   }
 
-  const body = (await response.json()) as { readonly config?: unknown };
-  const parsed = AppConfigV1Schema.safeParse(body.config);
+  const parsed = ConfigResponseV2Schema.safeParse(await response.json());
   const etag = responseEtag(response);
   if (!parsed.success || etag === undefined) {
     throw new ConfigApiError(
@@ -252,7 +257,11 @@ export async function saveConfig(
     );
   }
 
-  return { config: parsed.data, etag };
+  return {
+    config: parsed.data.config,
+    etag,
+    storedSchemaVersion: parsed.data.storedSchemaVersion,
+  };
 }
 
 export function resetSessionForTests(): void {

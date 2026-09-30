@@ -4,8 +4,6 @@ import {
   DIFFICULTIES,
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
-  ChildProfileV1Schema,
-  type ChildProfileV1,
   type GenerationDefaultsV1,
 } from "../config/schema.js";
 import {
@@ -47,7 +45,11 @@ import {
   type WorksheetMaximumValues,
   type WorksheetRelevantMaximumKey,
 } from "./limit-labels.js";
-import { projectGenerationRequest } from "./project-request.js";
+import {
+  CapabilityProfileV1Schema,
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "./project-request.js";
 import { V1_NUMERIC_MAXIMUM } from "./types.js";
 import {
   CAPACITY_PROBE_PREFERENCES,
@@ -441,8 +443,8 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   { id: "PS-ok", status: "reachable", note: "the probe projection succeeded" },
   {
     id: "PS-projection-fail",
-    status: "reachable",
-    note: "the projection refused and the control surfaced its message rather than a capacity sentence",
+    status: "dead",
+    note: "dead since the age gate was removed (worksheet-first Step 15): the sweep projects only confirmed stretch, so the projection's remaining refusals (an invalid generator version, a malformed seed, an unconfirmed stretch) cannot occur here, and the age-9 probe that was this arm's only producer no longer exists. A projection refusal the sweep ever observes again names this arm through the dead-arm check",
   },
   {
     id: "FCS-conf-quantity",
@@ -656,7 +658,6 @@ const DECLARED_SENTENCE_SHAPES: readonly string[] = [
   "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's counting limits.",
   "The confirmed limits provide N unique quantity groups, but this length needs N. Review the profile's numerals limits.",
   "Two Whats and a Wow needs confirmed quantities, or equations with equality understanding and an enabled operation. Choose another supported profile or edit this profile to confirm one of those capability paths.",
-  "Version N worksheets support ages N–N. This profile stays saved for a future skill pack.",
 ];
 
 const DECLARED_ARM_IDS = new Set(DECLARED_ARMS.map(({ id }) => id));
@@ -682,12 +683,11 @@ interface QuantityMaximums {
 function quantityProfile(
   id: string,
   maximums: QuantityMaximums,
-  writingMode: ChildProfileV1["writingMode"] = "label",
-): ChildProfileV1 {
+  writingMode: CapabilityProfileV1["writingMode"] = "label",
+): CapabilityProfileV1 {
   return {
     id,
     displayName: "Private Quantity Child",
-    ageYears: 5,
     presentationBand: "preschool",
     reviewedOn: "2026-08-22",
     mathSkills: {
@@ -709,13 +709,12 @@ function equationProfile(
   id: string,
   operandMax: number,
   resultMax: number,
-  operations: ChildProfileV1["mathSkills"]["operations"],
-  writingMode: ChildProfileV1["writingMode"] = "sentence-frame",
-): ChildProfileV1 {
+  operations: CapabilityProfileV1["mathSkills"]["operations"],
+  writingMode: CapabilityProfileV1["writingMode"] = "sentence-frame",
+): CapabilityProfileV1 {
   return {
     id,
     displayName: "Private Equation Child",
-    ageYears: 6,
     presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
     mathSkills: {
@@ -735,10 +734,9 @@ function equationProfile(
   };
 }
 
-const bothCapabilitiesProfile: ChildProfileV1 = {
+const bothCapabilitiesProfile: CapabilityProfileV1 = {
   id: "93c7a8d2-4b1e-4a6f-9d30-7b8e2f1c5a64",
   displayName: "Private Avery",
-  ageYears: 8,
   presentationBand: "early-primary",
   reviewedOn: "2026-08-22",
   mathSkills: {
@@ -778,7 +776,7 @@ const bothCapabilitiesProfile: ChildProfileV1 = {
  * because those arms are ties the cube reaches anyway, through a closed set of
  * its own so that deleting the loop is not silent.
  */
-const aboveCeilingProfile: ChildProfileV1 = ChildProfileV1Schema.parse({
+const aboveCeilingProfile: CapabilityProfileV1 = CapabilityProfileV1Schema.parse({
   ...bothCapabilitiesProfile,
   id: "0c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
   mathSkills: {
@@ -791,14 +789,7 @@ const aboveCeilingProfile: ChildProfileV1 = ChildProfileV1Schema.parse({
   },
 });
 
-/** Version 1 supports ages 4-8; a stored 9 is the projection's own refusal. */
-const beyondV1AgeProfile: ChildProfileV1 = {
-  ...bothCapabilitiesProfile,
-  id: "8d7c6b5a-4938-4271-8605-4f3e2d1c0b9a",
-  ageYears: 9,
-};
-
-const PROBE_PROFILES: readonly ChildProfileV1[] = [
+const PROBE_PROFILES: readonly CapabilityProfileV1[] = [
   // Quantities, tied at 10: the confidence downgrade takes both to 7 together.
   quantityProfile("d2c05a44-73ad-4fa0-a4b3-9db5c5f6e321", {
     countingMax: 10,
@@ -858,8 +849,7 @@ const PROBE_PROFILES: readonly ChildProfileV1[] = [
   // Equations confirmed with nothing usable behind them.
   equationProfile("c5d6e7f8-a9b0-42b9-84cd-f4a5b6c7d8e9", 0, 0, []),
   bothCapabilitiesProfile,
-  beyondV1AgeProfile,
-].map((profile) => ChildProfileV1Schema.parse(profile));
+].map((profile) => CapabilityProfileV1Schema.parse(profile));
 
 // --- observation -----------------------------------------------------------
 
@@ -1453,7 +1443,7 @@ describe("the equation families' binding-maximum arms", () => {
       ["addition"],
       ["subtraction"],
       ["addition", "subtraction"],
-    ] as const satisfies readonly ChildProfileV1["mathSkills"]["operations"][];
+    ] as const satisfies readonly CapabilityProfileV1["mathSkills"]["operations"][];
     const dryMathArms = new Set<string>();
     const findTheWowArms = new Set<string>();
     // Tuples where a `Math.min` over the same two maxima would have named a
@@ -1473,7 +1463,7 @@ describe("the equation families' binding-maximum arms", () => {
     for (const operations of OPERATION_SETS) {
       for (let operandMax = 1; operandMax <= 20; operandMax += 1) {
         for (let resultMax = 1; resultMax <= 20; resultMax += 1) {
-          const profile = ChildProfileV1Schema.parse(
+          const profile = CapabilityProfileV1Schema.parse(
             equationProfile(
               "e1d2c3b4-a596-4877-8968-5a4b3c2d1e0f",
               operandMax,

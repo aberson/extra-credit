@@ -7,6 +7,7 @@ import {
 } from "../../shared/config/math-presets";
 import {
   MATH_OPERATIONS,
+  MathSkillsV1Schema,
   PRESENTATION_BANDS,
   REPRESENTATIONS,
   type MathSkillsV1,
@@ -14,10 +15,7 @@ import {
 } from "../../shared/config/schema";
 
 export interface MathSkillsEditorProps {
-  readonly ageYears: number | null;
-  readonly confirmed: boolean;
   readonly mathSkills: MathSkillsV1;
-  readonly onConfirmSuggestion: () => void;
   readonly onMathSkillsChange: (mathSkills: MathSkillsV1) => void;
   readonly onPresentationBandChange: (band: PresentationBand) => void;
   readonly onSelectPreset: (presetId: MathPresetId) => void;
@@ -68,10 +66,7 @@ function numericValue(value: string, fallback: number): number {
 }
 
 export function MathSkillsEditor({
-  ageYears,
-  confirmed,
   mathSkills,
-  onConfirmSuggestion,
   onMathSkillsChange,
   onPresentationBandChange,
   onSelectPreset,
@@ -86,25 +81,10 @@ export function MathSkillsEditor({
   return (
     <fieldset style={fieldsetStyle}>
       <legend style={{ fontWeight: 750 }}>Math capabilities</legend>
-
-      {ageYears === 5 && !confirmed && (
-        <p role="status" style={{ color: "#784a14", marginTop: 0 }}>
-          Age 5 has two suggestions. Choose one based on what you observe;
-          neither is selected for you.
-        </p>
-      )}
-      {ageYears !== null && ageYears >= 9 && (
-        <p role="status" style={{ color: "#8a3e2f", marginTop: 0 }}>
-          This profile can be saved and edited, but worksheet generation is not
-          yet supported for age {ageYears}.
-        </p>
-      )}
-      {ageYears !== null && ageYears >= 4 && ageYears <= 8 && ageYears !== 5 && !confirmed && (
-        <p role="status" style={{ color: "#355c50", marginTop: 0 }}>
-          A starting suggestion is selected from age. Review and confirm it;
-          age never silently changes confirmed capabilities.
-        </p>
-      )}
+      <p style={{ marginTop: 0 }}>
+        Choose the preset that matches what you have seen your child do. No
+        preset is chosen for you.
+      </p>
 
       <fieldset style={{ ...fieldsetStyle, marginTop: "0.6rem" }}>
         <legend>Math preset</legend>
@@ -132,16 +112,6 @@ export function MathSkillsEditor({
           </label>
         </div>
       </fieldset>
-
-      {selectedPresetId !== null && !confirmed && (
-        <button
-          onClick={onConfirmSuggestion}
-          style={{ marginTop: "0.75rem" }}
-          type="button"
-        >
-          Confirm suggested capabilities
-        </button>
-      )}
 
       {(selectedDefinition?.presentationBand == null || selectedPresetId === "custom") && (
       <fieldset style={{ ...fieldsetStyle, marginTop: "0.8rem" }}>
@@ -202,18 +172,19 @@ export function MathSkillsEditor({
         <summary>Advanced capability fields</summary>
         <div style={{ ...gridStyle, marginTop: "0.7rem" }}>
           {([
-            ["Counting maximum", "countingMax", 1],
-            ["Numeral maximum", "numeralMax", 1],
-            ["Comparison maximum", "compareMax", 1],
-            ["Operand maximum", "operandMax", 0],
-            ["Result maximum", "resultMax", 0],
-          ] as const).map(([label, key, minimum]) => (
+            ["Counting maximum", "countingMax"],
+            ["Numeral maximum", "numeralMax"],
+            ["Comparison maximum", "compareMax"],
+            ["Operand maximum", "operandMax"],
+            ["Result maximum", "resultMax"],
+          ] as const).map(([label, key]) => (
             <label key={key} style={{ display: "grid", gap: "0.2rem" }}>
               {label}
               <input
                 disabled={!showCustom}
-                max={1_000}
-                min={minimum}
+                // The frozen v1 field is the only place these bounds are written.
+                max={MathSkillsV1Schema.shape[key].maxValue ?? undefined}
+                min={MathSkillsV1Schema.shape[key].minValue ?? undefined}
                 onChange={(event) =>
                   onMathSkillsChange({
                     ...mathSkills,

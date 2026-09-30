@@ -76,6 +76,42 @@ audited application source.
   `IndexedDB`, Cache API, or service worker.
 - Keep the server bound to `127.0.0.1` and every API response `no-store`.
 
+## Persisted shape
+
+The local profile file carries a `schemaVersion`. Version 2, defined in
+`frontend/src/shared/config/schema.ts`, is the current shape. A version 1 file
+is read through the frozen `legacy-v1.ts` path, upgraded in memory by
+`migrate.ts`, and rewritten only by the first explicit save, after a
+byte-identical `.v1-…bak` backup of the earlier file.
+
+- **Any change to accepted keys or accepted values needs a new version.**
+  Adding, removing or renaming a key; adding or removing a value-list member
+  (for example widening `MATH_OPERATIONS` or `THEME_CHOICES`); moving a
+  numeric, item or text bound; or adding, removing or renaming a refinement
+  requires `schemaVersion: 3` with a version 2 read path and its own step in
+  `CONFIG_MIGRATIONS`, never an in-place edit of version 2. An older version 2
+  build treats a same-version file it cannot strictly parse as invalid and
+  offers backup-and-replace recovery, so widening version 2 in place turns an
+  ordinary downgrade into a destructive one.
+- **The fingerprint enforces it.**
+  `frontend/tests/integration/config-shape-fingerprint.test.ts` pins the whole
+  accepted value domain (the composed transport JSON Schema, the refinement
+  names, and each text field at its maximum and one past it) and fails with
+  "Changing the persisted config shape requires schemaVersion 3 with a v2 read
+  path". Bump the version; do not edit the snapshot to make it pass.
+- **Its limits.** `PERSISTED_REFINEMENTS` in `schema.ts` is a hand-kept list
+  that pins refinement names, not their logic. A refinement added without
+  being registered, or a change inside a registered one, is left to review, so
+  register every new refinement on a persisted object and treat a change to a
+  registered one as a shape change.
+- **One source for every value.** `frontend/src/server/transport-schemas.ts`
+  composes the transport schema from the same value lists and ceilings the Zod
+  schema uses; never restate a list or bound by hand. The frozen legacy
+  `mathSkills` bounds are written only in `legacy-v1.ts`; consumers read them
+  from the `MathSkillsV1Schema` fields.
+  `frontend/tests/integration/schema-parity.test.ts` requires a parity row for
+  every key path the transport schema declares.
+
 ## Quality gates
 
 Run these from the repository root before opening a pull request:

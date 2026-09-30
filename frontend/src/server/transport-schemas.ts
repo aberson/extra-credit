@@ -1,6 +1,30 @@
 import type { FastifySchemaValidationError } from "fastify/types/schema.js";
 import type { z } from "zod";
 
+import {
+  FIND_THE_WOW_VARIANTS,
+  MATH_OPERATIONS,
+  PAPER_SIZES,
+  PRESENTATION_BANDS,
+  PRINT_SCALES,
+  REPRESENTATIONS,
+  SENTENCE_VOCABULARY_OPTIONS,
+  THEME_CHOICES,
+  WORKSHEET_LENGTHS,
+  WRITING_MODES,
+} from "../shared/config/enums.js";
+import { ISO_DATE_PATTERN, UUID_V4_PATTERN } from "../shared/config/fields.js";
+import {
+  APP_CONFIG_SCHEMA_VERSION,
+  INTEREST_MAXIMUM_COUNT,
+  MathSkillsV1Schema,
+} from "../shared/config/schema.js";
+import {
+  DRY_MATH_NUMERIC_MAXIMUM,
+  V1_NUMERIC_MAXIMUM,
+  WORKSHEET_TYPE_IDS,
+} from "../shared/worksheet/types.js";
+
 export const PUBLIC_ERROR_CODES = [
   "HOST_REJECTED",
   "ORIGIN_REJECTED",
@@ -20,7 +44,6 @@ export const PUBLIC_ERROR_CODES = [
   "BODY_TOO_LARGE",
   "CONTENT_TYPE_REQUIRED",
   "VALIDATION_FAILED",
-  "GENERATION_AGE_UNSUPPORTED",
   "GENERATION_CONSTRAINT_CONFLICT",
   "GENERATION_INVARIANT_FAILED",
 ] as const;
@@ -82,136 +105,196 @@ export function apiError(
   };
 }
 
-const mathSkillsProperties = {
-  countingMax: { type: "integer", minimum: 1, maximum: 1_000 },
-  numeralMax: { type: "integer", minimum: 1, maximum: 1_000 },
-  compareMax: { type: "integer", minimum: 1, maximum: 1_000 },
+/**
+ * The transform-free JSON Schema AJV applies to a `PUT /api/config` body before
+ * Zod sees it (DD6). It is COMPOSED from the same `as const` value lists and
+ * numeric ceilings the Zod schema in `shared/config/schema.ts` is built from,
+ * never restated by hand, so the two layers cannot drift; Zod stays
+ * authoritative for text normalization, text bounds, calendar dates, canonical
+ * order and every other cross-field rule. The legacy `mathSkills` integer
+ * bounds are read from the frozen `MathSkillsV1Schema` fields themselves, so
+ * the frozen module stays the only place they are written.
+ */
+
+/**
+ * The `{ type, minimum, maximum }` a bounded Zod integer field declares, read
+ * from the field (Zod reports `minValue` and `maxValue`). A field that is not
+ * an integer, or that leaves either side at the safe-integer default, is a
+ * composition defect and throws when this module loads.
+ */
+export function zodIntegerBounds(field: z.ZodNumber): {
+  readonly type: "integer";
+  readonly minimum: number;
+  readonly maximum: number;
+} {
+  const { isInt, minValue, maxValue } = field;
+  if (
+    !isInt ||
+    minValue === null ||
+    maxValue === null ||
+    minValue <= Number.MIN_SAFE_INTEGER ||
+    maxValue >= Number.MAX_SAFE_INTEGER
+  ) {
+    throw new Error("A transport integer bound must come from a bounded Zod integer field.");
+  }
+  return { type: "integer", minimum: minValue, maximum: maxValue };
+}
+
+const legacyMathFields = MathSkillsV1Schema.shape;
+
+const legacyMathSkillsProperties = {
+  countingMax: zodIntegerBounds(legacyMathFields.countingMax),
+  numeralMax: zodIntegerBounds(legacyMathFields.numeralMax),
+  compareMax: zodIntegerBounds(legacyMathFields.compareMax),
   representations: {
     type: "array",
     minItems: 1,
-    maxItems: 2,
+    maxItems: REPRESENTATIONS.length,
     uniqueItems: true,
-    items: { enum: ["quantities", "equations"] },
+    items: { enum: REPRESENTATIONS },
   },
   understandsEquality: { type: "boolean" },
   operations: {
     type: "array",
-    maxItems: 2,
+    maxItems: MATH_OPERATIONS.length,
     uniqueItems: true,
-    items: { enum: ["addition", "subtraction"] },
+    items: { enum: MATH_OPERATIONS },
   },
-  operandMax: { type: "integer", minimum: 0, maximum: 1_000 },
-  resultMax: { type: "integer", minimum: 0, maximum: 1_000 },
+  operandMax: zodIntegerBounds(legacyMathFields.operandMax),
+  resultMax: zodIntegerBounds(legacyMathFields.resultMax),
   allowRegrouping: { type: "boolean" },
   allowNegativeResults: { type: "boolean" },
 } as const;
 
-export const APP_CONFIG_TRANSPORT_SCHEMA = {
-  $schema: "http://json-schema.org/draft-07/schema#",
-  type: "object",
-  additionalProperties: false,
-  required: ["schemaVersion", "profiles", "defaults"],
-  properties: {
-    schemaVersion: { const: 1 },
-    profiles: {
+function strictObjectSchema<const TProperties extends Record<string, unknown>>(
+  properties: TProperties,
+  optional: readonly (keyof TProperties & string)[] = [],
+) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: Object.keys(properties).filter(
+      (key) => !(optional as readonly string[]).includes(key),
+    ),
+    properties,
+  } as const;
+}
+
+function arithmeticFocusSchema(ceiling: number) {
+  return strictObjectSchema({
+    operations: {
       type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: [
-          "id",
-          "ageYears",
-          "presentationBand",
-          "reviewedOn",
-          "mathSkills",
-          "writingMode",
-          "interests",
-        ],
-        properties: {
-          id: {
-            type: "string",
-            pattern:
-              "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      minItems: 1,
+      maxItems: MATH_OPERATIONS.length,
+      uniqueItems: true,
+      items: { enum: MATH_OPERATIONS },
+    },
+    operandMax: { type: "integer", minimum: 1, maximum: ceiling },
+    resultMax: { type: "integer", minimum: 1, maximum: ceiling },
+  });
+}
+
+const quantityMaximumSchema = {
+  type: "integer",
+  minimum: 1,
+  maximum: V1_NUMERIC_MAXIMUM,
+} as const;
+
+const worksheetDefaultsProperties = {
+  worksheetType: { enum: WORKSHEET_TYPE_IDS },
+  dryMath: arithmeticFocusSchema(DRY_MATH_NUMERIC_MAXIMUM),
+  findTheWow: strictObjectSchema({
+    variant: { enum: FIND_THE_WOW_VARIANTS },
+    quantity: strictObjectSchema({
+      countingMax: quantityMaximumSchema,
+      numeralMax: quantityMaximumSchema,
+    }),
+    equation: arithmeticFocusSchema(V1_NUMERIC_MAXIMUM),
+  }),
+  sentenceBuilder: strictObjectSchema({
+    variant: { enum: WRITING_MODES },
+    vocabulary: { enum: SENTENCE_VOCABULARY_OPTIONS },
+  }),
+  countCompareMake: strictObjectSchema({
+    countingMax: quantityMaximumSchema,
+    numeralMax: quantityMaximumSchema,
+    compareMax: quantityMaximumSchema,
+  }),
+  theme: { enum: THEME_CHOICES },
+  useDisplayName: { type: "boolean" },
+  useInterests: { type: "boolean" },
+  includeDecorativeGraphics: { type: "boolean" },
+  includeAnswerKey: { type: "boolean" },
+  length: { enum: WORKSHEET_LENGTHS },
+  paperSize: { enum: PAPER_SIZES },
+  printScale: { enum: PRINT_SCALES },
+  useEarlierChildSettings: { type: "boolean" },
+} as const;
+
+const legacyChoicesSchema = strictObjectSchema({
+  presentationBand: { enum: PRESENTATION_BANDS },
+  writingMode: { enum: WRITING_MODES },
+  mathSkills: {
+    ...strictObjectSchema(legacyMathSkillsProperties),
+    allOf: [
+      {
+        if: {
+          properties: {
+            operations: { type: "array", maxItems: 0 },
           },
-          // Text bounds apply after trim/code-point normalization in Zod.
-          displayName: { type: "string" },
-          ageYears: { type: "integer", minimum: 4, maximum: 18 },
-          presentationBand: { enum: ["preschool", "early-primary"] },
-          reviewedOn: {
-            type: "string",
-            pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          required: ["operations"],
+        },
+        then: {
+          properties: {
+            operandMax: { const: 0 },
+            resultMax: { const: 0 },
           },
-          mathSkills: {
-            type: "object",
-            additionalProperties: false,
-            required: Object.keys(mathSkillsProperties),
-            properties: mathSkillsProperties,
-            allOf: [
-              {
-                if: {
-                  properties: {
-                    operations: { type: "array", maxItems: 0 },
-                  },
-                  required: ["operations"],
-                },
-                then: {
-                  properties: {
-                    operandMax: { const: 0 },
-                    resultMax: { const: 0 },
-                  },
-                },
-                else: {
-                  properties: {
-                    operandMax: { type: "integer", minimum: 1 },
-                    resultMax: { type: "integer", minimum: 1 },
-                  },
-                },
-              },
-            ],
-          },
-          writingMode: {
-            enum: [
-              "draw-and-tell",
-              "label",
-              "copy-with-model",
-              "sentence-frame",
-              "independent",
-            ],
-          },
-          interests: {
-            type: "array",
-            maxItems: 5,
-            // Text bounds apply after trim/code-point normalization in Zod.
-            items: { type: "string" },
+        },
+        else: {
+          properties: {
+            operandMax: { type: "integer", minimum: 1 },
+            resultMax: { type: "integer", minimum: 1 },
           },
         },
       },
-    },
-    defaults: {
-      type: "object",
-      additionalProperties: false,
-      required: [
-        "useDisplayName",
-        "useInterests",
-        "includeDecorativeGraphics",
-        "difficulty",
-        "length",
-        "includeAnswerKey",
-        "paperSize",
-        "printScale",
-      ],
-      properties: {
-        useDisplayName: { type: "boolean" },
-        useInterests: { type: "boolean" },
-        includeDecorativeGraphics: { type: "boolean" },
-        difficulty: { enum: ["confidence", "practice", "stretch"] },
-        length: { enum: ["short", "standard", "long"] },
-        includeAnswerKey: { type: "boolean" },
-        paperSize: { enum: ["letter", "a4"] },
-        printScale: { enum: ["standard", "large"] },
-      },
-    },
+    ],
   },
+});
+
+const childProfileSchema = strictObjectSchema(
+  {
+    id: {
+      type: "string",
+      pattern: UUID_V4_PATTERN.source,
+    },
+    // Text bounds apply after trim/code-point normalization in Zod.
+    displayName: { type: "string" },
+    reviewedOn: {
+      type: "string",
+      pattern: ISO_DATE_PATTERN.source,
+    },
+    interests: {
+      type: "array",
+      maxItems: INTEREST_MAXIMUM_COUNT,
+      // Text bounds apply after trim/code-point normalization in Zod.
+      items: { type: "string" },
+    },
+    legacyChoices: legacyChoicesSchema,
+  },
+  ["displayName", "legacyChoices"],
+);
+
+/** The composed version 2 body schema, also the fingerprint's source. */
+export const APP_CONFIG_TRANSPORT_SCHEMA = {
+  $schema: "http://json-schema.org/draft-07/schema#",
+  ...strictObjectSchema({
+    schemaVersion: { const: APP_CONFIG_SCHEMA_VERSION },
+    profiles: {
+      type: "array",
+      items: childProfileSchema,
+    },
+    defaults: strictObjectSchema(worksheetDefaultsProperties),
+  }),
 } as const;
 
 export function zodFieldErrors(

@@ -11,7 +11,8 @@ import {
   startServer,
   type StartedServer,
 } from "../../src/server/startup.js";
-import type { AppConfigV1 } from "../../src/shared/config/schema.js";
+import { emptyAppConfigV2 } from "../../src/shared/config/defaults.js";
+import type { AppConfigV2 } from "../../src/shared/config/schema.js";
 
 const HOST = "127.0.0.1:4310";
 const API_ORIGIN = "http://127.0.0.1:4310";
@@ -20,21 +21,8 @@ const temporaryDirectories: string[] = [];
 const apps: FastifyInstance[] = [];
 const servers: StartedServer[] = [];
 
-function fixture(): AppConfigV1 {
-  return {
-    schemaVersion: 1,
-    profiles: [],
-    defaults: {
-      useDisplayName: true,
-      useInterests: true,
-      includeDecorativeGraphics: true,
-      difficulty: "practice",
-      length: "standard",
-      includeAnswerKey: true,
-      paperSize: "letter",
-      printScale: "standard",
-    },
-  };
+function fixture(): AppConfigV2 {
+  return emptyAppConfigV2();
 }
 
 async function temporaryConfigPath(): Promise<string> {

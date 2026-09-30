@@ -1,12 +1,14 @@
-import { readFileSync } from "node:fs";
-
-import {
-  AppConfigV1Schema,
-  type ChildProfileV1,
-  type GenerationDefaultsV1,
-  type WritingMode,
+import type {
+  ChildProfileV2,
+  GenerationDefaultsV1,
+  WorksheetDefaultsV2,
+  WritingMode,
 } from "../../../src/shared/config/schema.ts";
-import { projectGenerationRequest } from "../../../src/shared/worksheet/project-request.ts";
+import {
+  capabilityProfileOf,
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "../../../src/shared/worksheet/project-request.ts";
 import { getWorksheetRegistration } from "../../../src/shared/worksheet/registry.ts";
 import {
   V1_NUMERIC_MAXIMUM,
@@ -18,15 +20,38 @@ import {
   SENTENCE_BUILDER_VOCABULARY,
   isBankWritingMode,
 } from "../../../src/worksheets/sentence-builder/vocabulary.ts";
+import { acceptanceConfig } from "../profiles.ts";
 
-// The manual harness, this matrix, and the plan use the committed example.
-export const acceptanceConfig = AppConfigV1Schema.parse(JSON.parse(
-  readFileSync(
-    new URL("../../../../config/children.example.json", import.meta.url),
-    "utf8",
-  ),
-));
+// The manual harness, this matrix, and the plan use the committed example,
+// read once through the store's classifier in `tests/fixtures/profiles.ts`.
+export { acceptanceConfig };
 export const boundaryNickname = "界".repeat(40);
+
+/**
+ * Interim (D-interim): the unchanged projection's preferences for stored
+ * version 2 defaults, at the session-only Difficulty's starting Practice.
+ */
+export function practicePreferences(defaults: WorksheetDefaultsV2): GenerationDefaultsV1 {
+  return {
+    useDisplayName: defaults.useDisplayName,
+    useInterests: defaults.useInterests,
+    includeDecorativeGraphics: defaults.includeDecorativeGraphics,
+    difficulty: "practice",
+    length: defaults.length,
+    includeAnswerKey: defaults.includeAnswerKey,
+    paperSize: defaults.paperSize,
+    printScale: defaults.printScale,
+  };
+}
+
+/** The capabilities a stored canonical profile carries in its `legacyChoices`. */
+export function capabilitiesOf(profile: ChildProfileV2): CapabilityProfileV1 {
+  const capabilities = capabilityProfileOf(profile);
+  if (capabilities === undefined) {
+    throw new Error("A canonical profile carried no earlier settings.");
+  }
+  return capabilities;
+}
 
 export interface PrintFixture {
   readonly id: string;
@@ -70,7 +95,7 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
   if (original === undefined) {
     throw new Error("Missing canonical acceptance profile.");
   }
-  let profile: ChildProfileV1 = { ...original, displayName: boundaryNickname };
+  let profile: ChildProfileV2 = { ...original, displayName: boundaryNickname };
   let requiredPrompt: string | undefined;
   let requiredWords: readonly string[] = [];
   if (fixture.writingMode !== undefined) {
@@ -102,19 +127,29 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
       requiredWords = widest.words;
       requiredPrompt = undefined;
     }
-    profile = { ...profile, writingMode: mode, interests: [topic] };
+    const legacyChoices = capabilitiesOf(profile);
+    profile = {
+      ...profile,
+      interests: [topic],
+      legacyChoices: {
+        presentationBand: legacyChoices.presentationBand,
+        writingMode: mode,
+        mathSkills: legacyChoices.mathSkills,
+      },
+    };
   }
   const preferences: GenerationDefaultsV1 = {
-    ...acceptanceConfig.defaults,
+    ...practicePreferences(acceptanceConfig.defaults),
     length: "long",
     printScale,
   };
+  const capabilities = capabilitiesOf(profile);
   const registration = getWorksheetRegistration(fixture.worksheetType);
   // Search only real generator outputs. The browser receives this seed, never a
   // fabricated document, and must reproduce its exact prompts, bank and items.
   for (let seed = 1; seed <= 50_000; seed += 1) {
     const projected = projectGenerationRequest({
-      profile,
+      profile: capabilities,
       preferences,
       worksheetType: fixture.worksheetType,
       generatorVersion: registration.generatorVersion,

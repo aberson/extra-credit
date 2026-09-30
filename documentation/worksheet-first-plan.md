@@ -586,6 +586,7 @@ These standing checks must also hold at every step's gate once they exist, and e
   10. **`limit-labels.test.ts`:** the observed arm set equals the declared reachable set; `PS-projection-fail` is declared dead with the age-removal reason and is not observed; `DECLARED_SENTENCE_SHAPES` no longer holds the age message and the observed shapes equal it; and the evidence section counts the dropped probe and the re-declared arm (D23).
   11. **Full gate:** `npm --prefix frontend run check` passes with counts at least Step 14's, counted as the header declares, the §7 standing checks hold, and `npm --prefix frontend run release:verify` exits 0. This step's evidence section names the suites that ran, both counts and the per-file deleted and added counts (D23).
 - **Depends on:** Step 14
+- **Status:** DONE (2026-09-29)
 
 <!-- autofix-applied: 2026-09-29 -->
 ### Step 16: Practice focus replaces Difficulty in generation

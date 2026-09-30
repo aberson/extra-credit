@@ -7,13 +7,21 @@ import { createElement } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
+  emptyAppConfigV2,
+  themeFromInterests,
+} from "../../shared/config/defaults";
+import {
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
   WRITING_MODES,
-  type ChildProfileV1,
   type GenerationDefaultsV1,
 } from "../../shared/config/schema";
-import { projectGenerationRequest } from "../../shared/worksheet/project-request";
+import {
+  NO_EARLIER_SETTINGS_MESSAGE,
+  profileWithLegacyChoices,
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "../../shared/worksheet/project-request";
 import {
   REGISTERED_WORKSHEET_IDS,
   WORKSHEET_REGISTRY,
@@ -50,10 +58,9 @@ import { AnswerKeyView } from "../print/AnswerKeyView";
 import { PrintView } from "../print/PrintView";
 import { WEB_WORKSHEET_RENDERERS } from "./registry";
 
-const profile: ChildProfileV1 = {
+const profile: CapabilityProfileV1 = {
   id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
   displayName: "Private Morgan",
-  ageYears: 6,
   presentationBand: "early-primary",
   reviewedOn: "2026-08-22",
   mathSkills: {
@@ -72,10 +79,9 @@ const profile: ChildProfileV1 = {
   interests: ["Private Topic"],
 };
 
-const quantityProfile: ChildProfileV1 = {
+const quantityProfile: CapabilityProfileV1 = {
   id: "d2c05a44-73ad-4fa0-a4b3-9db5c5f6e321",
   displayName: "Private Riley",
-  ageYears: 4,
   presentationBand: "preschool",
   reviewedOn: "2026-08-22",
   mathSkills: {
@@ -105,8 +111,14 @@ const preferences: GenerationDefaultsV1 = {
   printScale: "standard",
 };
 
+/**
+ * The fixtures below are capability views; a session or the controls receive
+ * the stored version 2 profile whose `legacyChoices` hold them (D-interim).
+ */
+const stored = profileWithLegacyChoices;
+
 const selection: GenerationSelection = {
-  profile,
+  profile: stored(profile),
   preferences,
   stretchConfirmed: false,
   worksheetType: "dry-math",
@@ -123,7 +135,7 @@ function sessionFor(seed: number) {
 }
 
 /** Quantities-only profile whose page must contain a one-dot statement. */
-const smallQuantityProfile: ChildProfileV1 = {
+const smallQuantityProfile: CapabilityProfileV1 = {
   ...quantityProfile,
   id: "a1b2c3d4-1111-4111-8111-111111111111",
   mathSkills: {
@@ -135,7 +147,7 @@ const smallQuantityProfile: ChildProfileV1 = {
 };
 
 /** Every relevant maximum is stretchable: positive and below the V1 ceiling. */
-const stretchProbeProfile: ChildProfileV1 = {
+const stretchProbeProfile: CapabilityProfileV1 = {
   ...profile,
   id: "b1b2c3d4-2222-4222-8222-222222222222",
   mathSkills: {
@@ -149,7 +161,7 @@ const stretchProbeProfile: ChildProfileV1 = {
 };
 
 /** Equation limits already at the V1 ceiling; counting limits below it. */
-const equationsAtMaximumProfile: ChildProfileV1 = {
+const equationsAtMaximumProfile: CapabilityProfileV1 = {
   ...profile,
   id: "c1b2c3d4-3333-4333-8333-333333333333",
   mathSkills: {
@@ -162,7 +174,7 @@ const equationsAtMaximumProfile: ChildProfileV1 = {
 };
 
 /** The mirror image: counting limits at the ceiling, equation limits below. */
-const countingAtMaximumProfile: ChildProfileV1 = {
+const countingAtMaximumProfile: CapabilityProfileV1 = {
   ...profile,
   id: "d1b2c3d4-4444-4444-8444-444444444444",
   mathSkills: {
@@ -183,7 +195,7 @@ const countingAtMaximumProfile: ChildProfileV1 = {
  * active mode's limits and no others.
  */
 const AT_V1_MAXIMUM_PROFILES: Readonly<
-  Record<RegisteredWorksheetType, ChildProfileV1>
+  Record<RegisteredWorksheetType, CapabilityProfileV1>
 > = {
   "dry-math": { ...equationsAtMaximumProfile, mathSkills: {
     ...equationsAtMaximumProfile.mathSkills, operandMax: 100, resultMax: 100,
@@ -193,7 +205,7 @@ const AT_V1_MAXIMUM_PROFILES: Readonly<
   "count-compare-make": countingAtMaximumProfile,
 };
 
-const BANK_MODES: readonly ChildProfileV1["writingMode"][] =
+const BANK_MODES: readonly CapabilityProfileV1["writingMode"][] =
   BANK_WRITING_MODES;
 
 const MAXIMUM_KEYS = [
@@ -205,13 +217,13 @@ const MAXIMUM_KEYS = [
 ] as const satisfies readonly WorksheetRelevantMaximumKey[];
 
 function wowSessionFor(
-  sourceProfile: ChildProfileV1,
+  sourceProfile: CapabilityProfileV1,
   seed: number,
   overrides: Partial<GenerationDefaultsV1> = {},
 ) {
   const result = createWorksheetSessionForSeed(
     {
-      profile: sourceProfile,
+      profile: stored(sourceProfile),
       preferences: { ...preferences, ...overrides },
       stretchConfirmed: false,
       worksheetType: "find-the-wow",
@@ -228,7 +240,7 @@ function wowSessionFor(
 }
 
 function controlContextFor(
-  sourceProfile: ChildProfileV1,
+  sourceProfile: CapabilityProfileV1,
   difficulty: GenerationDefaultsV1["difficulty"] = "practice",
 ): WorksheetControlContextV1 {
   return {
@@ -254,7 +266,7 @@ function registryMaximumKeys(
  */
 function projectorStretchedKeys(
   worksheetType: RegisteredWorksheetType,
-  sourceProfile: ChildProfileV1,
+  sourceProfile: CapabilityProfileV1,
 ): readonly WorksheetRelevantMaximumKey[] {
   const project = (difficulty: GenerationDefaultsV1["difficulty"]) => {
     const projection = projectGenerationRequest({
@@ -276,19 +288,34 @@ function projectorStretchedKeys(
 }
 
 function renderControls(
-  sourceProfile: ChildProfileV1,
+  sourceProfile: CapabilityProfileV1,
   worksheetType: RegisteredWorksheetType,
   overrides: Partial<GenerationDefaultsV1> = {},
 ): void {
+  const { difficulty, ...shown } = { ...preferences, ...overrides };
   render(
     createElement(GeneratorControls, {
-      defaults: { ...preferences, ...overrides },
+      defaults: {
+        ...emptyAppConfigV2().defaults,
+        ...shown,
+        theme: themeFromInterests(shown.useInterests),
+      },
       onGenerate: vi.fn(),
       onInputsChanged: vi.fn(),
       onSaveDefaults: vi.fn(async () => {}),
-      profiles: [sourceProfile],
+      profiles: [stored(sourceProfile)],
     }),
   );
+  for (const details of document.querySelectorAll("details")) {
+    details.open = true;
+  }
+  // Difficulty is session-only (D-interim): it starts at Practice, so any
+  // other level is chosen the way a parent does, on the first family shown.
+  if (difficulty !== "practice") {
+    fireEvent.change(screen.getByRole("combobox", { name: "Difficulty" }), {
+      target: { value: difficulty },
+    });
+  }
   fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
     target: { value: worksheetType },
   });
@@ -340,7 +367,7 @@ describe("worksheet renderer registry", () => {
       const generated = createWorksheetSessionForSeed({
         ...selection,
         worksheetType,
-        profile: sourceProfile,
+        profile: stored(sourceProfile),
         preferences: { ...selection.preferences, includeDecorativeGraphics: true },
       }, 42);
       if (!generated.ok) {
@@ -824,22 +851,25 @@ describe("Make another", () => {
     expect(current.document.seed).toBe("00000001");
   });
 
-  test("age support fails before a lifecycle ID or injected generator is called", () => {
+  test("a profile without earlier settings is refused before a lifecycle ID or injected generator is called", () => {
     const worksheetIdSource = vi.fn(
       () => "44444444-4444-4444-8444-444444444444",
     );
     const generator = vi.fn<WorksheetGeneratorV1>();
+    const { legacyChoices: _unused, ...identityOnly } = stored(profile);
+    void _unused;
     const result = createWorksheetSessionForSeed(
       {
         ...selection,
-        profile: { ...profile, ageYears: 9 },
+        profile: identityOnly,
       },
       1,
       { generator, worksheetIdSource },
     );
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       ok: false,
-      code: "GENERATION_AGE_UNSUPPORTED",
+      code: "GENERATION_CONSTRAINT_CONFLICT",
+      message: NO_EARLIER_SETTINGS_MESSAGE,
     });
     expect(worksheetIdSource).not.toHaveBeenCalled();
     expect(generator).not.toHaveBeenCalled();
@@ -924,13 +954,13 @@ const contractPreferences: GenerationDefaultsV1 = {
 
 /** Reviewed interest so `useInterests` can actually change a request. */
 function contractProfile(
-  overrides: Partial<ChildProfileV1> = {},
-): ChildProfileV1 {
+  overrides: Partial<CapabilityProfileV1> = {},
+): CapabilityProfileV1 {
   return { ...profile, interests: ["Space"], ...overrides };
 }
 
 const CONTRACT_PROFILES: Readonly<
-  Record<RegisteredWorksheetType, readonly ChildProfileV1[]>
+  Record<RegisteredWorksheetType, readonly CapabilityProfileV1[]>
 > = {
   "dry-math": [contractProfile()],
   "find-the-wow": [
@@ -959,7 +989,7 @@ const CONTRACT_PROFILES: Readonly<
  */
 function contractRequest(
   worksheetType: RegisteredWorksheetType,
-  sourceProfile: ChildProfileV1,
+  sourceProfile: CapabilityProfileV1,
   overrides: Partial<GenerationDefaultsV1>,
 ): GenerationRequestV1 {
   const registration = getWorksheetRegistration(worksheetType);
@@ -1185,12 +1215,12 @@ const SENTENCE_SURFACES = {
 } as const;
 
 function sentenceSessionFor(
-  writingMode: ChildProfileV1["writingMode"],
+  writingMode: CapabilityProfileV1["writingMode"],
   seed = 1,
   overrides: Partial<GenerationDefaultsV1> = {},
   interests: readonly string[] = ["Private Topic"],
 ) {
-  const sourceProfile: ChildProfileV1 = {
+  const sourceProfile: CapabilityProfileV1 = {
     ...profile,
     interests: [...interests],
     writingMode,
@@ -1214,7 +1244,7 @@ function sentenceSessionFor(
         },
         merged,
       ),
-      profile: sourceProfile,
+      profile: stored(sourceProfile),
       stretchConfirmed: false,
       worksheetType: "sentence-builder",
     },
@@ -1521,9 +1551,8 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
     // bank to vary). One reviewed prompt per topic and mode made this
     // permanently exhausted on first press (plan.md:240).
     for (const writingMode of ["draw-and-tell", "copy-with-model"] as const) {
-      const sourceProfile: ChildProfileV1 = {
+      const sourceProfile: CapabilityProfileV1 = {
         ...profile,
-        ageYears: 4,
         interests: ["Distinctive Private Dinosaurs"],
         presentationBand: "preschool",
         writingMode,
@@ -1540,7 +1569,7 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
           },
           merged,
         ),
-        profile: sourceProfile,
+        profile: stored(sourceProfile),
         stretchConfirmed: false,
         worksheetType: "sentence-builder",
       };
@@ -1680,7 +1709,7 @@ describe("registration metadata cannot drift from the control contract", () => {
     }
   });
 
-  test("a stored stretch default never blocks a family that hides difficulty", () => {
+  test("a stretch chosen on another family never blocks a family that hides difficulty", () => {
     renderControls(
       { ...profile, interests: ["Space"], writingMode: "copy-with-model" },
       "sentence-builder",
@@ -1721,7 +1750,7 @@ describe("registration metadata cannot drift from the control contract", () => {
  * item always prints room for every mark it asks for", and the one-mark draw
  * target by the `singleMarkItems` assertion in the narrow-profile draw sweep.
  */
-const countCompareProfile: ChildProfileV1 = {
+const countCompareProfile: CapabilityProfileV1 = {
   ...quantityProfile,
   id: "e1b2c3d4-5555-4555-8555-555555555555",
   interests: ["Space"],
@@ -1736,11 +1765,11 @@ const countCompareProfile: ChildProfileV1 = {
 function countCompareSessionFor(
   seed: number,
   overrides: Partial<GenerationDefaultsV1> = {},
-  sourceProfile: ChildProfileV1 = countCompareProfile,
+  sourceProfile: CapabilityProfileV1 = countCompareProfile,
 ) {
   const result = createWorksheetSessionForSeed(
     {
-      profile: sourceProfile,
+      profile: stored(sourceProfile),
       preferences: { ...preferences, useInterests: true, ...overrides },
       stretchConfirmed: false,
       worksheetType: "count-compare-make",
@@ -1994,7 +2023,7 @@ describe("Count, Compare & Make reaches paper through the registered renderer", 
   });
 
   test("the activity is unavailable to a profile without quantities", () => {
-    const equationsOnly: ChildProfileV1 = {
+    const equationsOnly: CapabilityProfileV1 = {
       ...profile,
       mathSkills: { ...profile.mathSkills, representations: ["equations"] },
     };
@@ -2037,7 +2066,7 @@ describe("Count, Compare & Make reaches paper through the registered renderer", 
  * Every COUNTING ceiling this family reads, at the v1 maximum of 20, so a
  * complete target can reach 20 over a small group.
  */
-const countCompareWideProfile: ChildProfileV1 = {
+const countCompareWideProfile: CapabilityProfileV1 = {
   ...countCompareProfile,
   id: "f1b2c3d4-6666-4666-8666-666666666666",
   mathSkills: {
@@ -2049,7 +2078,7 @@ const countCompareWideProfile: ChildProfileV1 = {
 };
 
 /** Narrow enough that a one-mark draw item is reachable. */
-const countCompareNarrowProfile: ChildProfileV1 = {
+const countCompareNarrowProfile: CapabilityProfileV1 = {
   ...countCompareProfile,
   id: "a2b2c3d4-7777-4777-8777-777777777777",
   mathSkills: {
@@ -2273,7 +2302,7 @@ describe("Count, Compare & Make prints a performable page", () => {
 
     // Both a page at the v1 ceiling and narrow pages, so the singular branch
     // is genuinely reached rather than left to one seed's luck.
-    const cases: readonly (readonly [ChildProfileV1, number])[] = [
+    const cases: readonly (readonly [CapabilityProfileV1, number])[] = [
       [countCompareWideProfile, 0x0004_2021],
       ...Array.from(
         { length: 12 },

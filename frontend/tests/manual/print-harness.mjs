@@ -36,20 +36,26 @@ export async function startManualPrintHarness() {
     const [
       { assertPrivateBootstrapContext, buildApp },
       { listenOnValidatedSocket, PRODUCTION_STATIC_ROOT },
-      { AppConfigV1Schema },
+      { classifyStoredConfig },
     ] = await Promise.all([
       import("../../dist/server/app.js"),
       import("../../dist/server/startup.js"),
-      import("../../dist/shared/config/schema.js"),
+      import("../../dist/shared/config/migrate.js"),
     ]);
     category = "FIXTURE";
-    const config = AppConfigV1Schema.parse(JSON.parse(await readFile(
-      new URL("../../../config/children.example.json", import.meta.url), "utf8",
-    )));
+    // The committed example's own bytes, validated by the compiled store
+    // classifier: the app reads them exactly as a parent's earlier file.
+    const exampleBytes = await readFile(
+      new URL("../../../config/children.example.json", import.meta.url),
+    );
+    const classified = classifyStoredConfig(JSON.parse(exampleBytes.toString("utf8")));
+    if (classified.kind !== "legacy" && classified.kind !== "current") {
+      throw new Error("The committed example is not a readable profile file.");
+    }
     category = "TEMPORARY_STORAGE";
     temporaryDirectory = await mkdtemp(join(tmpdir(), "extra-credit-manual-print-"));
     const configPath = join(temporaryDirectory, "children.local.json");
-    await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, { flag: "wx" });
+    await writeFile(configPath, exampleBytes, { flag: "wx" });
     category = "APP_INITIALIZATION";
     app = buildApp({ configPath, securityMode: "ephemeral-test", staticRoot: PRODUCTION_STATIC_ROOT });
     assertPrivateBootstrapContext(app, { configPath, securityMode: "ephemeral-test" });

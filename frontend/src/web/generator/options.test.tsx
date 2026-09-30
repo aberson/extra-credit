@@ -7,15 +7,25 @@ import { createElement } from "react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
+  emptyAppConfigV2,
+  themeFromInterests,
+} from "../../shared/config/defaults";
+import {
   DIFFICULTIES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
   WRITING_MODES,
-  ChildProfileV1Schema,
-  type ChildProfileV1,
+  type ChildProfileV2,
   type GenerationDefaultsV1,
+  type WorksheetDefaultsV2,
 } from "../../shared/config/schema";
+import {
+  CapabilityProfileV1Schema,
+  NO_EARLIER_SETTINGS_MESSAGE,
+  profileWithLegacyChoices,
+  type CapabilityProfileV1,
+} from "../../shared/worksheet/project-request";
 import {
   REGISTERED_WORKSHEET_IDS,
   getWorksheetRegistration,
@@ -33,7 +43,11 @@ import {
   makeAnotherWorksheetSession,
   type GenerationSelection,
 } from "./create-session";
-import { GeneratorControls } from "./GeneratorControls";
+import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
+import {
+  GeneratorControls,
+  type ShownWorksheetDefaults,
+} from "./GeneratorControls";
 
 /*
  * Step 9 owns the worksheet-option contract, and two accepted findings that
@@ -96,11 +110,10 @@ function tiedQuantityMaximums(limit: number): QuantityMaximums {
 function quantityProfile(
   id: string,
   maximums: QuantityMaximums,
-): ChildProfileV1 {
+): CapabilityProfileV1 {
   return {
     id,
     displayName: "Private Quantity Child",
-    ageYears: 4,
     presentationBand: "preschool",
     reviewedOn: "2026-08-22",
     mathSkills: {
@@ -119,7 +132,7 @@ function quantityProfile(
 }
 
 /** The tied shorthand the length-edge tables want; one number, three maxima. */
-function quantityProfileWithLimit(limit: number, id: string): ChildProfileV1 {
+function quantityProfileWithLimit(limit: number, id: string): CapabilityProfileV1 {
   return quantityProfile(id, tiedQuantityMaximums(limit));
 }
 
@@ -128,12 +141,11 @@ function equationProfile(
   id: string,
   operandMax: number,
   resultMax: number,
-  operations: ChildProfileV1["mathSkills"]["operations"],
-): ChildProfileV1 {
+  operations: CapabilityProfileV1["mathSkills"]["operations"],
+): CapabilityProfileV1 {
   return {
     id,
     displayName: "Private Equation Child",
-    ageYears: 6,
     presentationBand: "early-primary",
     reviewedOn: "2026-08-22",
     mathSkills: {
@@ -164,10 +176,9 @@ const preschoolQuantityProfile = quantityProfileWithLimit(
 );
 
 /** Every v1 capability confirmed at the ceiling, as the oldest band allows. */
-const independentProfile: ChildProfileV1 = {
+const independentProfile: CapabilityProfileV1 = {
   id: "93c7a8d2-4b1e-4a6f-9d30-7b8e2f1c5a64",
   displayName: "Private Avery",
-  ageYears: 8,
   presentationBand: "early-primary",
   reviewedOn: "2026-08-22",
   mathSkills: {
@@ -187,10 +198,9 @@ const independentProfile: ChildProfileV1 = {
 };
 
 /** Stores more than Version 1 can use, in every direction at once. */
-const beyondV1Profile: ChildProfileV1 = {
+const beyondV1Profile: CapabilityProfileV1 = {
   id: "9f6c1f1a-1c2d-4e3f-8a4b-5c6d7e8f9a0b",
   displayName: "Private Jordan",
-  ageYears: 6,
   presentationBand: "early-primary",
   reviewedOn: "2026-08-22",
   mathSkills: {
@@ -228,7 +238,7 @@ const starvedEquationProfile = equationProfile(
  * so a message naming counting would be advice that cannot change the answer.
  * `compareMax: 1` is the schema minimum, not an impossible value.
  */
-const starvedComparisonProfile: ChildProfileV1 = {
+const starvedComparisonProfile: CapabilityProfileV1 = {
   ...quantityProfileWithLimit(20, "6a1b2c3d-4e5f-4061-8273-8495a6b7c8d9"),
   displayName: "Private Comparison Child",
   mathSkills: {
@@ -266,10 +276,9 @@ const starvedNumeralMatchProfile = quantityProfile(
  * maxima of exactly 0 when `operations` is empty, and floors the three quantity
  * maxima at 1.
  */
-const unusableEquationProfile: ChildProfileV1 = {
+const unusableEquationProfile: CapabilityProfileV1 = {
   id: "5c4d3e2f-1a0b-4c9d-8e7f-6a5b4c3d2e1f",
   displayName: "Private Unusable Child",
-  ageYears: 6,
   presentationBand: "early-primary",
   reviewedOn: "2026-08-22",
   mathSkills: {
@@ -294,7 +303,7 @@ const unusableEquationProfile: ChildProfileV1 = {
  * these previously set the three quantity maxima to 0 against
  * `MathSkillsV1Schema`'s floor of 1.
  */
-const SWEEP_PROFILES: readonly ChildProfileV1[] = [
+const SWEEP_PROFILES: readonly CapabilityProfileV1[] = [
   preschoolQuantityProfile,
   independentProfile,
   beyondV1Profile,
@@ -303,7 +312,7 @@ const SWEEP_PROFILES: readonly ChildProfileV1[] = [
   starvedCountingMatchProfile,
   starvedNumeralMatchProfile,
   unusableEquationProfile,
-].map((profile) => ChildProfileV1Schema.parse(profile));
+].map((profile) => CapabilityProfileV1Schema.parse(profile));
 
 interface SweepCell {
   readonly worksheetType: RegisteredWorksheetType;
@@ -323,7 +332,7 @@ function emptyFamilyTally(): Record<RegisteredWorksheetType, number> {
 }
 
 function contextFor(
-  profile: ChildProfileV1,
+  profile: CapabilityProfileV1,
   overrides: Partial<Omit<WorksheetControlContextV1, "profile">> = {},
 ): WorksheetControlContextV1 {
   return {
@@ -341,7 +350,7 @@ function selectionFor(
 ): GenerationSelection {
   const registration = getWorksheetRegistration(worksheetType);
   return {
-    profile: context.profile,
+    profile: profileWithLegacyChoices(context.profile),
     worksheetType,
     stretchConfirmed: true,
     preferences: registration.controls.projectPreferences(context, {
@@ -375,23 +384,51 @@ function capacityMessage(
   return support.capacity.message;
 }
 
+/**
+ * The stored version 2 defaults the panel starts from, carrying the given
+ * shown fields; `theme` follows `useInterests` as every interim save derives it.
+ */
+function storedDefaults(
+  shown: Partial<ShownWorksheetDefaults> = {},
+): WorksheetDefaultsV2 {
+  const { difficulty: _unused, ...base } = basePreferences;
+  void _unused;
+  const merged = { ...base, ...shown };
+  return {
+    ...emptyAppConfigV2().defaults,
+    ...merged,
+    theme: themeFromInterests(merged.useInterests),
+  };
+}
+
 function renderControls(
-  profile: ChildProfileV1,
+  profile: CapabilityProfileV1,
   worksheetType: RegisteredWorksheetType,
   overrides: Partial<GenerationDefaultsV1> = {},
   onSaveDefaults: (
-    defaults: GenerationDefaultsV1,
+    defaults: ShownWorksheetDefaults,
   ) => Promise<void> = async () => {},
 ): void {
+  const { difficulty = "practice", ...shown } = overrides;
   render(
     createElement(GeneratorControls, {
-      defaults: { ...basePreferences, ...overrides },
+      defaults: storedDefaults(shown),
       onGenerate: vi.fn(),
       onInputsChanged: vi.fn(),
       onSaveDefaults,
-      profiles: [profile],
+      profiles: [profileWithLegacyChoices(profile)],
     }),
   );
+  for (const details of document.querySelectorAll("details")) {
+    details.open = true;
+  }
+  // Difficulty is session-only (D-interim): it starts at Practice, so any
+  // other level is chosen the way a parent does, on the first family shown.
+  if (difficulty !== "practice") {
+    fireEvent.change(screen.getByRole("combobox", { name: "Difficulty" }), {
+      target: { value: difficulty },
+    });
+  }
   fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
     target: { value: worksheetType },
   });
@@ -585,7 +622,7 @@ describe("capacity-aware availability (issue #14)", () => {
     // needing 8 must fail.
     const expectations: readonly {
       readonly label: string;
-      readonly profile: ChildProfileV1;
+      readonly profile: CapabilityProfileV1;
       readonly sufficient: Readonly<
         Record<GenerationDefaultsV1["length"], boolean>
       >;
@@ -669,7 +706,7 @@ describe("capacity-aware availability (issue #14)", () => {
     // registration that computed the shortage correctly and never surfaced it
     // would ship silently, so each family's own sentence is read off a node.
     const cases: readonly {
-      readonly profile: ChildProfileV1;
+      readonly profile: CapabilityProfileV1;
       readonly worksheetType: RegisteredWorksheetType;
       readonly overrides: Partial<GenerationDefaultsV1>;
       readonly message: string;
@@ -936,7 +973,7 @@ describe("family-aware limiting-resource copy (issue #16)", () => {
   test("the shared exhaustion message derives its explanation from the registration", () => {
     const exhaust = (
       worksheetType: RegisteredWorksheetType,
-      profile: ChildProfileV1,
+      profile: CapabilityProfileV1,
     ): string => {
       const selection = selectionFor(worksheetType, contextFor(profile));
       const current = generate(selection);
@@ -1094,7 +1131,7 @@ describe("stored capabilities Version 1 keeps but never uses", () => {
 describe("stored generation defaults", () => {
   test("saving stores the parent's raw choices and mutates no child profile", async () => {
     const before = structuredClone(independentProfile);
-    const saved: GenerationDefaultsV1[] = [];
+    const saved: ShownWorksheetDefaults[] = [];
     renderControls(
       independentProfile,
       "sentence-builder",
@@ -1114,15 +1151,18 @@ describe("stored generation defaults", () => {
     });
 
     expect(saved).toHaveLength(1);
-    // Sentence Builder normalizes difficulty and the answer key away at
-    // request time; the STORED default keeps the parent's visible choice, so
-    // reselecting a family that shows those controls finds them unchanged.
+    // Sentence Builder normalizes the answer key away at request time; the
+    // STORED default keeps the parent's visible choice, so reselecting a
+    // family that shows it finds it unchanged. Difficulty is session-only
+    // (D-interim) and is never part of what is saved.
+    const { difficulty: _unused, ...shown } = basePreferences;
+    void _unused;
     expect(saved[0]).toEqual({
-      ...basePreferences,
-      difficulty: "stretch",
+      ...shown,
       includeAnswerKey: true,
       printScale: "large",
     });
+    expect(saved[0]).not.toHaveProperty("difficulty");
     expect(independentProfile).toEqual(before);
   });
 
@@ -1166,18 +1206,18 @@ describe("stored generation defaults", () => {
     // `tests/e2e/options.spec.ts`; this pins the control's half of it - a
     // fresh `defaults` object arriving as a prop must not reset the child or
     // the family, neither of which is a stored default.
-    const second: ChildProfileV1 = {
+    const second: CapabilityProfileV1 = {
       ...preschoolQuantityProfile,
       id: "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
       displayName: "Private Second Child",
     };
     const { rerender } = render(
       createElement(GeneratorControls, {
-        defaults: { ...basePreferences },
+        defaults: storedDefaults(),
         onGenerate: vi.fn(),
         onInputsChanged: vi.fn(),
         onSaveDefaults: async () => {},
-        profiles: [independentProfile, second],
+        profiles: [independentProfile, second].map(profileWithLegacyChoices),
       }),
     );
     fireEvent.change(screen.getByRole("combobox", { name: "Child profile" }), {
@@ -1189,11 +1229,11 @@ describe("stored generation defaults", () => {
 
     rerender(
       createElement(GeneratorControls, {
-        defaults: { ...basePreferences, length: "long" },
+        defaults: storedDefaults({ length: "long" }),
         onGenerate: vi.fn(),
         onInputsChanged: vi.fn(),
         onSaveDefaults: async () => {},
-        profiles: [independentProfile, second],
+        profiles: [independentProfile, second].map(profileWithLegacyChoices),
       }),
     );
     expect(screen.getByRole("combobox", { name: "Child profile" })).toHaveValue(
@@ -1205,18 +1245,18 @@ describe("stored generation defaults", () => {
   });
 
   test("a profile removed under the panel falls back to a real option", () => {
-    const second: ChildProfileV1 = {
+    const second: CapabilityProfileV1 = {
       ...preschoolQuantityProfile,
       id: "7c8d9e0f-1a2b-4c3d-8e4f-5a6b7c8d9e0f",
       displayName: "Private Second Child",
     };
     const { rerender } = render(
       createElement(GeneratorControls, {
-        defaults: { ...basePreferences },
+        defaults: storedDefaults(),
         onGenerate: vi.fn(),
         onInputsChanged: vi.fn(),
         onSaveDefaults: async () => {},
-        profiles: [independentProfile, second],
+        profiles: [independentProfile, second].map(profileWithLegacyChoices),
       }),
     );
     fireEvent.change(screen.getByRole("combobox", { name: "Child profile" }), {
@@ -1224,15 +1264,92 @@ describe("stored generation defaults", () => {
     });
     rerender(
       createElement(GeneratorControls, {
-        defaults: { ...basePreferences },
+        defaults: storedDefaults(),
         onGenerate: vi.fn(),
         onInputsChanged: vi.fn(),
         onSaveDefaults: async () => {},
-        profiles: [independentProfile],
+        profiles: [independentProfile].map(profileWithLegacyChoices),
       }),
     );
     expect(screen.getByRole("combobox", { name: "Child profile" })).toHaveValue(
       independentProfile.id,
     );
+  });
+});
+
+/*
+ * Age is gone from the generator (P2, DD10), and a profile stored without
+ * earlier settings is refused with an explicit message while the interim
+ * projection still reads them (D-interim).
+ */
+describe("age-free generator introduction and child choice", () => {
+  test("no age input or age label exists in the panel", () => {
+    renderControls(independentProfile, "dry-math");
+    expect(screen.queryByRole("spinbutton", { name: /\bages?\b/iu })).toBeNull();
+    expect(screen.queryByLabelText(/\bages?\b/iu)).toBeNull();
+    const panel = screen.getByRole("region", { name: "Create a practice worksheet" });
+    expect(panel.textContent ?? "").not.toMatch(/\bages?\b/iu);
+  });
+
+  test("the generator introduction shows the early-primary help text verbatim", () => {
+    renderControls(independentProfile, "count-compare-make");
+    const help = screen.getByText(EARLY_PRIMARY_HELP_TEXT);
+    expect(help).toBeVisible();
+    expect(help.textContent).toBe(
+      "Extra Credit's worksheets are designed for early primary practice. Choose the worksheet and practice focus that fit your child.",
+    );
+    expect(EARLY_PRIMARY_HELP_TEXT).not.toMatch(/\bages?\b/iu);
+  });
+
+  test("each child is listed by nickname, or as Profile N without one", () => {
+    const { displayName: _unused, ...unnamed } = independentProfile;
+    void _unused;
+    render(
+      createElement(GeneratorControls, {
+        defaults: storedDefaults(),
+        onGenerate: vi.fn(),
+        onInputsChanged: vi.fn(),
+        onSaveDefaults: async () => {},
+        profiles: [
+          profileWithLegacyChoices(preschoolQuantityProfile),
+          profileWithLegacyChoices(unnamed),
+        ],
+      }),
+    );
+    const options = [...screen.getByRole("combobox", { name: "Child profile" }).querySelectorAll("option")];
+    expect(options.map((option) => option.textContent)).toEqual([
+      "Private Quantity Child",
+      "Profile 2",
+    ]);
+  });
+
+  test("a profile stored without earlier settings is explicitly unavailable", () => {
+    const { legacyChoices: _unused, ...identityOnly }: ChildProfileV2 =
+      profileWithLegacyChoices(independentProfile);
+    void _unused;
+    for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
+      render(
+        createElement(GeneratorControls, {
+          defaults: storedDefaults(),
+          onGenerate: vi.fn(),
+          onInputsChanged: vi.fn(),
+          onSaveDefaults: async () => {},
+          profiles: [identityOnly],
+        }),
+      );
+      fireEvent.change(screen.getByRole("combobox", { name: "Worksheet type" }), {
+        target: { value: worksheetType },
+      });
+      expect(screen.getByText(NO_EARLIER_SETTINGS_MESSAGE), worksheetType).toBeVisible();
+      expect(screen.getByRole("button", { name: "Create worksheet" })).toBeDisabled();
+      cleanup();
+    }
+  });
+
+  test("Difficulty is session-only and always starts at Practice", () => {
+    renderControls(independentProfile, "dry-math", { length: "long" });
+    const difficulty = screen.getByRole("combobox", { name: "Difficulty" });
+    expect(difficulty).toHaveValue("practice");
+    expect(screen.getByRole("combobox", { name: "Length" })).toHaveValue("long");
   });
 });

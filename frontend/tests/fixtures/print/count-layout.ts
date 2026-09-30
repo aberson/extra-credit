@@ -1,7 +1,13 @@
 import type { PrintScale } from "../../../src/shared/worksheet/types.ts";
 import { projectGenerationRequest } from "../../../src/shared/worksheet/project-request.ts";
 import { getWorksheetRegistration } from "../../../src/shared/worksheet/registry.ts";
-import { acceptanceConfig, boundaryNickname } from "./matrix.ts";
+import type { WorksheetDefaultsV2 } from "../../../src/shared/config/schema.ts";
+import {
+  acceptanceConfig,
+  boundaryNickname,
+  capabilitiesOf,
+  practicePreferences,
+} from "./matrix.ts";
 
 // Independent upper budgets in CSS px, rounded UP from the physical layout.
 // A4's narrower columns wrap the comparison sentence once more at 16 pt.
@@ -61,16 +67,19 @@ export function countSeedFixture(seed: number, paper: "letter" | "a4", scale: Pr
   const original = acceptanceConfig.profiles[2];
   if (original === undefined) throw new Error("Missing canonical Avery.");
   const profile = { ...original, displayName: boundaryNickname };
-  const preferences = {
+  // The stored defaults the spec seeds, and the projection preferences the
+  // panel builds from them at Practice.
+  const defaults: WorksheetDefaultsV2 = {
     ...acceptanceConfig.defaults,
-    length: "long" as const,
+    length: "long",
     printScale: scale,
     paperSize: paper,
     includeDecorativeGraphics: false,
   };
+  const preferences = practicePreferences(defaults);
   const registration = getWorksheetRegistration("count-compare-make");
   const projected = projectGenerationRequest({
-    profile, preferences, worksheetType: "count-compare-make",
+    profile: capabilitiesOf(profile), preferences, worksheetType: "count-compare-make",
     generatorVersion: registration.generatorVersion,
     seed: seed.toString(16).padStart(8, "0"),
   });
@@ -79,5 +88,5 @@ export function countSeedFixture(seed: number, paper: "letter" | "a4", scale: Pr
     worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   });
   if (!result.ok) throw new Error(result.message);
-  return { profile, preferences, document: result.document };
+  return { profile, defaults, preferences, document: result.document };
 }

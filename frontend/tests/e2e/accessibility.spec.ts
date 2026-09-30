@@ -153,10 +153,14 @@ test("keyboard-only profile creation reaches preview with visible focus", async 
   await expect(page.getByRole("heading", { name: "Set up a profile" })).toBeFocused();
   await tabTo(page, page.getByRole("textbox", { name: "Nickname (optional)" }));
   await page.keyboard.type("Keyboard Morgan");
-  await tabTo(page, page.getByRole("spinbutton", { name: "Age in years" }));
-  await page.keyboard.type("6");
-  await tabTo(page, page.getByRole("button", { name: "Confirm suggested capabilities" }));
-  await page.keyboard.press("Enter");
+  // No age field and no suggestion: the parent picks the preset by keyboard.
+  await expect(page.getByRole("spinbutton", { name: /\bages?\b/iu })).toHaveCount(0);
+  await tabTo(page, page.getByRole("radio", { name: "Quantities to 10" }));
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  const chosenPreset = page.getByRole("radio", { name: "Early primary within 10" });
+  await expect(chosenPreset).toBeChecked();
+  await expect(chosenPreset).toBeFocused();
   await tabTo(page, page.getByRole("button", { name: "Save profile", exact: true }));
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Choose a profile to update" })).toBeFocused();

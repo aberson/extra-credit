@@ -1,15 +1,14 @@
 import { useState, type CSSProperties } from "react";
 
-import { getV1ProfileSupport } from "../../shared/config/profile-support";
-import type { ChildProfileV1 } from "../../shared/config/schema";
+import type { ChildProfileV2 } from "../../shared/config/schema";
 import { ConfigApiError } from "../api/client";
 
 export interface ProfileListProps {
   readonly disabled?: boolean;
   readonly onAdd: () => void;
   readonly onDelete: (profileId: string) => Promise<void>;
-  readonly onEdit: (profile: ChildProfileV1) => void;
-  readonly profiles: readonly ChildProfileV1[];
+  readonly onEdit: (profile: ChildProfileV2) => void;
+  readonly profiles: readonly ChildProfileV2[];
 }
 
 const buttonStyle: CSSProperties = {
@@ -27,7 +26,7 @@ export function ProfileList({
   onEdit,
   profiles,
 }: ProfileListProps) {
-  const [deleteCandidate, setDeleteCandidate] = useState<ChildProfileV1 | null>(null);
+  const [deleteCandidate, setDeleteCandidate] = useState<ChildProfileV2 | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -60,7 +59,7 @@ export function ProfileList({
       <section aria-busy={disabled} aria-labelledby="first-profile-title">
         <h2 tabIndex={-1} id="first-profile-title">Start with one reusable profile</h2>
         <p>
-          Keep only a nickname, age, broad interests, and capabilities you have
+          Keep only a nickname, broad interests, and capabilities you have
           confirmed. The profile stays in the local configuration file.
         </p>
         <button disabled={disabled} onClick={onAdd} type="button">
@@ -83,16 +82,17 @@ export function ProfileList({
       </div>
 
       <ul style={{ display: "grid", gap: "0.7rem", listStyle: "none", margin: "1rem 0 0", padding: 0 }}>
-        {profiles.map((profile) => {
-          const support = getV1ProfileSupport(profile);
+        {profiles.map((profile, index) => {
+          const band = profile.legacyChoices?.presentationBand;
           return (
             <li key={profile.id} style={{ background: "#f6f8fb", border: "1px solid #dbe1e8", borderRadius: "0.8rem", padding: "0.8rem" }}>
               <div style={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: "0.65rem", justifyContent: "space-between" }}>
                 <div>
-                  <h3 style={{ margin: 0 }}>{profile.displayName ?? `Profile age ${profile.ageYears}`}</h3>
+                  <h3 style={{ margin: 0 }}>{profile.displayName ?? `Profile ${index + 1}`}</h3>
                   <p style={{ color: "#5c6677", margin: "0.2rem 0 0" }}>
-                    Age {profile.ageYears} · {profile.presentationBand.replace("-", " ")} ·{" "}
-                    {support.supported ? "worksheet band available" : "saved; generation unsupported"}
+                    {band === undefined
+                      ? "No saved worksheet settings yet"
+                      : `${band.replace("-", " ")} vocabulary · worksheet settings saved`}
                   </p>
                 </div>
                 <div className="profile-actions" style={{ display: "flex", gap: "0.45rem" }}>

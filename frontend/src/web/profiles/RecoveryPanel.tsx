@@ -1,10 +1,10 @@
 import { useState } from "react";
 
-import type { AppConfigV1 } from "../../shared/config/schema";
+import type { AppConfigV2 } from "../../shared/config/schema";
 import type { ConfigApiErrorCode } from "../api/client";
 
 export interface RecoveryPanelProps {
-  readonly configForDownload?: AppConfigV1;
+  readonly configForDownload?: AppConfigV2;
   readonly confirmationDisabled?: boolean;
   readonly confirmed: boolean;
   readonly errorCode: ConfigApiErrorCode;
@@ -13,6 +13,14 @@ export interface RecoveryPanelProps {
 }
 
 const recoverableCodes = new Set<ConfigApiErrorCode>(["CONFIG_INVALID"]);
+
+/**
+ * What the replacement drops, stated before the parent confirms it (DD4). The
+ * client never receives the invalid bytes, so this names no profile: it can
+ * only say which kinds of saved data the backup alone will hold.
+ */
+export const RECOVERY_DISCLOSURE_TEXT =
+  "The replacement file keeps only the one profile entered below, with the built-in worksheet defaults. Every other profile, the saved worksheet defaults and all earlier settings stay only in the backup file.";
 
 export function RecoveryPanel({
   configForDownload,
@@ -60,6 +68,9 @@ export function RecoveryPanel({
             valid replacement below. On explicit confirmation, the server first
             saves a byte-for-byte recovery backup and then replaces the live file.
           </p>
+          <p data-recovery-disclosure="true" style={{ fontWeight: 650 }}>
+            {RECOVERY_DISCLOSURE_TEXT}
+          </p>
           <label style={{ display: "block", fontWeight: 650 }}>
             <input
               checked={confirmed}
@@ -72,7 +83,7 @@ export function RecoveryPanel({
 
           <hr style={{ border: 0, borderTop: "1px solid #d8c59e", margin: "0.9rem 0" }} />
           <p>
-            Optional draft download: the file contains the nickname, age, broad
+            Optional draft download: the file contains the nickname, broad
             interests, and capabilities currently entered in this form. Store it
             somewhere private and delete it manually when no longer needed. The
             app never downloads the invalid raw file or starts a download by itself.

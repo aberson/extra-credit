@@ -91,6 +91,39 @@ describe("public release audit over the current export", () => {
     expect(audit(room)).toMatchObject({ exit: 1, output: expect.stringContaining("PROFILE_RECORD") });
   });
 
+  // Version 2 profiles carry no age and may carry `legacyChoices`, so the
+  // detector keys on the fields both shapes require: id, reviewedOn, interests.
+  const syntheticV2Profile = () => ({
+    id: ["0a1b2c3d", "4e5f", "4a6b", "8c7d", "9e0f1a2b3c4d"].join("-"),
+    displayName: ["Synthetic", "fictional"].join(" "),
+    reviewedOn: "2026-09-29",
+    interests: [["tr", "ains"].join("")],
+  });
+  it.each(["notes.json", "documentation/synthetic-notes.md", "frontend/tests/fixtures/changed.json"])("rejects a runtime-synthesized age-free v2 profile: %s", async (path) => {
+    const room = await clean();
+    await put(room, path, JSON.stringify(syntheticV2Profile()));
+    expect(audit(room)).toMatchObject({ exit: 1, output: expect.stringContaining("PROFILE_RECORD") });
+  });
+
+  it("rejects a record nesting legacyChoices outside the allowance", async () => {
+    const room = await clean();
+    const config = JSON.parse(await readFile(join(room, "config/children.example.json"), "utf8")) as { profiles: Record<string, unknown>[] };
+    const { presentationBand, writingMode, mathSkills, ageYears, ...identity } = config.profiles[1]!;
+    void ageYears;
+    await put(room, "notes.json", JSON.stringify({ ...identity, legacyChoices: { presentationBand, writingMode, mathSkills } }));
+    expect(audit(room)).toMatchObject({ exit: 1, output: expect.stringContaining("PROFILE_RECORD") });
+  });
+
+  it("keeps passing the canonical v1 records in the example, the v1 fixture and the plan appendix", async () => {
+    const room = await clean();
+    for (const path of ["config/children.example.json", "frontend/tests/fixtures/config/children.v1.json", "plan.md"]) {
+      const text = await readFile(join(room, path), "utf8");
+      expect(text, path).toContain('"reviewedOn"');
+      expect(text, path).toContain('"interests"');
+    }
+    expect(audit(room).exit).toBe(0);
+  });
+
   it("allows read-only persistence probes and source links in documentation", async () => {
     const room = await clean();
     await put(room, "frontend/tests/fixtures/probe.ts", call("localStorage", "getItem"));

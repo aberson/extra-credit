@@ -24,14 +24,17 @@ import {
   WRITING_MODES,
 } from "../../src/shared/config/enums.js";
 import {
-  AppConfigV1Schema,
   ChildProfileV1Schema,
-  type ChildProfileV1,
   type GenerationDefaultsV1,
 } from "../../src/shared/config/legacy-v1.js";
 import { MATH_PRESETS } from "../../src/shared/config/math-presets.js";
+import { classifyStoredConfig } from "../../src/shared/config/migrate.js";
 import { canonicalContentKey } from "../../src/shared/worksheet/invariants.js";
-import { projectGenerationRequest } from "../../src/shared/worksheet/project-request.js";
+import {
+  capabilityProfileOf,
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "../../src/shared/worksheet/project-request.js";
 import { getWorksheetRegistration } from "../../src/shared/worksheet/registry.js";
 import {
   WORKSHEET_TYPE_IDS,
@@ -45,8 +48,10 @@ import {
  * Practice content-key grid that `scripts/capture-practice-golden.mjs`
  * captured from 5c22159's exported tree. Every committed key is parsed back
  * into its record, family, length, scale and seed, and that cell is generated
- * again through the current path; its pinned file digest keeps the grid
- * itself frozen. Nothing here calls git, so the suite also runs in the release
+ * again through the current path: each record is read as a stored version 1
+ * file through the store's own classifier, flattened back to capabilities by
+ * `capabilityProfileOf` and projected at Practice. The pinned file digest
+ * keeps the grid itself frozen. Nothing here calls git, so the suite also runs in the release
  * clean room and in a shallow CI checkout.
  */
 
@@ -129,12 +134,45 @@ const gridBytes = readFileSync(GRID_PATH);
 const committedGrid = JSON.parse(gridBytes.toString("utf8")) as Record<string, string>;
 const committedKeys = Object.keys(committedGrid);
 
-const fixture = AppConfigV1Schema.parse(JSON.parse(readFileSync(FIXTURE_PATH, "utf8")));
-const records: ReadonlyMap<string, ChildProfileV1> = new Map([
-  ...fixture.profiles.map((profile, index) => [`canonical-${index + 1}`, profile] as const),
-  ...buildGoldenRuntimeRecords(MATH_PRESETS, WRITING_MODES, PRESENTATION_BANDS).map(
-    ({ record, profile }) => [record, ChildProfileV1Schema.parse(profile)] as const,
+/**
+ * The capability view of every profile a stored version 1 file holds, read
+ * exactly as the store reads one: the classifier upgrades it in memory, and
+ * `capabilityProfileOf` flattens each profile's `legacyChoices`.
+ */
+function capabilitiesThroughClassifier(stored: unknown): readonly CapabilityProfileV1[] {
+  const classified = classifyStoredConfig(stored);
+  if (classified.kind !== "legacy") {
+    throw new Error(`A golden source classified as ${classified.kind}, not legacy.`);
+  }
+  return classified.config.profiles.map((profile) => {
+    const capabilities = capabilityProfileOf(profile);
+    if (capabilities === undefined) {
+      throw new Error("A migrated golden profile carried no earlier settings.");
+    }
+    return capabilities;
+  });
+}
+
+const runtimeRecords = buildGoldenRuntimeRecords(MATH_PRESETS, WRITING_MODES, PRESENTATION_BANDS);
+const runtimeProfiles = capabilitiesThroughClassifier({
+  schemaVersion: 1,
+  profiles: runtimeRecords.map(({ profile }) => ChildProfileV1Schema.parse(profile)),
+  defaults: {
+    useDisplayName: false,
+    useInterests: true,
+    includeDecorativeGraphics: true,
+    difficulty: "practice",
+    length: "standard",
+    includeAnswerKey: true,
+    paperSize: "letter",
+    printScale: "standard",
+  },
+});
+const records: ReadonlyMap<string, CapabilityProfileV1> = new Map([
+  ...capabilitiesThroughClassifier(JSON.parse(readFileSync(FIXTURE_PATH, "utf8"))).map(
+    (profile, index) => [`canonical-${index + 1}`, profile] as const,
   ),
+  ...runtimeRecords.map(({ record }, index) => [record, runtimeProfiles[index]!] as const),
 ]);
 
 function isMember<T extends string>(values: readonly T[], value: string | undefined): value is T {
@@ -164,7 +202,7 @@ function parseCaseId(key: string, knownRecords: ReadonlySet<string>): GoldenCell
  * Practice, then the registered generator, exactly as the app creates a
  * worksheet. A refused cell yields `undefined`.
  */
-function currentCellHash(profile: ChildProfileV1, cell: GoldenCell): string | undefined {
+function currentCellHash(profile: CapabilityProfileV1, cell: GoldenCell): string | undefined {
   const registration = getWorksheetRegistration(cell.family);
   const preferences: GenerationDefaultsV1 = {
     useDisplayName: false,
@@ -192,7 +230,7 @@ function currentCellHash(profile: ChildProfileV1, cell: GoldenCell): string | un
   return result.ok ? sha256(canonicalContentKey(result.document.items)) : undefined;
 }
 
-function recordProfile(record: string): ChildProfileV1 {
+function recordProfile(record: string): CapabilityProfileV1 {
   const profile = records.get(record);
   if (profile === undefined) {
     throw new Error(`Unknown golden record ${record}.`);
@@ -282,7 +320,7 @@ describe("the current path reproduces every committed hash", () => {
       if (profile.mathSkills.operandMax <= 1) {
         continue;
       }
-      const perturbed: ChildProfileV1 = {
+      const perturbed: CapabilityProfileV1 = {
         ...profile,
         mathSkills: { ...profile.mathSkills, operandMax: profile.mathSkills.operandMax - 1 },
       };

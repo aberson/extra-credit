@@ -1,7 +1,4 @@
-import type {
-  ChildProfileV1,
-  GenerationDefaultsV1,
-} from "../config/schema.js";
+import type { GenerationDefaultsV1 } from "../config/schema.js";
 import {
   COUNT_COMPARE_MAKE_DEFINITION,
   getCountCompareMakeCapabilitySupport,
@@ -47,7 +44,10 @@ import {
   joinLabels,
   type WorksheetRelevantMaximumV1,
 } from "./limit-labels.js";
-import { projectGenerationRequest } from "./project-request.js";
+import {
+  projectGenerationRequest,
+  type CapabilityProfileV1,
+} from "./project-request.js";
 import type {
   Difficulty,
   GenerationRequestV1,
@@ -60,8 +60,13 @@ export type {
   WorksheetRelevantMaximumV1,
 } from "./limit-labels.js";
 
+/**
+ * Interim (D-interim): `profile` is the capability view `capabilityProfileOf`
+ * flattens from a stored profile's `legacyChoices`; Step 16 replaces it with
+ * the worksheet selection.
+ */
 export interface WorksheetControlContextV1 {
-  readonly profile: ChildProfileV1;
+  readonly profile: CapabilityProfileV1;
   readonly difficulty: Difficulty;
   readonly length: GenerationDefaultsV1["length"];
   readonly printScale: GenerationDefaultsV1["printScale"];

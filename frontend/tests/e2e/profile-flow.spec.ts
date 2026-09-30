@@ -4,11 +4,16 @@ import { readFile } from "node:fs/promises";
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Page } from "@playwright/test";
 
+import { emptyAppConfigV2 } from "../../src/shared/config/defaults.js";
+import { migrateConfigV1ToV2 } from "../../src/shared/config/migrate.js";
 import type {
   AppConfigV1,
+  AppConfigV2,
   ChildProfileV1,
+  ChildProfileV2,
   WritingMode,
 } from "../../src/shared/config/schema.js";
+import { childrenV1FixtureBytes } from "../fixtures/profiles.js";
 import { expect, test } from "./fixtures/app-server.js";
 
 const defaults: AppConfigV1["defaults"] = {
@@ -88,7 +93,28 @@ const canonicalProfiles = [
   },
 ] as const satisfies readonly ChildProfileV1[];
 
+/** The math preset whose expansion equals each canonical child's stored values. */
+const canonicalPresets: Readonly<Record<string, string>> = {
+  [canonicalProfiles[0].id]: "Quantities to 10",
+  [canonicalProfiles[1].id]: "Early primary within 10",
+  [canonicalProfiles[2].id]: "Early primary within 20",
+};
+
+/** A version 1 profile as the version 2 file stores it: no age, earlier settings kept. */
+function storedProfile(profile: ChildProfileV1): ChildProfileV2 {
+  return migrateConfigV1ToV2({ schemaVersion: 1, profiles: [profile], defaults }).profiles[0]!;
+}
+
+/** The config a missing file's first saves create: built-in defaults, version 2. */
+function createdConfig(profiles: readonly ChildProfileV1[]): AppConfigV2 {
+  return { ...emptyAppConfigV2(), profiles: profiles.map(storedProfile) };
+}
+
 const disposableId = "11111111-1111-4111-8111-111111111111";
+
+/** The upgrade notice, verbatim (U11); the only parent-visible text naming age. */
+const UPGRADE_NOTICE_TEXT =
+  "This profile file was saved by an earlier version. Your profiles are shown unchanged; the next save updates the file and keeps a copy of the earlier file beside it. Age is no longer used, and Practice focus replaces Difficulty. A saved Difficulty of Confidence or Stretch no longer applies; each practice focus uses exactly its stated range.";
 
 interface BrowserConsoleEntry {
   location: {
@@ -122,14 +148,14 @@ async function createProfile(
     name: first ? "Create first profile" : "Add profile",
   }).click();
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill(profile.displayName ?? "");
-  await page.getByRole("spinbutton", { name: "Age in years" }).fill(String(profile.ageYears));
-  await page.getByRole("button", { name: "Confirm suggested capabilities" }).click();
+  await expect(page.getByRole("spinbutton", { name: /\bages?\b/iu })).toHaveCount(0);
+  await page.getByRole("radio", { name: canonicalPresets[profile.id] ?? "" }).click();
   await page.getByRole("combobox", { name: "Writing mode" }).selectOption(profile.writingMode);
   await page.getByLabel("Reviewed on").fill(profile.reviewedOn);
   await page.getByRole("textbox", { name: /Broad interests/ }).fill(profile.interests.join(", "));
   await page.getByRole("button", { name: "Save profile" }).click();
   await expect(
-    page.getByRole("heading", { name: profile.displayName ?? `Profile age ${profile.ageYears}` }),
+    page.getByRole("heading", { name: profile.displayName ?? "Profile" }),
   ).toBeVisible();
 }
 
@@ -208,11 +234,10 @@ test("creates, reloads, edits, deletes, and conflict-protects canonical profiles
     await createProfile(page, profile, index === 0);
   }
   await expectNoBrowserPersistence(page);
-  expect(await appServer.readConfig()).toEqual({
-    schemaVersion: 1,
-    profiles: canonicalProfiles,
-    defaults,
-  });
+  expect(await appServer.readConfig()).toEqual(createdConfig(canonicalProfiles));
+  expect(JSON.parse((await appServer.readRaw()).toString("utf8"))).toEqual(
+    createdConfig(canonicalProfiles),
+  );
   expect(configPutHeaders[0]?.["if-none-match"]).toBe("*");
   expect(configPutHeaders[0]?.["if-match"]).toBeUndefined();
   expect(configPutHeaders.slice(1, 3).every((headers) => /^"sha256-[0-9a-f]{64}"$/u.test(headers["if-match"] ?? ""))).toBe(true);
@@ -269,7 +294,6 @@ test("creates, reloads, edits, deletes, and conflict-protects canonical profiles
 
   await page.getByRole("button", { name: "Add profile" }).click();
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill("Disposable");
-  await page.getByRole("spinbutton", { name: "Age in years" }).fill("5");
   await page.getByRole("radio", { name: "Emerging equations within 5" }).click();
   await expect(page.getByRole("radio", { name: "Preschool", exact: true })).not.toBeChecked();
   await expect(page.getByRole("radio", { name: "Early primary", exact: true })).not.toBeChecked();
@@ -281,21 +305,24 @@ test("creates, reloads, edits, deletes, and conflict-protects canonical profiles
   const withDisposable = await appServer.readConfig();
   expect(withDisposable.profiles[3]).toMatchObject({
     id: disposableId,
-    ageYears: 5,
-    presentationBand: "preschool",
-    mathSkills: {
-      countingMax: 10,
-      numeralMax: 10,
-      compareMax: 10,
-      representations: ["quantities", "equations"],
-      understandsEquality: false,
-      operations: ["addition"],
-      operandMax: 5,
-      resultMax: 5,
-      allowRegrouping: false,
-      allowNegativeResults: false,
+    legacyChoices: {
+      presentationBand: "preschool",
+      writingMode: "copy-with-model",
+      mathSkills: {
+        countingMax: 10,
+        numeralMax: 10,
+        compareMax: 10,
+        representations: ["quantities", "equations"],
+        understandsEquality: false,
+        operations: ["addition"],
+        operandMax: 5,
+        resultMax: 5,
+        allowRegrouping: false,
+        allowNegativeResults: false,
+      },
     },
   });
+  expect(withDisposable.profiles[3]).not.toHaveProperty("ageYears");
   expect(JSON.stringify(withDisposable)).not.toContain("grade");
 
   const siblingBytes = Buffer.from("existing sibling backup remains byte-identical\n", "utf8");
@@ -358,9 +385,9 @@ test("creates, reloads, edits, deletes, and conflict-protects canonical profiles
     expect(losingPutHeaders[1]?.["if-match"]).toBe(winnerEtag);
     const reconciled = await appServer.readConfig();
     expect(reconciled.profiles).toEqual([
-      canonicalProfiles[0],
-      { ...canonicalProfiles[1], displayName: "Morgan Unsaved Draft" },
-      canonicalProfiles[2],
+      storedProfile(canonicalProfiles[0]),
+      { ...storedProfile(canonicalProfiles[1]), displayName: "Morgan Unsaved Draft" },
+      storedProfile(canonicalProfiles[2]),
     ]);
   } finally {
     await secondContext.close();
@@ -502,9 +529,17 @@ test("requires explicit invalid-file recovery and offers only the warned generic
   expect(downloads).toEqual([]);
   await expectAccessible(page);
 
+  // Before any confirmation, the panel states what stays only in the backup.
+  // The client never receives the invalid bytes, so the text names no profile.
+  const disclosure = page.locator("[data-recovery-disclosure]");
+  await expect(disclosure).toHaveText(
+    "The replacement file keeps only the one profile entered below, with the built-in worksheet defaults. Every other profile, the saved worksheet defaults and all earlier settings stay only in the backup file.",
+  );
+  const downloadCopy = await page.getByText(/Optional draft download/u).textContent();
+  expect(downloadCopy ?? "").not.toMatch(/\bages?\b/iu);
+
   await page.getByRole("textbox", { name: "Nickname (optional)" }).fill("Recovery Riley");
-  await page.getByRole("spinbutton", { name: "Age in years" }).fill("4");
-  await page.getByRole("button", { name: "Confirm suggested capabilities" }).click();
+  await page.getByRole("radio", { name: "Quantities to 10" }).click();
   await page.getByRole("combobox", { name: "Writing mode" }).selectOption("copy-with-model");
   await page.getByLabel("Reviewed on").fill("2026-08-22");
   await page.getByRole("textbox", { name: /Broad interests/ }).fill("animals, space");
@@ -526,8 +561,12 @@ test("requires explicit invalid-file recovery and offers only the warned generic
   if (downloadedPath === null) {
     throw new Error("The explicit draft download was unavailable.");
   }
-  const downloaded = JSON.parse(await readFile(downloadedPath, "utf8")) as AppConfigV1;
+  const downloaded = JSON.parse(await readFile(downloadedPath, "utf8")) as AppConfigV2;
+  expect(downloaded.schemaVersion).toBe(2);
+  expect(downloaded.profiles).toHaveLength(1);
   expect(downloaded.profiles[0]?.displayName).toBe("Recovery Riley");
+  expect(downloaded.profiles[0]).not.toHaveProperty("ageYears");
+  expect(downloaded.profiles[0]?.legacyChoices?.writingMode).toBe("copy-with-model");
   expect((await readFile(downloadedPath)).equals(invalidRawA)).toBe(false);
 
   const recoveryConfirmation = page.getByLabel(
@@ -555,7 +594,6 @@ test("requires explicit invalid-file recovery and offers only the warned generic
   await expect(page.getByRole("textbox", { name: "Nickname (optional)" })).toHaveValue(
     "Recovery Riley",
   );
-  await expect(page.getByRole("spinbutton", { name: "Age in years" })).toHaveValue("4");
   await expect(page.getByRole("combobox", { name: "Writing mode" })).toHaveValue(
     "copy-with-model",
   );
@@ -585,6 +623,71 @@ test("requires explicit invalid-file recovery and offers only the warned generic
   expect(backups[0]).toEqual(invalidRawB);
   expect((await appServer.readConfig()).profiles[0]?.displayName).toBe("Recovery Riley");
   expect(downloads).toEqual(["extra-credit-profile-backup.json"]);
+});
+
+test("upgrades a version 1 file only on the first explicit save, behind one byte-identical backup", async ({
+  appServer,
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
+  await appServer.seedRaw(childrenV1FixtureBytes);
+  const seededDigest = sha256(childrenV1FixtureBytes);
+  const seeded = await appServer.readConfig();
+  const identity = (config: AppConfigV2) =>
+    config.profiles.map(({ id, displayName, interests, reviewedOn }) => ({
+      id,
+      displayName,
+      interests,
+      reviewedOn,
+    }));
+
+  await page.goto(appServer.origin);
+  const notice = page.locator("[data-upgrade-notice]");
+  await expect(notice).toHaveText(UPGRADE_NOTICE_TEXT);
+  await expect(notice).toHaveAttribute("aria-live", "polite");
+  await expect(notice).not.toHaveAttribute("role");
+
+  // Reading never writes, however often the page loads the file.
+  await page.reload();
+  await expect(notice).toHaveText(UPGRADE_NOTICE_TEXT);
+  expect(sha256(await appServer.readRaw())).toBe(seededDigest);
+  expect(await appServer.backupContents()).toEqual([]);
+
+  // One explicit save upgrades the file and ends the notice.
+  const [first] = seeded.profiles;
+  if (first?.displayName === undefined) {
+    throw new Error("The v1 fixture's first profile has no nickname.");
+  }
+  await page.getByRole("button", { name: `Edit ${first.displayName}`, exact: true }).click();
+  await page.getByRole("textbox", { name: "Nickname (optional)" }).fill("Upgraded Nickname");
+  await page.getByRole("button", { name: "Save profile" }).click();
+  await expect(page.getByRole("heading", { name: "Upgraded Nickname" })).toBeVisible();
+  await expect(notice).toHaveText("");
+  const backups = await appServer.backupContents();
+  expect(backups).toHaveLength(1);
+  expect(backups[0]?.equals(childrenV1FixtureBytes)).toBe(true);
+  const upgraded = await appServer.readConfig();
+  expect(JSON.parse((await appServer.readRaw()).toString("utf8")).schemaVersion).toBe(2);
+  expect(identity(upgraded)).toEqual(
+    identity({
+      ...seeded,
+      profiles: seeded.profiles.map((profile, index) =>
+        index === 0 ? { ...profile, displayName: "Upgraded Nickname" } : profile,
+      ),
+    }),
+  );
+  expect(upgraded.profiles.map(({ legacyChoices }) => legacyChoices)).toEqual(
+    seeded.profiles.map(({ legacyChoices }) => legacyChoices),
+  );
+
+  // A restart reads version 2: no notice, the same profiles, still one backup.
+  await appServer.restart();
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Upgraded Nickname" })).toBeVisible();
+  await expect(notice).toHaveText("");
+  expect(identity(await appServer.readConfig())).toEqual(identity(upgraded));
+  expect(await appServer.backupContents()).toHaveLength(1);
 });
 
 test("real Vite development routing proxies only the three exact API endpoints", async ({

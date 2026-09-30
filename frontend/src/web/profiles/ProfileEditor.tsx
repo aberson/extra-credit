@@ -2,16 +2,16 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEven
 
 import {
   expandMathPreset,
-  getAgePresetSuggestion,
   MATH_PRESETS,
   MATH_PRESET_IDS,
   type ConcreteMathPresetId,
   type MathPresetId,
 } from "../../shared/config/math-presets";
 import {
-  ChildProfileV1Schema,
+  ChildProfileV2Schema,
   WRITING_MODES,
-  type ChildProfileV1,
+  type ChildProfileV2,
+  type LegacyChoicesV2,
   type MathSkillsV1,
   type PresentationBand,
   type WritingMode,
@@ -22,13 +22,27 @@ import {
 } from "../api/client";
 import { MathSkillsEditor } from "./MathSkillsEditor";
 
+/**
+ * DD10's help text, shown by the profile editor and the generator
+ * introduction. It names no age: the worksheets are designed for early
+ * primary practice, and the parent chooses the work that fits.
+ */
+export const EARLY_PRIMARY_HELP_TEXT =
+  "Extra Credit's worksheets are designed for early primary practice. Choose the worksheet and practice focus that fit your child.";
+
+/**
+ * Interim (D-interim, Steps 15-17): the form still edits a child's earlier
+ * writing mode, vocabulary band and math values, and saves them as the
+ * profile's read-only `legacyChoices`. A new profile, or one stored without
+ * them, cannot be saved until a math preset is chosen explicitly.
+ */
 export interface ProfileEditorProps {
   readonly onCancel: () => void;
-  readonly onDraftChange?: (profile: ChildProfileV1 | undefined) => void;
+  readonly onDraftChange?: (profile: ChildProfileV2 | undefined) => void;
   readonly onResolveConflict?: () => Promise<void>;
-  readonly onSubmit: (profile: ChildProfileV1) => Promise<void>;
+  readonly onSubmit: (profile: ChildProfileV2) => Promise<void>;
   readonly operationPending?: boolean;
-  readonly profile?: ChildProfileV1;
+  readonly profile?: ChildProfileV2;
   readonly recoveryMode?: boolean;
 }
 
@@ -77,14 +91,14 @@ function sameMathSkills(left: MathSkillsV1, right: MathSkillsV1): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function inferPreset(profile: ChildProfileV1): MathPresetId {
+function inferPreset(legacy: LegacyChoicesV2): MathPresetId {
   for (const presetId of MATH_PRESET_IDS) {
     if (presetId === "custom") continue;
     const definition = MATH_PRESETS[presetId];
     if (
-      sameMathSkills(profile.mathSkills, definition.mathSkills) &&
+      sameMathSkills(legacy.mathSkills, definition.mathSkills) &&
       (definition.presentationBand === null ||
-        definition.presentationBand === profile.presentationBand)
+        definition.presentationBand === legacy.presentationBand)
     ) {
       return presetId;
     }
@@ -137,26 +151,24 @@ export function ProfileEditor({
   const errorRef = useRef<HTMLDivElement>(null);
   useEffect(() => { headingRef.current?.focus(); }, []);
   const isEditing = profile !== undefined;
+  const legacy = profile?.legacyChoices;
   const [id] = useState(() => profile?.id ?? crypto.randomUUID());
   const [displayName, setDisplayName] = useState(profile?.displayName ?? "");
-  const [ageText, setAgeText] = useState(
-    profile === undefined ? "" : String(profile.ageYears),
-  );
   const [presentationBand, setPresentationBand] = useState<PresentationBand>(
-    profile?.presentationBand ?? "preschool",
+    legacy?.presentationBand ?? "preschool",
   );
   const [presentationBandConfirmed, setPresentationBandConfirmed] = useState(
-    profile !== undefined,
+    legacy !== undefined,
   );
   const [mathSkills, setMathSkills] = useState<MathSkillsV1>(() =>
-    cloneMathSkills(profile?.mathSkills ?? blankMathSkills),
+    cloneMathSkills(legacy?.mathSkills ?? blankMathSkills),
   );
   const [selectedPresetId, setSelectedPresetId] = useState<MathPresetId | null>(
-    profile === undefined ? null : inferPreset(profile),
+    legacy === undefined ? null : inferPreset(legacy),
   );
-  const [presetConfirmed, setPresetConfirmed] = useState(profile !== undefined);
+  const [presetConfirmed, setPresetConfirmed] = useState(legacy !== undefined);
   const [writingMode, setWritingMode] = useState<WritingMode>(
-    profile?.writingMode ?? "label",
+    legacy?.writingMode ?? "label",
   );
   const [reviewedOn, setReviewedOn] = useState(profile?.reviewedOn ?? todayIso());
   const [interestsText, setInterestsText] = useState(
@@ -169,24 +181,19 @@ export function ProfileEditor({
     "none" | "needs-reload" | "reloading" | "reconciled"
   >("none");
 
-  const ageYears = useMemo(() => {
-    const age = Number(ageText);
-    return Number.isInteger(age) ? age : null;
-  }, [ageText]);
-
   const draftInput = useMemo(
     () => ({
       id,
       ...(displayName.trim().length === 0 ? {} : { displayName }),
-      ageYears,
-      presentationBand,
       reviewedOn,
-      mathSkills,
-      writingMode,
       interests: parseInterests(interestsText),
+      legacyChoices: {
+        presentationBand,
+        writingMode,
+        mathSkills,
+      },
     }),
     [
-      ageYears,
       displayName,
       id,
       interestsText,
@@ -197,7 +204,7 @@ export function ProfileEditor({
     ],
   );
   const parsedDraft = useMemo(
-    () => ChildProfileV1Schema.safeParse(draftInput),
+    () => ChildProfileV2Schema.safeParse(draftInput),
     [draftInput],
   );
   const capabilitiesConfirmed = selectedPresetId !== null && presetConfirmed;
@@ -210,35 +217,14 @@ export function ProfileEditor({
     );
   }, [capabilitiesConfirmed, onDraftChange, parsedDraft, presentationBandConfirmed]);
 
-  function applyPreset(presetId: ConcreteMathPresetId, confirmed: boolean): void {
+  /** A preset is only ever applied by the parent's own explicit choice. */
+  function applyPreset(presetId: ConcreteMathPresetId): void {
     const expanded = expandMathPreset(presetId, presentationBand);
     setSelectedPresetId(presetId);
     setMathSkills(cloneMathSkills(expanded.mathSkills));
     setPresentationBand(expanded.presentationBand);
-    setPresetConfirmed(confirmed);
-    setPresentationBandConfirmed(
-      confirmed && MATH_PRESETS[presetId].presentationBand !== null,
-    );
-  }
-
-  function handleAgeChange(nextText: string): void {
-    setAgeText(nextText);
-    if (presetConfirmed) {
-      return;
-    }
-
-    const nextAge = Number(nextText);
-    if (!Number.isInteger(nextAge)) {
-      setSelectedPresetId(null);
-      return;
-    }
-
-    const suggestion = getAgePresetSuggestion(nextAge);
-    if (suggestion.status === "selected") {
-      applyPreset(suggestion.presetId, false);
-    } else {
-      setSelectedPresetId(null);
-    }
+    setPresetConfirmed(true);
+    setPresentationBandConfirmed(MATH_PRESETS[presetId].presentationBand !== null);
   }
 
   function handlePresetSelection(presetId: MathPresetId): void {
@@ -247,7 +233,7 @@ export function ProfileEditor({
       setPresetConfirmed(true);
       return;
     }
-    applyPreset(presetId, true);
+    applyPreset(presetId);
   }
 
   function handleBandChange(band: PresentationBand): void {
@@ -343,6 +329,9 @@ export function ProfileEditor({
         <h2 ref={headingRef} tabIndex={-1} id="profile-editor-title" style={{ margin: "0.15rem 0 0" }}>
           {isEditing ? "Update this profile" : "Set up a profile"}
         </h2>
+        <p data-early-primary-help="true" style={{ color: "#566278", margin: "0.45rem 0 0" }}>
+          {EARLY_PRIMARY_HELP_TEXT}
+        </p>
       </header>
 
       <div style={{ display: "grid", gap: "0.8rem", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 12rem), 1fr))" }}>
@@ -354,19 +343,6 @@ export function ProfileEditor({
             onChange={(event) => setDisplayName(event.target.value)}
             style={inputStyle}
             value={displayName}
-          />
-        </label>
-        <label style={fieldStyle}>
-          Age in years
-          <input
-            max={18}
-            min={4}
-            onChange={(event) => handleAgeChange(event.target.value)}
-            required
-            step={1}
-            style={inputStyle}
-            type="number"
-            value={ageText}
           />
         </label>
         <fieldset style={{ border: 0, margin: 0, padding: 0 }}>
@@ -411,15 +387,7 @@ export function ProfileEditor({
 
       <div style={{ marginTop: "0.8rem" }}>
         <MathSkillsEditor
-          ageYears={ageYears}
-          confirmed={capabilitiesConfirmed}
           mathSkills={mathSkills}
-          onConfirmSuggestion={() => {
-            if (selectedPresetId !== null) {
-              setPresetConfirmed(true);
-              setPresentationBandConfirmed(true);
-            }
-          }}
           onMathSkillsChange={handleMathSkillsChange}
           onPresentationBandChange={handleBandChange}
           onSelectPreset={handlePresetSelection}
