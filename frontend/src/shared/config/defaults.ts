@@ -42,6 +42,7 @@ export const DEFAULT_WORKSHEET_DEFAULTS_V2: Readonly<WorksheetDefaultsV2> =
   deepFreeze({
     worksheetType: "dry-math",
     dryMath: arithmeticFocusFrom("early-primary-within-10"),
+    dryMathRegrouping: "without",
     findTheWow: {
       variant: "quantity",
       quantity: {
@@ -111,6 +112,7 @@ export function worksheetSelectionOf(
   return {
     worksheetType: copy.worksheetType,
     dryMath: copy.dryMath,
+    dryMathRegrouping: copy.dryMathRegrouping,
     findTheWow: copy.findTheWow,
     sentenceBuilder: copy.sentenceBuilder,
     countCompareMake: copy.countCompareMake,

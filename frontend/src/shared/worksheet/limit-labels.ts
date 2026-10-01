@@ -185,6 +185,12 @@ export const UNBOUNDED_MAXIMUM = Number.MAX_SAFE_INTEGER;
  * is issue #16's failure mode: advice the parent cannot act on.
  * This asks the family's own enumeration instead, and names a maximum only when
  * lifting it really does enlarge the collection.
+ *
+ * When no single lift enlarges it but lifting every key together does, the
+ * keys bind only jointly (a page on which every addition must carry, with
+ * operands and results both at 1, gains a problem only when both rise), so
+ * all of them are named: widening just one cannot help, widening the range
+ * does.
  */
 export function bindingMaximumKeysByProbe(
   maximums: WorksheetMaximumValues,
@@ -192,9 +198,13 @@ export function bindingMaximumKeysByProbe(
   capacity: number,
   measureCapacity: (maximums: WorksheetMaximumValues) => number,
 ): readonly WorksheetRelevantMaximumKey[] {
-  return keys.filter((key) => {
+  const lift = (lifting: readonly WorksheetRelevantMaximumKey[]): boolean => {
     const lifted: Record<WorksheetRelevantMaximumKey, number> = { ...maximums };
-    lifted[key] = UNBOUNDED_MAXIMUM;
+    for (const key of lifting) {
+      lifted[key] = UNBOUNDED_MAXIMUM;
+    }
     return measureCapacity(lifted) > capacity;
-  });
+  };
+  const single = keys.filter((key) => lift([key]));
+  return single.length === 0 && keys.length > 1 && lift(keys) ? keys : single;
 }

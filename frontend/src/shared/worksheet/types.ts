@@ -132,6 +132,17 @@ export interface GenerationOptionsV1 {
   readonly decorativeTopicId?: TopicId;
 }
 
+/**
+ * What a math family practises beyond its `mathSkills` focus (math-activities
+ * plan, Appendix A.3). Dry Math's "Every problem carries or borrows" is the
+ * add-subtract kind; "Without carrying or borrowing" is no `practice` member at
+ * all, so every request an earlier build produced keeps its exact shape.
+ */
+export type PracticeRequestV1 = {
+  readonly kind: "dry-math-add-subtract";
+  readonly regrouping: "required";
+};
+
 export interface GenerationRequestV1 {
   readonly schemaVersion: 1;
   readonly worksheetType: WorksheetType;
@@ -141,6 +152,8 @@ export interface GenerationRequestV1 {
   readonly options: GenerationOptionsV1;
   readonly displayName?: string;
   readonly topicIds?: readonly TopicId[];
+  /** Absent unless the selection asks for more than its focus states. */
+  readonly practice?: PracticeRequestV1;
 }
 
 export type ObjectiveAnswerV1 =

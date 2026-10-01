@@ -198,6 +198,9 @@ export function selectionFromEarlierSettings(
     selection: {
       worksheetType: base.worksheetType,
       dryMath,
+      // Never an earlier setting: a stored `allowRegrouping` is disclosed as
+      // unused, and carrying and borrowing stays the parent's explicit choice.
+      dryMathRegrouping: base.dryMathRegrouping,
       findTheWow: { variant, quantity, equation },
       sentenceBuilder: {
         variant: legacy.writingMode,

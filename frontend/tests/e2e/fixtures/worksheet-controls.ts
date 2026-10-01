@@ -6,6 +6,7 @@ import {
 } from "../../../src/shared/config/practice-focus.ts";
 import type {
   FindTheWowVariant,
+  RegroupingMode,
   SentenceVocabulary,
   ThemeChoice,
   WorksheetSelectionV2,
@@ -17,6 +18,7 @@ import type {
   WorksheetLength,
   WorksheetType,
 } from "../../../src/shared/worksheet/types.ts";
+import { DRY_MATH_REGROUPING_LABELS } from "../../../src/worksheets/dry-math/definition.ts";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../../src/worksheets/find-the-wow/definition.ts";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../../src/worksheets/sentence-builder/definition.ts";
 
@@ -44,6 +46,8 @@ export interface WorksheetControls {
   readonly statements: () => Locator;
   readonly child: () => Locator;
   readonly practiceFocus: () => Locator;
+  /** The "Carrying and borrowing" radio group (Dry Math). */
+  readonly regrouping: () => Locator;
   /** The "Vocabulary" radio group (Sentence Builder). */
   readonly vocabulary: () => Locator;
   readonly moreOptions: () => Locator;
@@ -70,6 +74,7 @@ export function controls(page: Page): WorksheetControls {
     statements: () => page.getByRole("group", { name: "Statements", exact: true }),
     child: () => page.getByRole("combobox", { name: "Child profile" }),
     practiceFocus: () => page.getByRole("combobox", { name: "Practice focus", exact: true }),
+    regrouping: () => page.getByRole("group", { name: "Carrying and borrowing", exact: true }),
     vocabulary: () => page.getByRole("group", { name: "Vocabulary", exact: true }),
     moreOptions: () => page.locator("summary").filter({ hasText: /^More options$/u }),
     length: () => page.getByRole("combobox", { name: "Length", exact: true }),
@@ -140,6 +145,16 @@ export async function choosePracticeFocus(page: Page, label: string): Promise<vo
   await expect(select.locator("option:checked")).toHaveText(label);
 }
 
+/** Chooses Dry Math's Carrying and borrowing option, for example "required". */
+export async function chooseRegrouping(page: Page, regrouping: RegroupingMode): Promise<void> {
+  const radio = controls(page).regrouping().getByRole("radio", {
+    name: DRY_MATH_REGROUPING_LABELS[regrouping],
+    exact: true,
+  });
+  await radio.check();
+  await expect(radio).toBeChecked();
+}
+
 export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabulary): Promise<void> {
   const radio = controls(page).vocabulary().getByRole("radio", {
     name: SENTENCE_VOCABULARY_LABELS[vocabulary],
@@ -152,7 +167,8 @@ export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabular
 /**
  * The practice choices of a whole worksheet selection, in panel order: the
  * worksheet type, its variant where one exists, then the practice focus (by
- * its `describePracticeFocus` label) or, for Sentence Builder, the vocabulary.
+ * its `describePracticeFocus` label) and, for Dry Math, Carrying and
+ * borrowing, or, for Sentence Builder, the vocabulary.
  * The selection's other fields are left to the functions below.
  */
 export async function chooseWorksheetChoices(
@@ -163,6 +179,7 @@ export async function chooseWorksheetChoices(
   switch (selection.worksheetType) {
     case "dry-math":
       await choosePracticeFocus(page, describePracticeFocus("dry-math", selection.dryMath));
+      await chooseRegrouping(page, selection.dryMathRegrouping);
       return;
     case "find-the-wow": {
       const { variant, quantity, equation } = selection.findTheWow;

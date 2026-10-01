@@ -215,6 +215,7 @@ Every kept step runs `--reviewers code --isolation worktree`, with no `--ui`, st
 - **Type:** code
 - **Issue:** #35
 - **Flags:** --reviewers code --isolation worktree
+- **Status:** DONE (2026-09-30)
 - **Files:**
   - New: `frontend/src/shared/worksheet/{arithmetic.ts,arithmetic.test.ts,answer-oracle.ts,answer-oracle.test.ts}`; `frontend/tests/oracles/arithmetic-oracle.ts`; `frontend/tests/integration/arithmetic-oracle.test.ts`; `frontend/src/web/generator/math-generation.test.ts` (D46).
   - Worksheet: `frontend/src/shared/worksheet/{types.ts,invariants.ts,project-request.ts,project-request.test.ts,registry.ts,limit-labels.ts,limit-labels.test.ts}`; Dry Math: `frontend/src/worksheets/dry-math/{definition.ts,generator.ts,generator.test.ts}`; Wow: `frontend/src/worksheets/find-the-wow/generator.ts` (imports the shared rule, no content change).

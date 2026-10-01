@@ -7,6 +7,7 @@ import {
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
+  REGROUPING_MODES,
   REPRESENTATIONS,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
@@ -207,6 +208,7 @@ const quantityMaximumSchema = {
 const worksheetDefaultsProperties = {
   worksheetType: { enum: WORKSHEET_TYPE_IDS },
   dryMath: arithmeticFocusSchema(DRY_MATH_NUMERIC_MAXIMUM),
+  dryMathRegrouping: { enum: REGROUPING_MODES },
   findTheWow: strictObjectSchema({
     variant: { enum: FIND_THE_WOW_VARIANTS },
     quantity: strictObjectSchema({
@@ -297,7 +299,9 @@ export const APP_CONFIG_TRANSPORT_SCHEMA = {
       type: "array",
       items: childProfileSchema,
     },
-    defaults: strictObjectSchema(worksheetDefaultsProperties),
+    // Additive version 2 keys carry a Zod default and stay out of `required`,
+    // so a file written before they existed still passes this layer.
+    defaults: strictObjectSchema(worksheetDefaultsProperties, ["dryMathRegrouping"]),
   }),
 } as const;
 

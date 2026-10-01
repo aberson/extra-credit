@@ -29,7 +29,11 @@ import {
   type CountCompareSubtypeV1,
 } from "../../worksheets/count-compare-make/definition.js";
 import { countCompareCapacityFormula } from "../../worksheets/count-compare-make/generator.js";
-import { getDryMathCapabilitySupport } from "../../worksheets/dry-math/definition.js";
+import {
+  WITHOUT_REGROUPING_FILLS_SENTENCE,
+  getDryMathCapabilitySupport,
+  getDryMathItemCount,
+} from "../../worksheets/dry-math/definition.js";
 import { dryMathCapacityVerdict } from "../../worksheets/dry-math/generator.js";
 import {
   FIND_THE_WOW_GROUP_BUDGETS,
@@ -202,6 +206,19 @@ describe("whether a shorter worksheet is a real remedy", () => {
     expect(shorterLengthFills("standard", 1, (length) => flat[length])).toBe(false);
     expect(shorterLengthFills("long", 2, (length) => flat[length])).toBe(true);
   });
+
+  test("decides fill, not merely fewer items, for Dry Math pages that must carry or borrow", () => {
+    const standardScale = (length: WorksheetLength): number =>
+      getDryMathItemCount(length, "standard");
+    // Addition within 5 holds no carrying fact: Standard and Short need fewer
+    // items than Long, yet neither fills, so no shorter length is offered.
+    expect(standardScale("standard")).toBeLessThan(standardScale("long"));
+    expect(shorterLengthFills("long", 0, standardScale)).toBe(false);
+    expect(shorterLengthFills("long", 7, standardScale)).toBe(false);
+    // An exact shorter fill is a real remedy.
+    expect(shorterLengthFills("long", standardScale("short"), standardScale)).toBe(true);
+    expect(shorterLengthFills("long", standardScale("standard"), standardScale)).toBe(true);
+  });
 });
 
 describe("the Math.min binding-maximum selector", () => {
@@ -274,10 +291,32 @@ describe("the counterfactual binding-maximum probe", () => {
       seen.push(lifted);
       return 0;
     });
+    // When no single lift helps, one last probe lifts the keys together.
     expect(seen).toEqual([
       { ...maximums, operandMax: UNBOUNDED_MAXIMUM },
       { ...maximums, resultMax: UNBOUNDED_MAXIMUM },
+      { ...maximums, operandMax: UNBOUNDED_MAXIMUM, resultMax: UNBOUNDED_MAXIMUM },
     ]);
+  });
+
+  test("names every key when only lifting them together enlarges the pool", () => {
+    const jointly = (lifted: WorksheetMaximumValues): number =>
+      lifted.operandMax === UNBOUNDED_MAXIMUM && lifted.resultMax === UNBOUNDED_MAXIMUM
+        ? 99
+        : 0;
+    expect(bindingMaximumKeysByProbe(maximums, keys, 0, jointly)).toEqual([
+      "operandMax",
+      "resultMax",
+    ]);
+    // Mirror: a single binding key is named alone and the joint probe never runs.
+    const seen: WorksheetMaximumValues[] = [];
+    expect(
+      bindingMaximumKeysByProbe(maximums, keys, 0, (lifted) => {
+        seen.push(lifted);
+        return lifted.resultMax === UNBOUNDED_MAXIMUM ? 99 : 0;
+      }),
+    ).toEqual(["resultMax"]);
+    expect(seen).toHaveLength(2);
   });
 });
 
@@ -517,7 +556,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "DSF-none",
     status: "dead",
-    note: "same proof as FSF-equation-none",
+    note: "same proof as FSF-equation-none; a page that must carry or borrow whose maxima bind only together (the D34 earlier setting) is named whole by the probe's joint lift, which reaches DSF-both",
   },
   { id: "DSF-suff", status: "reachable", note: "enough facts for this length" },
   {
@@ -617,6 +656,16 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     note: "same bound-and-clamp argument as NL-v1clamp, against `FIND_THE_WOW_V1_MAXIMUM`: `getQuantityWowLimit` carries the family's own clamp term, which the schema and the earlier-settings clamp have already applied",
   },
   {
+    id: "RG-without-fills",
+    status: "reachable",
+    note: "a Dry Math page that must carry or borrow fell short and the same focus without carrying or borrowing fills it: addition within 5 holds no carrying fact and 21 without, which fills every budget",
+  },
+  {
+    id: "RG-without-short",
+    status: "reachable",
+    note: "a Dry Math page that must carry or borrow fell short and the same focus without it does not fill either: addition with operand and result maxima of 1 holds no carrying fact and 3 without",
+  },
+  {
     id: "SBU-no-bank",
     status: "reachable",
     note: "a writing activity that prints no bank previews one writing prompt",
@@ -676,6 +725,7 @@ const DECLARED_SENTENCE_SHAPES: readonly string[] = [
   "This practice focus provides N unique facts, but this length needs N. Choose a practice focus with a wider operands and results range.",
   "This practice focus provides N unique facts, but this length needs N. Choose a practice focus with a wider operands range.",
   "This practice focus provides N unique facts, but this length needs N. Choose a practice focus with a wider results range.",
+  "This practice focus provides N unique facts, but this length needs N. Choose a practice focus with a wider results range. Choosing Without carrying or borrowing also fills this length.",
   "This practice focus provides N unique group-comparison exercises, but this length needs N. Choose a practice focus with a wider comparisons range.",
   "This practice focus provides N unique numeral-matching exercises, but this length needs N. Choose a practice focus with a wider counting and numerals range.",
   "This practice focus provides N unique numeral-matching exercises, but this length needs N. Choose a practice focus with a wider counting range.",
@@ -977,6 +1027,22 @@ const CATALOG_SOURCES: readonly SweepSource[] = [
   ),
 ];
 
+/**
+ * "Every problem carries or borrows" over every Dry Math catalog focus, plus
+ * the D34 earlier setting, the one starving source below every Dry Math
+ * budget in both choices.
+ */
+const REGROUPING_SOURCES: readonly SweepSource[] = [
+  ...PRACTICE_FOCUS_CATALOG["dry-math"].map((option) => ({
+    name: `catalog dry-math ${option.id} required`,
+    selection: { ...SWEEP_BASE, dryMath: option.focus, dryMathRegrouping: "required" as const },
+  })),
+  {
+    name: "earlier D34 required",
+    selection: { ...earlierSelection(D34_PROFILE), dryMathRegrouping: "required" },
+  },
+];
+
 const SWEEP_SOURCES: readonly SweepSource[] = [
   ...CATALOG_SOURCES,
   ...PROBE_PROFILES.map((profile) => ({
@@ -985,6 +1051,7 @@ const SWEEP_SOURCES: readonly SweepSource[] = [
   })),
   { name: "earlier D34", selection: earlierSelection(D34_PROFILE) },
   { name: "earlier D36", selection: earlierSelection(D36_PROFILE) },
+  ...REGROUPING_SOURCES,
 ];
 
 // --- observation -----------------------------------------------------------
@@ -1306,6 +1373,18 @@ describe("every declared arm of the capacity and advice surface", () => {
                   ? "DSF-suff"
                   : `DSF-${probeSuffix(labels)}`,
               );
+              if (!support.capacity.sufficient && selection.dryMathRegrouping === "required") {
+                // The Without sentence must appear exactly when the same
+                // selection without carrying or borrowing really fills.
+                const without = registration.controls.getCapabilitySupport({
+                  selection: { ...selection, dryMathRegrouping: "without" },
+                });
+                const withoutFills = without.available && without.capacity.sufficient;
+                expect(`${where}: ${message.endsWith(WITHOUT_REGROUPING_FILLS_SENTENCE)}`).toBe(
+                  `${where}: ${withoutFills}`,
+                );
+                observe(withoutFills ? "RG-without-fills" : "RG-without-short");
+              }
             }
 
             if (worksheetType === "find-the-wow") {
@@ -1499,6 +1578,8 @@ describe("every declared arm of the capacity and advice surface", () => {
     expect([...shapes].sort()).toEqual(DECLARED_SENTENCE_SHAPES);
     expect(insufficientSources).toContain("earlier D34 dry-math");
     expect(insufficientSources).toContain("earlier D36 find-the-wow");
+    expect(insufficientSources).toContain("earlier D34 required dry-math");
+    expect(insufficientSources).toContain("catalog dry-math addition-within-5 required dry-math");
   });
 });
 

@@ -1,7 +1,6 @@
-import {
-  recomputeDryMathAnswer,
-  validateWorksheetInvariants,
-} from "../../shared/worksheet/invariants.js";
+import { objectiveAnswerMatches } from "../../shared/worksheet/answer-oracle.js";
+import { regroups } from "../../shared/worksheet/arithmetic.js";
+import { validateWorksheetInvariants } from "../../shared/worksheet/invariants.js";
 import {
   createSeededRandom,
   seededShuffle,
@@ -34,30 +33,15 @@ interface ArithmeticCandidate {
 
 export type DryMathDocumentV1 = WorksheetDocumentV1<DryMathItemV1>;
 
-function additionHasNoCarrying(left: number, right: number): boolean {
-  let leftDigits = left;
-  let rightDigits = right;
-  do {
-    if ((leftDigits % 10) + (rightDigits % 10) >= 10) {
-      return false;
-    }
-    leftDigits = Math.floor(leftDigits / 10);
-    rightDigits = Math.floor(rightDigits / 10);
-  } while (leftDigits > 0 || rightDigits > 0);
-  return true;
-}
-
-function subtractionHasNoBorrowing(left: number, right: number): boolean {
-  let leftDigits = left;
-  let rightDigits = right;
-  do {
-    if (leftDigits % 10 < rightDigits % 10) {
-      return false;
-    }
-    leftDigits = Math.floor(leftDigits / 10);
-    rightDigits = Math.floor(rightDigits / 10);
-  } while (leftDigits > 0 || rightDigits > 0);
-  return true;
+/**
+ * Whether this request asks for "Every problem carries or borrows". A request
+ * without a `practice` member is today's regrouping-free page.
+ */
+function regroupingRequired(request: GenerationRequestV1): boolean {
+  return (
+    request.practice?.kind === "dry-math-add-subtract" &&
+    request.practice.regrouping === "required"
+  );
 }
 
 export function effectiveDryMathItemCount(request: GenerationRequestV1): number {
@@ -70,7 +54,22 @@ export function effectiveDryMathItemCount(request: GenerationRequestV1): number 
 export function enumerateDryMathCandidates(
   request: GenerationRequestV1,
 ): readonly ArithmeticCandidate[] {
-  const skills = request.capabilities.mathSkills;
+  return enumerateArithmeticCandidates(
+    request.capabilities.mathSkills,
+    regroupingRequired(request),
+  );
+}
+
+/**
+ * Every (operation, left, right) a focus allows, in operation, left operand,
+ * then right operand order. The same walk keeps exactly the regrouping
+ * candidates when `required` is true and exactly the others when it is false,
+ * so both choices share one iteration order.
+ */
+function enumerateArithmeticCandidates(
+  skills: GenerationRequestV1["capabilities"]["mathSkills"],
+  required: boolean,
+): readonly ArithmeticCandidate[] {
   const operandLimit = Math.min(skills.operandMax, DRY_MATH_NUMERIC_MAXIMUM);
   const resultLimit = Math.min(skills.resultMax, DRY_MATH_NUMERIC_MAXIMUM);
   const candidates: ArithmeticCandidate[] = [];
@@ -85,11 +84,7 @@ export function enumerateDryMathCandidates(
         if (answer < 0 || answer > resultLimit) {
           continue;
         }
-        const regroupingFree =
-          operation === "addition"
-            ? additionHasNoCarrying(leftOperand, rightOperand)
-            : subtractionHasNoBorrowing(leftOperand, rightOperand);
-        if (!regroupingFree) {
+        if (regroups(operation, leftOperand, rightOperand) !== required) {
           continue;
         }
         candidates.push({
@@ -128,6 +123,13 @@ function dryMathShortfallFor(
       }).length,
     request.options.length,
     request.options.printScale,
+    // The same focus without carrying or borrowing, measured only for a page
+    // that requires it, so the remedy can say when that choice would fill.
+    regroupingRequired(request)
+      ? () =>
+          enumerateArithmeticCandidates(request.capabilities.mathSkills, false)
+            .length
+      : undefined,
   );
 }
 
@@ -193,7 +195,7 @@ export function generateDryMath(
     return invariantFailure;
   }
   for (const item of items) {
-    if (item.answer.value !== recomputeDryMathAnswer(item)) {
+    if (objectiveAnswerMatches(item) !== true) {
       return {
         ok: false,
         code: GENERATION_INVARIANT_FAILED,

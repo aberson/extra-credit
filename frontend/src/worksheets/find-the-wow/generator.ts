@@ -1,3 +1,4 @@
+import { regroups } from "../../shared/worksheet/arithmetic.js";
 import { validateWorksheetInvariants } from "../../shared/worksheet/invariants.js";
 import {
   createSeededRandom,
@@ -45,48 +46,12 @@ export interface EquationWowCandidate {
 
 export type FindTheWowDocumentV1 = WorksheetDocumentV1<WowGroupItemV1>;
 
-function additionHasNoCarrying(left: number, right: number): boolean {
-  let leftDigits = left;
-  let rightDigits = right;
-  do {
-    if ((leftDigits % 10) + (rightDigits % 10) >= 10) {
-      return false;
-    }
-    leftDigits = Math.floor(leftDigits / 10);
-    rightDigits = Math.floor(rightDigits / 10);
-  } while (leftDigits > 0 || rightDigits > 0);
-  return true;
-}
-
-function subtractionHasNoBorrowing(left: number, right: number): boolean {
-  let leftDigits = left;
-  let rightDigits = right;
-  do {
-    if (leftDigits % 10 < rightDigits % 10) {
-      return false;
-    }
-    leftDigits = Math.floor(leftDigits / 10);
-    rightDigits = Math.floor(rightDigits / 10);
-  } while (leftDigits > 0 || rightDigits > 0);
-  return true;
-}
-
 function arithmeticResult(
   operation: MathOperation,
   left: number,
   right: number,
 ): number {
   return operation === "addition" ? left + right : left - right;
-}
-
-function regroupingFree(
-  operation: MathOperation,
-  left: number,
-  right: number,
-): boolean {
-  return operation === "addition"
-    ? additionHasNoCarrying(left, right)
-    : subtractionHasNoBorrowing(left, right);
 }
 
 export function effectiveFindTheWowGroupCount(
@@ -139,7 +104,7 @@ export function enumerateEquationWowCandidates(
         if (
           trueResult < 0 ||
           trueResult > resultLimit ||
-          !regroupingFree(operation, leftOperand, rightOperand)
+          regroups(operation, leftOperand, rightOperand)
         ) {
           continue;
         }
@@ -459,7 +424,7 @@ function validateWowDocument(
             choice.displayedResult > resultLimit ||
             (choice.operation === "addition" && choice.renderedSymbol !== "+") ||
             (choice.operation === "subtraction" && choice.renderedSymbol !== "−") ||
-            !regroupingFree(
+            regroups(
               choice.operation,
               choice.leftOperand,
               choice.rightOperand,

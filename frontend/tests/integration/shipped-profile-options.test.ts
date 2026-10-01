@@ -259,6 +259,70 @@ describe("the declared Earlier-setting shortfall sources", () => {
   });
 });
 
+describe("Every problem carries or borrows", () => {
+  /** One cell per Dry Math catalog focus with carrying and borrowing required. */
+  const requiredCells = PRACTICE_FOCUS_CATALOG["dry-math"].map((option) => ({
+    name: `dry-math ${option.id} required`,
+    selection: {
+      ...base,
+      worksheetType: "dry-math" as const,
+      dryMath: option.focus,
+      dryMathRegrouping: "required" as const,
+    },
+  }));
+
+  test("availability equals generation for every catalog focus, and only addition within 5 starves", () => {
+    const cells = requiredCells.flatMap(({ name, selection }) =>
+      sweepLayouts(name, selection, acceptanceConfig.profiles[0]),
+    );
+    const refused = cells.filter(({ verdict }) => !verdict.offered);
+    expect(refused.map(({ where }) => where)).toEqual(
+      WORKSHEET_LENGTHS.flatMap((length) =>
+        PRINT_SCALES.map((printScale) => `dry-math addition-within-5 required ${length}/${printScale}`),
+      ),
+    );
+    for (const { where, verdict } of refused) {
+      // No addition within 5 carries, lifting the result maximum is the one
+      // widening that helps, no shorter length holds zero facts, and the same
+      // focus without carrying or borrowing holds 21, which fills every length.
+      expect(verdict.offered ? where : verdict.message).toMatch(
+        /^This practice focus provides 0 unique facts, but this length needs \d+\. Choose a practice focus with a wider results range\. Choosing Without carrying or borrowing also fills this length\.$/u,
+      );
+    }
+  });
+
+  test("within 10 fills Long exactly at standard scale (18) and at large scale (12)", () => {
+    const within10 = requiredCells.find(({ name }) =>
+      name === "dry-math addition-and-subtraction-within-10 required",
+    );
+    if (within10 === undefined) {
+      throw new Error("The within-10 catalog focus is missing.");
+    }
+    const registration = getWorksheetRegistration("dry-math");
+    for (const [printScale, count] of [["standard", 18], ["large", 12]] as const) {
+      const selection = { ...within10.selection, length: "long" as const, printScale };
+      expect(agreedVerdict(`within 10 long/${printScale}`, selection, undefined)).toEqual({ offered: true });
+      const generated = projectAndGenerateWorksheet(
+        { selection, generatorVersion: registration.generatorVersion, seed: "1234abcd" },
+        registration.generate,
+        { worksheetId: "77777777-7777-4777-8777-777777777777" },
+      );
+      expect(generated.ok && generated.document.items.length).toBe(count);
+    }
+  });
+
+  test("the D34 earlier setting under required names both maxima and no Without sentence", () => {
+    const selection = { ...childSelection(D34_CHILD, "dry-math"), dryMathRegrouping: "required" as const };
+    for (const { where, verdict } of sweepLayouts("D34 dry-math required", selection, D34_CHILD)) {
+      // Three facts without carrying or borrowing fill no length, so that
+      // choice is not offered as a remedy.
+      expect(verdict.offered ? where : verdict.message).toMatch(
+        /^This practice focus provides 0 unique facts, but this length needs \d+\. Choose a practice focus with a wider operands and results range\.$/u,
+      );
+    }
+  });
+});
+
 describe("shipped example profiles", () => {
   /** Every family's shipped-default selection, one per variant and vocabulary. */
   function shippedDefaultSelections(): readonly { readonly name: string; readonly selection: WorksheetSelectionV2 }[] {

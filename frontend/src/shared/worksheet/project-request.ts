@@ -16,6 +16,7 @@ import {
   type GenerationRequestV1,
   type GenerationResult,
   type GeneratorContextV1,
+  type PracticeRequestV1,
   type TopicId,
   type WorksheetGeneratorV1,
   type WorksheetType,
@@ -223,6 +224,21 @@ function projectDecorativeTopicId(
   }
 }
 
+/**
+ * The `practice` member a selection projects (math-activities plan, Appendix
+ * A.3): Dry Math's "Every problem carries or borrows" only. "Without carrying
+ * or borrowing", and every other family whatever its saved regrouping choice,
+ * projects no member, so those requests keep their earlier exact shape.
+ */
+function projectPractice(
+  selection: WorksheetSelectionV2,
+): PracticeRequestV1 | undefined {
+  return selection.worksheetType === "dry-math" &&
+    selection.dryMathRegrouping === "required"
+    ? { kind: "dry-math-add-subtract", regrouping: "required" }
+    : undefined;
+}
+
 /** The canonical length: the two no-bank Sentence activities always print standard. */
 function projectedLength(selection: WorksheetSelectionV2): WorksheetSelectionV2["length"] {
   return selection.worksheetType === "sentence-builder" &&
@@ -271,6 +287,7 @@ export function projectGenerationRequest(
       ? input.profile.displayName
       : undefined;
   const decorativeTopicId = projectDecorativeTopicId(selection, input.profile);
+  const practice = projectPractice(selection);
 
   return {
     ok: true,
@@ -294,6 +311,7 @@ export function projectGenerationRequest(
       },
       ...(displayName === undefined ? {} : { displayName }),
       ...(topicIds.length === 0 ? {} : { topicIds }),
+      ...(practice === undefined ? {} : { practice }),
     },
   };
 }

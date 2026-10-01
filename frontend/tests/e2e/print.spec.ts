@@ -785,8 +785,14 @@ for (const fixture of printFixtures) {
   const decorationApplicable = ["sentence-builder", "count-compare-make"]
     .includes(fixture.selection.worksheetType);
   for (const scale of ["standard", "large"] as const) {
+    if (fixture.letterStandardOnly === true && scale !== "standard") {
+      continue;
+    }
     const boundary = createPrintFixture(fixture, scale);
     for (const paper of ["letter", "a4"] as const) {
+      if (fixture.letterStandardOnly === true && paper !== "letter") {
+        continue;
+      }
       for (const decoration of decorationApplicable ? [false, true] : [false]) {
         const name = `${fixture.id}-${paper}-${scale}-decoration-${decoration}`;
         const keyPdf = !decoration && boundary.document.request.options.includeAnswerKey;
@@ -886,6 +892,17 @@ for (const fixture of printFixtures) {
             expect(asset, "the fixture's art topic selects a reviewed asset").toBeDefined();
             await expect(page.locator(".print-surface img[data-decorative-art]"))
               .toHaveAttribute("data-decorative-art", asset?.id ?? "");
+          }
+          if (fixture.id === "dry-math-regrouping-100") {
+            // The boundary row, a subtraction from 100, is on the printed page;
+            // the required-content and geometry checks above prove it present
+            // and contained like every other row.
+            const widest = boundary.document.items.find((item) =>
+              item.itemType === "dry-math" && item.operation === "subtraction" &&
+              item.leftOperand === 100);
+            expect(widest, "a subtraction from 100").toBeDefined();
+            await expect(page.locator(`.print-surface [data-item-id="${widest?.id ?? ""}"]`))
+              .toHaveText(/^100 − \d+ = _+$/u);
           }
           if (name === "dry-math-letter-standard-decoration-false") {
             await withPrintStyle(page, ".print-surface { page: auto !important; }", async () => {
@@ -1182,10 +1199,10 @@ test("manual print uses the compiled app with canonical temporary profiles and c
   request,
 }) => {
   // The worksheet-choice matrix built from the committed example expands to
-  // 84 distinct worksheet cases, 16 of which also measure a key PDF.
+  // 85 distinct worksheet cases, 17 of which also measure a key PDF.
   expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
-  expect(matrixCases).toHaveLength(84);
-  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(16);
+  expect(matrixCases).toHaveLength(85);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(17);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {

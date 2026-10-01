@@ -1,5 +1,11 @@
+import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { expandMathPreset } from "../../shared/config/math-presets.js";
+import { PRACTICE_FOCUS_CATALOG } from "../../shared/config/practice-focus.js";
+import {
+  judgeDocument,
+  oracleRegroups,
+} from "../../../tests/oracles/arithmetic-oracle.js";
 
 import {
   DEFAULT_WORKSHEET_DEFAULTS_V2,
@@ -11,9 +17,9 @@ import {
   type CapabilityProfileV1,
 } from "../../shared/config/earlier-settings.js";
 import type { WorksheetSelectionV2 } from "../../shared/config/schema.js";
+import { recomputeObjectiveAnswer } from "../../shared/worksheet/answer-oracle.js";
 import {
   objectiveAnswerEntries,
-  recomputeDryMathAnswer,
   validateWorksheetInvariants,
 } from "../../shared/worksheet/invariants.js";
 import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
@@ -400,7 +406,7 @@ describe("Dry Math documents", () => {
           expect(value).toBeLessThanOrEqual(maximum);
           seen.add(value);
         }
-        expect(fact.answer.value).toBe(recomputeDryMathAnswer(fact));
+        expect(fact.answer).toEqual(recomputeObjectiveAnswer(fact));
       }
     }
     expect(Math.max(...seen)).toBeGreaterThan(maximum === 20 ? 10 : 20);
@@ -433,7 +439,7 @@ describe("Dry Math documents", () => {
       expect(fact.rightOperand).toBeLessThanOrEqual(100);
       expect(fact.answer.value).toBeGreaterThanOrEqual(0);
       expect(fact.answer.value).toBeLessThanOrEqual(100);
-      expect(fact.answer.value).toBe(recomputeDryMathAnswer(fact));
+      expect(fact.answer).toEqual(recomputeObjectiveAnswer(fact));
       expect(
         fact.operation === "addition"
           ? carries(fact.leftOperand, fact.rightOperand)
@@ -568,6 +574,178 @@ describe("Dry Math documents", () => {
   test("fails closed when lifecycle metadata is not a lowercase UUID v4", () => {
     expect(
       generateDryMath(request(profile()), { worksheetId: "not-a-uuid" }),
+    ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+  });
+});
+
+describe("Every problem carries or borrows", () => {
+  /** The projected request for one catalog focus with the given regrouping choice. */
+  function regroupingRequest(
+    focusId: string,
+    dryMathRegrouping: WorksheetSelectionV2["dryMathRegrouping"],
+    layout: Pick<WorksheetSelectionV2, "length" | "printScale">,
+    seed: string,
+  ): GenerationRequestV1 {
+    const option = PRACTICE_FOCUS_CATALOG["dry-math"].find(({ id }) => id === focusId);
+    if (option === undefined) {
+      throw new Error(`No Dry Math catalog focus ${focusId}.`);
+    }
+    const projected = projectGenerationRequest({
+      selection: {
+        ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+        ...layout,
+        worksheetType: "dry-math",
+        dryMath: option.focus,
+        dryMathRegrouping,
+      },
+      generatorVersion: 1,
+      seed,
+    });
+    if (!projected.ok) {
+      throw new Error(projected.message);
+    }
+    return projected.request;
+  }
+
+  function rows(document: ReturnType<typeof generated>): readonly string[] {
+    return document.items.map(
+      (item) =>
+        `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ${item.answer.value}`,
+    );
+  }
+
+  test.each([
+    [
+      "addition-and-subtraction-within-10",
+      "short",
+      "standard",
+      "00000001",
+      ["10 − 6 = 4", "10 − 8 = 2", "10 − 4 = 6", "2 + 8 = 10", "8 + 2 = 10", "9 + 1 = 10", "7 + 3 = 10", "10 − 5 = 5"],
+    ],
+    [
+      "addition-and-subtraction-within-100",
+      "short",
+      "standard",
+      "9dcca8c5",
+      ["59 + 11 = 70", "90 − 73 = 17", "18 + 75 = 93", "62 − 39 = 23", "68 + 22 = 90", "14 + 26 = 40", "28 + 5 = 33", "51 − 44 = 7"],
+    ],
+    [
+      "addition-within-20",
+      "standard",
+      "large",
+      "2c6f5bd0",
+      ["16 + 4 = 20", "7 + 6 = 13", "18 + 2 = 20", "6 + 14 = 20", "1 + 9 = 10", "12 + 8 = 20", "3 + 9 = 12", "7 + 5 = 12"],
+    ],
+  ] as const)("known vector: %s %s/%s seed %s", (focusId, length, printScale, seed, expected) => {
+    const document = generated(regroupingRequest(focusId, "required", { length, printScale }, seed));
+    expect(rows(document)).toEqual(expected);
+    expect(judgeDocument(document)).toEqual([]);
+  });
+
+  test("only the required choice projects a practice member, and without keeps the legacy request", () => {
+    const layout = { length: "long", printScale: "standard" } as const;
+    expect(regroupingRequest("addition-and-subtraction-within-20", "required", layout, "00000001").practice)
+      .toEqual({ kind: "dry-math-add-subtract", regrouping: "required" });
+    const without = regroupingRequest("addition-and-subtraction-within-20", "without", layout, "00000001");
+    expect(without).not.toHaveProperty("practice");
+    expect(without.capabilities.mathSkills.allowRegrouping).toBe(false);
+  });
+
+  test("property: every required page is judged clean, and the same seed without regrouping holds none", () => {
+    const fillingFoci = PRACTICE_FOCUS_CATALOG["dry-math"]
+      .map(({ id }) => id)
+      .filter((id) => id !== "addition-within-5");
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...fillingFoci),
+        fc.constantFrom("short", "standard", "long"),
+        fc.constantFrom("standard", "large"),
+        fc.integer({ min: 1, max: 0xffff_ffff }),
+        (focusId, length, printScale, seedNumber) => {
+          const seed = formatSeedHex(seedNumber);
+          const required = generated(regroupingRequest(focusId, "required", { length, printScale }, seed));
+          expect(judgeDocument(required)).toEqual([]);
+          expect(
+            required.items.every((item) =>
+              oracleRegroups(item.operation, item.leftOperand, item.rightOperand),
+            ),
+          ).toBe(true);
+          const without = generated(regroupingRequest(focusId, "without", { length, printScale }, seed));
+          expect(judgeDocument(without)).toEqual([]);
+          expect(
+            without.items.some((item) =>
+              oracleRegroups(item.operation, item.leftOperand, item.rightOperand),
+            ),
+          ).toBe(false);
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  test("a required page with one problem that does not regroup fails, and the oracle names it", () => {
+    const document = generated(
+      regroupingRequest("addition-and-subtraction-within-100", "required", { length: "long", printScale: "standard" }, "00000001"),
+    );
+    expect(validateWorksheetInvariants(document)).toBeUndefined();
+    const [first, ...rest] = document.items;
+    if (first === undefined) {
+      throw new Error("The required page had no items.");
+    }
+    const plain: DryMathItemV1 = {
+      ...first,
+      operation: "addition",
+      leftOperand: 1,
+      rightOperand: 2,
+      renderedSymbol: "+",
+      answer: { kind: "number", value: 3 },
+    };
+    const tampered = { ...document, items: [plain, ...rest] };
+    expect(validateWorksheetInvariants(tampered)).toMatchObject({
+      ok: false,
+      code: "GENERATION_INVARIANT_FAILED",
+    });
+    expect(judgeDocument(tampered)).toEqual([{ itemId: first.id, code: "REGROUPING_MISMATCH" }]);
+  });
+
+  test("allowRegrouping stays false: a request turning it on fails with or without the practice member", () => {
+    for (const regrouping of ["without", "required"] as const) {
+      const supported = regroupingRequest(
+        "addition-and-subtraction-within-100",
+        regrouping,
+        { length: "long", printScale: "standard" },
+        "00000001",
+      );
+      const allowed: GenerationRequestV1 = {
+        ...supported,
+        capabilities: {
+          ...supported.capabilities,
+          mathSkills: {
+            ...supported.capabilities.mathSkills,
+            allowRegrouping: true as false,
+          },
+        },
+      };
+      expect(generateDryMath(supported, { worksheetId: "11111111-1111-4111-8111-111111111111" }).ok).toBe(true);
+      expect(
+        generateDryMath(allowed, { worksheetId: "11111111-1111-4111-8111-111111111111" }),
+      ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+    }
+  });
+
+  test("a practice member Dry Math does not accept is refused", () => {
+    const supported = regroupingRequest(
+      "addition-and-subtraction-within-100",
+      "without",
+      { length: "long", printScale: "standard" },
+      "00000001",
+    );
+    const unknown = {
+      ...supported,
+      practice: { kind: "dry-math-add-subtract", regrouping: "mixed" },
+    } as unknown as GenerationRequestV1;
+    expect(
+      generateDryMath(unknown, { worksheetId: "11111111-1111-4111-8111-111111111111" }),
     ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
   });
 });

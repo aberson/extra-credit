@@ -163,6 +163,27 @@ describe("selectionFromEarlierSettings (Appendix B.3)", () => {
     expect(selectionFromEarlierSettings(legacy(uniform(10)), BASE).disclosures).toEqual([]);
   });
 
+  test("a stored allowRegrouping never turns on carrying and borrowing", () => {
+    const result = selectionFromEarlierSettings(
+      legacy({ ...uniform(100), allowRegrouping: true }),
+      BASE,
+    );
+    expect(BASE.dryMathRegrouping).toBe("without");
+    expect(result.selection.dryMathRegrouping).toBe("without");
+    expect(result.groups).not.toContain("dryMathRegrouping");
+    expect(result.disclosures).toContainEqual({
+      kind: "unused-permission",
+      field: "allowRegrouping",
+    });
+    // The choice belongs to the parent: a base that already holds it keeps it,
+    // whatever the earlier settings store.
+    const chosen = selectionFromEarlierSettings(
+      legacy({ ...uniform(100), allowRegrouping: false }),
+      { ...BASE, dryMathRegrouping: "required" },
+    );
+    expect(chosen.selection.dryMathRegrouping).toBe("required");
+  });
+
   test("emerging within 5 with the preschool band seeds addition within 5, Quantity pictures and simpler words", () => {
     const result = selectionFromEarlierSettings(
       legacy(

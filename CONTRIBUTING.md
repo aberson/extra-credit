@@ -162,7 +162,9 @@ and the restored application must pass. `npm --prefix frontend run release:verif
 exports the current tree, audits privacy and licensing, installs locked dependencies
 and Chromium in a temporary clean room, and runs that same complete gate. Add tests with every
 behavior change, and keep worksheet generation deterministic for a given
-normalized request and seed.
+normalized request and seed. A change that alters a known vector pinned in a
+family's `generator.test.ts` changes what an earlier request produces, so it
+needs a `generatorVersion` bump with the old version kept registered.
 
 ## Comment claims
 

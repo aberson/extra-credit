@@ -1,4 +1,7 @@
-import { presentationBandForVocabulary } from "../config/practice-focus.js";
+import {
+  describePracticeFocus,
+  presentationBandForVocabulary,
+} from "../config/practice-focus.js";
 import type { WorksheetSelectionV2 } from "../config/schema.js";
 import {
   COUNT_COMPARE_MAKE_DEFINITION,
@@ -137,6 +140,8 @@ export interface WorksheetApplicableControlsV1 {
   readonly variant: boolean;
   /** Sentence Builder's plain-language vocabulary choice. */
   readonly vocabulary: boolean;
+  /** Dry Math's "Carrying and borrowing" choice beside its addition and subtraction focus. */
+  readonly regrouping: boolean;
   readonly length: boolean;
   readonly includeAnswerKey: boolean;
   readonly paperSize: boolean;
@@ -332,6 +337,7 @@ export const WORKSHEET_REGISTRY = {
         const support = getDryMathCapabilitySupport(
           projectedSkills(context, DRY_MATH_DEFINITION.id),
         );
+        const { dryMath, dryMathRegrouping } = context.selection;
         return support.available
           ? {
               available: true,
@@ -340,6 +346,13 @@ export const WORKSHEET_REGISTRY = {
                 context,
                 dryMathCapacityVerdict,
               ),
+              // Named once the choice changes the page, so the parent sees it
+              // beside Create.
+              ...(dryMathRegrouping === "required"
+                ? {
+                    statusMessage: `Practice focus for Dry Math: ${describePracticeFocus("dry-math", dryMath, dryMathRegrouping)}.`,
+                  }
+                : {}),
             }
           : { available: false, message: support.reason };
       },
@@ -362,6 +375,7 @@ export const WORKSHEET_REGISTRY = {
         practiceFocus: true,
         variant: false,
         vocabulary: false,
+        regrouping: true,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
@@ -408,6 +422,7 @@ export const WORKSHEET_REGISTRY = {
         practiceFocus: true,
         variant: true,
         vocabulary: false,
+        regrouping: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
@@ -489,6 +504,7 @@ export const WORKSHEET_REGISTRY = {
         practiceFocus: false,
         variant: true,
         vocabulary: true,
+        regrouping: false,
         length: isBankWritingMode(selection.sentenceBuilder.variant),
         includeAnswerKey: false,
         paperSize: true,
@@ -539,6 +555,7 @@ export const WORKSHEET_REGISTRY = {
         practiceFocus: true,
         variant: false,
         vocabulary: false,
+        regrouping: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,

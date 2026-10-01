@@ -6,12 +6,21 @@ import type {
   AppConfigV1,
   ChildProfileV1,
 } from "../../src/shared/config/schema.js";
+import { acceptanceConfig } from "../fixtures/profiles.js";
+import {
+  judgeRenderedPage,
+  oracleRegroups,
+  parseRenderedRow,
+  type RenderedKeyLine,
+  type RenderedRow,
+} from "../oracles/arithmetic-oracle.js";
 import { expect, test } from "./fixtures/app-server.js";
 import {
   chooseChild,
   chooseLength,
   choosePracticeFocus,
   choosePrintLayout,
+  chooseRegrouping,
   controls,
   openMoreOptions,
   setPersonalization,
@@ -602,4 +611,59 @@ test("clears generated output across profile selection and profile authority cha
   await expect(
     page.getByText("Saved profiles reloaded from the local file."),
   ).toBeVisible();
+});
+
+/** The rendered worksheet rows and answer-key lines of the current preview. */
+async function renderedPage(page: Page): Promise<{
+  readonly rows: readonly RenderedRow[];
+  readonly keyLines: readonly RenderedKeyLine[];
+}> {
+  await page.getByRole("button", { name: "Worksheet", exact: true }).click();
+  const rows = await page.getByLabel("Worksheet preview").locator("[data-item-id]").evaluateAll((items) =>
+    items.map((item) => ({ id: item.getAttribute("data-item-id") ?? "", text: item.textContent?.trim() ?? "" })),
+  );
+  await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+  const keyLines = await page.locator(".print-surface[data-surface='answer'] [data-item-id]").evaluateAll((items) =>
+    items.map((item) => ({
+      id: item.getAttribute("data-item-id") ?? "",
+      source: item.querySelector("[data-source-expression]")?.getAttribute("data-source-expression") ?? "",
+      answer: item.querySelector("[data-answer-value]")?.getAttribute("data-answer-value") ?? "",
+      text: item.textContent?.trim() ?? "",
+    })),
+  );
+  return { rows, keyLines };
+}
+
+test("every problem regroups within 100 and the key matches", async ({ appServer, page }) => {
+  test.setTimeout(60_000);
+  await appServer.seedConfig(acceptanceConfig);
+  const seeded = await appServer.readRaw();
+  await page.goto(appServer.origin);
+  await choosePracticeFocus(page, "Addition and subtraction within 100");
+  await chooseRegrouping(page, "required");
+  await expect(page.locator("[data-selection-summary]")).toContainText(
+    "Practice focus for Dry Math: Addition and subtraction within 100, every problem carries or borrows.",
+  );
+  const focus = { operations: ["addition", "subtraction"], operandMax: 100, resultMax: 100, regrouping: "required" } as const;
+  for (const printScale of ["standard", "large"] as const) {
+    await openMoreOptions(page);
+    await chooseLength(page, "long");
+    await choosePrintLayout(page, { printScale });
+    await page.getByRole("button", { name: "Create worksheet", exact: true }).click();
+    for (const attempt of ["created", "another"] as const) {
+      if (attempt === "another") {
+        await page.getByRole("button", { name: "Make another", exact: true }).click();
+        await expect(page.getByText("A different worksheet is ready.")).toBeVisible();
+      }
+      const { rows, keyLines } = await renderedPage(page);
+      expect(rows, `${printScale} ${attempt}`).toHaveLength(printScale === "large" ? 12 : 18);
+      expect(judgeRenderedPage(rows, keyLines, focus), `${printScale} ${attempt}`).toEqual([]);
+      for (const row of rows) {
+        const parsed = parseRenderedRow(row.text);
+        expect(parsed && oracleRegroups(parsed.operation, parsed.left, parsed.right), row.text).toBe(true);
+      }
+    }
+  }
+  // Creating and varying pages never writes the file.
+  expect((await appServer.readRaw()).equals(seeded)).toBe(true);
 });

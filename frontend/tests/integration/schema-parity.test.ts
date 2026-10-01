@@ -22,6 +22,7 @@ import {
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
+  REGROUPING_MODES,
   REPRESENTATIONS,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
@@ -239,6 +240,11 @@ const PARITY_ROWS: Readonly<Record<string, ParityRow>> = {
   "$.defaults.dryMath.operations[]": enumItemsRow(MATH_OPERATIONS),
   "$.defaults.dryMath.operandMax": integerRow(1, DRY_MATH_NUMERIC_MAXIMUM),
   "$.defaults.dryMath.resultMax": integerRow(1, DRY_MATH_NUMERIC_MAXIMUM),
+  // Additive at version 2: a file without the key is accepted by both layers.
+  "$.defaults.dryMathRegrouping": {
+    members: REGROUPING_MODES,
+    probes: [...enumRow(REGROUPING_MODES).probes, probe("absent", undefined, true)],
+  },
   "$.defaults.findTheWow": objectRow(),
   "$.defaults.findTheWow.variant": enumRow(FIND_THE_WOW_VARIANTS),
   "$.defaults.findTheWow.quantity": objectRow(),
@@ -415,6 +421,19 @@ describe("AppConfigV2 schema and composed transport parity", () => {
   test("the valid base is accepted by both layers", async () => {
     expect(zodAccepts(validConfig())).toBe(true);
     expect(await transportAccepts(validConfig())).toBe(true);
+  });
+
+  test("a version 2 file written before dryMathRegrouping existed parses as without", async () => {
+    const earlier = structuredClone(validConfig()) as unknown as {
+      defaults: Record<string, unknown>;
+    };
+    delete earlier.defaults.dryMathRegrouping;
+    expect(Object.keys(earlier.defaults)).not.toContain("dryMathRegrouping");
+    expect(await transportAccepts(earlier)).toBe(true);
+    expect(AppConfigV2Schema.parse(earlier).defaults.dryMathRegrouping).toBe("without");
+    // Mirror: a stored choice is read back as stored.
+    earlier.defaults.dryMathRegrouping = "required";
+    expect(AppConfigV2Schema.parse(earlier).defaults.dryMathRegrouping).toBe("required");
   });
 
   test("every key path the transport schema declares has exactly one parity row", () => {

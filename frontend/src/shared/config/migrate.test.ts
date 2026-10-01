@@ -486,6 +486,7 @@ describe("the built-in version 2 defaults", () => {
         operandMax: within10.operandMax,
         resultMax: within10.resultMax,
       },
+      dryMathRegrouping: "without",
       findTheWow: {
         variant: "quantity",
         quantity: { countingMax: quantities.countingMax, numeralMax: quantities.numeralMax },

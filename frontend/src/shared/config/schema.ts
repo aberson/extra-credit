@@ -24,6 +24,7 @@ import {
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
+  REGROUPING_MODES,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
   WORKSHEET_LENGTHS,
@@ -117,6 +118,9 @@ export const CountCompareFocusV2Schema = z.strictObject({
 const worksheetSelectionShape = {
   worksheetType: z.enum(WORKSHEET_TYPE_IDS),
   dryMath: DryMathFocusV2Schema,
+  // Additive at version 2: a file written before this key existed parses as
+  // `without`, today's regrouping-free page, and is never rewritten on read.
+  dryMathRegrouping: z.enum(REGROUPING_MODES).default("without"),
   findTheWow: z.strictObject({
     variant: z.enum(FIND_THE_WOW_VARIANTS),
     quantity: QuantityFocusV2Schema,
@@ -209,6 +213,7 @@ export type ConfigResponseV2 = z.infer<typeof ConfigResponseV2Schema>;
 export type FindTheWowVariant = (typeof FIND_THE_WOW_VARIANTS)[number];
 export type SentenceVocabulary = (typeof SENTENCE_VOCABULARY_OPTIONS)[number];
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
+export type RegroupingMode = (typeof REGROUPING_MODES)[number];
 
 // The shared value lists live in the `enums.ts` leaf and the frozen Version 1
 // schemas in `legacy-v1.ts`; every name this module exported before the move
@@ -219,6 +224,7 @@ export {
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
+  REGROUPING_MODES,
   REPRESENTATIONS,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,

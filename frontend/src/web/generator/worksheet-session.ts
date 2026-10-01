@@ -37,6 +37,7 @@ import type {
 export const WORKSHEET_GROUP_KEYS = [
   "worksheetType",
   "dryMath",
+  "dryMathRegrouping",
   "findTheWow.variant",
   "findTheWow.quantity",
   "findTheWow.equation",

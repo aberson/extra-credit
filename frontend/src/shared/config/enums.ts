@@ -27,5 +27,11 @@ export const PRINT_SCALES = ["standard", "large"] as const;
 export const FIND_THE_WOW_VARIANTS = ["quantity", "equation"] as const;
 /** Sentence Builder's plain-language vocabulary choice (schema version 2). */
 export const SENTENCE_VOCABULARY_OPTIONS = ["simpler-words", "all-words"] as const;
+/**
+ * Dry Math addition and subtraction: no problem carries or borrows, or every
+ * problem does at least once (math-activities plan, DD8). An additive schema
+ * version 2 field whose default is `without`.
+ */
+export const REGROUPING_MODES = ["without", "required"] as const;
 /** The decorative theme: art from interests, one reviewed topic, or neutral. */
 export const THEME_CHOICES = ["from-interests", ...TOPIC_IDS] as const;

@@ -6,7 +6,9 @@ import type {
 } from "../../../src/shared/config/schema.ts";
 import { projectGenerationRequest } from "../../../src/shared/worksheet/project-request.ts";
 import { getWorksheetRegistration } from "../../../src/shared/worksheet/registry.ts";
+import { PRACTICE_FOCUS_CATALOG } from "../../../src/shared/config/practice-focus.ts";
 import {
+  DRY_MATH_NUMERIC_MAXIMUM,
   V1_NUMERIC_MAXIMUM,
   type PrintScale,
 } from "../../../src/shared/worksheet/types.ts";
@@ -47,6 +49,22 @@ export interface PrintFixture {
   /** Every worksheet choice the case makes through the worksheet controls. */
   readonly selection: WorksheetSelectionV2;
   readonly boundary?: "prompt" | "bank";
+  /** Printed only at Letter and standard scale: one worksheet row and its key. */
+  readonly letterStandardOnly?: true;
+}
+
+/** The Dry Math catalog focus "Addition and subtraction within 100". */
+function dryMathFocusWithin100(): WorksheetSelectionV2["dryMath"] {
+  const option = PRACTICE_FOCUS_CATALOG["dry-math"].find(
+    ({ focus }) =>
+      focus.operations.length === 2 &&
+      focus.operandMax === DRY_MATH_NUMERIC_MAXIMUM &&
+      focus.resultMax === DRY_MATH_NUMERIC_MAXIMUM,
+  );
+  if (option === undefined) {
+    throw new Error("The Dry Math catalog lost its within-100 focus.");
+  }
+  return option.focus;
 }
 
 export const printFixtures: readonly PrintFixture[] = [
@@ -54,6 +72,17 @@ export const printFixtures: readonly PrintFixture[] = [
     id: "dry-math",
     profileIndex: 2,
     selection: { ...shippedSelection, worksheetType: "dry-math", dryMath: formerChoices(2).dryMath },
+  },
+  {
+    id: "dry-math-regrouping-100",
+    profileIndex: 2,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "dry-math",
+      dryMath: dryMathFocusWithin100(),
+      dryMathRegrouping: "required",
+    },
+    letterStandardOnly: true,
   },
   {
     id: "wow-quantity",
@@ -176,6 +205,20 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
       throw new Error(generated.message);
     }
     const first = generated.document.items[0];
+    // Every problem carries or borrows: search for the widest row, a
+    // subtraction from the Dry Math ceiling.
+    if (
+      selection.worksheetType === "dry-math" &&
+      selection.dryMathRegrouping === "required" &&
+      !generated.document.items.some(
+        (item) =>
+          item.itemType === "dry-math" &&
+          item.operation === "subtraction" &&
+          item.leftOperand === DRY_MATH_NUMERIC_MAXIMUM,
+      )
+    ) {
+      continue;
+    }
     if (
       selection.worksheetType === "count-compare-make" &&
       !["match", "compare", "complete", "draw"].every((activity) =>

@@ -1,10 +1,12 @@
+import { objectiveAnswerMatches } from "./answer-oracle.js";
+import { regroups } from "./arithmetic.js";
 import {
   GENERATION_INVARIANT_FAILED,
   TOPIC_IDS,
   V1_NUMERIC_MAXIMUM,
   DRY_MATH_NUMERIC_MAXIMUM,
-  type DryMathItemV1,
   type GenerationFailure,
+  type GenerationRequestV1,
   type ObjectiveAnswerV1,
   type WorksheetDocumentV1,
   type WorksheetItemV1,
@@ -47,36 +49,22 @@ export function objectiveAnswerEntries(
     .map((item) => ({ itemId: item.id, answer: item.answer }));
 }
 
-export function recomputeDryMathAnswer(item: DryMathItemV1): number {
-  return item.operation === "addition"
-    ? item.leftOperand + item.rightOperand
-    : item.leftOperand - item.rightOperand;
-}
-
-function additionHasNoCarrying(left: number, right: number): boolean {
-  let leftDigits = left;
-  let rightDigits = right;
-  do {
-    if ((leftDigits % 10) + (rightDigits % 10) >= 10) {
-      return false;
-    }
-    leftDigits = Math.floor(leftDigits / 10);
-    rightDigits = Math.floor(rightDigits / 10);
-  } while (leftDigits > 0 || rightDigits > 0);
-  return true;
-}
-
-function subtractionHasNoBorrowing(left: number, right: number): boolean {
-  let leftDigits = left;
-  let rightDigits = right;
-  do {
-    if (leftDigits % 10 < rightDigits % 10) {
-      return false;
-    }
-    leftDigits = Math.floor(leftDigits / 10);
-    rightDigits = Math.floor(rightDigits / 10);
-  } while (leftDigits > 0 || rightDigits > 0);
-  return true;
+/**
+ * Whether every Dry Math item of this request must carry or borrow, or none
+ * may, read from the request's `practice` member: absent means today's
+ * regrouping-free page. `undefined` marks a member Dry Math does not accept.
+ */
+function dryMathRegroupingRequired(
+  request: GenerationRequestV1,
+): boolean | undefined {
+  const practice = request.practice;
+  if (practice === undefined) {
+    return false;
+  }
+  return practice.kind === "dry-math-add-subtract" &&
+    practice.regrouping === "required"
+    ? true
+    : undefined;
 }
 
 export function validateWorksheetInvariants(
@@ -112,6 +100,20 @@ export function validateWorksheetInvariants(
     };
   }
 
+  // Only Dry Math reads a `practice` member, and only the kind it accepts; a
+  // family that would ignore the member refuses it instead.
+  const regroupingRequired = dryMathRegroupingRequired(document.request);
+  if (
+    "practice" in document.request &&
+    (document.worksheetType !== "dry-math" || regroupingRequired === undefined)
+  ) {
+    return {
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message: "The request carried a practice choice this worksheet family does not accept.",
+    };
+  }
+
   const ids = new Set<string>();
   const dryMathFacts = new Set<string>();
   for (const [index, item] of document.items.entries()) {
@@ -141,8 +143,7 @@ export function validateWorksheetInvariants(
 
     if (
       item.itemType === "dry-math" &&
-      (item.answer.kind !== "number" ||
-        item.answer.value !== recomputeDryMathAnswer(item))
+      (item.answer.kind !== "number" || objectiveAnswerMatches(item) !== true)
     ) {
       return {
         ok: false,
@@ -167,17 +168,18 @@ export function validateWorksheetInvariants(
         Number.isInteger(item.answer.value) &&
         item.answer.value >= 0 &&
         item.answer.value <= Math.min(skills.resultMax, DRY_MATH_NUMERIC_MAXIMUM);
-      const regroupingFree =
-        item.operation === "addition"
-          ? additionHasNoCarrying(item.leftOperand, item.rightOperand)
-          : subtractionHasNoBorrowing(item.leftOperand, item.rightOperand);
+      // Under "Every problem carries or borrows" every item regroups; without
+      // a `practice` member none may.
+      const regroupingMatches =
+        regroups(item.operation, item.leftOperand, item.rightOperand) ===
+        regroupingRequired;
       if (
         dryMathFacts.has(factKey) ||
         !symbolMatches ||
         !skills.operations.includes(item.operation) ||
         !operandsInBounds ||
         !resultInBounds ||
-        !regroupingFree
+        !regroupingMatches
       ) {
         return {
           ok: false,

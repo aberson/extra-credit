@@ -270,6 +270,24 @@ describe("touched groups", () => {
     expectTouchedKept(state);
   });
 
+  test("Carrying and borrowing is its own group, never seeded and saved as chosen", () => {
+    const start = loaded(seedingDefaults, [equationChild, secondChild]);
+    expect(start.selection.dryMathRegrouping).toBe("without");
+    const chosen = apply(start, groupChanged("dryMathRegrouping", "required"));
+    expect(WORKSHEET_GROUP_KEYS.filter((key) => chosen.touched[key])).toEqual([
+      "dryMathRegrouping",
+    ]);
+    expect(chosen.previewEpoch).toBe(start.previewEpoch + 1);
+    expect(chosen.selection).toEqual({ ...start.selection, dryMathRegrouping: "required" });
+    // A child switch re-seeds the untouched groups and keeps the choice.
+    const switched = apply(chosen, { type: "childSelected", childId: secondChild.id });
+    expect(switched.selection.dryMathRegrouping).toBe("required");
+    expect(switched.selection.dryMath).toEqual(seededFrom(seedingDefaults, secondChild).dryMath);
+    const body = defaultsForSave(switched);
+    expect(body.dryMathRegrouping).toBe("required");
+    expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
+  });
+
   test("survive a child switch while untouched groups follow the new child", () => {
     const state = apply(touchedState(), {
       type: "childSelected",

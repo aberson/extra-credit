@@ -1775,6 +1775,48 @@ describe("worksheet-first panel", () => {
     ]);
   });
 
+  test("Carrying and borrowing follows the Dry Math focus outside More options and changes one group", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
+    const group = (): HTMLElement | null =>
+      screen.queryByRole("group", { name: "Carrying and borrowing" });
+    const regrouping = group();
+    expect(regrouping).not.toBeNull();
+    expect(regrouping?.closest("details")).toBeNull();
+    expectDocumentOrder([
+      screen.getByRole("combobox", { name: "Practice focus" }),
+      regrouping,
+      document.querySelector("[data-selection-summary]"),
+      screen.getByRole("button", { name: "Create worksheet" }),
+    ]);
+    const without = screen.getByRole("radio", { name: "Without carrying or borrowing" });
+    const every = screen.getByRole("radio", { name: "Every problem carries or borrows" });
+    expect(without).toBeChecked();
+    expect(every).not.toBeChecked();
+    const help = document.getElementById(regrouping?.getAttribute("aria-describedby") ?? "");
+    expect(help?.textContent).toBe(
+      "Every problem carries or borrows: each addition carries at least once and each subtraction borrows at least once. Answers are never negative.",
+    );
+
+    fireEvent.click(every);
+    expect(onChange.mock.calls).toEqual([
+      [{ type: "changed", group: "dryMathRegrouping", value: "required" }],
+    ]);
+    expect(every).toBeChecked();
+    const shownFocus = (
+      screen.getByRole("combobox", { name: "Practice focus" }) as HTMLSelectElement
+    ).selectedOptions[0]?.textContent;
+    expect(document.querySelector("[data-selection-summary]")?.textContent).toContain(
+      `Practice focus for Dry Math: ${shownFocus}, every problem carries or borrows.`,
+    );
+
+    // Only Dry Math shows the group.
+    for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
+      chooseWorksheet(worksheetType);
+      expect(group() !== null, worksheetType).toBe(worksheetType === "dry-math");
+    }
+  });
+
   test("the four worksheet types are radio cards with a one-line description", () => {
     renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
     const cards = screen.getAllByRole("radio").filter(

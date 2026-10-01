@@ -482,3 +482,34 @@ test("worksheet-first panel: 200% text keeps every label and blocking guidance s
   await expect(controls(page).create()).toBeDisabled();
   await expectAxeClean(page);
 });
+
+test("Carrying and borrowing: axe is clean, keyboard reaches the group with visible focus, and it reflows at 320 px", async ({ appServer, page }) => {
+  await appServer.seedConfig(acceptanceConfig);
+  await page.setViewportSize({ width: 1_280, height: 900 });
+  await page.goto(appServer.origin);
+  const panel = controls(page);
+  await expect(panel.regrouping()).toBeVisible();
+  await expect(panel.regrouping().locator("xpath=ancestor::details")).toHaveCount(0);
+  const without = panel.regrouping().getByRole("radio", { name: "Without carrying or borrowing", exact: true });
+  const every = panel.regrouping().getByRole("radio", { name: "Every problem carries or borrows", exact: true });
+  await expect(without).toBeChecked();
+  await expectAxeClean(page);
+
+  // The checked option is the group's one tab stop after the practice focus;
+  // an arrow key moves the choice, and focus stays visible.
+  await tabTo(page, panel.practiceFocus());
+  await tabTo(page, without);
+  await page.keyboard.press("ArrowDown");
+  await expect(every).toBeChecked();
+  await expect(every).toBeFocused();
+  await tabTo(page, every);
+  await expect(page.locator("[data-selection-summary]")).toContainText("every problem carries or borrows");
+  await expectAxeClean(page);
+
+  await page.setViewportSize({ width: 320, height: 900 });
+  await assertNoOverflow(page);
+  const box = await panel.regrouping().boundingBox();
+  expect(box).not.toBeNull();
+  expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 321).toBe(true);
+  await expectAxeClean(page);
+});

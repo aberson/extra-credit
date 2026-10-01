@@ -47,7 +47,7 @@ Every generated page, in every family, stays inside one fixed envelope:
 | Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, and length). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
 | Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100; every quantity, numeral, operand, and result in the other families stays at most 20. |
 | Sign | Nonnegative. No generated result is below zero. |
-| Regrouping | None. No generated addition carries and no generated subtraction borrows. |
+| Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once; otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
 | Personalization | A nickname and reviewed interest topics only. Raw unmatched interest text never reaches a request or a page. |
 | Locality | Generation is deterministic local code. The page talks to nothing but its own loopback server on 127.0.0.1: no account, no off-device request, no runtime model, and no telemetry. |
 
@@ -61,12 +61,16 @@ range and any permission it does not use; neither can widen generation.
 ### `dry-math` — Dry Math
 
 Symbolic addition and subtraction within the chosen practice focus, from
-addition within 5 up to addition and subtraction within 100, without carrying
-or borrowing and without negative results.
+addition within 5 up to addition and subtraction within 100, without negative
+results. By default no problem carries or borrows. Under Carrying and
+borrowing the parent can choose "Every problem carries or borrows" instead:
+every addition then carries and every subtraction borrows at least once,
+within the same range.
 
 - [Common Core Kindergarten Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/K/OA/)
 - [Common Core Grade 1 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/1/OA/)
 - [Common Core Grade 2 Operations and Algebraic Thinking, including fluency within 20](https://www.thecorestandards.org/Math/Content/2/OA/B/2/) — cited only to bound the within-20 example range. Extra Credit does not measure fluency.
+- [Common Core Grade 2 Number and Operations in Base Ten](https://www.thecorestandards.org/Math/Content/2/NBT/) — cited only for what carrying and borrowing mean: composing and decomposing tens when adding and subtracting.
 - [IES Teaching Math to Young Children](https://ies.ed.gov/ncee/wwc/practiceguide/18)
 - [IES Assisting Students Struggling with Mathematics: Intervention in the Elementary Grades](https://ies.ed.gov/ncee/wwc/practiceguide/26) — bounds reviewed example shapes only. Extra Credit is not an intervention.
 

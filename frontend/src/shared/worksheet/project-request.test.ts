@@ -11,6 +11,7 @@ import {
   MATH_OPERATIONS,
   PAPER_SIZES,
   PRINT_SCALES,
+  REGROUPING_MODES,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
   WORKSHEET_LENGTHS,
@@ -457,6 +458,7 @@ const quantityMaximum = fc.integer({ min: 1, max: V1_NUMERIC_MAXIMUM });
 const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
   worksheetType: fc.constantFrom(...WORKSHEET_TYPE_IDS),
   dryMath: arithmeticFocusArbitrary(DRY_MATH_NUMERIC_MAXIMUM),
+  dryMathRegrouping: fc.constantFrom(...REGROUPING_MODES),
   findTheWow: fc.record({
     variant: fc.constantFrom(...FIND_THE_WOW_VARIANTS),
     quantity: fc.record({ countingMax: quantityMaximum, numeralMax: quantityMaximum }),
@@ -501,7 +503,12 @@ function withOwnFields(
   };
   switch (worksheetType) {
     case "dry-math":
-      return { ...target, ...shared, dryMath: source.dryMath };
+      return {
+        ...target,
+        ...shared,
+        dryMath: source.dryMath,
+        dryMathRegrouping: source.dryMathRegrouping,
+      };
     case "find-the-wow":
       return {
         ...target,
@@ -583,6 +590,32 @@ describe("another family's choices never change a request (U7)", () => {
       }, baseSelection);
       expect(requestFor(wide)).not.toEqual(requestFor(narrow));
       expect(itemsFor(requestFor(wide))).not.toEqual(itemsFor(requestFor(narrow)));
+    },
+  );
+});
+
+describe("the carrying and borrowing choice reaches only Dry Math's request", () => {
+  test("Dry Math with every problem carrying or borrowing projects the add-subtract practice member", () => {
+    const required = requestFor(selectionFor("dry-math", { dryMathRegrouping: "required" }));
+    expect(required.practice).toEqual({ kind: "dry-math-add-subtract", regrouping: "required" });
+    expect(required.capabilities.mathSkills.allowRegrouping).toBe(false);
+    // Mirror: without carrying or borrowing there is no member at all.
+    const without = requestFor(selectionFor("dry-math", { dryMathRegrouping: "without" }));
+    expect(without).not.toHaveProperty("practice");
+    expect({ ...required, practice: undefined }).toEqual({ ...without, practice: undefined });
+  });
+
+  test.each(["find-the-wow", "sentence-builder", "count-compare-make"] as const)(
+    "%s never carries a practice member, and its generator refuses one",
+    (worksheetType) => {
+      const request = requestFor(selectionFor(worksheetType, { dryMathRegrouping: "required" }));
+      expect(request).not.toHaveProperty("practice");
+      expect(itemsFor(request)).not.toHaveProperty("refused");
+      const carrying = {
+        ...request,
+        practice: { kind: "dry-math-add-subtract", regrouping: "required" },
+      } as const satisfies GenerationRequestV1;
+      expect(itemsFor(carrying)).toHaveProperty("refused");
     },
   );
 });

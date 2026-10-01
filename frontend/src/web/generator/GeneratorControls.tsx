@@ -16,6 +16,7 @@ import {
 } from "../../shared/config/practice-focus";
 import {
   FIND_THE_WOW_VARIANTS,
+  REGROUPING_MODES,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
   WRITING_MODES,
@@ -31,6 +32,11 @@ import {
   type WorksheetControlContextV2,
   type WorksheetRegistrationV1,
 } from "../../shared/worksheet/registry";
+import {
+  DRY_MATH_REGROUPING_HELP,
+  DRY_MATH_REGROUPING_LABELS,
+  DRY_MATH_REGROUPING_LEGEND,
+} from "../../worksheets/dry-math/definition";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../worksheets/find-the-wow/definition";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
@@ -95,6 +101,8 @@ const THEME_LABELS = {
 } as const satisfies Record<ThemeChoice, string>;
 
 const THEME_HELP_ID = "worksheet-theme-help";
+
+const REGROUPING_HELP_ID = "worksheet-regrouping-help";
 
 /** The help text under the Theme select. It never names a child's interest. */
 export const THEME_HELP_TEXT =
@@ -217,9 +225,13 @@ function describeSeededGroup(
   }
 }
 
-/** A native radio group in a fieldset, so arrow keys work with no extra script. */
+/**
+ * A native radio group in a fieldset, so arrow keys work with no extra script.
+ * Optional help text follows the options and describes the whole group.
+ */
 function RadioGroup<TValue extends string>({
   disabled,
+  help,
   legend,
   name,
   onSelect,
@@ -227,6 +239,7 @@ function RadioGroup<TValue extends string>({
   value,
 }: {
   readonly disabled: boolean;
+  readonly help?: { readonly id: string; readonly text: string };
   readonly legend: string;
   readonly name: string;
   readonly onSelect: (value: TValue) => void;
@@ -234,7 +247,11 @@ function RadioGroup<TValue extends string>({
   readonly value: TValue;
 }) {
   return (
-    <fieldset className="worksheet-choice-group" data-panel-control={name}>
+    <fieldset
+      aria-describedby={help?.id}
+      className="worksheet-choice-group"
+      data-panel-control={name}
+    >
       <legend>{legend}</legend>
       {options.map((option) => (
         <label key={option.value}>
@@ -249,6 +266,7 @@ function RadioGroup<TValue extends string>({
           {option.label}
         </label>
       ))}
+      {help !== undefined && <p id={help.id}>{help.text}</p>}
     </fieldset>
   );
 }
@@ -296,7 +314,8 @@ function OptionGroup({
 
 /**
  * The worksheet-first panel: worksheet type, its variant, the child and the
- * practice focus, then the summary, any blocking guidance and Create. More options holds only Length, the answer key, Personalization and
+ * practice focus (with Dry Math's Carrying and borrowing choice after it),
+ * then the summary, any blocking guidance and Create. More options holds only Length, the answer key, Personalization and
  * Print layout. The panel is controlled: every choice lives in the App
  * session, so it survives profile edits, saves and in-app reloads.
  */
@@ -566,6 +585,20 @@ export function GeneratorControls({
                 ))}
               </select>
             </label>
+          )}
+          {applicable.regrouping && worksheetType === "dry-math" && (
+            <RadioGroup
+              disabled={disabled}
+              help={{ id: REGROUPING_HELP_ID, text: DRY_MATH_REGROUPING_HELP }}
+              legend={DRY_MATH_REGROUPING_LEGEND}
+              name="dry-math-regrouping"
+              onSelect={(regrouping) => change("dryMathRegrouping", regrouping)}
+              options={REGROUPING_MODES.map((regrouping) => ({
+                value: regrouping,
+                label: DRY_MATH_REGROUPING_LABELS[regrouping],
+              }))}
+              value={selection.dryMathRegrouping}
+            />
           )}
           {applicable.vocabulary && (
             <RadioGroup

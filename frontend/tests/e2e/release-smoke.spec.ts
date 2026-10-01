@@ -4,17 +4,24 @@ import { appendFile } from "node:fs/promises";
 import type { Page } from "@playwright/test";
 import { PDFDocument } from "pdf-lib";
 
+import { worksheetSelectionOf } from "../../src/shared/config/defaults.js";
+import { PRACTICE_FOCUS_CATALOG } from "../../src/shared/config/practice-focus.js";
 import { AppConfigV2Schema, type ChildProfileV2 } from "../../src/shared/config/schema.js";
+import { projectGenerationRequest } from "../../src/shared/worksheet/project-request.js";
+import { generateDryMath } from "../../src/worksheets/dry-math/generator.js";
 import {
   acceptanceConfig,
   childrenV1FixtureBytes,
   isIdentityOnlyProfile,
   migratedV1FixtureConfig,
 } from "../fixtures/profiles.js";
+import { judgeRenderedPage } from "../oracles/arithmetic-oracle.js";
 import { expect, test } from "./fixtures/app-server.js";
 import {
   chooseChild,
+  chooseLength,
   choosePracticeFocus,
+  chooseRegrouping,
   chooseVariant,
   chooseVocabulary,
   chooseWorksheet,
@@ -527,4 +534,87 @@ test("compiled upgrade of an earlier-version file through every worksheet choice
     expect(parsed.origin).toBe(appServer.origin);
     expect(parsed.hostname).toBe("127.0.0.1");
   }
+});
+
+test("compiled Dry Math page on which every problem carries or borrows: create, key and print", async ({ appServer, page, context }) => {
+  const consoleMessages: string[] = [];
+  const pageErrors: string[] = [];
+  const requests: string[] = [];
+  context.on("request", (request) => requests.push(request.url()));
+  page.on("console", (message) => consoleMessages.push(`${message.type()}: ${message.text()}`));
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await appServer.seedConfig(acceptanceConfig);
+  const seeded = await appServer.readRaw();
+  const [child] = acceptanceConfig.profiles;
+  if (child === undefined) throw new Error("Canonical fixture missing.");
+  const focus = PRACTICE_FOCUS_CATALOG["dry-math"].find(({ id }) => id === "addition-and-subtraction-within-100");
+  if (focus === undefined) throw new Error("The within-100 catalog focus is missing.");
+
+  await page.goto(appServer.origin);
+  await chooseChild(page, child.id);
+  await chooseWorksheet(page, "dry-math");
+  await choosePracticeFocus(page, focus.label);
+  await chooseRegrouping(page, "required");
+  await chooseLength(page, "long");
+  await page.getByRole("button", { name: "Create worksheet", exact: true }).click();
+  const preview = page.getByLabel("Worksheet preview");
+  await expect(preview).toHaveAttribute("data-worksheet-type", "dry-math");
+  const seed = await preview.getAttribute("data-seed");
+  expect(seed).toMatch(/^(?!00000000)[\da-f]{8}$/u);
+
+  // The compiled page equals the source projection and generator for the same
+  // selection and seed.
+  const projected = projectGenerationRequest({
+    profile: child,
+    selection: {
+      ...worksheetSelectionOf(acceptanceConfig.defaults),
+      worksheetType: "dry-math",
+      dryMath: focus.focus,
+      dryMathRegrouping: "required",
+      length: "long",
+    },
+    generatorVersion: 1,
+    seed: seed ?? "",
+  });
+  if (!projected.ok) throw new Error(projected.message);
+  const expected = generateDryMath(projected.request, { worksheetId: "11111111-1111-4111-8111-111111111111" });
+  if (!expected.ok) throw new Error(expected.message);
+  const rows = await preview.locator("[data-item-id]").evaluateAll((items) =>
+    items.map((item) => ({ id: item.getAttribute("data-item-id") ?? "", text: item.textContent?.trim() ?? "" })),
+  );
+  expect(rows).toEqual(expected.document.items.map((item) => ({
+    id: item.id,
+    text: item.itemType === "dry-math" ? `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ____` : "",
+  })));
+
+  for (const surface of ["worksheet", "answer"] as const) {
+    if (surface === "answer") await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+    const printed = page.locator(`.print-surface[data-surface="${surface}"]`);
+    await page.emulateMedia({ media: "print" });
+    await expect(printed).toBeVisible();
+    const pdf = await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }));
+    expect(pdf.getPageCount()).toBe(1);
+    await page.emulateMedia({ media: "screen" });
+  }
+  const keyLines = await page.locator(".print-surface[data-surface='answer'] [data-item-id]").evaluateAll((items) =>
+    items.map((item) => ({
+      id: item.getAttribute("data-item-id") ?? "",
+      source: item.querySelector("[data-source-expression]")?.getAttribute("data-source-expression") ?? "",
+      answer: item.querySelector("[data-answer-value]")?.getAttribute("data-answer-value") ?? "",
+      text: item.textContent?.trim() ?? "",
+    })),
+  );
+  expect(judgeRenderedPage(rows, keyLines, {
+    operations: ["addition", "subtraction"],
+    operandMax: 100,
+    resultMax: 100,
+    regrouping: "required",
+  })).toEqual([]);
+
+  // Creating the page wrote nothing, and nothing left the local origin.
+  expect((await appServer.readRaw()).equals(seeded)).toBe(true);
+  await expectPrivateBrowser(page, appServer.origin);
+  expect(consoleMessages).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  for (const url of requests) expect(new URL(url).origin).toBe(appServer.origin);
 });

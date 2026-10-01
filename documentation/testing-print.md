@@ -50,9 +50,10 @@ items, prompts, banks, and answers. Count/Compare compares every rendered item's
 activity, quantities, choices, and target with the boundary document, including
 the quantity-20 cases. No manufactured worksheet is injected into React.
 
-The 84 worksheet cases cross every row below with Letter/A4 and standard/large.
+The 85 worksheet cases cross every row below with Letter/A4 and standard/large,
+except the carrying and borrowing row, which prints once at Letter/standard.
 Sentence Builder and Count/Compare also cross decoration off/on. Applicable
-keys add 16 separate one-page PDF checks, once
+keys add 17 separate one-page PDF checks, once
 per renderer/paper/scale: the key does not consume decoration.
 Dry Math and both Wow variants run once per paper/scale; a separate production
 session/render test proves a hidden stored decoration-on preference canonicalizes
@@ -75,6 +76,7 @@ overflow in both DOM geometry and an actual multi-page PDF.
 | Fixture | Maximum effective work (standard / large) | Boundary content |
 | --- | --- | --- |
 | Dry Math | 18 / 12 problems | Practice focus Addition and subtraction within 20 |
+| Dry Math carrying and borrowing (Letter/standard only) | 18 problems | Practice focus Addition and subtraction within 100, Every problem carries or borrows; includes a subtraction from 100 |
 | Quantity Wow | 8 / 6 groups | Quantity pictures, practice focus Quantities to 10 |
 | Equation Wow | 8 / 6 groups | Equations, practice focus Addition and subtraction within 20 |
 | Count, Compare & Make | 10 / 8 items | All four subtypes; each reaches quantity 20, including complete/draw frames |
@@ -130,8 +132,8 @@ Registered worksheet/key components also render together in Vitest to detect
 duplicate document-scoped IDs. Parent controls must be hidden in print media.
 
 Evidence is written only to the ignored `.build-step/print-evidence/` directory:
-PDFs, JSON content/page/geometry reports, and screenshots for all 100 distinct
-measured surfaces (84 worksheets and 16 keys). These are disposable review evidence, not committed
+PDFs, JSON content/page/geometry reports, and screenshots for all 102 distinct
+measured surfaces (85 worksheets and 17 keys). These are disposable review evidence, not committed
 fixtures. The CI contract discovers the full print matrix through Playwright's
 actual unfiltered test entry point and guards against OS skips and pixel baselines.
 The Step 1 Ubuntu 24.04 workflow runs that same `check` command. Local Windows

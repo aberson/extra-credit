@@ -20,6 +20,7 @@ import type {
   MathSkillsV1,
   PresentationBand,
   QuantityFocusV2,
+  RegroupingMode,
   SentenceVocabulary,
 } from "./schema.js";
 
@@ -119,16 +120,25 @@ function describeCountCompare(focus: CountCompareFocusV2): string {
     : `Counting to ${focus.countingMax}, numerals to ${focus.numeralMax} and comparisons to ${focus.compareMax}`;
 }
 
+/** What a Dry Math summary adds when every problem must carry or borrow. */
+export const REGROUPING_SUMMARY_PHRASE = ", every problem carries or borrows";
+
 /**
  * The one parent-facing description of a focus, in words: its operations and
  * range, for example "Addition and subtraction within 20" or "Quantities to 10".
+ * For Dry Math a `regrouping` of `required` appends
+ * `REGROUPING_SUMMARY_PHRASE`; catalog labels pass none.
  */
 export function describePracticeFocus<TKind extends PracticeFocusKind>(
   kind: TKind,
   focus: PracticeFocusValues[TKind],
+  regrouping: RegroupingMode = "without",
 ): string {
   switch (kind) {
     case "dry-math":
+      return `${describeArithmetic(focus as ArithmeticFocusV2)}${
+        regrouping === "required" ? REGROUPING_SUMMARY_PHRASE : ""
+      }`;
     case "find-the-wow-equation":
       return describeArithmetic(focus as ArithmeticFocusV2);
     case "find-the-wow-quantity":

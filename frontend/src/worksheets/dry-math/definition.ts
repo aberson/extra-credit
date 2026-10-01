@@ -1,3 +1,4 @@
+import type { REGROUPING_MODES } from "../../shared/config/enums.js";
 import {
   OPERAND_RESULT_MAXIMUM_KEYS,
   bindingMaximumKeysByProbe,
@@ -36,6 +37,23 @@ export function getDryMathItemCount(
     ? DRY_MATH_ITEM_BUDGETS.standard
     : DRY_MATH_ITEM_BUDGETS.short;
 }
+
+/** The two Dry Math addition and subtraction regrouping choices, as a parent reads them. */
+export const DRY_MATH_REGROUPING_LABELS = {
+  without: "Without carrying or borrowing",
+  required: "Every problem carries or borrows",
+} as const satisfies Record<(typeof REGROUPING_MODES)[number], string>;
+
+/** The legend of the "Carrying and borrowing" group. */
+export const DRY_MATH_REGROUPING_LEGEND = "Carrying and borrowing";
+
+/** The help under that group. */
+export const DRY_MATH_REGROUPING_HELP =
+  "Every problem carries or borrows: each addition carries at least once and each subtraction borrows at least once. Answers are never negative.";
+
+/** Appended to a shortage only when the same focus without regrouping fills the length. */
+export const WITHOUT_REGROUPING_FILLS_SENTENCE =
+  "Choosing Without carrying or borrowing also fills this length.";
 
 export type DryMathCapabilitySupport =
   | { readonly available: true }
@@ -93,6 +111,7 @@ export function dryMathCapacityShortfall(
   measureCapacity: (maximums: WorksheetMaximumValues) => number,
   length: WorksheetLength,
   printScale: PrintScale,
+  measureWithoutRegrouping?: () => number,
 ): string | undefined {
   const required = getDryMathItemCount(length, printScale);
   if (capacity >= required) {
@@ -109,5 +128,12 @@ export function dryMathCapacityShortfall(
       measureCapacity,
     ),
   );
-  return `This practice focus provides ${capacity} unique facts, but this length needs ${required}. ${remedy}`;
+  // A page that requires carrying or borrowing names the other choice only
+  // when the same focus without it really fills this length.
+  const withoutRemedy =
+    measureWithoutRegrouping !== undefined &&
+    measureWithoutRegrouping() >= required
+      ? ` ${WITHOUT_REGROUPING_FILLS_SENTENCE}`
+      : "";
+  return `This practice focus provides ${capacity} unique facts, but this length needs ${required}. ${remedy}${withoutRemedy}`;
 }
