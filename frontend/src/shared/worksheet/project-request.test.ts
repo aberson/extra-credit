@@ -38,6 +38,7 @@ import {
   projectWorksheetCapabilities,
   type ProjectionChild,
 } from "./project-request.js";
+import { canonicalContentKey } from "./invariants.js";
 import { getWorksheetRegistration } from "./registry.js";
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
@@ -188,7 +189,7 @@ describe("projectGenerationRequest", () => {
   });
 
   test("a child-free probe projects no nickname and no topics", () => {
-    const selection = selectionFor("count-compare-make", {
+    const selection = selectionFor("sentence-builder", {
       useDisplayName: true,
       useInterests: true,
     });
@@ -514,12 +515,14 @@ function withOwnFields(
         },
       };
     case "count-compare-make":
+      // The Theme is read only while decoration is on; with it off the
+      // target's theme stays, so the property also varies it there.
       return {
         ...target,
         ...shared,
         countCompareMake: source.countCompareMake,
-        useInterests: source.useInterests,
         includeDecorativeGraphics: source.includeDecorativeGraphics,
+        ...(source.includeDecorativeGraphics ? { theme: source.theme } : {}),
       };
   }
 }
@@ -700,13 +703,13 @@ describe("the child only personalizes", () => {
  * though: it cannot see a copy that bypasses the shared binding altogether. A
  * dropped topic is caught by the sweep's first branch (the projector stops
  * emitting one it must emit) and an ADDED topic by its second (the projector
- * emits one `count-compare-make/generator.ts` refuses, turning a worksheet
- * into a hard GENERATION_INVARIANT_FAILED).
+ * emits one that was never reviewed). The sweeps drive Sentence Builder, the
+ * one family whose request carries `topicIds`.
  */
 describe("reviewed-topic allowlist", () => {
   function topicsFor(
     interest: string,
-    worksheetType: WorksheetType = "count-compare-make",
+    worksheetType: WorksheetType = "sentence-builder",
   ): readonly TopicId[] {
     return requestFor(selectionFor(worksheetType), { ...child, interests: [interest] })
       .topicIds ?? [];
@@ -768,11 +771,11 @@ describe("reviewed-topic allowlist", () => {
   });
 
   test("the boundary carries topics for exactly the interest-using families", () => {
-    // The sweeps above drive one family. This is what lets them speak for all
-    // four: it runs the SAME boundary once per declared worksheet type with a
-    // reviewed interest and pins, per family, whether topics travel at all.
-    // Adding a family to `worksheetUsesInterests` or dropping one out of it
-    // fails here, and so does declaring a fifth family without deciding.
+    // The sweeps above drive Sentence Builder only. This runs the SAME
+    // boundary once per declared worksheet type with a reviewed interest and
+    // pins, per family, whether `topicIds` travel at all. Adding a family to
+    // `worksheetUsesInterests` or dropping one out of it fails here, and so
+    // does declaring a fifth family without deciding.
     const carriesTopics = Object.fromEntries(
       WORKSHEET_TYPE_IDS.map((worksheetType) => [
         worksheetType,
@@ -783,7 +786,201 @@ describe("reviewed-topic allowlist", () => {
       "dry-math": [],
       "find-the-wow": [],
       "sentence-builder": ["space"],
-      "count-compare-make": ["space"],
+      "count-compare-make": [],
     });
   });
+});
+
+/** The three Theme kinds the resolution table crosses: one of each. */
+const THEME_KINDS = ["from-interests", "space", "neutral"] as const;
+
+/**
+ * The three interest shapes: reviewed matches after an unmatched tag, only
+ * unmatched free text, none. The first reviewed match is declared and sorts
+ * after the second, so only profile order picks it.
+ */
+const INTEREST_CASES = {
+  firstMatching: ["dinosaurs", "vehicles", "Nature"],
+  onlyUnmatched: ["dinosaurs"],
+  none: [],
+} as const satisfies Record<string, readonly string[]>;
+
+type InterestCase = keyof typeof INTEREST_CASES;
+
+/**
+ * The decorative topic each family's request carries with decoration on, per
+ * Theme and interest shape, whether "Use reviewed interests" is on or off;
+ * `undefined` means the field is absent. Written out rather than derived, so
+ * it states the resolution independently of the projector.
+ */
+const DECORATED_TOPIC: Readonly<
+  Record<
+    WorksheetType,
+    Readonly<Record<(typeof THEME_KINDS)[number], Readonly<Record<InterestCase, TopicId | undefined>>>>
+  >
+> = {
+  "dry-math": {
+    "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+  },
+  "find-the-wow": {
+    "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+  },
+  "sentence-builder": {
+    "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    space: { firstMatching: "space", onlyUnmatched: "space", none: "space" },
+    neutral: { firstMatching: "neutral", onlyUnmatched: "neutral", none: "neutral" },
+  },
+  "count-compare-make": {
+    "from-interests": { firstMatching: "vehicles", onlyUnmatched: "neutral", none: "neutral" },
+    space: { firstMatching: "space", onlyUnmatched: "space", none: "space" },
+    neutral: { firstMatching: "neutral", onlyUnmatched: "neutral", none: "neutral" },
+  },
+};
+
+function themedRequest(
+  worksheetType: WorksheetType,
+  theme: WorksheetSelectionV2["theme"],
+  interests: readonly string[],
+  includeDecorativeGraphics: boolean,
+  useInterests = true,
+  seed = "00000001",
+): GenerationRequestV1 {
+  return requestFor(
+    selectionFor(worksheetType, { theme, includeDecorativeGraphics, useInterests }),
+    { ...child, interests: [...interests] },
+    seed,
+  );
+}
+
+describe("the decorative Theme", () => {
+  test("resolves to the exact decorative topic, or none, for every family, Theme, interest shape, interests choice and decoration state", () => {
+    let carried = 0;
+    for (const worksheetType of WORKSHEET_TYPE_IDS) {
+      for (const theme of THEME_KINDS) {
+        for (const interestCase of Object.keys(INTEREST_CASES) as InterestCase[]) {
+          for (const useInterests of [true, false]) {
+            for (const decoration of [true, false]) {
+              const label = `${worksheetType}/${theme}/${interestCase}/interests ${String(useInterests)}/decoration ${String(decoration)}`;
+              const request = themedRequest(
+                worksheetType,
+                theme,
+                INTEREST_CASES[interestCase],
+                decoration,
+                useInterests,
+              );
+              // The interests choice never moves the decorative topic.
+              const expected = decoration
+                ? DECORATED_TOPIC[worksheetType][theme][interestCase]
+                : undefined;
+              if (expected === undefined) {
+                expect(request.options, label).not.toHaveProperty("decorativeTopicId");
+              } else {
+                carried += 1;
+                expect(request.options.decorativeTopicId, label).toBe(expected);
+              }
+              // Only Sentence Builder's instructional topics follow the interests choice.
+              if (
+                worksheetType === "sentence-builder" &&
+                useInterests &&
+                interestCase === "firstMatching"
+              ) {
+                expect(request.topicIds, label).toEqual(["vehicles", "nature"]);
+              } else {
+                expect(request, label).not.toHaveProperty("topicIds");
+              }
+              // Unmatched free text never enters any request, in any field.
+              expect(JSON.stringify(request).toLowerCase(), label).not.toContain("dinosaurs");
+            }
+          }
+        }
+      }
+    }
+    // Non-vacuity: the table really sends a decorative topic somewhere.
+    expect(carried).toBe(30);
+  });
+
+  test("with decoration off, no Theme changes any family's request", () => {
+    for (const worksheetType of WORKSHEET_TYPE_IDS) {
+      const requests = THEME_CHOICES.map((theme) =>
+        themedRequest(worksheetType, theme, INTEREST_CASES.firstMatching, false),
+      );
+      for (const [index, request] of requests.entries()) {
+        expect(request.options, `${worksheetType}/${THEME_CHOICES[index]}`).not.toHaveProperty(
+          "decorativeTopicId",
+        );
+        expect(request, `${worksheetType}/${THEME_CHOICES[index]}`).toEqual(requests[0]);
+      }
+    }
+    // Mirror: with decoration on, the same Theme sweep does move a decorating
+    // family's request.
+    const decorated = THEME_CHOICES.map(
+      (theme) =>
+        themedRequest("count-compare-make", theme, INTEREST_CASES.firstMatching, true).options
+          .decorativeTopicId,
+    );
+    expect(new Set(decorated).size).toBeGreaterThan(1);
+  });
+
+  test("Dry Math and Two Whats and a Wow never carry a decorative topic under any Theme", () => {
+    for (const worksheetType of ["dry-math", "find-the-wow"] as const) {
+      for (const theme of THEME_CHOICES) {
+        for (const decoration of [true, false]) {
+          const request = themedRequest(
+            worksheetType,
+            theme,
+            INTEREST_CASES.firstMatching,
+            decoration,
+          );
+          expect(request.options, `${worksheetType}/${theme}`).not.toHaveProperty(
+            "decorativeTopicId",
+          );
+        }
+      }
+    }
+  });
+
+  test.each(["sentence-builder", "count-compare-make"] as const)(
+    "%s: for a fixed seed every Theme yields the same content key, and another seed changes it",
+    (worksheetType) => {
+      const keysFor = (seed: string): readonly string[] =>
+        THEME_CHOICES.map((theme) => {
+          const request = themedRequest(
+            worksheetType,
+            theme,
+            INTEREST_CASES.firstMatching,
+            true,
+            true,
+            seed,
+          );
+          const result = getWorksheetRegistration(worksheetType).generate(request, {
+            worksheetId: "11111111-1111-4111-8111-111111111111",
+          });
+          if (!result.ok) {
+            throw new Error(result.message);
+          }
+          return canonicalContentKey(result.document.items);
+        });
+      const fixed = keysFor("00000001");
+      expect(fixed).toHaveLength(THEME_CHOICES.length);
+      expect(new Set(fixed).size).toBe(1);
+      // Non-vacuity: the Themes really produced different requests.
+      expect(
+        new Set(
+          THEME_CHOICES.map(
+            (theme) =>
+              themedRequest(worksheetType, theme, INTEREST_CASES.firstMatching, true).options
+                .decorativeTopicId,
+          ),
+        ).size,
+      ).toBeGreaterThan(1);
+      // Mirror: a different seed changes the content.
+      const other = keysFor("0000002a");
+      expect(new Set(other).size).toBe(1);
+      expect(other[0]).not.toBe(fixed[0]);
+    },
+  );
 });

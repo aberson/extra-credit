@@ -65,6 +65,7 @@ import {
   makeAnotherWorksheetSession,
   type GenerationSelection,
 } from "../generator/create-session";
+import { selectDecorativeAsset } from "../assets/line-art/manifest";
 import { GeneratorControls } from "../generator/GeneratorControls";
 import { worksheetSessionReducer } from "../generator/worksheet-session";
 import { WorksheetPreview } from "../preview/WorksheetPreview";
@@ -1275,6 +1276,12 @@ const CONTROL_PROBES = [
     observe: (request: GenerationRequestV1) => request.topicIds,
     values: [set({ useInterests: true }), set({ useInterests: false })],
   },
+  {
+    canonicalWhenHidden: undefined,
+    key: "theme",
+    observe: (request: GenerationRequestV1) => request.options.decorativeTopicId,
+    values: [set({ theme: "space" }), set({ theme: "neutral" })],
+  },
 ] as const satisfies readonly {
   readonly canonicalWhenHidden: unknown;
   readonly key: keyof WorksheetApplicableControlsV1;
@@ -1361,6 +1368,58 @@ describe("worksheet control contract matches the projection boundary", () => {
             expect(first, label).toEqual(probe.canonicalWhenHidden);
           }
         }
+      }
+    }
+  });
+
+  test("the Theme applies to exactly the two decorating families, and only while decorative graphics are on", () => {
+    const familiesWithTheme = (includeDecorativeGraphics: boolean, useInterests: boolean) =>
+      REGISTERED_WORKSHEET_IDS.filter((worksheetType) =>
+        CONTRACT_PROFILES[worksheetType].some(
+          (sourceProfile) =>
+            getWorksheetRegistration(worksheetType).controls.getApplicableControls({
+              selection: contractSelection(
+                worksheetType,
+                sourceProfile,
+                set({ includeDecorativeGraphics, useInterests }),
+              ),
+            }).theme,
+        ),
+      );
+    // The interests choice moves neither the Theme's applicability...
+    for (const useInterests of [true, false]) {
+      expect(familiesWithTheme(true, useInterests), String(useInterests)).toEqual([
+        "sentence-builder",
+        "count-compare-make",
+      ]);
+      expect(familiesWithTheme(false, useInterests), String(useInterests)).toEqual([]);
+    }
+    // ...nor what a shown Theme puts on the request.
+    for (const worksheetType of ["sentence-builder", "count-compare-make"] as const) {
+      for (const sourceProfile of CONTRACT_PROFILES[worksheetType]) {
+        for (const theme of ["space", "neutral"] as const) {
+          expect(
+            contractRequest(
+              worksheetType,
+              sourceProfile,
+              set({ includeDecorativeGraphics: true, useInterests: false, theme }),
+            ).options.decorativeTopicId,
+            `${worksheetType}/${theme}`,
+          ).toBe(theme);
+        }
+      }
+    }
+    // Hidden with graphics off, the Theme reaches no request.
+    for (const worksheetType of ["sentence-builder", "count-compare-make"] as const) {
+      for (const sourceProfile of CONTRACT_PROFILES[worksheetType]) {
+        const off = (theme: WorksheetSelectionV2["theme"]) =>
+          contractRequest(
+            worksheetType,
+            sourceProfile,
+            set({ includeDecorativeGraphics: false, theme }),
+          );
+        expect(off("space"), worksheetType).toEqual(off("neutral"));
+        expect(off("space").options, worksheetType).not.toHaveProperty("decorativeTopicId");
       }
     }
   });
@@ -1769,6 +1828,53 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
         instructionalSurfaceOf(on.document),
       );
     }
+  });
+
+  test("an explicit Theme decorates the page while the prompt keeps its own topic", () => {
+    const drawn = (theme: WorksheetSelectionV2["theme"], useInterests = true) => {
+      const session = sentenceSessionFor("label", 7, { theme, useInterests }, ["Animals"]);
+      const view = render(
+        createElement(WorksheetPreview, { document: session.document }),
+      );
+      const reading = {
+        art: [...document.querySelectorAll("img[data-decorative-art]")].map(
+          (image) => image.getAttribute("data-decorative-art"),
+        ),
+        contentKey: session.contentKey,
+        seedHex: session.document.seed,
+        topicIds: [...document.querySelectorAll("[data-topic-id]")].map((item) =>
+          item.getAttribute("data-topic-id"),
+        ),
+      };
+      view.unmount();
+      return reading;
+    };
+    // From interests: the art follows the prompt's own topic.
+    const fromInterests = drawn("from-interests");
+    expect(fromInterests.topicIds).toEqual(["animals"]);
+    expect(fromInterests.art).toEqual([
+      selectDecorativeAsset("animals", fromInterests.seedHex)?.id,
+    ]);
+    for (const theme of ["space", "neutral"] as const) {
+      const themed = drawn(theme);
+      expect(themed.topicIds, theme).toEqual(["animals"]);
+      expect(themed.art, theme).toEqual([
+        selectDecorativeAsset(theme, themed.seedHex)?.id,
+      ]);
+      expect(themed.contentKey, theme).toBe(fromInterests.contentKey);
+    }
+
+    // With "Use reviewed interests" off the prompt falls back to the neutral
+    // pool, and an explicit Theme still decorates the page.
+    const interestsOff = drawn("from-interests", false);
+    expect(interestsOff.topicIds).toEqual(["neutral"]);
+    expect(interestsOff.art).toEqual([
+      selectDecorativeAsset("neutral", interestsOff.seedHex)?.id,
+    ]);
+    const themedOff = drawn("space", false);
+    expect(themedOff.topicIds).toEqual(["neutral"]);
+    expect(themedOff.art).toEqual([selectDecorativeAsset("space", themedOff.seedHex)?.id]);
+    expect(themedOff.contentKey).toBe(interestsOff.contentKey);
   });
 
   test("length changes response space as well as word-bank breadth", () => {
@@ -2397,6 +2503,61 @@ describe("Count, Compare & Make reaches paper through the registered renderer", 
     expect(withoutGraphics.document.items).toEqual(withGraphics.document.items);
   });
 
+  test("the decorative panel draws the Theme's topic and no Theme changes an item", () => {
+    const seed = 0x9dcc_a8c5;
+    const drawn = (theme: WorksheetSelectionV2["theme"]) => {
+      const session = countCompareSessionFor(seed, {
+        includeDecorativeGraphics: true,
+        theme,
+      });
+      const view = render(
+        createElement(WorksheetPreview, { document: session.document }),
+      );
+      const reading = {
+        art: [...document.querySelectorAll("img[data-decorative-art]")].map(
+          (image) => image.getAttribute("data-decorative-art"),
+        ),
+        items: readInstructionalDom(),
+        seedHex: session.document.seed,
+      };
+      view.unmount();
+      return reading;
+    };
+    const assetFor = (topic: string, seedHex: string) => [
+      selectDecorativeAsset(topic, seedHex)?.id,
+    ];
+
+    // From interests: the fixture child's one reviewed interest.
+    const fromInterests = drawn("from-interests");
+    expect(fromInterests.art).toEqual(assetFor("space", fromInterests.seedHex));
+    for (const theme of ["animals", "vehicles", "neutral"] as const) {
+      const themed = drawn(theme);
+      expect(themed.art, theme).toEqual(assetFor(theme, themed.seedHex));
+      expect(themed.items, theme).toBe(fromInterests.items);
+    }
+
+    // A document whose request carries no decorative topic draws the star.
+    const session = countCompareSessionFor(seed, {
+      includeDecorativeGraphics: true,
+      theme: "vehicles",
+    });
+    const { decorativeTopicId, ...untopicked } = session.document.request.options;
+    expect(decorativeTopicId).toBe("vehicles");
+    render(
+      createElement(WorksheetPreview, {
+        document: {
+          ...session.document,
+          request: { ...session.document.request, options: untopicked },
+        },
+      }),
+    );
+    expect(
+      [...document.querySelectorAll("img[data-decorative-art]")].map((image) =>
+        image.getAttribute("data-decorative-art"),
+      ),
+    ).toEqual(assetFor("neutral", session.document.seed));
+  });
+
   test("the activity stays available to a child without quantity settings, at the default focus", () => {
     const equationsOnly: CapabilityProfileV1 = {
       ...profile,
@@ -2451,9 +2612,15 @@ describe("Count, Compare & Make reaches paper through the registered renderer", 
       screen.getByRole("option", { name: "Long · 10 items" }),
     ).toBeInTheDocument();
     expect(screen.getByLabelText("Include decorative graphics")).toBeVisible();
+    // The artwork follows the Theme, so no interests toggle is offered; the
+    // Theme itself shows once decorative graphics are on.
     expect(
-      screen.getByLabelText("Use reviewed interests in worksheet content"),
-    ).toBeVisible();
+      screen.queryByLabelText("Use reviewed interests in worksheet content"),
+    ).toBeNull();
+    expect(screen.getByLabelText("Include decorative graphics")).not.toBeChecked();
+    expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
+    fireEvent.click(screen.getByLabelText("Include decorative graphics"));
+    expect(screen.getByRole("combobox", { name: "Theme" })).toBeVisible();
     expect(screen.getByLabelText("Include a parent answer key")).toBeVisible();
   });
 });

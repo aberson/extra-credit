@@ -145,7 +145,7 @@ function projected(
  */
 function request(
   profile: CapabilityProfileV1,
-  preferences: Partial<Layout> = {},
+  preferences: Partial<Layout & Pick<WorksheetSelectionV2, "theme">> = {},
   seed = "00000001",
 ): GenerationRequestV1 {
   const stored = profileWithLegacyChoices(profile);
@@ -1018,14 +1018,24 @@ describe("Count, Compare & Make answers", () => {
     expect(withoutGraphics.items).toEqual(withGraphics.items);
   });
 
-  test("interest personalization never reaches the item model", () => {
-    const withInterests = generated(
-      request(quantityProfile({ countingMax: 12 }), { useInterests: true }),
+  test("a child's interests reach only the art topic, never the items or answers", () => {
+    // Under From interests the child's interests are what can still move
+    // this family's request: a reviewed one names the art topic, while only
+    // unmatched free text or no interests leave the neutral star.
+    const shape = { countingMax: 12 };
+    const reviewed = generated(
+      request({ ...quantityProfile(shape), interests: ["Animals"] }),
     );
-    const withoutInterests = generated(
-      request(quantityProfile({ countingMax: 12 }), { useInterests: false }),
-    );
-    expect(withoutInterests.items).toEqual(withInterests.items);
+    const unmatched = generated(request(quantityProfile(shape)));
+    const none = generated(request({ ...quantityProfile(shape), interests: [] }));
+    expect(reviewed.request.options.decorativeTopicId).toBe("animals");
+    for (const document of [unmatched, none]) {
+      expect(document.request.options.decorativeTopicId).toBe("neutral");
+      expect(document.items).toEqual(reviewed.items);
+      expect(objectiveAnswerEntries(document)).toEqual(
+        objectiveAnswerEntries(reviewed),
+      );
+    }
   });
 });
 
@@ -1376,10 +1386,10 @@ describe("Count, Compare & Make document validation", () => {
 });
 
 /**
- * The interest-data gate. The two math families that take no interests prove
- * it by refusing any request that carries `topicIds` at all; this family takes
- * interests, so the equivalent proof is that only exact reviewed topic IDs
- * reach a page.
+ * The interest-data gate. This family's requests carry no `topicIds`: its
+ * interests only ever chose its artwork, which the Theme decides through
+ * `options.decorativeTopicId`. The validator therefore refuses the key
+ * outright, as Dry Math's and Two Whats and a Wow's validators do.
  */
 describe("Count, Compare & Make interest data", () => {
   const base = request(quantityProfile({ countingMax: 12 }), { length: "long" });
@@ -1395,41 +1405,35 @@ describe("Count, Compare & Make interest data", () => {
     return { ...source, request: tampered };
   }
 
-  test("accepts a reviewed topic list and an absent one", () => {
-    expect(
-      validateCountCompareMakeDocument(documentWithTopics(undefined)),
-    ).toBeUndefined();
-    expect(
-      validateCountCompareMakeDocument(documentWithTopics(["space", "animals"])),
-    ).toBeUndefined();
-  });
-
-  test("refuses every declared topic outside the reviewed allowlist", () => {
-    // The CONSUMER direction: `reviewed` reads the leaf `REVIEWED_TOPIC_IDS`
-    // while the validator reads its own `REVIEWED_TOPIC_ID_SET`, so a second,
-    // drifted copy inside this generator fails here on any declared ID.
-    // Sweeping the full declared set is what makes "exactly the reviewed ones"
-    // checkable rather than asserted. That the projector can actually EMIT
-    // each reviewed ID is a separate claim, proved by "the validator accepts
-    // exactly what the sole projector can emit" below.
-    for (const topicId of TOPIC_IDS) {
-      const reviewed = (REVIEWED_TOPIC_IDS as readonly string[]).includes(
+  test("the projection carries no topicIds for any reviewed interest, while its art follows the first one", () => {
+    for (const topicId of REVIEWED_TOPIC_IDS) {
+      const projection = request(
+        {
+          ...quantityProfile({ countingMax: 12 }),
+          interests: ["Distinctive Private Nonsense", topicId],
+        },
+        { length: "long", useInterests: true },
+      );
+      expect("topicIds" in projection, topicId).toBe(false);
+      // Non-vacuity: the reviewed interest did reach the request, as art only.
+      expect(projection.options.decorativeTopicId, topicId).toBe(topicId);
+      expect(
+        validateCountCompareMakeDocument(generated(projection)),
         topicId,
-      );
-      const failure = validateCountCompareMakeDocument(
-        documentWithTopics([topicId]),
-      );
-      expect(failure === undefined, topicId).toBe(reviewed);
+      ).toBeUndefined();
     }
   });
 
-  test("refuses the neutral fallback, duplicates, and an empty list", () => {
+  test("the validator refuses a document carrying any topicIds, even reviewed or empty ones", () => {
+    // Mirror: the same document without the key is accepted.
+    expect(
+      validateCountCompareMakeDocument(documentWithTopics(undefined)),
+    ).toBeUndefined();
     for (const topicIds of [
-      ["neutral"],
-      ["space", "space"],
-      ["space", "neutral"],
       [],
-    ] as const) {
+      ["space", "animals"],
+      ...TOPIC_IDS.map((topicId) => [topicId]),
+    ] as readonly (readonly TopicId[])[]) {
       const failure = validateCountCompareMakeDocument(
         documentWithTopics(topicIds),
       );
@@ -1437,46 +1441,67 @@ describe("Count, Compare & Make interest data", () => {
         "GENERATION_INVARIANT_FAILED",
       );
       expect(failure?.message ?? "", JSON.stringify(topicIds)).toMatch(
-        /reviewed topic allowlist/u,
+        /interest data its requests never carry/u,
       );
     }
   });
 
-  test("the generator refuses to build a page from unreviewed interest data", () => {
+  test("the generator refuses to build a page from a request carrying interest data", () => {
     expect(
       generateCountCompareMake(
-        { ...base, topicIds: ["neutral"] },
+        { ...base, topicIds: ["space"] },
         { worksheetId: WORKSHEET_ID },
       ),
     ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
   });
+});
 
-  test("the validator accepts exactly what the sole projector can emit", () => {
-    // Observational rather than a re-typed list: the allowlist now lives in
-    // ONE leaf constant that the projector and this generator both import, and
-    // the check that they agree is driven through the real projection boundary
-    // so a future second copy of the list fails here.
-    for (const topicId of REVIEWED_TOPIC_IDS) {
-      const projection = request(
-        { ...quantityProfile({ countingMax: 12 }), interests: [topicId] },
-        { length: "long", useInterests: true },
-      );
-      expect(projection.topicIds, topicId).toEqual([topicId]);
+describe("Count, Compare & Make decorative topic", () => {
+  const base = request(quantityProfile({ countingMax: 12 }), { length: "long" });
+
+  function documentWithDecorativeTopic(
+    decorativeTopicId: string,
+  ): CountCompareMakeDocumentV1 {
+    const source = generated(base);
+    return {
+      ...source,
+      request: {
+        ...base,
+        options: { ...base.options, decorativeTopicId: decorativeTopicId as TopicId },
+      },
+    };
+  }
+
+  test("every declared topic is accepted and any other value is refused", () => {
+    for (const topicId of TOPIC_IDS) {
       expect(
-        validateCountCompareMakeDocument(documentWithTopics([topicId])),
+        validateCountCompareMakeDocument(documentWithDecorativeTopic(topicId)),
         topicId,
       ).toBeUndefined();
     }
+    for (const outside of ["dinosaurs", "Space", ""]) {
+      expect(
+        validateCountCompareMakeDocument(documentWithDecorativeTopic(outside)),
+        JSON.stringify(outside),
+      ).toMatchObject({
+        ok: false,
+        code: "GENERATION_INVARIANT_FAILED",
+        message:
+          "Worksheet decoration data named no declared topic or reached a family that prints no decoration.",
+      });
+    }
+  });
 
-    // An unmatched raw tag never becomes a topic, so the validator never has
-    // to accept one.
-    const unmatched = request(
-      {
-        ...quantityProfile({ countingMax: 12 }),
-        interests: ["Distinctive Private Nonsense"],
-      },
-      { length: "long", useInterests: true },
+  test("an explicit Theme changes the art topic and never the items", () => {
+    const profile = quantityProfile({ countingMax: 12 });
+    const themed = TOPIC_IDS.map((theme) =>
+      generated(request(profile, { length: "long", theme })),
     );
-    expect("topicIds" in unmatched).toBe(false);
+    expect(themed.map((document) => document.request.options.decorativeTopicId)).toEqual([
+      ...TOPIC_IDS,
+    ]);
+    for (const document of themed) {
+      expect(document.items).toEqual(themed[0]?.items);
+    }
   });
 });

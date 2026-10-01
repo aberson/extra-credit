@@ -1520,6 +1520,16 @@ describe("App over a file an earlier version saved", () => {
     for (const details of window.document.querySelectorAll("details")) {
       details.open = true;
     }
+    // An explicit Theme beside interests turned off: the save keeps the
+    // chosen Theme rather than deriving one from the interests choice.
+    expect(seeded.useInterests).toBe(true);
+    expect(seeded.theme).toBe("from-interests");
+    fireEvent.click(screen.getByRole("radio", { name: "Sentence Builder" }));
+    fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content"));
+    fireEvent.change(screen.getByRole("combobox", { name: "Theme" }), {
+      target: { value: "space" },
+    });
+    fireEvent.click(screen.getByRole("radio", { name: "Dry Math" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Print scale" }), {
       target: { value: "large" },
     });
@@ -1530,9 +1540,13 @@ describe("App over a file an earlier version saved", () => {
 
     expect(puts).toHaveLength(1);
     const saved = puts[0]!;
+    expect(saved.defaults.useInterests).toBe(false);
+    expect(saved.defaults.theme).toBe("space");
     expect(saved.defaults).toEqual({
       ...seeded,
       printScale: "large",
+      useInterests: false,
+      theme: "space",
       useEarlierChildSettings: false,
     });
     expect(saved.defaults).not.toHaveProperty("difficulty");
@@ -1851,6 +1865,7 @@ describe("App over a file an earlier version saved", () => {
       ["writing worksheet type", () => fireEvent.click(screen.getByRole("radio", { name: "Sentence Builder" }))],
       ["writing activity", () => fireEvent.click(screen.getByRole("radio", { name: "Independent Writing" }))],
       ["vocabulary", () => fireEvent.click(screen.getByRole("radio", { name: "Include longer words" }))],
+      ["interests", () => fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content"))],
       ["quantity worksheet type", () => fireEvent.click(screen.getByRole("radio", { name: "Count, Compare & Make" }))],
       [
         "length",
@@ -1863,7 +1878,13 @@ describe("App over a file an earlier version saved", () => {
       ],
       ["answer key", () => fireEvent.click(screen.getByLabelText("Include a parent answer key"))],
       ["nickname", () => fireEvent.click(screen.getByLabelText("Put the nickname in the worksheet header"))],
-      ["interests", () => fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content"))],
+      [
+        "theme",
+        () =>
+          fireEvent.change(screen.getByRole("combobox", { name: "Theme" }), {
+            target: { value: "sports" },
+          }),
+      ],
       ["graphics", () => fireEvent.click(screen.getByLabelText("Include decorative graphics"))],
       [
         "paper",

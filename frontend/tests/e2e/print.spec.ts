@@ -4,8 +4,12 @@ import { fileURLToPath } from "node:url";
 
 import type { Page } from "@playwright/test";
 import { PDFDocument } from "pdf-lib";
+import { runnerImport } from "vite";
 
-import type { WorksheetDocumentV1 } from "../../src/shared/worksheet/types.ts";
+import {
+  REVIEWED_TOPIC_IDS,
+  type WorksheetDocumentV1,
+} from "../../src/shared/worksheet/types.ts";
 import { countOrderBound, countSeedFixture, type CountActivity } from "../fixtures/print/count-layout.ts";
 import {
   acceptanceConfig,
@@ -47,6 +51,26 @@ const paperMetrics = {
     margin: "10mm",
   },
 } as const;
+
+/** The one export of the production line-art module these tests call. */
+interface LineArtSelectorModule {
+  selectDecorativeAsset(topicId: string, seed: string): { readonly id: string } | undefined;
+}
+
+let lineArtModule: Promise<LineArtSelectorModule> | undefined;
+
+/**
+ * The production `selectDecorativeAsset` over the bundled catalog. The module
+ * imports bundler-only asset queries, so it is loaded through Vite's own
+ * module runner rather than Node's loader; the runner binds no port.
+ */
+function productionLineArt(): Promise<LineArtSelectorModule> {
+  lineArtModule ??= runnerImport<LineArtSelectorModule>(
+    fileURLToPath(new URL("../../src/web/assets/line-art/manifest.ts", import.meta.url)),
+    { root: fileURLToPath(new URL("../../", import.meta.url)), logLevel: "silent" },
+  ).then(({ module }) => module);
+  return lineArtModule;
+}
 
 function expectSelectedPage(selectedPage: string | undefined, paper: keyof typeof paperMetrics) {
   expect(selectedPage, "computed selected print page").toBe(`extra-credit-${paper}`);
@@ -848,6 +872,21 @@ for (const fixture of printFixtures) {
           await measurePrint(page, `${name}-worksheet`, paper, scale,
             boundary.document, "worksheet",
             decorationApplicable ? decoration ? "art" : "doodle" : "absent");
+          if (decorationApplicable && decoration) {
+            // The saved From interests Theme keeps the art a version 1 page
+            // drew: the prompt's topic for Sentence Builder, the first reviewed
+            // interest for Count, Compare & Make.
+            const first = boundary.document.items[0];
+            const artTopic = first?.itemType === "sentence"
+              ? first.topicId
+              : boundary.profile.interests.find((interest) =>
+                (REVIEWED_TOPIC_IDS as readonly string[]).includes(interest)) ?? "neutral";
+            const asset = (await productionLineArt())
+              .selectDecorativeAsset(artTopic, boundary.document.seed);
+            expect(asset, "the fixture's art topic selects a reviewed asset").toBeDefined();
+            await expect(page.locator(".print-surface img[data-decorative-art]"))
+              .toHaveAttribute("data-decorative-art", asset?.id ?? "");
+          }
           if (name === "dry-math-letter-standard-decoration-false") {
             await withPrintStyle(page, ".print-surface { page: auto !important; }", async () => {
               const fallback = await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }));

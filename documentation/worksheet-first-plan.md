@@ -745,6 +745,7 @@ Every step's Problem begins with the same pointer to this file (D-pointer), beca
   4. **Continuity and accessibility:** a seeded v1 config with `useInterests: false` upgrades to Theme Neutral and renders the neutral Count/Compare asset; the existing `print.spec.ts` decoration tests assert the asset id `selectDecorativeAsset` returns for each fixture's v1 art topic and seed, inside existing tests so `ci-contract.test.ts` still lists 102 rows; `options.test.tsx` asserts the Theme control keeps its value across the interests toggle and the App-level save case asserts the PUT body's `theme` equals the chosen Theme with interests off; `accessibility.spec.ts` passes axe with More options open and Theme shown.
   5. **Full gate:** after merge, build-phase runs `npm --prefix frontend run check` once in the main checkout; Vitest and Playwright counts must not fall below the previous step's.
 - **Depends on:** Step 18
+- **Status:** DONE (2026-09-30)
 
 ### Step 20: Compiled upgrade-to-print smoke
 

@@ -60,7 +60,7 @@ import {
 } from "./create-session";
 import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../worksheets/find-the-wow/definition";
-import { GeneratorControls } from "./GeneratorControls";
+import { GeneratorControls, THEME_HELP_TEXT } from "./GeneratorControls";
 import {
   worksheetSessionReducer,
   type WorksheetPanelAction,
@@ -454,7 +454,7 @@ type ShownDefaults = Pick<
 
 /**
  * The stored version 2 defaults the panel starts from, carrying the given
- * shown fields; `theme` follows `useInterests` as every save derives it.
+ * shown fields, with `theme` set from `useInterests` as the upgrade sets it.
  * Seeding is on, as a migrated file has it, so each fixture child's earlier
  * settings reach the panel.
  */
@@ -1826,8 +1826,8 @@ describe("worksheet-first panel", () => {
       "Length",
       "Include a parent answer key",
       "Put the nickname in the worksheet header",
-      "Use reviewed interests in worksheet content",
       "Include decorative graphics",
+      "Theme",
       "Paper size",
       "Print scale",
     ]);
@@ -1969,6 +1969,9 @@ describe("worksheet-first panel", () => {
           screen.getByRole("radio", { name: SENTENCE_VOCABULARY_LABELS["all-words"] }),
         ),
     );
+    expectOne({ type: "changed", group: "useInterests", value: false }, () =>
+      fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content")),
+    );
     expectOne({ type: "changed", group: "worksheetType", value: "dry-math" }, () =>
       fireEvent.click(worksheetCard("dry-math")),
     );
@@ -1989,8 +1992,8 @@ describe("worksheet-first panel", () => {
     expectOne({ type: "changed", group: "includeAnswerKey", value: false }, () =>
       fireEvent.click(screen.getByLabelText("Include a parent answer key")),
     );
-    expectOne({ type: "changed", group: "useInterests", value: false }, () =>
-      fireEvent.click(screen.getByLabelText("Use reviewed interests in worksheet content")),
+    expectOne({ type: "changed", group: "theme", value: "sports" }, () =>
+      choose("Theme", "sports"),
     );
     expectOne({ type: "changed", group: "includeDecorativeGraphics", value: false }, () =>
       fireEvent.click(screen.getByLabelText("Include decorative graphics")),
@@ -2004,6 +2007,75 @@ describe("worksheet-first panel", () => {
     expectOne({ type: "changed", group: "printScale", value: "large" }, () =>
       choose("Print scale", "large"),
     );
+  });
+
+  test("the Theme select shows only for the two decorating families with graphics on and keeps its value across the interests toggle", () => {
+    renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
+    openMoreOptions();
+    const theme = (): HTMLElement | null =>
+      screen.queryByRole("combobox", { name: "Theme" });
+    const interests = (): HTMLElement =>
+      screen.getByLabelText("Use reviewed interests in worksheet content");
+    const graphics = (): HTMLElement =>
+      screen.getByLabelText("Include decorative graphics");
+
+    // The families that print no decoration offer no Theme.
+    expect(worksheetCard("dry-math")).toBeChecked();
+    expect(theme()).toBeNull();
+    chooseWorksheet("find-the-wow");
+    expect(theme()).toBeNull();
+
+    chooseWorksheet("count-compare-make");
+    const select = theme();
+    expect(select).not.toBeNull();
+    expect(
+      [...(select?.querySelectorAll("option") ?? [])].map((option) => [
+        option.value,
+        option.textContent,
+      ]),
+    ).toEqual([
+      ["from-interests", "From interests"],
+      ["animals", "Animals"],
+      ["space", "Space"],
+      ["nature", "Nature"],
+      ["sports", "Sports"],
+      ["vehicles", "Vehicles"],
+      ["neutral", "Neutral"],
+    ]);
+    expect(select).toHaveValue("from-interests");
+    expect(select?.closest("[data-more-options-group]")?.querySelector("legend")?.textContent).toBe(
+      "Personalization",
+    );
+    const help = document.getElementById(select?.getAttribute("aria-describedby") ?? "");
+    expect(help?.textContent).toBe(THEME_HELP_TEXT);
+    expect(THEME_HELP_TEXT).toMatch(/^Neutral, and interests with no matching artwork, use the simple star\./u);
+    expect(THEME_HELP_TEXT).toMatch(/never the work or the answers\.$/u);
+    // Count, Compare & Make's art comes from the Theme, not an interests toggle.
+    expect(
+      screen.queryByLabelText("Use reviewed interests in worksheet content"),
+    ).toBeNull();
+
+    fireEvent.change(select!, { target: { value: "vehicles" } });
+    expect(theme()).toHaveValue("vehicles");
+
+    // Sentence Builder shows both; the interests toggle leaves the Theme alone.
+    chooseWorksheet("sentence-builder");
+    expect(theme()).toHaveValue("vehicles");
+    expect(interests()).toBeChecked();
+    fireEvent.click(interests());
+    expect(interests()).not.toBeChecked();
+    expect(theme()).toHaveValue("vehicles");
+    fireEvent.click(interests());
+    expect(interests()).toBeChecked();
+    expect(theme()).toHaveValue("vehicles");
+
+    // With graphics off the Theme is inapplicable and hidden; it comes back
+    // with its value.
+    fireEvent.click(graphics());
+    expect(graphics()).not.toBeChecked();
+    expect(theme()).toBeNull();
+    fireEvent.click(graphics());
+    expect(theme()).toHaveValue("vehicles");
   });
 
   test("the save slot holds no control but the save button and explains the end of seeding", () => {

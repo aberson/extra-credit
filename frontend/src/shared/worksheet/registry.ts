@@ -129,6 +129,8 @@ export interface WorksheetApplicableControlsV1 {
   readonly useDisplayName: boolean;
   readonly useInterests: boolean;
   readonly includeDecorativeGraphics: boolean;
+  /** The decorative Theme, which applies only while decorative graphics are on. */
+  readonly theme: boolean;
   /** A practice focus: the operations and range a math family practices. */
   readonly practiceFocus: boolean;
   /** Statements (Two Whats and a Wow) or Writing activity (Sentence Builder). */
@@ -356,6 +358,7 @@ export const WORKSHEET_REGISTRY = {
         useDisplayName: true,
         useInterests: false,
         includeDecorativeGraphics: false,
+        theme: false,
         practiceFocus: true,
         variant: false,
         vocabulary: false,
@@ -401,6 +404,7 @@ export const WORKSHEET_REGISTRY = {
         useDisplayName: true,
         useInterests: false,
         includeDecorativeGraphics: false,
+        theme: false,
         practiceFocus: true,
         variant: true,
         vocabulary: false,
@@ -479,6 +483,9 @@ export const WORKSHEET_REGISTRY = {
         // graphics-independence assertions run against a non-vacuous baseline
         // rather than a toggle nothing renders from.
         includeDecorativeGraphics: true,
+        // The projection boundary carries no decorative topic while
+        // decoration is off, so the Theme applies only while it is on.
+        theme: selection.includeDecorativeGraphics,
         practiceFocus: false,
         variant: true,
         vocabulary: true,
@@ -522,10 +529,13 @@ export const WORKSHEET_REGISTRY = {
         singularLabel: "item",
         pluralLabel: "items",
       }),
-      getApplicableControls: () => ({
+      getApplicableControls: ({ selection }) => ({
         useDisplayName: true,
-        useInterests: true,
+        // This family's interests only ever chose its artwork; the Theme
+        // decides that now, so its requests carry no `topicIds`.
+        useInterests: false,
         includeDecorativeGraphics: true,
+        theme: selection.includeDecorativeGraphics,
         practiceFocus: true,
         variant: false,
         vocabulary: false,

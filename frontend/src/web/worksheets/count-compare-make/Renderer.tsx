@@ -270,10 +270,10 @@ export function CountCompareMakeRenderer({ document }: WorksheetRendererProps) {
 
   const familyTitle = `${COUNT_COMPARE_MAKE_DEFINITION.displayName} practice`;
   const { displayName } = document.request;
-  // Interests reach decoration only: the counted work is the same whichever
-  // reviewed topic the panel draws from, and an unmatched tag never arrives
-  // here because the sole projection boundary drops it before the request.
-  const decorativeTopicId = document.request.topicIds?.[0] ?? "neutral";
+  // The Theme reaches decoration only: the counted work is the same whichever
+  // topic the panel draws from. The sole projection boundary resolves the
+  // Theme into `decorativeTopicId` and carries none while decoration is off.
+  const decorativeTopicId = document.request.options.decorativeTopicId ?? "neutral";
 
   return (
     <article aria-labelledby={`worksheet-${document.worksheetId}-title`}>

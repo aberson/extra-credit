@@ -16,7 +16,6 @@
  */
 import {
   cloneWorksheetDefaults,
-  themeFromInterests,
   worksheetSelectionOf,
 } from "../../shared/config/defaults";
 import {
@@ -213,9 +212,9 @@ function seededSelection(
 }
 
 /**
- * Re-applies the seeding invariant: untouched groups take their seeded value,
- * touched groups keep the current one, and (until the Theme control exists,
- * D33) `theme` follows `useInterests`.
+ * Re-applies the seeding invariant: untouched groups take their seeded value
+ * and touched groups keep the current one. `theme` is a group of its own, so
+ * no other choice moves it.
  */
 function settled(state: WorksheetSessionState): WorksheetSessionState {
   let selection = seededSelection(state.base, selectedChild(state));
@@ -224,10 +223,7 @@ function settled(state: WorksheetSessionState): WorksheetSessionState {
       selection = withGroup(selection, key, readGroup(state.selection, key));
     }
   }
-  return {
-    ...state,
-    selection: { ...selection, theme: themeFromInterests(selection.useInterests) },
-  };
+  return { ...state, selection };
 }
 
 export function worksheetSessionReducer(

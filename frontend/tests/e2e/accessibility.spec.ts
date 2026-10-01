@@ -372,6 +372,15 @@ test("worksheet-first panel: axe is clean with More options closed and open, bes
   await expectAxeClean(page);
   for (const family of ["find-the-wow", "sentence-builder", "count-compare-make"] as const) {
     await chooseWorksheet(page, family);
+    // The decorative Theme shows, with its help text, for the two decorating
+    // families while graphics are on, so the scan covers it.
+    if (family === "find-the-wow") {
+      await expect(controls(page).theme()).toHaveCount(0);
+    } else {
+      await expect(controls(page).graphics()).toBeChecked();
+      await expect(controls(page).theme()).toBeVisible();
+      await expect(page.locator("[data-theme-help]")).toBeVisible();
+    }
     await expectAxeClean(page);
   }
 });

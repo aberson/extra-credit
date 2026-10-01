@@ -60,36 +60,19 @@ export const TOPIC_IDS = [
 ] as const;
 
 /**
- * The topics an interest may actually MATCH, and therefore the only topic IDs
- * a `GenerationRequestV1` may carry. `neutral` is the unmatched fallback a
- * generator falls back TO; it is never the result of matching an interest, so
- * it is deliberately absent here.
+ * The topics an interest may actually MATCH. `neutral` is the fallback a
+ * consumer substitutes when nothing matched; it is never the result of
+ * matching an interest, so it is deliberately absent here.
  *
- * This lives in the leaf module both sides import because the producer
- * (`project-request.ts`, which decides what enters a request) and the only
- * consumer that VALIDATES against it (`count-compare-make/generator.ts`,
- * which refuses a request carrying anything else) must never hold two copies
- * of it. `sentence-builder/generator.ts` also reads `topicIds` but validates
- * nothing: it keeps the IDs its own vocabulary knows and otherwise falls back
- * to `neutral`.
+ * The sole projection boundary (`project-request.ts`) reads this one
+ * declaration for both things a reviewed interest can decide: the `topicIds`
+ * a Sentence Builder request carries, and the first reviewed interest a
+ * "From interests" Theme resolves to for Count, Compare & Make's
+ * `options.decorativeTopicId`. An interest outside this list reaches neither.
  *
- * Two guards keep that true, and they are deliberately different shapes
- * because a re-duplication can drift in either direction:
- *
- * - `project-request.test.ts` asserts `PROJECTED_TOPIC_ALLOWLIST` is `toBe`
- *   this exact object, so replacing it with a second literal fails CI even if
- *   the copy happens to be equal today.
- * - The same file then drives the real boundary with EVERY declared topic ID
- *   and asserts it emits one exactly when the ID is in this list. That closes
- *   the additive direction for every ID `TOPIC_IDS` declares - `neutral`
- *   above all: a copy that bypasses the exported binding and adds one makes
- *   the projector emit a topic `count-compare-make/generator.ts` refuses. It
- *   cannot see an ID `TOPIC_IDS` never declares; the `TopicId` type on the
- *   projector's membership set is what catches that.
- *
- * `count-compare-make/generator.test.ts` closes the consumer side the same
- * way, requiring the validator to accept every ID in this list and refuse
- * every declared ID outside it.
+ * Only Sentence Builder requests carry `topicIds`. Its generator keeps the IDs
+ * its own vocabulary knows and otherwise falls back to `neutral`; every other
+ * family's validator refuses a request that carries `topicIds` at all.
  */
 export const REVIEWED_TOPIC_IDS = [
   "animals",
@@ -141,6 +124,12 @@ export interface GenerationOptionsV1 {
   readonly includeAnswerKey: boolean;
   readonly paperSize: PaperSize;
   readonly printScale: PrintScale;
+  /**
+   * The topic the reserved decorative panel draws from. The projector carries
+   * it only while decorative graphics are on, and only for the two decorating
+   * families; it never reaches items or answers.
+   */
+  readonly decorativeTopicId?: TopicId;
 }
 
 export interface GenerationRequestV1 {

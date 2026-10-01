@@ -192,7 +192,9 @@ export function SentenceBuilderRenderer({ document }: WorksheetRendererProps) {
         The reserved decorative panel lives here, in the header slot, and
         never inside `[data-response-panel]` (plan.md:195, :202). It reserves
         the same box in every graphics state, so the instructional surface
-        below it cannot move when decoration changes.
+        below it cannot move when decoration changes. A request carrying a
+        decorative topic (an explicit Theme) draws from it; otherwise the art
+        follows the prompt's own topic, which `data-topic-id` always names.
       */}
       <header
         style={{
@@ -222,7 +224,7 @@ export function SentenceBuilderRenderer({ document }: WorksheetRendererProps) {
             document.request.options.includeDecorativeGraphics
           }
           seed={document.seed}
-          topicId={item.topicId}
+          topicId={document.request.options.decorativeTopicId ?? item.topicId}
         />
       </header>
       <ol

@@ -7,7 +7,6 @@ import {
 import {
   GENERATION_CONSTRAINT_CONFLICT,
   GENERATION_INVARIANT_FAILED,
-  REVIEWED_TOPIC_IDS,
   type CountCompareItemV1,
   type GenerationFailure,
   type GenerationRequestV1,
@@ -449,42 +448,24 @@ function withinRange(value: number, low: number, high: number): boolean {
   return Number.isInteger(value) && value >= low && value <= high;
 }
 
-const REVIEWED_TOPIC_ID_SET: ReadonlySet<string> = new Set(REVIEWED_TOPIC_IDS);
-
 /**
- * The interest data allowed to reach a page.
+ * The interest data allowed to reach a page: none.
  *
- * The two math families that take no interests prove it by refusing any
- * request carrying `topicIds` at all, in two different places: Dry Math's
- * refusal lives in the shared `invariants.ts`, gated on
- * `worksheetType === "dry-math"`, while Two Whats and a Wow's lives in its own
- * `find-the-wow/generator.ts` validator. This family DOES take interests, so
- * the equivalent proof is that the list holds only exact
- * reviewed topic IDs, with no duplicates and no empty list: an unmatched raw
- * interest tag is dropped by the sole projection boundary, and a request that
- * still carries one never reached that boundary. `neutral` is never the result
- * of matching an interest either - it is only the fallback a CONSUMER
- * substitutes when no topic arrived (`sentence-builder/generator.ts`, and this
- * family's own renderer at `web/worksheets/count-compare-make/Renderer.tsx`) -
- * so a request carrying it is refused here too.
+ * This family's interests only ever chose its artwork, and the Theme decides
+ * that now through `options.decorativeTopicId`, so the sole projection
+ * boundary never puts `topicIds` on this family's request. The validator
+ * therefore refuses a request carrying the key at all, even as an empty list,
+ * as Dry Math's refusal in the shared `invariants.ts` and Two Whats and a
+ * Wow's in `find-the-wow/generator.ts` do.
  */
 function topicIdFailure(
   request: GenerationRequestV1,
 ): GenerationFailure | undefined {
-  if (!("topicIds" in request) || request.topicIds === undefined) {
-    return undefined;
-  }
-  const topicIds = request.topicIds;
-  if (
-    topicIds.length === 0 ||
-    new Set(topicIds).size !== topicIds.length ||
-    topicIds.some((topicId) => !REVIEWED_TOPIC_ID_SET.has(topicId))
-  ) {
-    return invariantFailure(
-      "Count, Compare & Make received interest data outside the reviewed topic allowlist.",
-    );
-  }
-  return undefined;
+  return "topicIds" in request
+    ? invariantFailure(
+        "Count, Compare & Make received interest data its requests never carry.",
+      )
+    : undefined;
 }
 
 export function validateCountCompareMakeDocument(

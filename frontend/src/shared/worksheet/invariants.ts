@@ -1,5 +1,6 @@
 import {
   GENERATION_INVARIANT_FAILED,
+  TOPIC_IDS,
   V1_NUMERIC_MAXIMUM,
   DRY_MATH_NUMERIC_MAXIMUM,
   type DryMathItemV1,
@@ -92,6 +93,22 @@ export function validateWorksheetInvariants(
       ok: false,
       code: GENERATION_INVARIANT_FAILED,
       message: "Worksheet metadata did not match its normalized generation request.",
+    };
+  }
+
+  // A decorative topic is refused on the two families that print no
+  // decoration, and anywhere as a value outside the declared topic IDs.
+  const { options } = document.request;
+  if (
+    "decorativeTopicId" in options &&
+    (document.worksheetType === "dry-math" ||
+      document.worksheetType === "find-the-wow" ||
+      !(TOPIC_IDS as readonly unknown[]).includes(options.decorativeTopicId))
+  ) {
+    return {
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message: "Worksheet decoration data named no declared topic or reached a family that prints no decoration.",
     };
   }
 

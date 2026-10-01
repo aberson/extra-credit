@@ -10,7 +10,10 @@ import {
   type CapabilityProfileV1,
 } from "../../shared/config/earlier-settings.js";
 import type { WorksheetSelectionV2 } from "../../shared/config/schema.js";
-import { objectiveAnswerEntries } from "../../shared/worksheet/invariants.js";
+import {
+  objectiveAnswerEntries,
+  validateWorksheetInvariants,
+} from "../../shared/worksheet/invariants.js";
 import {
   INACTIVE_MATH_FIELDS,
   projectGenerationRequest,
@@ -784,6 +787,29 @@ describe("Two Whats and a Wow documents", () => {
     expect(document.request).not.toHaveProperty("displayName");
     expect(document.request).not.toHaveProperty("topicIds");
     expect(document.request.options.includeDecorativeGraphics).toBe(false);
+  });
+
+  test("a document carrying a decorative topic fails the shared invariants", () => {
+    for (const profile of [quantityProfile(), equationProfile()]) {
+      const document = generated(request(profile));
+      // Mirror: the projected document itself passes.
+      expect(validateWorksheetInvariants(document)).toBeUndefined();
+      const themed: GenerationRequestV1 = {
+        ...document.request,
+        options: { ...document.request.options, decorativeTopicId: "space" },
+      };
+      expect(validateWorksheetInvariants({ ...document, request: themed })).toEqual({
+        ok: false,
+        code: "GENERATION_INVARIANT_FAILED",
+        message:
+          "Worksheet decoration data named no declared topic or reached a family that prints no decoration.",
+      });
+      expect(
+        generateFindTheWow(themed, {
+          worksheetId: "11111111-1111-4111-8111-111111111111",
+        }),
+      ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+    }
   });
 
   test("fails closed for capability, metadata, and non-normalized request violations", () => {

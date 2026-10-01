@@ -16,7 +16,7 @@ export const COUNT_COMPARE_MAKE_DEFINITION = {
   id: "count-compare-make",
   displayName: "Count, Compare & Make",
   generatorVersion: 1,
-  usesInterests: true,
+  usesInterests: false,
   hasAnswerKey: true,
 } as const;
 

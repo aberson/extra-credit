@@ -152,7 +152,7 @@ export interface DecorativeGraphicProps {
   readonly includeDecorativeGraphics: boolean;
   /** The generated page seed; selection is deterministic for it. */
   readonly seed: SeedHex;
-  /** The item topic ID; only exact allowlisted IDs select art. */
+  /** The topic the panel draws from; only exact allowlisted IDs select art. */
   readonly topicId: string;
   /** Test seam for a missing-match or multi-asset catalog. */
   readonly catalog?: readonly LineArtAssetV1[];

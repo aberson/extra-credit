@@ -182,8 +182,45 @@ function projectTopics(child: ProjectionChild): readonly TopicId[] {
   return topics;
 }
 
+/**
+ * The one family whose request carries `topicIds`: Sentence Builder's prompts
+ * and word banks follow the reviewed interests. Count, Compare & Make's
+ * interests only ever chose its artwork, which the Theme now decides.
+ */
 function worksheetUsesInterests(worksheetType: WorksheetType): boolean {
-  return worksheetType === "sentence-builder" || worksheetType === "count-compare-make";
+  return worksheetType === "sentence-builder";
+}
+
+/**
+ * The decorative topic a selection's Theme resolves to, or `undefined` when
+ * the request carries none.
+ *
+ * Nothing is carried while decorative graphics are off, nor for the two
+ * families that print no decoration, so the Theme cannot change their
+ * requests. An explicit topic or Neutral resolves to itself. "From interests"
+ * means the child's first reviewed interest in profile order for Count,
+ * Compare & Make, else Neutral; for Sentence Builder it carries nothing, so
+ * the art keeps following the generated prompt's topic.
+ */
+function projectDecorativeTopicId(
+  selection: WorksheetSelectionV2,
+  profile: ProjectionChild | undefined,
+): TopicId | undefined {
+  if (!selection.includeDecorativeGraphics) {
+    return undefined;
+  }
+  switch (selection.worksheetType) {
+    case "dry-math":
+    case "find-the-wow":
+      return undefined;
+    case "sentence-builder":
+      return selection.theme === "from-interests" ? undefined : selection.theme;
+    case "count-compare-make":
+      if (selection.theme !== "from-interests") {
+        return selection.theme;
+      }
+      return (profile === undefined ? undefined : projectTopics(profile)[0]) ?? "neutral";
+  }
 }
 
 /** The canonical length: the two no-bank Sentence activities always print standard. */
@@ -233,6 +270,7 @@ export function projectGenerationRequest(
     selection.useDisplayName && input.profile?.displayName !== undefined
       ? input.profile.displayName
       : undefined;
+  const decorativeTopicId = projectDecorativeTopicId(selection, input.profile);
 
   return {
     ok: true,
@@ -252,6 +290,7 @@ export function projectGenerationRequest(
           worksheetType === "sentence-builder" ? false : selection.includeAnswerKey,
         paperSize: selection.paperSize,
         printScale: selection.printScale,
+        ...(decorativeTopicId === undefined ? {} : { decorativeTopicId }),
       },
       ...(displayName === undefined ? {} : { displayName }),
       ...(topicIds.length === 0 ? {} : { topicIds }),

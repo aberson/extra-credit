@@ -7,6 +7,7 @@ import {
 import type {
   FindTheWowVariant,
   SentenceVocabulary,
+  ThemeChoice,
   WorksheetSelectionV2,
   WritingMode,
 } from "../../../src/shared/config/schema.ts";
@@ -20,11 +21,11 @@ import { FIND_THE_WOW_VARIANT_LABELS } from "../../../src/worksheets/find-the-wo
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../../src/worksheets/sentence-builder/definition.ts";
 
 /**
- * The one Playwright helper for worksheet choices and for the nickname,
- * interests, graphics and answer-key toggles (D26 in the worksheet-first
- * plan). Specs make those choices through the functions below and assert on
- * those controls through `controls(page)`, so a change to where a control
- * lives edits this file rather than every spec.
+ * The one Playwright helper for worksheet choices, for the nickname,
+ * interests, graphics and answer-key toggles, and for the decorative Theme
+ * (D26 in the worksheet-first plan). Specs make those choices through the
+ * functions below and assert on those controls through `controls(page)`, so
+ * a change to where a control lives edits this file rather than every spec.
  *
  * Each choice function opens More options when its control lives there,
  * performs the choice, and asserts its visible result.
@@ -52,6 +53,8 @@ export interface WorksheetControls {
   readonly nickname: () => Locator;
   readonly interests: () => Locator;
   readonly graphics: () => Locator;
+  /** The decorative "Theme" select (Sentence Builder and Count, Compare & Make, graphics on). */
+  readonly theme: () => Locator;
   readonly answerKey: () => Locator;
   readonly create: () => Locator;
 }
@@ -75,6 +78,7 @@ export function controls(page: Page): WorksheetControls {
     nickname: () => page.getByLabel("Put the nickname in the worksheet header"),
     interests: () => page.getByLabel("Use reviewed interests in worksheet content"),
     graphics: () => page.getByLabel("Include decorative graphics"),
+    theme: () => page.getByRole("combobox", { name: "Theme", exact: true }),
     answerKey: () => page.getByLabel("Include a parent answer key"),
     create: () => page.getByRole("button", { name: "Create worksheet", exact: true }),
   };
@@ -230,6 +234,14 @@ export async function setPersonalization(
   if (choices.graphics !== undefined) {
     await setToggle(named.graphics(), choices.graphics);
   }
+}
+
+/** Chooses the decorative Theme under More options by its value, for example "neutral". */
+export async function chooseTheme(page: Page, theme: ThemeChoice): Promise<void> {
+  await openMoreOptions(page);
+  const select = controls(page).theme();
+  await select.selectOption(theme);
+  await expect(select).toHaveValue(theme);
 }
 
 export async function setAnswerKey(page: Page, included: boolean): Promise<void> {

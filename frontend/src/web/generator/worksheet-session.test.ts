@@ -473,16 +473,38 @@ describe("the preview epoch", () => {
   });
 });
 
-describe("the theme until its own control exists", () => {
-  test("follows the interests choice after every action", () => {
-    const withTheme = defaults({ theme: "neutral", useInterests: true });
-    const state = loaded(withTheme, [identityChild]);
-    expect(state.selection.theme).toBe("from-interests");
-    const off = apply(state, groupChanged("useInterests", false));
-    expect(off.selection.theme).toBe("neutral");
-    expect(defaultsForSave(off).theme).toBe("neutral");
-    const ignored = apply(off, groupChanged("theme", "from-interests"));
-    expect(ignored.selection.theme).toBe("neutral");
+describe("the theme is its own choice", () => {
+  test("the saved theme shows as saved, whatever the interests choice", () => {
+    const state = loaded(defaults({ theme: "neutral", useInterests: true }), [identityChild]);
+    expect(state.selection.theme).toBe("neutral");
+    // Mirror: another saved theme beside interests off shows as saved too.
+    const other = loaded(defaults({ theme: "space", useInterests: false }), [identityChild]);
+    expect(other.selection.theme).toBe("space");
+  });
+
+  test("the interests toggle never moves the theme, and the save writes the chosen theme", () => {
+    const state = loaded(defaults(), [identityChild, equationChild]);
+    const chosen = apply(state, groupChanged("theme", "vehicles"));
+    expect(chosen.selection.theme).toBe("vehicles");
+    const interestsOff = apply(
+      chosen,
+      groupChanged("useInterests", false),
+      { type: "childSelected", childId: equationChild.id },
+      { type: "profilesChanged", profiles: [identityChild, equationChild] },
+    );
+    expect(interestsOff.selection.useInterests).toBe(false);
+    expect(interestsOff.selection.theme).toBe("vehicles");
+    expect(defaultsForSave(interestsOff)).toMatchObject({
+      theme: "vehicles",
+      useInterests: false,
+    });
+    // An untouched theme follows the saved defaults across a reload.
+    const reloaded = apply(state, {
+      type: "reloaded",
+      defaults: defaults({ theme: "sports", useInterests: false }),
+      profiles: [identityChild],
+    });
+    expect(reloaded.selection.theme).toBe("sports");
   });
 });
 

@@ -17,8 +17,10 @@ import {
 import {
   FIND_THE_WOW_VARIANTS,
   SENTENCE_VOCABULARY_OPTIONS,
+  THEME_CHOICES,
   WRITING_MODES,
   type ChildProfileV2,
+  type ThemeChoice,
   type WorksheetSelectionV2,
 } from "../../shared/config/schema";
 import {
@@ -80,6 +82,23 @@ const WORKSHEET_CARDS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
 /** The ids the unavailable and capacity messages carry; Create names whichever shows. */
 const UNAVAILABLE_MESSAGE_ID = "generation-unavailable";
 const CAPACITY_MESSAGE_ID = "generation-capacity";
+
+/** The Theme options, in the order the select lists them. */
+const THEME_LABELS = {
+  "from-interests": "From interests",
+  animals: "Animals",
+  space: "Space",
+  nature: "Nature",
+  sports: "Sports",
+  vehicles: "Vehicles",
+  neutral: "Neutral",
+} as const satisfies Record<ThemeChoice, string>;
+
+const THEME_HELP_ID = "worksheet-theme-help";
+
+/** The help text under the Theme select. It never names a child's interest. */
+export const THEME_HELP_TEXT =
+  "Neutral, and interests with no matching artwork, use the simple star. A theme changes only the decoration, never the work or the answers.";
 
 /** Each child by nickname, or as "Profile N" when it has none (U3). */
 function profileLabel(profile: ChildProfileV2, index: number): string {
@@ -356,7 +375,10 @@ export function GeneratorControls({
   const showNickname =
     applicable.useDisplayName && selectedProfile?.displayName !== undefined;
   const hasPersonalization =
-    showNickname || applicable.useInterests || applicable.includeDecorativeGraphics;
+    showNickname ||
+    applicable.useInterests ||
+    applicable.includeDecorativeGraphics ||
+    applicable.theme;
   const hasPrintLayout = applicable.paperSize || applicable.printScale;
   const hasMoreOptions =
     applicable.length ||
@@ -693,6 +715,34 @@ export function GeneratorControls({
                           change("includeDecorativeGraphics", checked)
                         }
                       />
+                    )}
+                    {applicable.theme && (
+                      <>
+                        <label className="worksheet-field">
+                          Theme
+                          <select
+                            aria-describedby={THEME_HELP_ID}
+                            aria-label="Theme"
+                            disabled={disabled}
+                            onChange={(event) =>
+                              change(
+                                "theme",
+                                event.currentTarget.value as ThemeChoice,
+                              )
+                            }
+                            value={selection.theme}
+                          >
+                            {THEME_CHOICES.map((theme) => (
+                              <option key={theme} value={theme}>
+                                {THEME_LABELS[theme]}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <p data-theme-help="true" id={THEME_HELP_ID}>
+                          {THEME_HELP_TEXT}
+                        </p>
+                      </>
                     )}
                   </OptionGroup>
                 )}

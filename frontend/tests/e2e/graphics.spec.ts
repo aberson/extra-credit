@@ -11,16 +11,30 @@ import { fileURLToPath } from "node:url";
 
 import { AxeBuilder } from "@axe-core/playwright";
 import type { Locator, Page, Response } from "@playwright/test";
+import { PDFDocument } from "pdf-lib";
 
+import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  cloneWorksheetDefaults,
+  worksheetSelectionOf,
+} from "../../src/shared/config/defaults.ts";
 import type {
+  AppConfigV2,
   ChildProfileV1,
   GenerationDefaultsV1,
+  WorksheetSelectionV2,
 } from "../../src/shared/config/schema.ts";
+import { canonicalContentKey } from "../../src/shared/worksheet/invariants.ts";
+import { projectGenerationRequest } from "../../src/shared/worksheet/project-request.ts";
+import { getWorksheetRegistration } from "../../src/shared/worksheet/registry.ts";
 import { expect, test } from "./fixtures/app-server.ts";
 import {
   chooseChild,
+  choosePrintLayout,
+  chooseTheme,
   chooseWorksheet,
   controls,
+  openMoreOptions,
   setPersonalization,
 } from "./fixtures/worksheet-controls.ts";
 
@@ -912,6 +926,352 @@ test("both decoration states pass the accessibility scan", async ({
   expect(withoutGraphics.doodleBoxes).toBe(1);
   const doodleResults = await new AxeBuilder({ page }).analyze();
   expect(doodleResults.violations).toEqual([]);
+});
+
+/* -------------------------------------------------------------------------
+ * The decorative Theme
+ * ---------------------------------------------------------------------- */
+
+const THEMED_CHILD_ID = "33333333-3333-4333-8333-333333333333";
+
+/** The seed `pinSeed` makes every Create draw. */
+const PINNED_SEED = "0000002a";
+
+/** A version 2 file with one fictional child holding exactly these interests. */
+function themedConfig(interests: readonly string[]): AppConfigV2 {
+  return {
+    schemaVersion: 2,
+    profiles: [
+      {
+        id: THEMED_CHILD_ID,
+        displayName: "Distinctive Private Quinn",
+        reviewedOn: "2026-08-22",
+        interests: [...interests],
+      },
+    ],
+    defaults: {
+      ...cloneWorksheetDefaults(DEFAULT_WORKSHEET_DEFAULTS_V2),
+      useDisplayName: false,
+    },
+  };
+}
+
+/** The one reviewed manifest asset tagged with a topic. */
+function manifestAssetFor(topic: string): string {
+  const ids = [...readManifestRows().values()]
+    .filter(
+      (row) =>
+        Array.isArray(row["topics"]) &&
+        (row["topics"] as readonly unknown[]).includes(topic),
+    )
+    .map((row) => row.id);
+  expect(ids, "exactly one reviewed asset per topic").toHaveLength(1);
+  return ids[0] ?? "";
+}
+
+/**
+ * The educational content key of the counting page a fictional config,
+ * selection change and seed project, computed in Node through the production
+ * projection and generator.
+ */
+function countContentKey(
+  config: AppConfigV2,
+  changes: Partial<WorksheetSelectionV2>,
+  seed: string,
+): string {
+  const registration = getWorksheetRegistration("count-compare-make");
+  const projection = projectGenerationRequest({
+    ...(config.profiles[0] === undefined ? {} : { profile: config.profiles[0] }),
+    selection: {
+      ...worksheetSelectionOf(config.defaults),
+      worksheetType: "count-compare-make",
+      ...changes,
+    },
+    generatorVersion: registration.generatorVersion,
+    seed,
+  });
+  if (!projection.ok) {
+    throw new Error(projection.message);
+  }
+  const generated = registration.generate(projection.request, {
+    worksheetId: "11111111-1111-4111-8111-111111111111",
+  });
+  if (!generated.ok) {
+    throw new Error(generated.message);
+  }
+  return canonicalContentKey(generated.document.items);
+}
+
+async function openThemedGenerator(
+  page: Page,
+  origin: string,
+  worksheetType: "count-compare-make" | "sentence-builder",
+): Promise<void> {
+  await page.goto(origin);
+  await expect(controls(page).child()).toBeVisible();
+  await chooseWorksheet(page, worksheetType);
+  await chooseChild(page, THEMED_CHILD_ID);
+}
+
+interface ThemedSheetV1 {
+  readonly artIds: readonly string[];
+  readonly decoration: string | null;
+  /** Each item's activity, visible text and spoken visual labels. */
+  readonly items: readonly string[];
+  readonly panelBox: BoxV1 | null;
+  readonly seed: string | null;
+  readonly topicIds: readonly string[];
+}
+
+async function readThemedSheet(page: Page): Promise<ThemedSheetV1> {
+  return await page.locator(".print-surface").evaluate((surface) => {
+    const origin = surface.getBoundingClientRect();
+    const panel = surface.querySelector("[data-decorative-panel]");
+    const rect = panel?.getBoundingClientRect();
+    const round = (value: number): number => Number(value.toFixed(2));
+    return {
+      artIds: [...surface.querySelectorAll("img[data-decorative-art]")].map(
+        (image) => image.getAttribute("data-decorative-art") ?? "",
+      ),
+      decoration: panel?.getAttribute("data-decoration") ?? null,
+      items: [...surface.querySelectorAll("[data-item-id]")].map((item) =>
+        [
+          item.getAttribute("data-activity") ?? "",
+          item.textContent?.replace(/\s+/gu, " ").trim() ?? "",
+          ...[...item.querySelectorAll('[role="img"]')].map(
+            (image) => image.getAttribute("aria-label") ?? "",
+          ),
+        ].join("|"),
+      ),
+      panelBox:
+        rect === undefined
+          ? null
+          : {
+              height: round(rect.height),
+              left: round(rect.left - origin.left),
+              top: round(rect.top - origin.top),
+              width: round(rect.width),
+            },
+      seed:
+        surface.querySelector("[data-seed]")?.getAttribute("data-seed") ?? null,
+      topicIds: [...surface.querySelectorAll("[data-topic-id]")].map(
+        (item) => item.getAttribute("data-topic-id") ?? "",
+      ),
+    };
+  });
+}
+
+/** Creates a page and waits for its decoration to settle on `expected`. */
+async function createThemedSheet(
+  page: Page,
+  expected: "art" | "doodle",
+): Promise<ThemedSheetV1> {
+  await controls(page).create().click();
+  const preview = page.getByLabel("Worksheet preview");
+  const panel = preview.locator("[data-decorative-panel]");
+  await expect(panel).toHaveCount(1);
+  await expect(panel).toHaveAttribute("data-decoration", expected);
+  if (expected === "art") {
+    await expect(preview.locator("img[data-decorative-art]")).toHaveAttribute(
+      "data-decorative-art-status",
+      "ready",
+    );
+  } else {
+    await expect(preview.locator("[data-doodle-box]")).toHaveCount(1);
+  }
+  return await readThemedSheet(page);
+}
+
+/** The parent key's answers, read from the answer-key surface. */
+async function readKeyAnswers(page: Page): Promise<readonly string[]> {
+  await page.getByRole("button", { exact: true, name: "Parent answer key" }).click();
+  const answers = await page
+    .locator('[data-surface="answer"]')
+    .evaluate((node) =>
+      [...node.querySelectorAll("[data-answer-value]")].map(
+        (value) => value.getAttribute("data-answer-value") ?? "",
+      ),
+    );
+  await page.getByRole("button", { exact: true, name: "Worksheet" }).click();
+  return answers;
+}
+
+test("an explicit theme overrides the first interest on a counting page, in preview and print", async ({
+  appServer,
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await appServer.seedConfig(themedConfig(["nature", "vehicles"]));
+  await pinSeed(page);
+  await openThemedGenerator(page, appServer.origin, "count-compare-make");
+  await openMoreOptions(page);
+  // The artwork follows the Theme; this family offers no interests toggle.
+  await expect(controls(page).interests()).toHaveCount(0);
+  await expect(controls(page).theme()).toHaveValue("from-interests");
+
+  // Mirror: From interests draws the first reviewed interest.
+  const fromInterests = await createThemedSheet(page, "art");
+  expect(fromInterests.artIds).toEqual([manifestAssetFor("nature")]);
+
+  await chooseTheme(page, "space");
+  const themed = await createThemedSheet(page, "art");
+  expect(themed.artIds).toEqual([manifestAssetFor("space")]);
+  await page.emulateMedia({ media: "print" });
+  const printed = page.locator(".print-surface img[data-decorative-art]");
+  await expect(printed).toBeVisible();
+  await expect(printed).toHaveAttribute("data-decorative-art", manifestAssetFor("space"));
+  await page.emulateMedia({ media: "screen" });
+
+  await chooseTheme(page, "neutral");
+  const neutral = await createThemedSheet(page, "art");
+  expect(neutral.artIds).toEqual([manifestAssetFor("neutral")]);
+
+  // The Theme never touched the work.
+  expect(themed.items).toEqual(fromInterests.items);
+  expect(neutral.items).toEqual(fromInterests.items);
+});
+
+test("from interests with only unmatched free text draws the simple star without naming the tag", async ({
+  appServer,
+  page,
+}) => {
+  await appServer.seedConfig(themedConfig(["dinosaurs"]));
+  await pinSeed(page);
+  await openThemedGenerator(page, appServer.origin, "count-compare-make");
+  await openMoreOptions(page);
+  await expect(controls(page).theme()).toHaveValue("from-interests");
+  const hint = page.locator("[data-theme-help]");
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText("simple star");
+  await expect(hint).not.toContainText(/dinosaurs/iu);
+  await expect(controls(page).theme()).toHaveAttribute(
+    "aria-describedby",
+    (await hint.getAttribute("id")) ?? "",
+  );
+
+  const sheet = await createThemedSheet(page, "art");
+  expect(sheet.artIds).toEqual([manifestAssetFor("neutral")]);
+  await expect(page.getByLabel("Worksheet preview")).not.toContainText(/dinosaurs/iu);
+});
+
+test("turning graphics off keeps the counting work and answers and hides the theme", async ({
+  appServer,
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const config = themedConfig(["nature", "vehicles"]);
+  await appServer.seedConfig(config);
+  await pinSeed(page);
+  await openThemedGenerator(page, appServer.origin, "count-compare-make");
+  await chooseTheme(page, "space");
+  const themed = await createThemedSheet(page, "art");
+  expect(themed.artIds).toEqual([manifestAssetFor("space")]);
+  const themedKey = await readKeyAnswers(page);
+
+  await setPersonalization(page, { graphics: false });
+  await expect(controls(page).theme()).toHaveCount(0);
+  const undecorated = await createThemedSheet(page, "doodle");
+  expect(undecorated.artIds).toEqual([]);
+  expect(undecorated.seed).toBe(themed.seed);
+  expect(undecorated.items).toEqual(themed.items);
+  expect(themed.items.length).toBeGreaterThan(0);
+  const undecoratedKey = await readKeyAnswers(page);
+  expect(undecoratedKey).toEqual(themedKey);
+  expect(themedKey.length).toBeGreaterThan(0);
+
+  // The same two pages through the production projection: one content key.
+  expect(themed.seed).toBe(PINNED_SEED);
+  expect(
+    countContentKey(config, { includeDecorativeGraphics: false, theme: "space" }, PINNED_SEED),
+  ).toBe(countContentKey(config, { theme: "space" }, PINNED_SEED));
+  // Mirror: another seed changes it.
+  expect(countContentKey(config, { theme: "space" }, "00000001")).not.toBe(
+    countContentKey(config, { theme: "space" }, PINNED_SEED),
+  );
+});
+
+test("a writing page keeps its prompt topic while an explicit theme decorates it", async ({
+  appServer,
+  page,
+}) => {
+  await appServer.seedConfig(themedConfig(["animals"]));
+  await pinSeed(page);
+  await openThemedGenerator(page, appServer.origin, "sentence-builder");
+
+  // Mirror: From interests decorates with the prompt's own topic.
+  const fromInterests = await createThemedSheet(page, "art");
+  expect(fromInterests.topicIds).toEqual(["animals"]);
+  expect(fromInterests.artIds).toEqual([manifestAssetFor("animals")]);
+
+  await chooseTheme(page, "space");
+  const themed = await createThemedSheet(page, "art");
+  expect(themed.topicIds).toEqual(["animals"]);
+  expect(themed.artIds).toEqual([manifestAssetFor("space")]);
+  expect(themed.items).toEqual(fromInterests.items);
+});
+
+test("the decorative panel keeps one box across themes on either paper and scale", async ({
+  appServer,
+  page,
+}) => {
+  test.setTimeout(180_000);
+  await appServer.seedConfig(themedConfig(["nature", "vehicles"]));
+  await pinSeed(page);
+  await openThemedGenerator(page, appServer.origin, "count-compare-make");
+  for (const layout of [
+    { paperSize: "letter", printScale: "standard" },
+    { paperSize: "a4", printScale: "large" },
+  ] as const) {
+    await choosePrintLayout(page, layout);
+    const label = `${layout.paperSize}/${layout.printScale}`;
+    const boxes: (BoxV1 | null)[] = [];
+    const artIds: string[] = [];
+    for (const theme of ["from-interests", "space", "neutral"] as const) {
+      await chooseTheme(page, theme);
+      await createThemedSheet(page, "art");
+      await page.emulateMedia({ media: "print" });
+      const printed = await readThemedSheet(page);
+      const pdf = await PDFDocument.load(
+        await page.pdf({ preferCSSPageSize: true, printBackground: false }),
+      );
+      await page.emulateMedia({ media: "screen" });
+      expect(pdf.getPageCount(), `${label}: page count for theme ${String(boxes.length + 1)} of 3`).toBe(1);
+      expect(printed.panelBox?.width ?? 0, label).toBeGreaterThan(0);
+      boxes.push(printed.panelBox);
+      artIds.push(...printed.artIds);
+    }
+    // Non-vacuity: three different reviewed assets filled the one box.
+    expect(new Set(artIds).size, label).toBe(3);
+    expect(boxes[1], label).toEqual(boxes[0]);
+    expect(boxes[2], label).toEqual(boxes[0]);
+  }
+});
+
+test("an upgraded file whose interests were off keeps neutral art on a counting page", async ({
+  appServer,
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await pinSeed(page);
+  // Mirror first: interests on upgrade to From interests and the reviewed art.
+  for (const [useInterests, theme, topic] of [
+    [true, "from-interests", "space"],
+    [false, "neutral", "neutral"],
+  ] as const) {
+    await appServer.seedConfig({
+      schemaVersion: 1,
+      profiles: [profile],
+      defaults: { ...defaults, useInterests },
+    });
+    await page.goto(appServer.origin);
+    await expect(controls(page).child()).toBeVisible();
+    await chooseWorksheet(page, "count-compare-make");
+    await chooseChild(page, profile.id);
+    await openMoreOptions(page);
+    await expect(controls(page).theme()).toHaveValue(theme);
+    const sheet = await createThemedSheet(page, "art");
+    expect(sheet.artIds).toEqual([manifestAssetFor(topic)]);
+  }
 });
 
 /* -------------------------------------------------------------------------

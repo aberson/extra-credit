@@ -135,10 +135,9 @@ export function emptyAppConfigV2(): AppConfigV2 {
 }
 
 /**
- * The theme a stored "use reviewed interests" choice implies (D16, D33). The
- * migration applies it once, and until the Theme control exists every
- * worksheet-defaults save applies it again, so a saved "interests off" never
- * sits beside interest-driven art.
+ * The theme a version 1 "use reviewed interests" choice implies (D16). The
+ * migration applies it once, so a parent who turned interests off keeps the
+ * neutral art. After that the Theme is its own saved choice.
  */
 export function themeFromInterests(useInterests: boolean): ThemeChoice {
   return useInterests ? "from-interests" : "neutral";

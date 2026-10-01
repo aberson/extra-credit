@@ -469,6 +469,25 @@ describe("Dry Math documents", () => {
     expect(document.request).not.toHaveProperty("topicIds");
   });
 
+  test("a document carrying a decorative topic fails the shared invariants", () => {
+    const document = generated(request(profile()));
+    // Mirror: the projected document itself passes.
+    expect(validateWorksheetInvariants(document)).toBeUndefined();
+    const themed: GenerationRequestV1 = {
+      ...document.request,
+      options: { ...document.request.options, decorativeTopicId: "neutral" },
+    };
+    expect(validateWorksheetInvariants({ ...document, request: themed })).toEqual({
+      ok: false,
+      code: "GENERATION_INVARIANT_FAILED",
+      message:
+        "Worksheet decoration data named no declared topic or reached a family that prints no decoration.",
+    });
+    expect(
+      generateDryMath(themed, { worksheetId: "11111111-1111-4111-8111-111111111111" }),
+    ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+  });
+
   test("rejects missing symbolic capability and detects a tampered duplicate", () => {
     const supported = request(profile());
     const quantitiesOnly: GenerationRequestV1 = {
