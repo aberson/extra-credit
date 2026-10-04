@@ -1,34 +1,45 @@
+import { FACT_OPERATIONS } from "../../shared/config/enums.js";
 import { objectiveAnswerMatches } from "../../shared/worksheet/answer-oracle.js";
-import { regroups } from "../../shared/worksheet/arithmetic.js";
+import { isInFactFamily, regroups } from "../../shared/worksheet/arithmetic.js";
 import { validateWorksheetInvariants } from "../../shared/worksheet/invariants.js";
 import {
   createSeededRandom,
   seededShuffle,
 } from "../../shared/worksheet/seeded-random.js";
 import {
+  FACT_FACTOR_MAXIMUM,
   GENERATION_CONSTRAINT_CONFLICT,
   GENERATION_INVARIANT_FAILED,
   DRY_MATH_NUMERIC_MAXIMUM,
   type DryMathItemV1,
+  type DryMathOperation,
   type GenerationRequestV1,
   type GenerationResult,
   type GeneratorContextV1,
-  type MathOperation,
+  type PracticeRequestV1,
   type WorksheetDocumentV1,
 } from "../../shared/worksheet/types.js";
 import {
   DRY_MATH_DEFINITION,
   dryMathCapacityShortfall,
+  dryMathFactsShortfall,
   getDryMathItemCount,
   getDryMathCapabilitySupport,
 } from "./definition.js";
 
 interface ArithmeticCandidate {
-  readonly operation: MathOperation;
+  readonly operation: DryMathOperation;
   readonly leftOperand: number;
   readonly rightOperand: number;
-  readonly renderedSymbol: "+" | "−";
+  readonly renderedSymbol: DryMathItemV1["renderedSymbol"];
   readonly answer: number;
+}
+
+type FactsPractice = Extract<PracticeRequestV1, { readonly kind: "dry-math-facts" }>;
+
+/** The facts this request asks for, or `undefined` for an addition and subtraction page. */
+function factsPractice(request: GenerationRequestV1): FactsPractice | undefined {
+  return request.practice?.kind === "dry-math-facts" ? request.practice : undefined;
 }
 
 export type DryMathDocumentV1 = WorksheetDocumentV1<DryMathItemV1>;
@@ -54,10 +65,63 @@ export function effectiveDryMathItemCount(request: GenerationRequestV1): number 
 export function enumerateDryMathCandidates(
   request: GenerationRequestV1,
 ): readonly ArithmeticCandidate[] {
-  return enumerateArithmeticCandidates(
-    request.capabilities.mathSkills,
-    regroupingRequired(request),
-  );
+  const facts = factsPractice(request);
+  return facts === undefined
+    ? enumerateArithmeticCandidates(
+        request.capabilities.mathSkills,
+        regroupingRequired(request),
+      )
+    : enumerateFactCandidates(facts);
+}
+
+/**
+ * Every multiplication and exact division fact in the requested families, in
+ * the canonical order of the math-activities plan's Appendix B.2: operations
+ * in `FACT_OPERATIONS` order; multiplication by left factor, then right
+ * factor; division by divisor, then quotient. Each factor, divisor and
+ * quotient runs to `FACT_FACTOR_MAXIMUM`, so no divisor is 0, every division
+ * is exact and no dividend exceeds their product.
+ */
+function enumerateFactCandidates(facts: FactsPractice): readonly ArithmeticCandidate[] {
+  const inFamilies = (operation: FactsPractice["operations"][number], left: number, right: number) =>
+    facts.factFamilies.some((family) => isInFactFamily(operation, left, right, family));
+  const candidates: ArithmeticCandidate[] = [];
+  for (const operation of FACT_OPERATIONS) {
+    if (!facts.operations.includes(operation)) {
+      continue;
+    }
+    if (operation === "multiplication") {
+      for (let left = 0; left <= FACT_FACTOR_MAXIMUM; left += 1) {
+        for (let right = 0; right <= FACT_FACTOR_MAXIMUM; right += 1) {
+          if (inFamilies(operation, left, right)) {
+            candidates.push({
+              operation,
+              leftOperand: left,
+              rightOperand: right,
+              renderedSymbol: "×",
+              answer: left * right,
+            });
+          }
+        }
+      }
+      continue;
+    }
+    for (let divisor = 1; divisor <= FACT_FACTOR_MAXIMUM; divisor += 1) {
+      for (let quotient = 0; quotient <= FACT_FACTOR_MAXIMUM; quotient += 1) {
+        const dividend = divisor * quotient;
+        if (inFamilies(operation, dividend, divisor)) {
+          candidates.push({
+            operation,
+            leftOperand: dividend,
+            rightOperand: divisor,
+            renderedSymbol: "÷",
+            answer: quotient,
+          });
+        }
+      }
+    }
+  }
+  return candidates;
 }
 
 /**
@@ -110,6 +174,13 @@ function dryMathShortfallFor(
   request: GenerationRequestV1,
   capacity: number,
 ): string | undefined {
+  if (factsPractice(request) !== undefined) {
+    return dryMathFactsShortfall(
+      capacity,
+      request.options.length,
+      request.options.printScale,
+    );
+  }
   return dryMathCapacityShortfall(
     capacity,
     request.capabilities.mathSkills,
@@ -148,7 +219,10 @@ export function generateDryMath(
     };
   }
 
-  const support = getDryMathCapabilitySupport(request.capabilities.mathSkills);
+  const support = getDryMathCapabilitySupport(
+    request.capabilities.mathSkills,
+    request.practice,
+  );
   if (!support.available) {
     return {
       ok: false,

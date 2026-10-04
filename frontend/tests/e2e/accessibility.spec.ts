@@ -7,6 +7,8 @@ import { acceptanceConfig, formerChoices } from "../fixtures/print/matrix.js";
 import { expect, test } from "./fixtures/app-server.js";
 import {
   chooseChild,
+  chooseFactFamilies,
+  choosePracticeFocus,
   chooseWorksheet,
   chooseWorksheetChoices,
   controls,
@@ -509,6 +511,45 @@ test("Carrying and borrowing: axe is clean, keyboard reaches the group with visi
   await page.setViewportSize({ width: 320, height: 900 });
   await assertNoOverflow(page);
   const box = await panel.regrouping().boundingBox();
+  expect(box).not.toBeNull();
+  expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 321).toBe(true);
+  await expectAxeClean(page);
+});
+
+test("Fact families: axe is clean, keyboard reaches every box with visible focus, and it reflows at 320 px", async ({ appServer, page }) => {
+  await appServer.seedConfig(acceptanceConfig);
+  await page.setViewportSize({ width: 1_280, height: 900 });
+  await page.goto(appServer.origin);
+  const panel = controls(page);
+  await choosePracticeFocus(page, "Multiplication facts");
+  const families = panel.factFamilies();
+  await expect(families).toBeVisible();
+  await expect(families.locator("xpath=ancestor::details")).toHaveCount(0);
+  await expect(families.getByRole("checkbox")).toHaveCount(13);
+  await expectAxeClean(page);
+
+  // Each box is its own tab stop after the practice focus; Space toggles it,
+  // and focus stays visible.
+  await tabTo(page, panel.practiceFocus());
+  const threes = families.getByRole("checkbox", { name: "3s", exact: true });
+  await tabTo(page, threes);
+  await page.keyboard.press("Space");
+  await expect(threes).toBeChecked();
+  await expect(page.locator("[data-selection-summary]")).toContainText(
+    "Multiplication facts for 2, 3, 5 and 10",
+  );
+  await tabTo(page, families.getByRole("checkbox", { name: "12s", exact: true }));
+  await expectAxeClean(page);
+
+  // Down to one family: the last box is disabled beside its visible note.
+  await chooseFactFamilies(page, [7]);
+  await expect(families.getByRole("checkbox", { name: "7s", exact: true })).toBeDisabled();
+  await expect(families.getByText("Keep at least one fact family.")).toBeVisible();
+  await expectAxeClean(page);
+
+  await page.setViewportSize({ width: 320, height: 900 });
+  await assertNoOverflow(page);
+  const box = await families.boundingBox();
   expect(box).not.toBeNull();
   expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 321).toBe(true);
   await expectAxeClean(page);

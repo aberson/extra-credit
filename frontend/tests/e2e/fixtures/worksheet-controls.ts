@@ -3,6 +3,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import {
   SENTENCE_VOCABULARY_LABELS,
   describePracticeFocus,
+  matchFactPracticeEntry,
 } from "../../../src/shared/config/practice-focus.ts";
 import type {
   FindTheWowVariant,
@@ -18,7 +19,11 @@ import type {
   WorksheetLength,
   WorksheetType,
 } from "../../../src/shared/worksheet/types.ts";
-import { DRY_MATH_REGROUPING_LABELS } from "../../../src/worksheets/dry-math/definition.ts";
+import {
+  DRY_MATH_REGROUPING_LABELS,
+  FACT_FAMILIES_LEGEND,
+  factFamilyLabel,
+} from "../../../src/worksheets/dry-math/definition.ts";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../../src/worksheets/find-the-wow/definition.ts";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../../src/worksheets/sentence-builder/definition.ts";
 
@@ -48,6 +53,8 @@ export interface WorksheetControls {
   readonly practiceFocus: () => Locator;
   /** The "Carrying and borrowing" radio group (Dry Math). */
   readonly regrouping: () => Locator;
+  /** The "Fact families" checkbox group (Dry Math multiplication and division facts). */
+  readonly factFamilies: () => Locator;
   /** The "Vocabulary" radio group (Sentence Builder). */
   readonly vocabulary: () => Locator;
   readonly moreOptions: () => Locator;
@@ -75,6 +82,7 @@ export function controls(page: Page): WorksheetControls {
     child: () => page.getByRole("combobox", { name: "Child profile" }),
     practiceFocus: () => page.getByRole("combobox", { name: "Practice focus", exact: true }),
     regrouping: () => page.getByRole("group", { name: "Carrying and borrowing", exact: true }),
+    factFamilies: () => page.getByRole("group", { name: FACT_FAMILIES_LEGEND, exact: true }),
     vocabulary: () => page.getByRole("group", { name: "Vocabulary", exact: true }),
     moreOptions: () => page.locator("summary").filter({ hasText: /^More options$/u }),
     length: () => page.getByRole("combobox", { name: "Length", exact: true }),
@@ -155,6 +163,30 @@ export async function chooseRegrouping(page: Page, regrouping: RegroupingMode): 
   await expect(radio).toBeChecked();
 }
 
+/**
+ * Checks exactly the given fact families, for example [3, 12]. Every wanted
+ * box is checked before any other is cleared, so the last checked box, which
+ * the panel keeps, is never the one being cleared.
+ */
+export async function chooseFactFamilies(page: Page, families: readonly number[]): Promise<void> {
+  const group = controls(page).factFamilies();
+  const boxes = group.getByRole("checkbox");
+  const count = await boxes.count();
+  const box = (family: number) =>
+    group.getByRole("checkbox", { name: factFamilyLabel(family), exact: true });
+  for (const family of families) {
+    await box(family).check();
+  }
+  for (let family = 0; family < count; family += 1) {
+    if (!families.includes(family)) {
+      await box(family).uncheck();
+    }
+  }
+  for (let family = 0; family < count; family += 1) {
+    await expect(box(family)).toBeChecked({ checked: families.includes(family) });
+  }
+}
+
 export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabulary): Promise<void> {
   const radio = controls(page).vocabulary().getByRole("radio", {
     name: SENTENCE_VOCABULARY_LABELS[vocabulary],
@@ -167,8 +199,9 @@ export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabular
 /**
  * The practice choices of a whole worksheet selection, in panel order: the
  * worksheet type, its variant where one exists, then the practice focus (by
- * its `describePracticeFocus` label) and, for Dry Math, Carrying and
- * borrowing, or, for Sentence Builder, the vocabulary.
+ * its `describePracticeFocus` label, or a Dry Math fact entry's label) and,
+ * for Dry Math, Carrying and borrowing or the fact families, or, for
+ * Sentence Builder, the vocabulary.
  * The selection's other fields are left to the functions below.
  */
 export async function chooseWorksheetChoices(
@@ -178,6 +211,11 @@ export async function chooseWorksheetChoices(
   await chooseWorksheet(page, selection.worksheetType);
   switch (selection.worksheetType) {
     case "dry-math":
+      if (selection.dryMathStrand === "multiply-divide") {
+        await choosePracticeFocus(page, matchFactPracticeEntry(selection.dryMathFacts.operations).label);
+        await chooseFactFamilies(page, selection.dryMathFacts.factFamilies);
+        return;
+      }
       await choosePracticeFocus(page, describePracticeFocus("dry-math", selection.dryMath));
       await chooseRegrouping(page, selection.dryMathRegrouping);
       return;

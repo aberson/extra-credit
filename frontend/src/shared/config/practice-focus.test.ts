@@ -4,11 +4,14 @@ import { DRY_MATH_NUMERIC_MAXIMUM, V1_NUMERIC_MAXIMUM } from "../worksheet/types
 import { MATH_PRESETS, MATH_PRESET_IDS } from "./math-presets.js";
 import {
   EARLIER_SETTING_OPTION_ID,
+  FACT_PRACTICE_ENTRIES,
   PRACTICE_FOCUS_CATALOG,
   PRACTICE_FOCUS_KINDS,
   SENTENCE_VOCABULARY_LABELS,
   VOCABULARY_PRESENTATION_BANDS,
+  describeFactsFocus,
   describePracticeFocus,
+  matchFactPracticeEntry,
   matchPracticeFocusOption,
   presentationBandForVocabulary,
   vocabularyForPresentationBand,
@@ -16,6 +19,7 @@ import {
 } from "./practice-focus.js";
 import {
   CountCompareFocusV2Schema,
+  DryMathFactsV2Schema,
   DryMathFocusV2Schema,
   EquationFocusV2Schema,
   PRESENTATION_BANDS,
@@ -173,6 +177,40 @@ describe("describing and matching a focus", () => {
         countingMax: first!.focus.countingMax,
       }),
     ).toBe(first!.id);
+  });
+});
+
+describe("Dry Math's fact entries", () => {
+  test("three entries, one per nonempty canonical set of fact operations, labelled as the plan states", () => {
+    expect(
+      FACT_PRACTICE_ENTRIES.map(({ id, label, operations }) => [id, label, [...operations]]),
+    ).toEqual([
+      ["multiplication-facts", "Multiplication facts", ["multiplication"]],
+      ["division-facts", "Division facts", ["division"]],
+      ["multiplication-and-division-facts", "Multiplication and division facts", ["multiplication", "division"]],
+    ]);
+    for (const entry of FACT_PRACTICE_ENTRIES) {
+      expect(matchFactPracticeEntry(entry.operations)).toBe(entry);
+      expect(
+        DryMathFactsV2Schema.safeParse({ operations: [...entry.operations], factFamilies: [2] }).success,
+      ).toBe(true);
+    }
+    // No catalog id can be mistaken for a fact entry.
+    const catalogIds = PRACTICE_FOCUS_CATALOG["dry-math"].map(({ id }) => id);
+    expect(FACT_PRACTICE_ENTRIES.filter(({ id }) => catalogIds.includes(id))).toEqual([]);
+    expect(() => matchFactPracticeEntry(["division", "multiplication"])).toThrow();
+  });
+
+  test("a facts summary names the entry and the families joined as 2, 5 and 10", () => {
+    expect(describeFactsFocus({ operations: ["multiplication"], factFamilies: [2, 5, 10] })).toBe(
+      "Multiplication facts for 2, 5 and 10",
+    );
+    expect(describeFactsFocus({ operations: ["division"], factFamilies: [0] })).toBe(
+      "Division facts for 0",
+    );
+    expect(
+      describeFactsFocus({ operations: ["multiplication", "division"], factFamilies: [3, 12] }),
+    ).toBe("Multiplication and division facts for 3 and 12");
   });
 });
 

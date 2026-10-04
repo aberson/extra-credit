@@ -38,6 +38,8 @@ export const WORKSHEET_GROUP_KEYS = [
   "worksheetType",
   "dryMath",
   "dryMathRegrouping",
+  "dryMathStrand",
+  "dryMathFacts",
   "findTheWow.variant",
   "findTheWow.quantity",
   "findTheWow.equation",
@@ -94,6 +96,24 @@ export type WorksheetGroupChange = {
   };
 }[WorksheetGroupKey];
 
+/**
+ * One choice in Dry Math's practice-focus select (math-activities plan, DD9
+ * and D65). An entry sets the strand and exactly one other group: the
+ * addition and subtraction focus, or the facts with the entry's operations
+ * and the families already chosen.
+ */
+export type DryMathPracticeChosen =
+  | {
+      readonly type: "dryMathPracticeChosen";
+      readonly strand: "add-subtract";
+      readonly dryMath: WorksheetGroupValue["dryMath"];
+    }
+  | {
+      readonly type: "dryMathPracticeChosen";
+      readonly strand: "multiply-divide";
+      readonly dryMathFacts: WorksheetGroupValue["dryMathFacts"];
+    };
+
 export type WorksheetSessionAction =
   | {
       readonly type: "loaded";
@@ -107,16 +127,17 @@ export type WorksheetSessionAction =
     }
   | { readonly type: "childSelected"; readonly childId: string }
   | WorksheetGroupChange
+  | DryMathPracticeChosen
   | { readonly type: "defaultsSaved"; readonly defaults: WorksheetDefaultsV2 }
   | {
       readonly type: "profilesChanged";
       readonly profiles: readonly ChildProfileV2[];
     };
 
-/** The two actions a panel control dispatches. */
+/** The three actions a panel control dispatches, exactly one per control change. */
 export type WorksheetPanelAction = Extract<
   WorksheetSessionAction,
-  { readonly type: "childSelected" | "changed" }
+  { readonly type: "childSelected" | "changed" | "dryMathPracticeChosen" }
 >;
 
 /** Builds the `changed` action for one group, typed by that group's value. */
@@ -266,12 +287,42 @@ export function worksheetSessionReducer(
           })
         : state;
     case "changed":
+      // The facts always keep at least one operation and one family.
+      if (
+        action.group === "dryMathFacts" &&
+        (action.value.operations.length === 0 || action.value.factFamilies.length === 0)
+      ) {
+        return state;
+      }
       return settled({
         ...state,
         selection: withGroup(state.selection, action.group, action.value),
         touched: { ...state.touched, [action.group]: true },
         previewEpoch: state.previewEpoch + 1,
       });
+    case "dryMathPracticeChosen": {
+      // One choice, two groups, one preview invalidation.
+      const chosen =
+        action.strand === "add-subtract"
+          ? withGroup(state.selection, "dryMath", action.dryMath)
+          : action.dryMathFacts.operations.length > 0 &&
+              action.dryMathFacts.factFamilies.length > 0
+            ? withGroup(state.selection, "dryMathFacts", action.dryMathFacts)
+            : undefined;
+      if (chosen === undefined) {
+        return state;
+      }
+      return settled({
+        ...state,
+        selection: withGroup(chosen, "dryMathStrand", action.strand),
+        touched: {
+          ...state.touched,
+          dryMathStrand: true,
+          [action.strand === "add-subtract" ? "dryMath" : "dryMathFacts"]: true,
+        },
+        previewEpoch: state.previewEpoch + 1,
+      });
+    }
     case "defaultsSaved":
       return { ...state, base: storedBase(state.base, action.defaults) };
     case "profilesChanged":

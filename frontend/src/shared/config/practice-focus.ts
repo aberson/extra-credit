@@ -17,6 +17,7 @@ import { MATH_PRESETS, MATH_PRESET_IDS } from "./math-presets.js";
 import type {
   ArithmeticFocusV2,
   CountCompareFocusV2,
+  DryMathFactsV2,
   MathSkillsV1,
   PresentationBand,
   QuantityFocusV2,
@@ -148,6 +149,68 @@ export function describePracticeFocus<TKind extends PracticeFocusKind>(
     default:
       return unreachable(kind);
   }
+}
+
+/** One Dry Math fact entry of the practice-focus select (math-activities plan, MU2). */
+export interface FactPracticeEntry {
+  readonly id: string;
+  readonly label: string;
+  readonly operations: readonly FactOperationName[];
+}
+
+type FactOperationName = DryMathFactsV2["operations"][number];
+
+/**
+ * The three fact entries Dry Math's practice focus offers after its addition
+ * and subtraction catalog, one per nonempty set of fact operations in
+ * canonical order. Choosing one keeps the chosen fact families.
+ */
+export const FACT_PRACTICE_ENTRIES: readonly FactPracticeEntry[] = Object.freeze([
+  Object.freeze({
+    id: "multiplication-facts",
+    label: "Multiplication facts",
+    operations: Object.freeze(["multiplication"] as const),
+  }),
+  Object.freeze({
+    id: "division-facts",
+    label: "Division facts",
+    operations: Object.freeze(["division"] as const),
+  }),
+  Object.freeze({
+    id: "multiplication-and-division-facts",
+    label: "Multiplication and division facts",
+    operations: Object.freeze(["multiplication", "division"] as const),
+  }),
+]);
+
+/** The fact entry whose operations equal these, in canonical order. */
+export function matchFactPracticeEntry(
+  operations: readonly FactOperationName[],
+): FactPracticeEntry {
+  const entry = FACT_PRACTICE_ENTRIES.find(
+    (candidate) =>
+      candidate.operations.length === operations.length &&
+      candidate.operations.every((operation, index) => operations[index] === operation),
+  );
+  if (entry === undefined) {
+    throw new Error("Fact operations must be a nonempty canonical subset.");
+  }
+  return entry;
+}
+
+/** "2", "2 and 5" or "2, 5 and 10": the families in the order given. */
+function familyList(families: readonly number[]): string {
+  const words = families.map(String);
+  const last = words[words.length - 1] ?? "";
+  return words.length <= 1 ? last : `${words.slice(0, -1).join(", ")} and ${last}`;
+}
+
+/**
+ * The one parent-facing description of a facts choice: its entry and its
+ * families, for example "Multiplication facts for 2, 5 and 10".
+ */
+export function describeFactsFocus(facts: DryMathFactsV2): string {
+  return `${matchFactPracticeEntry(facts.operations).label} for ${familyList(facts.factFamilies)}`;
 }
 
 function unreachable(value: never): never {

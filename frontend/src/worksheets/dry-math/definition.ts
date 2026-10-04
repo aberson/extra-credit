@@ -8,6 +8,7 @@ import {
 } from "../../shared/worksheet/limit-labels.js";
 import type {
   EffectiveMathSkillsV1,
+  PracticeRequestV1,
   PrintScale,
   WorksheetLength,
 } from "../../shared/worksheet/types.js";
@@ -55,15 +56,43 @@ export const DRY_MATH_REGROUPING_HELP =
 export const WITHOUT_REGROUPING_FILLS_SENTENCE =
   "Choosing Without carrying or borrowing also fills this length.";
 
+/** The legend of the "Fact families" group (math-activities plan, Appendix F). */
+export const FACT_FAMILIES_LEGEND = "Fact families";
+
+/** The help under that group. */
+export const FACT_FAMILIES_HELP =
+  "A fact belongs to a family when that number is one of its factors, or the divisor or the answer of a division. Both orders count, such as 3 × 4 and 4 × 3. Division is always exact and never divides by zero; 0 ÷ 5 = 0 belongs to the 5s and the 0s.";
+
+/** Beside the one checked family, which cannot be cleared. */
+export const FACT_FAMILY_KEEP_ONE_NOTE = "Keep at least one fact family.";
+
+/** One family's checkbox label: "0s" through "12s". */
+export function factFamilyLabel(family: number): string {
+  return `${family}s`;
+}
+
+/**
+ * What bounds a facts page's variety, for the shared exhaustion message: the
+ * chosen fact families, never a numeric range.
+ */
+export const FACTS_LIMITING_RESOURCE_ADVICE =
+  "Dry Math varies within the chosen fact families. Choose more fact families, or create a new worksheet later.";
+
 export type DryMathCapabilitySupport =
   | { readonly available: true }
   | { readonly available: false; readonly reason: string };
 
+/**
+ * Whether Dry Math can print this request at all. A facts page reads its
+ * operations from the `practice` member, never from `mathSkills`, so it needs
+ * no addition or subtraction operation.
+ */
 export function getDryMathCapabilitySupport(
   mathSkills: Pick<
     EffectiveMathSkillsV1,
     "representations" | "operations" | "operandMax" | "resultMax"
   >,
+  practice?: PracticeRequestV1,
 ): DryMathCapabilitySupport {
   if (!mathSkills.representations.includes("equations")) {
     return {
@@ -71,6 +100,9 @@ export function getDryMathCapabilitySupport(
       reason:
         "Dry Math needs equations and an enabled operation. Choose a practice focus with addition or subtraction. Count, Compare & Make offers quantity practice.",
     };
+  }
+  if (practice?.kind === "dry-math-facts") {
+    return { available: true };
   }
   if (
     mathSkills.operations.length === 0 ||
@@ -136,4 +168,31 @@ export function dryMathCapacityShortfall(
       ? ` ${WITHOUT_REGROUPING_FILLS_SENTENCE}`
       : "";
   return `This practice focus provides ${capacity} unique facts, but this length needs ${required}. ${remedy}${withoutRemedy}`;
+}
+
+/**
+ * The one shortage sentence a facts page prints, whoever asks (the pre-click
+ * control and the generator's fail-closed branch, as for addition and
+ * subtraction above).
+ *
+ * Choosing more fact families is always offered: the thirteen families
+ * together fill every length, so a page that falls short always has families
+ * left whose facts fill it. A shorter length is named only when one really
+ * fills (`shorterLengthFills`).
+ */
+export function dryMathFactsShortfall(
+  capacity: number,
+  length: WorksheetLength,
+  printScale: PrintScale,
+): string | undefined {
+  const required = getDryMathItemCount(length, printScale);
+  if (capacity >= required) {
+    return undefined;
+  }
+  const remedy = shorterLengthFills(length, capacity, (shorter) =>
+    getDryMathItemCount(shorter, printScale),
+  )
+    ? "Choose more fact families, or a shorter length under More options."
+    : "Choose more fact families.";
+  return `The chosen fact families give ${capacity} unique facts, but this length needs ${required}. ${remedy}`;
 }

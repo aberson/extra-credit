@@ -23,7 +23,7 @@ import {
   REGISTERED_WORKSHEET_IDS,
   getWorksheetRegistration,
 } from "../../src/shared/worksheet/registry.js";
-import type { WorksheetType } from "../../src/shared/worksheet/types.js";
+import { FACT_FACTOR_MAXIMUM, type WorksheetType } from "../../src/shared/worksheet/types.js";
 import {
   acceptanceConfig,
   isIdentityOnlyProfile,
@@ -319,6 +319,65 @@ describe("Every problem carries or borrows", () => {
       expect(verdict.offered ? where : verdict.message).toMatch(
         /^This practice focus provides 0 unique facts, but this length needs \d+\. Choose a practice focus with a wider operands and results range\.$/u,
       );
+    }
+  });
+});
+
+describe("Multiplication and division facts", () => {
+  /** One selection per fact entry and family set, on the shipped defaults. */
+  const factsCell = (
+    operations: readonly WorksheetSelectionV2["dryMathFacts"]["operations"][number][],
+    factFamilies: readonly number[],
+  ): WorksheetSelectionV2 => ({
+    ...base,
+    worksheetType: "dry-math",
+    dryMathStrand: "multiply-divide",
+    dryMathFacts: { operations: [...operations], factFamilies: [...factFamilies] },
+  });
+
+  test("availability equals generation for every fact entry with family 0 alone, the defaults and every family", () => {
+    const everyFamily = Array.from({ length: FACT_FACTOR_MAXIMUM + 1 }, (_, family) => family);
+    const cells = (
+      [["multiplication"], ["division"], ["multiplication", "division"]] as const
+    ).flatMap((operations) =>
+      [[0], [2, 5, 10], everyFamily].flatMap((families) =>
+        sweepLayouts(
+          `facts ${operations.join("+")} {${families.join(",")}}`,
+          factsCell(operations, families),
+          acceptanceConfig.profiles[0],
+        ),
+      ),
+    );
+    // Division with family 0 alone is the only cell that falls short.
+    expect(cells.filter(({ verdict }) => !verdict.offered).map(({ where }) => where)).toEqual([
+      "facts division {0} long/standard",
+    ]);
+  });
+
+  test("division with family 0 alone refuses Long at standard with the families-or-shorter remedy, and fills Standard and large Long exactly", () => {
+    const registration = getWorksheetRegistration("dry-math");
+    const refused = agreedVerdict(
+      "division {0} long/standard",
+      { ...factsCell(["division"], [0]), length: "long", printScale: "standard" },
+      undefined,
+    );
+    expect(refused).toEqual({
+      offered: false,
+      message:
+        "The chosen fact families give 12 unique facts, but this length needs 18. Choose more fact families, or a shorter length under More options.",
+    });
+    for (const [length, printScale] of [["standard", "standard"], ["long", "large"]] as const) {
+      const selection = { ...factsCell(["division"], [0]), length, printScale };
+      expect(agreedVerdict(`division {0} ${length}/${printScale}`, selection, undefined)).toEqual({
+        offered: true,
+      });
+      const generated = projectAndGenerateWorksheet(
+        { selection, generatorVersion: registration.generatorVersion, seed: "1234abcd" },
+        registration.generate,
+        { worksheetId: "77777777-7777-4777-8777-777777777777" },
+      );
+      // Exactly 0 ÷ 1 through 0 ÷ 12: the page holds every candidate.
+      expect(generated.ok && generated.document.items.length).toBe(12);
     }
   });
 });

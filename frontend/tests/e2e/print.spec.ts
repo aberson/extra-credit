@@ -264,6 +264,22 @@ async function readDecoration(page: Page, expected: DecorationState) {
   return { expected, state: "art" as const, visible: true, decoded };
 }
 
+/**
+ * Every printed operator sign narrower than 2 mm, measured from its rendered
+ * box rather than read from the stylesheet, plus a violation when no sign
+ * printed at all.
+ */
+async function operatorViolations(page: Page): Promise<readonly string[]> {
+  return await page.locator(".print-surface").evaluate((surface) => {
+    const operators = [...surface.querySelectorAll("[data-operator]")];
+    const narrow = operators.flatMap((operator, index) => {
+      const widthMm = operator.getBoundingClientRect().width * 25.4 / 96;
+      return widthMm >= 2 ? [] : [`operator[${index}] ${operator.textContent ?? ""}: ${widthMm} mm`];
+    });
+    return operators.length === 0 ? ["no operator printed"] : narrow;
+  });
+}
+
 async function withPrintStyle(page: Page, content: string, check: () => Promise<void>) {
   const style = await page.addStyleTag({ content });
   try {
@@ -904,6 +920,32 @@ for (const fixture of printFixtures) {
             await expect(page.locator(`.print-surface [data-item-id="${widest?.id ?? ""}"]`))
               .toHaveText(/^100 − \d+ = _+$/u);
           }
+          if (fixture.id === "dry-math-facts-144") {
+            // The widest facts, a three-digit dividend over a two-digit divisor
+            // and a product of two two-digit factors, are on the printed page,
+            // and the required-content and geometry checks above prove them
+            // present and contained like every other row.
+            const widestDivision = boundary.document.items.find((item) =>
+              item.itemType === "dry-math" && item.operation === "division" &&
+              item.leftOperand >= 100 && item.rightOperand >= 10);
+            const widestProduct = boundary.document.items.find((item) =>
+              item.itemType === "dry-math" && item.operation === "multiplication" &&
+              item.leftOperand >= 10 && item.rightOperand >= 10);
+            expect(widestDivision, "a three-digit dividend over a two-digit divisor").toBeDefined();
+            expect(widestProduct, "a product of two two-digit factors").toBeDefined();
+            await expect(page.locator(`.print-surface [data-item-id="${widestDivision?.id ?? ""}"]`))
+              .toHaveText(/^\d{3} ÷ \d{2} = _+$/u);
+            await expect(page.locator(`.print-surface [data-item-id="${widestProduct?.id ?? ""}"]`))
+              .toHaveText(/^\d{2} × \d{2} = _+$/u);
+            // Every times and division sign prints at least 2 mm wide; a
+            // 1 px sign must fail that measurement, and it restores clean.
+            expect(await operatorViolations(page), "operator signs").toEqual([]);
+            await withPrintStyle(page, "[data-operator] { font-size: 1px !important; }", async () => {
+              expect((await operatorViolations(page)).length, "a 1 px operator must fail")
+                .toBeGreaterThan(0);
+            });
+            expect(await operatorViolations(page), "operator size restored").toEqual([]);
+          }
           if (name === "dry-math-letter-standard-decoration-false") {
             await withPrintStyle(page, ".print-surface { page: auto !important; }", async () => {
               const fallback = await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }));
@@ -1199,10 +1241,10 @@ test("manual print uses the compiled app with canonical temporary profiles and c
   request,
 }) => {
   // The worksheet-choice matrix built from the committed example expands to
-  // 85 distinct worksheet cases, 17 of which also measure a key PDF.
+  // 86 distinct worksheet cases, 18 of which also measure a key PDF.
   expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
-  expect(matrixCases).toHaveLength(85);
-  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(17);
+  expect(matrixCases).toHaveLength(86);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(18);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {

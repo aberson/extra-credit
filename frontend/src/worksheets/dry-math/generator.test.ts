@@ -3,7 +3,11 @@ import { describe, expect, test } from "vitest";
 import { expandMathPreset } from "../../shared/config/math-presets.js";
 import { PRACTICE_FOCUS_CATALOG } from "../../shared/config/practice-focus.js";
 import {
+  ORACLE_FACT_DIVIDEND_MAXIMUM,
+  ORACLE_FACT_FACTOR_MAXIMUM,
   judgeDocument,
+  oracleFactClosedForm,
+  oracleFactKeys,
   oracleRegroups,
 } from "../../../tests/oracles/arithmetic-oracle.js";
 
@@ -22,7 +26,10 @@ import {
   objectiveAnswerEntries,
   validateWorksheetInvariants,
 } from "../../shared/worksheet/invariants.js";
-import { projectGenerationRequest } from "../../shared/worksheet/project-request.js";
+import {
+  INACTIVE_MATH_FIELDS,
+  projectGenerationRequest,
+} from "../../shared/worksheet/project-request.js";
 import {
   createSeededRandom,
   formatSeedHex,
@@ -747,5 +754,313 @@ describe("Every problem carries or borrows", () => {
     expect(
       generateDryMath(unknown, { worksheetId: "11111111-1111-4111-8111-111111111111" }),
     ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+  });
+});
+
+describe("Multiplication and division facts by fact family", () => {
+  type FactOperations = WorksheetSelectionV2["dryMathFacts"]["operations"];
+
+  const OPERATION_CHOICES: readonly FactOperations[] = [
+    ["multiplication"],
+    ["division"],
+    ["multiplication", "division"],
+  ];
+  const EVERY_FAMILY = Array.from(
+    { length: ORACLE_FACT_FACTOR_MAXIMUM + 1 },
+    (_, family) => family,
+  );
+  const LONG = { length: "long", printScale: "standard" } as const;
+
+  /** The projected request for one facts choice. */
+  function factsRequest(
+    operations: readonly FactOperations[number][],
+    factFamilies: readonly number[],
+    layout: Pick<WorksheetSelectionV2, "length" | "printScale">,
+    seed: string,
+  ): GenerationRequestV1 {
+    const projected = projectGenerationRequest({
+      selection: {
+        ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+        ...layout,
+        worksheetType: "dry-math",
+        dryMathStrand: "multiply-divide",
+        dryMathFacts: { operations: [...operations], factFamilies: [...factFamilies] },
+      },
+      generatorVersion: 1,
+      seed,
+    });
+    if (!projected.ok) {
+      throw new Error(projected.message);
+    }
+    return projected.request;
+  }
+
+  function keysOf(
+    items: readonly { readonly operation: string; readonly leftOperand: number; readonly rightOperand: number }[],
+  ): readonly string[] {
+    return items.map(
+      ({ operation, leftOperand, rightOperand }) => `${operation}:${leftOperand}:${rightOperand}`,
+    );
+  }
+
+  function rows(document: ReturnType<typeof generated>): readonly string[] {
+    return document.items.map(
+      (item) =>
+        `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ${item.answer.value}`,
+    );
+  }
+
+  test.each(OPERATION_CHOICES.map((operations) => [operations.join(" and "), operations] as const))(
+    "%s: on singletons, pairs and every family the fact keys are the oracle's brute force and closed form",
+    (_label, operations) => {
+      const familySets = [
+        ...EVERY_FAMILY.map((family) => [family]),
+        [0, 1],
+        [3, 7, 12],
+        [2, 5, 10],
+        [11, 12],
+        EVERY_FAMILY,
+      ];
+      for (const families of familySets) {
+        const keys = keysOf(
+          enumerateDryMathCandidates(factsRequest(operations, families, LONG, "00000001")),
+        );
+        const where = `${operations.join("+")} {${families.join(",")}}`;
+        expect(new Set(keys).size, where).toBe(keys.length);
+        expect(new Set(keys), where).toEqual(oracleFactKeys(operations, families));
+        expect(keys.length, where).toBe(oracleFactClosedForm(operations, families));
+      }
+    },
+  );
+
+  test("both orders count, division is exact with a nonzero divisor, and the largest dividend is the largest product", () => {
+    const family3 = keysOf(
+      enumerateDryMathCandidates(factsRequest(["multiplication"], [3], LONG, "00000001")),
+    );
+    expect(family3).toContain("multiplication:3:4");
+    expect(family3).toContain("multiplication:4:3");
+    const division = enumerateDryMathCandidates(
+      factsRequest(["division"], EVERY_FAMILY, LONG, "00000001"),
+    );
+    expect(division.every(({ rightOperand }) => rightOperand !== 0)).toBe(true);
+    expect(
+      division.every(({ leftOperand, rightOperand }) => leftOperand % rightOperand === 0),
+    ).toBe(true);
+    expect(Math.max(...division.map(({ leftOperand }) => leftOperand))).toBe(
+      ORACLE_FACT_DIVIDEND_MAXIMUM,
+    );
+    // Family 0 alone divides only zero: 0 ÷ 1 through 0 ÷ 12.
+    expect(
+      keysOf(enumerateDryMathCandidates(factsRequest(["division"], [0], LONG, "00000001"))),
+    ).toEqual(EVERY_FAMILY.slice(1).map((divisor) => `division:0:${divisor}`));
+  });
+
+  test.each([
+    [
+      ["multiplication"],
+      [2, 5, 10],
+      "short",
+      "standard",
+      "00000001",
+      ["10 × 9 = 90", "5 × 5 = 25", "10 × 11 = 110", "5 × 1 = 5", "0 × 2 = 0", "10 × 5 = 50", "12 × 2 = 24", "11 × 10 = 110"],
+    ],
+    [
+      ["division"],
+      [3, 7, 12],
+      "standard",
+      "large",
+      "0000beef",
+      ["63 ÷ 9 = 7", "96 ÷ 8 = 12", "70 ÷ 10 = 7", "63 ÷ 7 = 9", "132 ÷ 11 = 12", "14 ÷ 2 = 7", "24 ÷ 2 = 12", "0 ÷ 7 = 0"],
+    ],
+    [
+      ["multiplication", "division"],
+      EVERY_FAMILY,
+      "short",
+      "standard",
+      "2c6f5bd0",
+      ["36 ÷ 6 = 6", "9 × 8 = 72", "11 × 12 = 132", "0 ÷ 9 = 0", "4 ÷ 4 = 1", "9 × 3 = 27", "9 × 5 = 45", "12 × 8 = 96"],
+    ],
+  ] as const)(
+    "known vector: %j %j %s/%s seed %s",
+    (operations, families, length, printScale, seed, expected) => {
+      const document = generated(factsRequest(operations, families, { length, printScale }, seed));
+      expect(rows(document)).toEqual(expected);
+      expect(judgeDocument(document)).toEqual([]);
+    },
+  );
+
+  test("property: every facts page is judged clean, and other families with the same seed change the items", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...OPERATION_CHOICES),
+        fc.subarray(EVERY_FAMILY, { minLength: 1 }),
+        fc.constantFrom("short", "standard", "long"),
+        fc.constantFrom("standard", "large"),
+        fc.integer({ min: 1, max: 0xffff_ffff }),
+        (operations, families, length, printScale, seedNumber) => {
+          const seed = formatSeedHex(seedNumber);
+          const result = generateDryMath(
+            factsRequest(operations, families, { length, printScale }, seed),
+            { worksheetId: "11111111-1111-4111-8111-111111111111" },
+          );
+          const needed = getDryMathItemCount(length, printScale);
+          if (!result.ok) {
+            // Only a family set the oracle counts below this length is refused.
+            expect(oracleFactKeys(operations, families).size).toBeLessThan(needed);
+            return;
+          }
+          expect(result.document.items).toHaveLength(needed);
+          expect(judgeDocument(result.document)).toEqual([]);
+          const others = EVERY_FAMILY.filter((family) => !families.includes(family));
+          const mirror = generateDryMath(
+            factsRequest(operations, others.length === 0 ? [0] : others, { length, printScale }, seed),
+            { worksheetId: "11111111-1111-4111-8111-111111111111" },
+          );
+          if (mirror.ok) {
+            expect(keysOf(mirror.document.items)).not.toEqual(keysOf(result.document.items));
+          }
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  test("the capability gate reads the facts kind: no addition or subtraction operation is needed", () => {
+    const request = factsRequest(["division"], [7], LONG, "00000001");
+    expect(request.capabilities.mathSkills.operations).toEqual(INACTIVE_MATH_FIELDS.operations);
+    expect(
+      getDryMathCapabilitySupport(request.capabilities.mathSkills, request.practice),
+    ).toEqual({ available: true });
+  });
+
+  describe("the facts branch of the invariant checker (D60)", () => {
+    const everyFamily = generated(
+      factsRequest(["multiplication", "division"], EVERY_FAMILY, LONG, "00000001"),
+    );
+
+    function fact(
+      id: string,
+      operation: DryMathItemV1["operation"],
+      leftOperand: number,
+      rightOperand: number,
+      value: number,
+      renderedSymbol: DryMathItemV1["renderedSymbol"] = operation === "multiplication" ? "×" : "÷",
+    ): DryMathItemV1 {
+      return {
+        id,
+        itemType: "dry-math",
+        answerability: "objective",
+        operation,
+        leftOperand,
+        rightOperand,
+        renderedSymbol,
+        answer: { kind: "number", value },
+      };
+    }
+
+    function withFirst(
+      document: typeof everyFamily,
+      replace: (first: DryMathItemV1) => DryMathItemV1,
+    ): typeof everyFamily {
+      const [first, ...rest] = document.items;
+      if (first === undefined) {
+        throw new Error("The facts page had no items.");
+      }
+      return { ...document, items: [replace(first), ...rest] };
+    }
+
+    test("a generated facts page passes", () => {
+      expect(validateWorksheetInvariants(everyFamily)).toBeUndefined();
+      expect(judgeDocument(everyFamily)).toEqual([]);
+    });
+
+    test.each([
+      ["13 ÷ 4", (first: DryMathItemV1) => fact(first.id, "division", 13, 4, 3)],
+      ["0 ÷ 0", (first: DryMathItemV1) => fact(first.id, "division", 0, 0, 0)],
+      ["a factor 13", (first: DryMathItemV1) => fact(first.id, "multiplication", 13, 2, 26)],
+      ["a dividend 156", (first: DryMathItemV1) => fact(first.id, "division", 156, 12, 13)],
+      [
+        "a wrong symbol",
+        (first: DryMathItemV1): DryMathItemV1 => ({
+          ...first,
+          renderedSymbol: first.renderedSymbol === "×" ? "÷" : "×",
+        }),
+      ],
+      [
+        "a wrong answer",
+        (first: DryMathItemV1): DryMathItemV1 => ({
+          ...first,
+          answer: { kind: "number", value: first.answer.value + 1 },
+        }),
+      ],
+    ] as const)("%s fails", (_label, replace) => {
+      expect(validateWorksheetInvariants(withFirst(everyFamily, replace))).toMatchObject({
+        ok: false,
+        code: "GENERATION_INVARIANT_FAILED",
+      });
+    });
+
+    test("a duplicate fails", () => {
+      const [first, second, ...rest] = everyFamily.items;
+      if (first === undefined || second === undefined) {
+        throw new Error("The facts page had too few items.");
+      }
+      expect(
+        validateWorksheetInvariants({
+          ...everyFamily,
+          items: [first, { ...first, id: second.id }, ...rest],
+        }),
+      ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+    });
+
+    test("a fact outside the requested families fails", () => {
+      const twoFiveTen = generated(
+        factsRequest(["multiplication"], [2, 5, 10], LONG, "00000001"),
+      );
+      const outside = withFirst(twoFiveTen, (first) =>
+        fact(first.id, "multiplication", 3, 4, 12),
+      );
+      expect(validateWorksheetInvariants(outside)).toMatchObject({
+        ok: false,
+        code: "GENERATION_INVARIANT_FAILED",
+      });
+      expect(judgeDocument(outside).map(({ code }) => code)).toEqual(["OUT_OF_SET"]);
+    });
+
+    test("12 × 12 = 144 passes the facts branch, and the same page without the facts kind fails the addition and subtraction branch", () => {
+      const request = factsRequest(["multiplication", "division"], [12], LONG, "00000001");
+      const page: typeof everyFamily = {
+        ...everyFamily,
+        request,
+        items: [
+          fact("item-001", "multiplication", 12, 12, 144),
+          fact("item-002", "division", 144, 12, 12),
+        ],
+      };
+      expect(validateWorksheetInvariants(page)).toBeUndefined();
+      const withoutPractice: GenerationRequestV1 = { ...request };
+      delete (withoutPractice as { practice?: unknown }).practice;
+      expect(withoutPractice).not.toHaveProperty("practice");
+      expect(validateWorksheetInvariants({ ...page, request: withoutPractice })).toMatchObject({
+        ok: false,
+        code: "GENERATION_INVARIANT_FAILED",
+      });
+    });
+
+    test("a facts member that is not well formed is refused", () => {
+      for (const practice of [
+        { kind: "dry-math-facts", operations: [], factFamilies: [2] },
+        { kind: "dry-math-facts", operations: ["division", "multiplication"], factFamilies: [2] },
+        { kind: "dry-math-facts", operations: ["multiplication"], factFamilies: [] },
+        { kind: "dry-math-facts", operations: ["multiplication"], factFamilies: [5, 2] },
+        { kind: "dry-math-facts", operations: ["multiplication"], factFamilies: [13] },
+      ]) {
+        const request = { ...everyFamily.request, practice } as unknown as GenerationRequestV1;
+        expect(
+          validateWorksheetInvariants({ ...everyFamily, request }),
+          JSON.stringify(practice),
+        ).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+      }
+    });
   });
 });

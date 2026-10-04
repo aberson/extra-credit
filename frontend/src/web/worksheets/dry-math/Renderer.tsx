@@ -1,8 +1,20 @@
 import type {
   DryMathItemV1,
+  DryMathOperation,
   WorksheetDocumentV1,
 } from "../../../shared/worksheet/types";
 import type { WorksheetRendererProps } from "../registry";
+
+/**
+ * What a screen reader says for each operator (math-activities plan, D36);
+ * the printed sign sits in its own `data-operator` span at instruction size.
+ */
+const SPOKEN_OPERATORS = {
+  addition: "plus",
+  subtraction: "minus",
+  multiplication: "times",
+  division: "divided by",
+} as const satisfies Record<DryMathOperation, string>;
 
 function isDryMathDocument(
   document: WorksheetDocumentV1,
@@ -50,8 +62,12 @@ export function DryMathRenderer({ document }: WorksheetRendererProps) {
               padding: "0.9rem",
             }}
           >
-            <span aria-label={`${item.leftOperand} ${item.operation} ${item.rightOperand}`}>
-              {item.leftOperand} {item.renderedSymbol} {item.rightOperand} = ____
+            <span
+              aria-label={`${item.leftOperand} ${SPOKEN_OPERATORS[item.operation]} ${item.rightOperand}`}
+            >
+              {item.leftOperand}{" "}
+              <span data-operator={item.operation}>{item.renderedSymbol}</span>{" "}
+              {item.rightOperand} = ____
             </span>
           </li>
         ))}

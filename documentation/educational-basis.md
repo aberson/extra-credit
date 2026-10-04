@@ -45,8 +45,8 @@ Every generated page, in every family, stays inside one fixed envelope:
 | Bound | Value |
 |---|---|
 | Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, and length). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
-| Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100; every quantity, numeral, operand, and result in the other families stays at most 20. |
-| Sign | Nonnegative. No generated result is below zero. |
+| Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, and multiplication and division facts with factors, divisors and answers up to 12 and dividends up to 144 for the fact families the parent checks; every quantity, numeral, operand, and result in the other families stays at most 20. |
+| Sign | Nonnegative. No generated result is below zero, and every division is exact with a nonzero divisor. |
 | Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once; otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
 | Personalization | A nickname and reviewed interest topics only. Raw unmatched interest text never reaches a request or a page. |
 | Locality | Generation is deterministic local code. The page talks to nothing but its own loopback server on 127.0.0.1: no account, no off-device request, no runtime model, and no telemetry. |
@@ -67,10 +67,19 @@ borrowing the parent can choose "Every problem carries or borrows" instead:
 every addition then carries and every subtraction borrows at least once,
 within the same range.
 
+The practice focus also offers multiplication facts, division facts, or both,
+for the fact families the parent checks from 0 to 12. A multiplication fact
+belongs to a family when either factor is that number, and both orders count
+(3 × 4 and 4 × 3 are two facts). A division fact belongs to a family when its
+divisor or its answer is that number; every division is exact, no divisor is
+0, and 0 ÷ 5 = 0 belongs to the 5s and the 0s. Factors, divisors and answers
+stay at most 12, so no dividend exceeds 144.
+
 - [Common Core Kindergarten Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/K/OA/)
 - [Common Core Grade 1 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/1/OA/)
 - [Common Core Grade 2 Operations and Algebraic Thinking, including fluency within 20](https://www.thecorestandards.org/Math/Content/2/OA/B/2/) — cited only to bound the within-20 example range. Extra Credit does not measure fluency.
 - [Common Core Grade 2 Number and Operations in Base Ten](https://www.thecorestandards.org/Math/Content/2/NBT/) — cited only for what carrying and borrowing mean: composing and decomposing tens when adding and subtracting.
+- [Common Core Grade 3 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/3/OA/) — cited only for the meaning of multiplication, division and fact families. The 11s and 12s and dividends above 100 follow the parent's chosen range and go beyond that standard's within-100 fluency scope; Extra Credit does not measure fluency.
 - [IES Teaching Math to Young Children](https://ies.ed.gov/ncee/wwc/practiceguide/18)
 - [IES Assisting Students Struggling with Mathematics: Intervention in the Elementary Grades](https://ies.ed.gov/ncee/wwc/practiceguide/26) — bounds reviewed example shapes only. Extra Credit is not an intervention.
 

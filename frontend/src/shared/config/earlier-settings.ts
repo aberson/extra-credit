@@ -201,6 +201,13 @@ export function selectionFromEarlierSettings(
       // Never an earlier setting: a stored `allowRegrouping` is disclosed as
       // unused, and carrying and borrowing stays the parent's explicit choice.
       dryMathRegrouping: base.dryMathRegrouping,
+      // Nor the strand or the fact families: no earlier setting describes
+      // multiplication or division.
+      dryMathStrand: base.dryMathStrand,
+      dryMathFacts: {
+        operations: [...base.dryMathFacts.operations],
+        factFamilies: [...base.dryMathFacts.factFamilies],
+      },
       findTheWow: { variant, quantity, equation },
       sentenceBuilder: {
         variant: legacy.writingMode,

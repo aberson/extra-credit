@@ -487,6 +487,8 @@ describe("the built-in version 2 defaults", () => {
         resultMax: within10.resultMax,
       },
       dryMathRegrouping: "without",
+      dryMathStrand: "add-subtract",
+      dryMathFacts: { operations: ["multiplication"], factFamilies: [2, 5, 10] },
       findTheWow: {
         variant: "quantity",
         quantity: { countingMax: quantities.countingMax, numeralMax: quantities.numeralMax },

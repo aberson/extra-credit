@@ -25,6 +25,7 @@ import {
   type CapabilityProfileV1,
 } from "../../shared/config/earlier-settings";
 import {
+  FACT_PRACTICE_ENTRIES,
   PRACTICE_FOCUS_CATALOG,
   SENTENCE_VOCABULARY_LABELS,
   describePracticeFocus,
@@ -1817,6 +1818,98 @@ describe("worksheet-first panel", () => {
     }
   });
 
+  test("a fact entry shows thirteen fact-family boxes outside More options, keeps one checked, and each choice is one action", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
+    const families = (): HTMLElement | null =>
+      screen.queryByRole("group", { name: "Fact families" });
+    const focus = (): HTMLSelectElement =>
+      screen.getByRole("combobox", { name: "Practice focus" });
+    const choose = (value: string): void => {
+      fireEvent.change(focus(), { target: { value } });
+    };
+    expect(families()).toBeNull();
+    expect(focus().querySelector('option[value="multiplication-facts"]')).not.toBeNull();
+
+    // Each entry is one action that sets the strand and one other group.
+    for (const entry of FACT_PRACTICE_ENTRIES) {
+      onChange.mockClear();
+      choose(entry.id);
+      expect(onChange.mock.calls).toEqual([
+        [
+          {
+            type: "dryMathPracticeChosen",
+            strand: "multiply-divide",
+            dryMathFacts: { operations: [...entry.operations], factFamilies: [2, 5, 10] },
+          },
+        ],
+      ]);
+      expect(focus()).toHaveValue(entry.id);
+    }
+    const group = families();
+    expect(group).not.toBeNull();
+    expect(group?.closest("details")).toBeNull();
+    expect(screen.queryByRole("group", { name: "Carrying and borrowing" })).toBeNull();
+    expectDocumentOrder([
+      focus(),
+      group,
+      document.querySelector("[data-selection-summary]"),
+      screen.getByRole("button", { name: "Create worksheet" }),
+    ]);
+    const boxes = [...(group?.querySelectorAll('input[type="checkbox"]') ?? [])] as HTMLInputElement[];
+    expect(boxes.map((box) => box.labels?.[0]?.textContent?.trim())).toEqual(
+      Array.from({ length: 13 }, (_, family) => `${family}s`),
+    );
+    expect(boxes.filter((box) => box.checked).map((box) => box.labels?.[0]?.textContent?.trim()))
+      .toEqual(["2s", "5s", "10s"]);
+    const help = document.getElementById(group?.getAttribute("aria-describedby") ?? "");
+    expect(help?.textContent).toBe(
+      "A fact belongs to a family when that number is one of its factors, or the divisor or the answer of a division. Both orders count, such as 3 × 4 and 4 × 3. Division is always exact and never divides by zero; 0 ÷ 5 = 0 belongs to the 5s and the 0s.",
+    );
+    expect(document.querySelector("[data-selection-summary]")?.textContent).toContain(
+      "Practice focus for Dry Math: Multiplication and division facts for 2, 5 and 10.",
+    );
+
+    // Clearing down to one family disables that last box with a visible note.
+    onChange.mockClear();
+    fireEvent.click(screen.getByRole("checkbox", { name: "2s" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "10s" }));
+    expect(onChange.mock.calls).toEqual([
+      [{ type: "changed", group: "dryMathFacts", value: { operations: ["multiplication", "division"], factFamilies: [5, 10] } }],
+      [{ type: "changed", group: "dryMathFacts", value: { operations: ["multiplication", "division"], factFamilies: [5] } }],
+    ]);
+    const last = screen.getByRole("checkbox", { name: "5s" });
+    expect(last).toBeChecked();
+    expect(last).toBeDisabled();
+    expect(screen.getByText("Keep at least one fact family.")).toBeVisible();
+    expect(document.getElementById(last.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Keep at least one fact family.",
+    );
+    // Mirror: with two families checked no box is disabled and no note shows.
+    fireEvent.click(screen.getByRole("checkbox", { name: "12s" }));
+    expect(screen.getByRole("checkbox", { name: "5s" })).toBeEnabled();
+    expect(screen.queryByText("Keep at least one fact family.")).toBeNull();
+
+    // Back to addition and subtraction: one action, and the regrouping group returns.
+    const within20 = PRACTICE_FOCUS_CATALOG["dry-math"].find(
+      ({ id }) => id === "addition-and-subtraction-within-20",
+    )!;
+    onChange.mockClear();
+    choose(within20.id);
+    expect(onChange.mock.calls).toEqual([
+      [{ type: "dryMathPracticeChosen", strand: "add-subtract", dryMath: within20.focus }],
+    ]);
+    expect(families()).toBeNull();
+    expect(screen.getByRole("group", { name: "Carrying and borrowing" })).not.toBeNull();
+
+    // Only Dry Math on the multiply-divide strand shows the group.
+    choose("multiplication-facts");
+    for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
+      chooseWorksheet(worksheetType);
+      expect(families() !== null, worksheetType).toBe(worksheetType === "dry-math");
+    }
+  });
+
   test("the four worksheet types are radio cards with a one-line description", () => {
     renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
     const cards = screen.getAllByRole("radio").filter(
@@ -1937,9 +2030,11 @@ describe("worksheet-first panel", () => {
         describePracticeFocus(kind, option.focus),
       );
 
-    // The saved defaults match catalog entries, so no extra option shows.
+    // The saved defaults match catalog entries, so no extra option shows;
+    // Dry Math's three fact entries follow its addition and subtraction foci.
+    const factLabels = ["Multiplication facts", "Division facts", "Multiplication and division facts"];
     renderPanel({ defaults: storedDefaults({}, false), profiles: [nicknamed] });
-    expect(optionLabels()).toEqual(catalogLabels("dry-math"));
+    expect(optionLabels()).toEqual([...catalogLabels("dry-math"), ...factLabels]);
     chooseWorksheet("count-compare-make");
     expect(optionLabels()).toEqual(catalogLabels("count-compare-make"));
     chooseWorksheet("find-the-wow");
@@ -1955,10 +2050,26 @@ describe("worksheet-first panel", () => {
     expect(optionLabels()).toEqual([
       `Earlier setting: ${describePracticeFocus("dry-math", seededDryMath)}`,
       ...catalogLabels("dry-math"),
+      ...factLabels,
     ]);
     expect(screen.getByRole("combobox", { name: "Practice focus" })).toHaveValue(
       "earlier-setting",
     );
+    // Choosing facts keeps that focus on offer, so it can be chosen again.
+    fireEvent.change(screen.getByRole("combobox", { name: "Practice focus" }), {
+      target: { value: "division-facts" },
+    });
+    expect(screen.getByRole("combobox", { name: "Practice focus" })).toHaveValue("division-facts");
+    expect(optionLabels()[0]).toBe(
+      `Earlier setting: ${describePracticeFocus("dry-math", seededDryMath)}`,
+    );
+    fireEvent.change(screen.getByRole("combobox", { name: "Practice focus" }), {
+      target: { value: "earlier-setting" },
+    });
+    expect(screen.getByRole("combobox", { name: "Practice focus" })).toHaveValue(
+      "earlier-setting",
+    );
+    expect(screen.queryByRole("group", { name: "Fact families" })).toBeNull();
   });
 
   test("each control change dispatches exactly one session action", () => {
@@ -2017,9 +2128,27 @@ describe("worksheet-first panel", () => {
     expectOne({ type: "changed", group: "worksheetType", value: "dry-math" }, () =>
       fireEvent.click(worksheetCard("dry-math")),
     );
+    // Dry Math's focus select sets the strand and one other group per choice.
     const dryMathFocus = PRACTICE_FOCUS_CATALOG["dry-math"][0]!;
-    expectOne({ type: "changed", group: "dryMath", value: dryMathFocus.focus }, () =>
-      choose("Practice focus", dryMathFocus.id),
+    expectOne(
+      { type: "dryMathPracticeChosen", strand: "add-subtract", dryMath: dryMathFocus.focus },
+      () => choose("Practice focus", dryMathFocus.id),
+    );
+    expectOne(
+      {
+        type: "dryMathPracticeChosen",
+        strand: "multiply-divide",
+        dryMathFacts: { operations: ["division"], factFamilies: [2, 5, 10] },
+      },
+      () => choose("Practice focus", "division-facts"),
+    );
+    expectOne(
+      {
+        type: "changed",
+        group: "dryMathFacts",
+        value: { operations: ["division"], factFamilies: [2, 3, 5, 10] },
+      },
+      () => fireEvent.click(screen.getByRole("checkbox", { name: "3s" })),
     );
     expectOne({ type: "changed", group: "worksheetType", value: "count-compare-make" }, () =>
       fireEvent.click(worksheetCard("count-compare-make")),

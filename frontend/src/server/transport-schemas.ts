@@ -2,6 +2,8 @@ import type { FastifySchemaValidationError } from "fastify/types/schema.js";
 import type { z } from "zod";
 
 import {
+  DRY_MATH_STRANDS,
+  FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   PAPER_SIZES,
@@ -22,6 +24,7 @@ import {
 } from "../shared/config/schema.js";
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
+  FACT_FACTOR_MAXIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../shared/worksheet/types.js";
@@ -205,10 +208,30 @@ const quantityMaximumSchema = {
   maximum: V1_NUMERIC_MAXIMUM,
 } as const;
 
+/** Dry Math's facts: canonical order and ascending families stay Zod's rules. */
+const dryMathFactsSchema = strictObjectSchema({
+  operations: {
+    type: "array",
+    minItems: 1,
+    maxItems: FACT_OPERATIONS.length,
+    uniqueItems: true,
+    items: { enum: FACT_OPERATIONS },
+  },
+  factFamilies: {
+    type: "array",
+    minItems: 1,
+    maxItems: FACT_FACTOR_MAXIMUM + 1,
+    uniqueItems: true,
+    items: { type: "integer", minimum: 0, maximum: FACT_FACTOR_MAXIMUM },
+  },
+});
+
 const worksheetDefaultsProperties = {
   worksheetType: { enum: WORKSHEET_TYPE_IDS },
   dryMath: arithmeticFocusSchema(DRY_MATH_NUMERIC_MAXIMUM),
   dryMathRegrouping: { enum: REGROUPING_MODES },
+  dryMathStrand: { enum: DRY_MATH_STRANDS },
+  dryMathFacts: dryMathFactsSchema,
   findTheWow: strictObjectSchema({
     variant: { enum: FIND_THE_WOW_VARIANTS },
     quantity: strictObjectSchema({
@@ -301,7 +324,11 @@ export const APP_CONFIG_TRANSPORT_SCHEMA = {
     },
     // Additive version 2 keys carry a Zod default and stay out of `required`,
     // so a file written before they existed still passes this layer.
-    defaults: strictObjectSchema(worksheetDefaultsProperties, ["dryMathRegrouping"]),
+    defaults: strictObjectSchema(worksheetDefaultsProperties, [
+      "dryMathRegrouping",
+      "dryMathStrand",
+      "dryMathFacts",
+    ]),
   }),
 } as const;
 

@@ -17,6 +17,7 @@ import {
 import { expect, test } from "./fixtures/app-server.js";
 import {
   chooseChild,
+  chooseFactFamilies,
   chooseLength,
   choosePracticeFocus,
   choosePrintLayout,
@@ -664,6 +665,52 @@ test("every problem regroups within 100 and the key matches", async ({ appServer
       }
     }
   }
+  // Creating and varying pages never writes the file.
+  expect((await appServer.readRaw()).equals(seeded)).toBe(true);
+});
+
+test("fact families three and twelve print with exact division", async ({ appServer, page }) => {
+  test.setTimeout(60_000);
+  await appServer.seedConfig(acceptanceConfig);
+  const seeded = await appServer.readRaw();
+  await page.goto(appServer.origin);
+  await choosePracticeFocus(page, "Multiplication and division facts");
+  await expect(controls(page).regrouping()).toHaveCount(0);
+  await chooseFactFamilies(page, [3, 12]);
+  await expect(page.locator("[data-selection-summary]")).toContainText(
+    "Practice focus for Dry Math: Multiplication and division facts for 3 and 12.",
+  );
+  await chooseLength(page, "long");
+  const focus = { kind: "facts", operations: ["multiplication", "division"], families: [3, 12] } as const;
+  const signs = new Set<string>();
+  await page.getByRole("button", { name: "Create worksheet", exact: true }).click();
+  for (const attempt of ["created", "another"] as const) {
+    if (attempt === "another") {
+      await page.getByRole("button", { name: "Make another", exact: true }).click();
+      await expect(page.getByText("A different worksheet is ready.")).toBeVisible();
+    }
+    const { rows, keyLines } = await renderedPage(page);
+    expect(rows, attempt).toHaveLength(18);
+    // The oracle solves every row itself: each is in family 3 or 12, every
+    // division is exact, and the key restates each row with that answer.
+    expect(judgeRenderedPage(rows, keyLines, focus), attempt).toEqual([]);
+    for (const row of rows) {
+      const parsed = parseRenderedRow(row.text);
+      expect(parsed?.operation === "multiplication" || parsed?.operation === "division", row.text).toBe(true);
+      if (parsed?.operation === "division") {
+        expect(parsed.right, row.text).toBeGreaterThan(0);
+        expect(parsed.left % parsed.right, row.text).toBe(0);
+      }
+    }
+    await page.getByRole("button", { name: "Worksheet", exact: true }).click();
+    const operators = page.getByLabel("Worksheet preview").locator("[data-operator]");
+    await expect(operators).toHaveCount(18);
+    for (const operator of await operators.all()) {
+      await expect(operator).toBeVisible();
+      signs.add((await operator.textContent()) ?? "");
+    }
+  }
+  expect([...signs].sort()).toEqual(["×", "÷"]);
   // Creating and varying pages never writes the file.
   expect((await appServer.readRaw()).equals(seeded)).toBe(true);
 });

@@ -17,6 +17,8 @@ import {
   emptyAppConfigV2,
 } from "../../src/shared/config/defaults.js";
 import {
+  DRY_MATH_STRANDS,
+  FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   PAPER_SIZES,
@@ -38,6 +40,7 @@ import {
 } from "../../src/shared/config/schema.js";
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
+  FACT_FACTOR_MAXIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../../src/shared/worksheet/types.js";
@@ -245,6 +248,49 @@ const PARITY_ROWS: Readonly<Record<string, ParityRow>> = {
     members: REGROUPING_MODES,
     probes: [...enumRow(REGROUPING_MODES).probes, probe("absent", undefined, true)],
   },
+  "$.defaults.dryMathStrand": {
+    members: DRY_MATH_STRANDS,
+    probes: [...enumRow(DRY_MATH_STRANDS).probes, probe("absent", undefined, true)],
+  },
+  "$.defaults.dryMathFacts": objectRow([probe("absent", undefined, true)]),
+  "$.defaults.dryMathFacts.operations": {
+    probes: [
+      probe("both operations", ["multiplication", "division"], true),
+      probe("empty", [], false),
+      probe("three entries", ["multiplication", "division", "multiplication"], false),
+      probe("a duplicate", ["division", "division"], false),
+      probe("reversed order", ["division", "multiplication"], { zod: false, transport: true }),
+    ],
+  },
+  "$.defaults.dryMathFacts.operations[]": enumItemsRow(FACT_OPERATIONS),
+  "$.defaults.dryMathFacts.factFamilies": {
+    probes: [
+      probe(
+        "every family",
+        Array.from({ length: FACT_FACTOR_MAXIMUM + 1 }, (_, family) => family),
+        true,
+      ),
+      probe("empty", [], false),
+      probe(
+        "one family too many",
+        Array.from({ length: FACT_FACTOR_MAXIMUM + 2 }, (_, family) => family),
+        false,
+      ),
+      probe("a duplicate", [2, 2], false),
+      probe("descending", [5, 2], { zod: false, transport: true }),
+    ],
+  },
+  "$.defaults.dryMathFacts.factFamilies[]": {
+    wholeArray: true,
+    probes: [
+      probe("[0]", [0], true),
+      probe(`[${FACT_FACTOR_MAXIMUM}]`, [FACT_FACTOR_MAXIMUM], true),
+      probe("[-1]", [-1], false),
+      probe(`[${FACT_FACTOR_MAXIMUM + 1}]`, [FACT_FACTOR_MAXIMUM + 1], false),
+      probe("[a fraction]", [2.5], false),
+      probe("[a numeric string]", ["2"], false),
+    ],
+  },
   "$.defaults.findTheWow": objectRow(),
   "$.defaults.findTheWow.variant": enumRow(FIND_THE_WOW_VARIANTS),
   "$.defaults.findTheWow.quantity": objectRow(),
@@ -434,6 +480,29 @@ describe("AppConfigV2 schema and composed transport parity", () => {
     // Mirror: a stored choice is read back as stored.
     earlier.defaults.dryMathRegrouping = "required";
     expect(AppConfigV2Schema.parse(earlier).defaults.dryMathRegrouping).toBe("required");
+  });
+
+  test("a version 2 file written before the strand and facts existed parses with their defaults", async () => {
+    const earlier = structuredClone(validConfig()) as unknown as {
+      defaults: Record<string, unknown>;
+    };
+    delete earlier.defaults.dryMathStrand;
+    delete earlier.defaults.dryMathFacts;
+    expect(Object.keys(earlier.defaults)).not.toContain("dryMathStrand");
+    expect(Object.keys(earlier.defaults)).not.toContain("dryMathFacts");
+    expect(await transportAccepts(earlier)).toBe(true);
+    const parsed = AppConfigV2Schema.parse(earlier);
+    expect(parsed.defaults.dryMathStrand).toBe("add-subtract");
+    expect(parsed.defaults.dryMathFacts).toEqual({
+      operations: ["multiplication"],
+      factFamilies: [2, 5, 10],
+    });
+    // Mirror: stored choices are read back as stored.
+    earlier.defaults.dryMathStrand = "multiply-divide";
+    earlier.defaults.dryMathFacts = { operations: ["division"], factFamilies: [0, 12] };
+    const stored = AppConfigV2Schema.parse(earlier);
+    expect(stored.defaults.dryMathStrand).toBe("multiply-divide");
+    expect(stored.defaults.dryMathFacts).toEqual({ operations: ["division"], factFamilies: [0, 12] });
   });
 
   test("every key path the transport schema declares has exactly one parity row", () => {

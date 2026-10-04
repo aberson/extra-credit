@@ -1,4 +1,5 @@
 import {
+  describeFactsFocus,
   describePracticeFocus,
   presentationBandForVocabulary,
 } from "../config/practice-focus.js";
@@ -14,6 +15,7 @@ import {
 } from "../../worksheets/count-compare-make/generator.js";
 import {
   DRY_MATH_DEFINITION,
+  FACTS_LIMITING_RESOURCE_ADVICE,
   getDryMathCapabilitySupport,
   getDryMathItemCount,
 } from "../../worksheets/dry-math/definition.js";
@@ -51,6 +53,7 @@ import {
 import {
   projectGenerationRequest,
   projectWorksheetCapabilities,
+  projectWorksheetPractice,
 } from "./project-request.js";
 import type {
   GenerationRequestV1,
@@ -142,6 +145,8 @@ export interface WorksheetApplicableControlsV1 {
   readonly vocabulary: boolean;
   /** Dry Math's "Carrying and borrowing" choice beside its addition and subtraction focus. */
   readonly regrouping: boolean;
+  /** Dry Math's "Fact families" choice beside its multiplication and division focus. */
+  readonly factFamilies: boolean;
   readonly length: boolean;
   readonly includeAnswerKey: boolean;
   readonly paperSize: boolean;
@@ -289,6 +294,25 @@ function numericLimitAdvice(
       )} range of this practice focus. Choose a practice focus with a wider range, or create a new worksheet later.`;
 }
 
+/** Whether this selection asks Dry Math for multiplication and division facts. */
+function dryMathFactsChosen(context: WorksheetControlContextV2): boolean {
+  return context.selection.dryMathStrand === "multiply-divide";
+}
+
+/**
+ * The status line Dry Math shows beside Create once a choice beyond the plain
+ * addition and subtraction focus changes the page, so the parent sees it.
+ */
+function dryMathStatusMessage(context: WorksheetControlContextV2): string | undefined {
+  const { dryMath, dryMathFacts, dryMathRegrouping } = context.selection;
+  if (dryMathFactsChosen(context)) {
+    return `Practice focus for Dry Math: ${describeFactsFocus(dryMathFacts)}.`;
+  }
+  return dryMathRegrouping === "required"
+    ? `Practice focus for Dry Math: ${describePracticeFocus("dry-math", dryMath, dryMathRegrouping)}.`
+    : undefined;
+}
+
 /** The capabilities this selection projects for one family. */
 function projectedSkills(
   context: WorksheetControlContextV2,
@@ -336,8 +360,9 @@ export const WORKSHEET_REGISTRY = {
       getCapabilitySupport: (context) => {
         const support = getDryMathCapabilitySupport(
           projectedSkills(context, DRY_MATH_DEFINITION.id),
+          projectWorksheetPractice(context.selection, DRY_MATH_DEFINITION.id),
         );
-        const { dryMath, dryMathRegrouping } = context.selection;
+        const statusMessage = dryMathStatusMessage(context);
         return support.available
           ? {
               available: true,
@@ -346,28 +371,27 @@ export const WORKSHEET_REGISTRY = {
                 context,
                 dryMathCapacityVerdict,
               ),
-              // Named once the choice changes the page, so the parent sees it
-              // beside Create.
-              ...(dryMathRegrouping === "required"
-                ? {
-                    statusMessage: `Practice focus for Dry Math: ${describePracticeFocus("dry-math", dryMath, dryMathRegrouping)}.`,
-                  }
-                : {}),
+              ...(statusMessage === undefined ? {} : { statusMessage }),
             }
           : { available: false, message: support.reason };
       },
-      getLimitingResourceAdvice: () =>
-        numericLimitAdvice(
-          DRY_MATH_DEFINITION.displayName,
-          OPERAND_RESULT_MAXIMUMS,
-        ),
-      getRelevantMaximums: () => OPERAND_RESULT_MAXIMUMS,
+      // A facts page reads no operand or result maximum: its variety is
+      // bounded by the chosen fact families alone.
+      getLimitingResourceAdvice: (context) =>
+        dryMathFactsChosen(context)
+          ? FACTS_LIMITING_RESOURCE_ADVICE
+          : numericLimitAdvice(
+              DRY_MATH_DEFINITION.displayName,
+              OPERAND_RESULT_MAXIMUMS,
+            ),
+      getRelevantMaximums: (context) =>
+        dryMathFactsChosen(context) ? NO_MAXIMUMS : OPERAND_RESULT_MAXIMUMS,
       getEffectiveUnit: ({ selection }) => ({
         count: getDryMathItemCount(selection.length, selection.printScale),
         singularLabel: "problem",
         pluralLabel: "problems",
       }),
-      getApplicableControls: () => ({
+      getApplicableControls: (context) => ({
         useDisplayName: true,
         useInterests: false,
         includeDecorativeGraphics: false,
@@ -375,7 +399,8 @@ export const WORKSHEET_REGISTRY = {
         practiceFocus: true,
         variant: false,
         vocabulary: false,
-        regrouping: true,
+        regrouping: !dryMathFactsChosen(context),
+        factFamilies: dryMathFactsChosen(context),
         length: true,
         includeAnswerKey: true,
         paperSize: true,
@@ -423,6 +448,7 @@ export const WORKSHEET_REGISTRY = {
         variant: true,
         vocabulary: false,
         regrouping: false,
+        factFamilies: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
@@ -505,6 +531,7 @@ export const WORKSHEET_REGISTRY = {
         variant: true,
         vocabulary: true,
         regrouping: false,
+        factFamilies: false,
         length: isBankWritingMode(selection.sentenceBuilder.variant),
         includeAnswerKey: false,
         paperSize: true,
@@ -556,6 +583,7 @@ export const WORKSHEET_REGISTRY = {
         variant: false,
         vocabulary: false,
         regrouping: false,
+        factFamilies: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,

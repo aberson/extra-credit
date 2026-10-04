@@ -9,6 +9,7 @@ import { getWorksheetRegistration } from "../../../src/shared/worksheet/registry
 import { PRACTICE_FOCUS_CATALOG } from "../../../src/shared/config/practice-focus.ts";
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
+  FACT_FACTOR_MAXIMUM,
   V1_NUMERIC_MAXIMUM,
   type PrintScale,
 } from "../../../src/shared/worksheet/types.ts";
@@ -81,6 +82,20 @@ export const printFixtures: readonly PrintFixture[] = [
       worksheetType: "dry-math",
       dryMath: dryMathFocusWithin100(),
       dryMathRegrouping: "required",
+    },
+    letterStandardOnly: true,
+  },
+  {
+    id: "dry-math-facts-144",
+    profileIndex: 2,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "dry-math",
+      dryMathStrand: "multiply-divide",
+      dryMathFacts: {
+        operations: ["multiplication", "division"],
+        factFamilies: Array.from({ length: FACT_FACTOR_MAXIMUM + 1 }, (_, family) => family),
+      },
     },
     letterStandardOnly: true,
   },
@@ -215,6 +230,31 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
           item.itemType === "dry-math" &&
           item.operation === "subtraction" &&
           item.leftOperand === DRY_MATH_NUMERIC_MAXIMUM,
+      )
+    ) {
+      continue;
+    }
+    // Multiplication and division facts: search for the widest rows, a
+    // three-digit dividend over a two-digit divisor and a product of two
+    // two-digit factors.
+    if (
+      selection.worksheetType === "dry-math" &&
+      selection.dryMathStrand === "multiply-divide" &&
+      !(
+        generated.document.items.some(
+          (item) =>
+            item.itemType === "dry-math" &&
+            item.operation === "division" &&
+            item.leftOperand >= 100 &&
+            item.rightOperand >= 10,
+        ) &&
+        generated.document.items.some(
+          (item) =>
+            item.itemType === "dry-math" &&
+            item.operation === "multiplication" &&
+            item.leftOperand >= 10 &&
+            item.rightOperand >= 10,
+        )
       )
     ) {
       continue;

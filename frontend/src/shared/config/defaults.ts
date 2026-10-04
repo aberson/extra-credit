@@ -9,6 +9,8 @@
 import { MATH_PRESETS } from "./math-presets.js";
 import {
   APP_CONFIG_SCHEMA_VERSION,
+  DEFAULT_DRY_MATH_FACTS_OPERATIONS,
+  DEFAULT_FACT_FAMILIES,
   type AppConfigV2,
   type ArithmeticFocusV2,
   type ThemeChoice,
@@ -43,6 +45,11 @@ export const DEFAULT_WORKSHEET_DEFAULTS_V2: Readonly<WorksheetDefaultsV2> =
     worksheetType: "dry-math",
     dryMath: arithmeticFocusFrom("early-primary-within-10"),
     dryMathRegrouping: "without",
+    dryMathStrand: "add-subtract",
+    dryMathFacts: {
+      operations: [...DEFAULT_DRY_MATH_FACTS_OPERATIONS],
+      factFamilies: [...DEFAULT_FACT_FAMILIES],
+    },
     findTheWow: {
       variant: "quantity",
       quantity: {
@@ -85,6 +92,10 @@ export function cloneWorksheetDefaults(
   return {
     ...defaults,
     dryMath: { ...defaults.dryMath, operations: [...defaults.dryMath.operations] },
+    dryMathFacts: {
+      operations: [...defaults.dryMathFacts.operations],
+      factFamilies: [...defaults.dryMathFacts.factFamilies],
+    },
     findTheWow: {
       variant: defaults.findTheWow.variant,
       quantity: { ...defaults.findTheWow.quantity },
@@ -113,6 +124,8 @@ export function worksheetSelectionOf(
     worksheetType: copy.worksheetType,
     dryMath: copy.dryMath,
     dryMathRegrouping: copy.dryMathRegrouping,
+    dryMathStrand: copy.dryMathStrand,
+    dryMathFacts: copy.dryMathFacts,
     findTheWow: copy.findTheWow,
     sentenceBuilder: copy.sentenceBuilder,
     countCompareMake: copy.countCompareMake,

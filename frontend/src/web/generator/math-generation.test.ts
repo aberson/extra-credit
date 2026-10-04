@@ -15,6 +15,7 @@ import type { DryMathItemV1 } from "../../shared/worksheet/types";
 import {
   judgeDocument,
   oracleCandidateKeys,
+  oracleFactKeys,
   oracleRegroups,
 } from "../../../tests/oracles/arithmetic-oracle";
 import {
@@ -121,6 +122,81 @@ describe("Dry Math carrying and borrowing through the production caller", () => 
     expect(new Set(first)).toEqual(
       oracleCandidateKeys({ ...focusOf("addition-and-subtraction-within-10"), regrouping: "required" }),
     );
+    const seeds = [0x0000_0002, 0x0000_0003, 0x0000_0004];
+    const another = makeAnotherWorksheetSession(
+      created.session,
+      selected,
+      () => seeds.shift() ?? 0x0000_0005,
+      DEPENDENCIES,
+    );
+    expect(another.status).toBe("changed");
+    if (another.status !== "changed") {
+      return;
+    }
+    const second = itemKeys(another.session.document.items);
+    expect(new Set(second)).toEqual(new Set(first));
+    expect(second).not.toEqual(first);
+    expect(judgeDocument(another.session.document)).toEqual([]);
+  });
+});
+
+describe("Dry Math multiplication and division facts through the production caller", () => {
+  function factsGeneration(
+    operations: WorksheetSelectionV2["dryMathFacts"]["operations"],
+    factFamilies: readonly number[],
+    length: WorksheetSelectionV2["length"],
+  ): GenerationSelection {
+    return {
+      profile: fictionalChild,
+      selection: {
+        ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+        worksheetType: "dry-math",
+        dryMathStrand: "multiply-divide",
+        dryMathFacts: { operations: [...operations], factFamilies: [...factFamilies] },
+        length,
+      },
+    };
+  }
+
+  test("families 3, 7 and 12 with both operations: a validated document whose every fact the oracle finds in those families", () => {
+    const created = createWorksheetSessionForSeed(
+      factsGeneration(["multiplication", "division"], [3, 7, 12], "long"),
+      0x2025_0025,
+      DEPENDENCIES,
+    );
+    if (!created.ok) {
+      throw new Error(created.message);
+    }
+    const { document } = created.session;
+    expect(document.request.practice).toEqual({
+      kind: "dry-math-facts",
+      operations: ["multiplication", "division"],
+      factFamilies: [3, 7, 12],
+    });
+    expect(document.items).toHaveLength(18);
+    expect(validateWorksheetInvariants(document)).toBeUndefined();
+    expect(judgeDocument(document)).toEqual([]);
+    const allowed = oracleFactKeys(["multiplication", "division"], [3, 7, 12]);
+    for (const key of itemKeys(document.items)) {
+      expect(allowed.has(key), key).toBe(true);
+    }
+    // Mirror: the same seed with other families draws other facts.
+    const other = createWorksheetSessionForSeed(
+      factsGeneration(["multiplication", "division"], [4, 9], "long"),
+      0x2025_0025,
+      DEPENDENCIES,
+    );
+    expect(other.ok && itemKeys(other.session.document.items)).not.toEqual(itemKeys(document.items));
+  });
+
+  test("division with family 0 alone fills Standard exactly, so Make another reorders the same twelve facts", () => {
+    const selected = factsGeneration(["division"], [0], "standard");
+    const created = createWorksheetSessionForSeed(selected, 0x0000_0001, DEPENDENCIES);
+    if (!created.ok) {
+      throw new Error(created.message);
+    }
+    const first = itemKeys(created.session.document.items);
+    expect(new Set(first)).toEqual(oracleFactKeys(["division"], [0]));
     const seeds = [0x0000_0002, 0x0000_0003, 0x0000_0004];
     const another = makeAnotherWorksheetSession(
       created.session,

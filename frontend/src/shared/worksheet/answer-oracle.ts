@@ -28,15 +28,26 @@ type ObjectiveItemOf<TItemType extends ObjectiveItemType> = Extract<
 >;
 
 type AnswerRecomputation<TItem> =
-  | ((item: TItem) => ObjectiveAnswerV1)
+  | ((item: TItem) => ObjectiveAnswerV1 | undefined)
   | typeof FAMILY_VALIDATED;
 
-function dryMathAnswer(item: DryMathItemV1): ObjectiveAnswerV1 {
+/**
+ * A Dry Math answer from the item's own operands. A division has an answer
+ * only when it is exact with a nonzero divisor; any other division has none.
+ */
+function dryMathAnswer(item: DryMathItemV1): ObjectiveAnswerV1 | undefined {
+  const { leftOperand, rightOperand } = item;
   switch (item.operation) {
     case "addition":
-      return { kind: "number", value: item.leftOperand + item.rightOperand };
+      return { kind: "number", value: leftOperand + rightOperand };
     case "subtraction":
-      return { kind: "number", value: item.leftOperand - item.rightOperand };
+      return { kind: "number", value: leftOperand - rightOperand };
+    case "multiplication":
+      return { kind: "number", value: leftOperand * rightOperand };
+    case "division":
+      return rightOperand !== 0 && leftOperand % rightOperand === 0
+        ? { kind: "number", value: leftOperand / rightOperand }
+        : undefined;
   }
 }
 
@@ -51,12 +62,13 @@ const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
 };
 
 /**
- * The answer an objective item's own fields imply, or `FAMILY_VALIDATED` when
- * its family's validator owns that answer.
+ * The answer an objective item's own fields imply, `FAMILY_VALIDATED` when its
+ * family's validator owns that answer, or `undefined` when its fields imply no
+ * answer at all (a division with a remainder or by zero).
  */
 export function recomputeObjectiveAnswer(
   item: ObjectiveItemV1,
-): ObjectiveAnswerV1 | typeof FAMILY_VALIDATED {
+): ObjectiveAnswerV1 | typeof FAMILY_VALIDATED | undefined {
   switch (item.itemType) {
     case "dry-math":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["dry-math"](item);
@@ -69,7 +81,8 @@ export function recomputeObjectiveAnswer(
 
 /**
  * Whether an item's stored answer equals the one its fields imply. A
- * family-validated item reports `FAMILY_VALIDATED`, never a verdict.
+ * family-validated item reports `FAMILY_VALIDATED`, never a verdict, and an
+ * item whose fields imply no answer never matches.
  */
 export function objectiveAnswerMatches(
   item: ObjectiveItemV1,
@@ -78,5 +91,9 @@ export function objectiveAnswerMatches(
   if (expected === FAMILY_VALIDATED) {
     return FAMILY_VALIDATED;
   }
-  return expected.kind === item.answer.kind && expected.value === item.answer.value;
+  return (
+    expected !== undefined &&
+    expected.kind === item.answer.kind &&
+    expected.value === item.answer.value
+  );
 }

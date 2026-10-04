@@ -128,6 +128,8 @@ export function requiredPrintContent(
       case "dry-math":
         text(`${selector} > span`,
           `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ____`);
+        // The sign prints in its own element, so its own visibility is checked.
+        text(`${selector} [data-operator]`, item.renderedSymbol);
         break;
       case "sentence":
         sentenceContent(item, selector);

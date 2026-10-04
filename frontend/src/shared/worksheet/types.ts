@@ -1,4 +1,5 @@
 import type {
+  FACT_OPERATIONS,
   PAPER_SIZES,
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
@@ -40,6 +41,16 @@ export const V1_NUMERIC_MAXIMUM = 20;
 
 /** Symbolic Dry Math supports larger facts without enlarging dot/frame tasks. */
 export const DRY_MATH_NUMERIC_MAXIMUM = 100;
+
+/**
+ * The largest factor, divisor and quotient of a Dry Math multiplication or
+ * division fact, and so the largest fact family (math-activities plan, P3 and
+ * DD9). Every reader imports it rather than restating the number.
+ */
+export const FACT_FACTOR_MAXIMUM = 12;
+
+/** The largest dividend of a Dry Math division fact: the largest product of two factors. */
+export const FACT_DIVIDEND_MAXIMUM = FACT_FACTOR_MAXIMUM * FACT_FACTOR_MAXIMUM;
 
 export function worksheetMaximum(
   worksheetType: WorksheetType,
@@ -92,6 +103,10 @@ export type TopicId = (typeof TOPIC_IDS)[number];
 export type SeedHex = string;
 
 export type MathOperation = MathSkillsV1["operations"][number];
+/** Dry Math's multiplication and division facts, which never reach `mathSkills`. */
+export type FactOperation = (typeof FACT_OPERATIONS)[number];
+/** Every operation a Dry Math item can hold: the two arithmetic ones and the two fact ones. */
+export type DryMathOperation = MathOperation | FactOperation;
 export type MathRepresentation = MathSkillsV1["representations"][number];
 // `enums.ts` imports `TOPIC_IDS` from this module as a value, so these three
 // derive from its arrays through `import type` only (D30).
@@ -136,12 +151,20 @@ export interface GenerationOptionsV1 {
  * What a math family practises beyond its `mathSkills` focus (math-activities
  * plan, Appendix A.3). Dry Math's "Every problem carries or borrows" is the
  * add-subtract kind; "Without carrying or borrowing" is no `practice` member at
- * all, so every request an earlier build produced keeps its exact shape.
+ * all, so every request an earlier build produced keeps its exact shape. Dry
+ * Math's multiplication and division facts are the facts kind: its operations
+ * in canonical order and its fact families in ascending order.
  */
-export type PracticeRequestV1 = {
-  readonly kind: "dry-math-add-subtract";
-  readonly regrouping: "required";
-};
+export type PracticeRequestV1 =
+  | {
+      readonly kind: "dry-math-add-subtract";
+      readonly regrouping: "required";
+    }
+  | {
+      readonly kind: "dry-math-facts";
+      readonly operations: readonly FactOperation[];
+      readonly factFamilies: readonly number[];
+    };
 
 export interface GenerationRequestV1 {
   readonly schemaVersion: 1;
@@ -176,12 +199,16 @@ interface OpenItemBaseV1 {
   readonly answer: null;
 }
 
+/**
+ * One Dry Math problem. A division keeps the dividend as `leftOperand` and the
+ * divisor as `rightOperand`, so every item reads left to right as printed.
+ */
 export interface DryMathItemV1 extends ObjectiveItemBaseV1 {
   readonly itemType: "dry-math";
-  readonly operation: MathOperation;
+  readonly operation: DryMathOperation;
   readonly leftOperand: number;
   readonly rightOperand: number;
-  readonly renderedSymbol: "+" | "−";
+  readonly renderedSymbol: "+" | "−" | "×" | "÷";
   readonly answer: { readonly kind: "number"; readonly value: number };
 }
 

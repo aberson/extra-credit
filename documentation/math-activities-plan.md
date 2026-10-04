@@ -246,6 +246,7 @@ Every kept step runs `--reviewers code --isolation worktree`, with no `--ui`, st
 - **Type:** code
 - **Issue:** #36
 - **Flags:** --reviewers code --isolation worktree
+- **Status:** DONE (2026-10-04)
 - **Files:**
   - Worksheet: `frontend/src/shared/worksheet/{types.ts,arithmetic.ts,arithmetic.test.ts,answer-oracle.ts,answer-oracle.test.ts,invariants.ts,project-request.ts,project-request.test.ts,registry.ts,limit-labels.ts,limit-labels.test.ts}`; Dry Math: `frontend/src/worksheets/dry-math/{definition.ts,generator.ts,generator.test.ts}`.
   - Config and transport: `frontend/src/shared/config/{enums.ts,schema.ts,defaults.ts,practice-focus.ts,practice-focus.test.ts}`; `frontend/src/server/transport-schemas.ts`; `frontend/tests/integration/schema-parity.test.ts`.

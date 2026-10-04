@@ -7,6 +7,7 @@ import {
 } from "../config/defaults.js";
 import { profileWithLegacyChoices } from "../config/earlier-settings.js";
 import {
+  DRY_MATH_STRANDS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   PAPER_SIZES,
@@ -28,6 +29,7 @@ import type {
   ArithmeticFocusV2,
   ChildProfileV1,
   ChildProfileV2,
+  DryMathFactsV2,
   WorksheetSelectionV2,
 } from "../config/schema.js";
 import {
@@ -43,6 +45,7 @@ import { canonicalContentKey } from "./invariants.js";
 import { getWorksheetRegistration } from "./registry.js";
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
+  FACT_FACTOR_MAXIMUM,
   REVIEWED_TOPIC_IDS,
   TOPIC_IDS,
   V1_NUMERIC_MAXIMUM,
@@ -454,11 +457,26 @@ function arithmeticFocusArbitrary(ceiling: number): fc.Arbitrary<ArithmeticFocus
 
 const quantityMaximum = fc.integer({ min: 1, max: V1_NUMERIC_MAXIMUM });
 
+/** Any schema-valid facts choice: one or both operations and at least one family. */
+const factsArbitrary: fc.Arbitrary<DryMathFactsV2> = fc.record({
+  operations: fc.constantFrom<DryMathFactsV2["operations"]>(
+    ["multiplication"],
+    ["division"],
+    ["multiplication", "division"],
+  ),
+  factFamilies: fc.subarray(
+    Array.from({ length: FACT_FACTOR_MAXIMUM + 1 }, (_, family) => family),
+    { minLength: 1 },
+  ),
+});
+
 /** Any schema-valid worksheet selection. */
 const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
   worksheetType: fc.constantFrom(...WORKSHEET_TYPE_IDS),
   dryMath: arithmeticFocusArbitrary(DRY_MATH_NUMERIC_MAXIMUM),
   dryMathRegrouping: fc.constantFrom(...REGROUPING_MODES),
+  dryMathStrand: fc.constantFrom(...DRY_MATH_STRANDS),
+  dryMathFacts: factsArbitrary,
   findTheWow: fc.record({
     variant: fc.constantFrom(...FIND_THE_WOW_VARIANTS),
     quantity: fc.record({ countingMax: quantityMaximum, numeralMax: quantityMaximum }),
@@ -508,6 +526,8 @@ function withOwnFields(
         ...shared,
         dryMath: source.dryMath,
         dryMathRegrouping: source.dryMathRegrouping,
+        dryMathStrand: source.dryMathStrand,
+        dryMathFacts: source.dryMathFacts,
       };
     case "find-the-wow":
       return {
@@ -614,6 +634,73 @@ describe("the carrying and borrowing choice reaches only Dry Math's request", ()
       const carrying = {
         ...request,
         practice: { kind: "dry-math-add-subtract", regrouping: "required" },
+      } as const satisfies GenerationRequestV1;
+      expect(itemsFor(carrying)).toHaveProperty("refused");
+    },
+  );
+});
+
+describe("Dry Math reads only the strand it shows", () => {
+  test("property: with add-subtract the facts never reach the request, and with multiply-divide the addition and subtraction choices never do", () => {
+    fc.assert(
+      fc.property(selectionArbitrary, selectionArbitrary, (source, noise) => {
+        const addSubtract = selectionFor("dry-math", { ...source, dryMathStrand: "add-subtract" });
+        expect(
+          requestFor({ ...addSubtract, dryMathFacts: noise.dryMathFacts }),
+        ).toEqual(requestFor(addSubtract));
+        const facts = selectionFor("dry-math", { ...source, dryMathStrand: "multiply-divide" });
+        expect(
+          requestFor({
+            ...facts,
+            dryMath: noise.dryMath,
+            dryMathRegrouping: noise.dryMathRegrouping,
+          }),
+        ).toEqual(requestFor(facts));
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  test("multiply-divide projects the facts kind and inactive math fields with equations", () => {
+    const dryMathFacts: DryMathFactsV2 = {
+      operations: ["multiplication", "division"],
+      factFamilies: [3, 7, 12],
+    };
+    const request = requestFor(
+      selectionFor("dry-math", {
+        dryMathStrand: "multiply-divide",
+        dryMathFacts,
+        dryMathRegrouping: "required",
+      }),
+    );
+    expect(request.practice).toEqual({ kind: "dry-math-facts", ...dryMathFacts });
+    expect(request.capabilities.mathSkills).toEqual({
+      ...INACTIVE_MATH_FIELDS,
+      representations: ["equations"],
+    });
+    // Mirror: the same facts on the add-subtract strand project no member.
+    const addSubtract = requestFor(selectionFor("dry-math", { dryMathFacts }));
+    expect(addSubtract).not.toHaveProperty("practice");
+    expect(addSubtract.capabilities.mathSkills.operations).toEqual(
+      baseSelection.dryMath.operations,
+    );
+  });
+
+  test.each(["find-the-wow", "sentence-builder", "count-compare-make"] as const)(
+    "%s ignores a saved multiply-divide strand and refuses a facts member",
+    (worksheetType) => {
+      const plain = requestFor(selectionFor(worksheetType));
+      const request = requestFor(
+        selectionFor(worksheetType, { dryMathStrand: "multiply-divide" }),
+      );
+      expect(request).toEqual(plain);
+      const carrying = {
+        ...request,
+        practice: {
+          kind: "dry-math-facts",
+          operations: ["multiplication"],
+          factFamilies: [2],
+        },
       } as const satisfies GenerationRequestV1;
       expect(itemsFor(carrying)).toHaveProperty("refused");
     },

@@ -135,7 +135,12 @@ export function projectWorksheetCapabilities(
     case "dry-math":
       return {
         ...INACTIVE_WRITING_CAPABILITIES,
-        mathSkills: arithmeticMath(selection.dryMath, false),
+        // A facts page reads no addition and subtraction focus: its facts
+        // travel in the `practice` member, so every focus field stays inactive.
+        mathSkills:
+          selection.dryMathStrand === "multiply-divide"
+            ? { ...inactiveMath(), representations: ["equations"] }
+            : arithmeticMath(selection.dryMath, false),
       };
     case "find-the-wow":
       return {
@@ -225,16 +230,29 @@ function projectDecorativeTopicId(
 }
 
 /**
- * The `practice` member a selection projects (math-activities plan, Appendix
- * A.3): Dry Math's "Every problem carries or borrows" only. "Without carrying
- * or borrowing", and every other family whatever its saved regrouping choice,
- * projects no member, so those requests keep their earlier exact shape.
+ * The `practice` member a selection projects for one family (math-activities
+ * plan, Appendix A.3). Dry Math's multiply-divide strand projects the facts
+ * kind from `dryMathFacts` alone; its add-subtract strand projects the
+ * add-subtract kind only for "Every problem carries or borrows". "Without
+ * carrying or borrowing", and every other family whatever its saved Dry Math
+ * choices, projects no member, so those requests keep their earlier exact
+ * shape.
  */
-function projectPractice(
+export function projectWorksheetPractice(
   selection: WorksheetSelectionV2,
+  worksheetType: WorksheetType,
 ): PracticeRequestV1 | undefined {
-  return selection.worksheetType === "dry-math" &&
-    selection.dryMathRegrouping === "required"
+  if (worksheetType !== "dry-math") {
+    return undefined;
+  }
+  if (selection.dryMathStrand === "multiply-divide") {
+    return {
+      kind: "dry-math-facts",
+      operations: [...selection.dryMathFacts.operations],
+      factFamilies: [...selection.dryMathFacts.factFamilies],
+    };
+  }
+  return selection.dryMathRegrouping === "required"
     ? { kind: "dry-math-add-subtract", regrouping: "required" }
     : undefined;
 }
@@ -287,7 +305,7 @@ export function projectGenerationRequest(
       ? input.profile.displayName
       : undefined;
   const decorativeTopicId = projectDecorativeTopicId(selection, input.profile);
-  const practice = projectPractice(selection);
+  const practice = projectWorksheetPractice(selection, worksheetType);
 
   return {
     ok: true,

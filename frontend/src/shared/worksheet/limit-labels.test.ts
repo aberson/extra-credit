@@ -30,6 +30,7 @@ import {
 } from "../../worksheets/count-compare-make/definition.js";
 import { countCompareCapacityFormula } from "../../worksheets/count-compare-make/generator.js";
 import {
+  FACTS_LIMITING_RESOURCE_ADVICE,
   WITHOUT_REGROUPING_FILLS_SENTENCE,
   getDryMathCapabilitySupport,
   getDryMathItemCount,
@@ -64,8 +65,13 @@ import {
 import {
   projectGenerationRequest,
   projectWorksheetCapabilities,
+  projectWorksheetPractice,
 } from "./project-request.js";
-import { V1_NUMERIC_MAXIMUM, type WorksheetLength } from "./types.js";
+import {
+  FACT_FACTOR_MAXIMUM,
+  V1_NUMERIC_MAXIMUM,
+  type WorksheetLength,
+} from "./types.js";
 import {
   CAPACITY_PROBE_PREFERENCES,
   CAPACITY_PROBE_SEED,
@@ -480,6 +486,11 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     note: "advice derived from a non-empty declared maximum list",
   },
   {
+    id: "NA-facts",
+    status: "reachable",
+    note: "a Dry Math facts page reads no focus maximum: it declares none, and its advice names the chosen fact families",
+  },
+  {
     id: "FRM-none",
     status: "dead",
     note: "same reason as NA-empty: the Statements variant always resolves a mode",
@@ -582,7 +593,7 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
   {
     id: "DCS-no-operation",
     status: "dead",
-    note: "dead over the whole selection domain: the schema's minimum of one operation and of 1 for both maxima",
+    note: "dead over the whole selection domain: the schema's minimum of one operation and of 1 for both maxima, and a facts page's operations travel in its practice member, which the gate reads instead",
   },
   { id: "DCS-available", status: "reachable", note: "Dry Math capability gate open" },
   {
@@ -661,6 +672,21 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     note: "a Dry Math page that must carry or borrow fell short and the same focus without carrying or borrowing fills it: addition within 5 holds no carrying fact and 21 without, which fills every budget",
   },
   {
+    id: "FSH-families-or-shorter",
+    status: "reachable",
+    note: "a facts page fell short and a shorter length fills: division with family 0 alone holds 12 facts, which Long at standard (18) lacks and Standard fills",
+  },
+  {
+    id: "FSH-families-only",
+    status: "dead",
+    note: "every nonempty family set and operation choice gives at least 12 facts, which fills every Short and Standard budget, so a shorter length always fills whenever Long falls short",
+  },
+  {
+    id: "FSH-shorter-only",
+    status: "dead",
+    note: "the only facts shortfall is division with family 0 alone, and adding any family gives at least 35 facts, so more fact families always help; the facts sentence has no shorter-only branch",
+  },
+  {
     id: "RG-without-short",
     status: "reachable",
     note: "a Dry Math page that must carry or borrow fell short and the same focus without it does not fill either: addition with operand and result maxima of 1 holds no carrying fact and 3 without",
@@ -719,6 +745,7 @@ const RETIRED_ARMS: readonly { readonly id: string; readonly deletedPath: string
  * pasting the observed set back in without deciding the new prose is right.
  */
 const DECLARED_SENTENCE_SHAPES: readonly string[] = [
+  "The chosen fact families give N unique facts, but this length needs N. Choose more fact families, or a shorter length under More options.",
   "This practice focus provides N unique equation groups, but this length needs N. Choose a practice focus with a wider results range.",
   "This practice focus provides N unique equation groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider operands range.",
   "This practice focus provides N unique equation groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider results range.",
@@ -1043,6 +1070,25 @@ const REGROUPING_SOURCES: readonly SweepSource[] = [
   },
 ];
 
+/**
+ * Dry Math multiplication and division facts: each operation choice with
+ * family 0 alone (the one shortfall), the default families and every family.
+ */
+const FACTS_SOURCES: readonly SweepSource[] = (
+  [["multiplication"], ["division"], ["multiplication", "division"]] as const
+).flatMap((operations) =>
+  [[0], [2, 5, 10], Array.from({ length: FACT_FACTOR_MAXIMUM + 1 }, (_, family) => family)].map(
+    (factFamilies) => ({
+      name: `facts ${operations.join("+")} {${factFamilies.join(",")}}`,
+      selection: {
+        ...SWEEP_BASE,
+        dryMathStrand: "multiply-divide" as const,
+        dryMathFacts: { operations: [...operations], factFamilies },
+      },
+    }),
+  ),
+);
+
 const SWEEP_SOURCES: readonly SweepSource[] = [
   ...CATALOG_SOURCES,
   ...PROBE_PROFILES.map((profile) => ({
@@ -1052,6 +1098,7 @@ const SWEEP_SOURCES: readonly SweepSource[] = [
   { name: "earlier D34", selection: earlierSelection(D34_PROFILE) },
   { name: "earlier D36", selection: earlierSelection(D36_PROFILE) },
   ...REGROUPING_SOURCES,
+  ...FACTS_SOURCES,
 ];
 
 // --- observation -----------------------------------------------------------
@@ -1236,14 +1283,16 @@ describe("every declared arm of the capacity and advice surface", () => {
             }
             if (worksheetType === "dry-math") {
               const hasEquations = projectedSkills.representations.includes("equations");
+              const practice = projectWorksheetPractice(selection, worksheetType);
               const dryArm = !hasEquations
                 ? "DCS-no-equations"
-                : projectedSkills.operations.length === 0 ||
-                    projectedSkills.operandMax < 1 ||
-                    projectedSkills.resultMax < 1
+                : practice?.kind !== "dry-math-facts" &&
+                    (projectedSkills.operations.length === 0 ||
+                      projectedSkills.operandMax < 1 ||
+                      projectedSkills.resultMax < 1)
                   ? "DCS-no-operation"
                   : "DCS-available";
-              const dryMath = getDryMathCapabilitySupport(projectedSkills);
+              const dryMath = getDryMathCapabilitySupport(projectedSkills, practice);
               expect(`${where}: ${dryArm} -> ${dryMath.available}`).toBe(
                 `${where}: ${dryArm} -> ${dryArm === "DCS-available"}`,
               );
@@ -1282,7 +1331,17 @@ describe("every declared arm of the capacity and advice surface", () => {
 
             // The declared-maximum list and the advice derived from it.
             const maximums = registration.controls.getRelevantMaximums(context);
-            if (worksheetType !== "sentence-builder") {
+            const factsPage =
+              worksheetType === "dry-math" && selection.dryMathStrand === "multiply-divide";
+            if (factsPage) {
+              // A facts page reads no focus maximum, so its advice names the
+              // fact families and never a numeric range.
+              observe("NA-facts");
+              expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
+              expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
+                `${where}: ${FACTS_LIMITING_RESOURCE_ADVICE}`,
+              );
+            } else if (worksheetType !== "sentence-builder") {
               const advice =
                 registration.controls.getLimitingResourceAdvice(context);
               observe(maximums.length === 0 ? "NA-empty" : "NA-nonempty");
@@ -1351,7 +1410,28 @@ describe("every declared arm of the capacity and advice surface", () => {
             }
 
             const labels = namedLimitLabels(message);
-            if (message !== "") {
+            if (message !== "" && factsPage) {
+              collectSentence(message);
+              // The shorter-length clause appears exactly when some shorter
+              // length's budget fits the count the sentence states.
+              const stated = /^The chosen fact families give (\d+) unique facts, but this length needs (\d+)\./u.exec(message);
+              const capacity = Number(stated?.[1]);
+              const shorterFits = WORKSHEET_LENGTHS.slice(0, WORKSHEET_LENGTHS.indexOf(length)).some(
+                (shorter) => getDryMathItemCount(shorter, printScale) <= capacity,
+              );
+              const offersShorter = message.endsWith(
+                " Choose more fact families, or a shorter length under More options.",
+              );
+              const familiesOnly = message.endsWith(" Choose more fact families.");
+              expect(`${where}: ${offersShorter}`).toBe(`${where}: ${shorterFits}`);
+              observe(
+                offersShorter
+                  ? "FSH-families-or-shorter"
+                  : familiesOnly
+                    ? "FSH-families-only"
+                    : "FSH-shorter-only",
+              );
+            } else if (message !== "") {
               collectSentence(message);
               // The empty arm is emitted from the same site as the other
               // two, so "no remedy named a maximum" is a declared arm the
@@ -1367,7 +1447,7 @@ describe("every declared arm of the capacity and advice surface", () => {
               observe(`SL-${length}-${offersShorterLength(message)}`);
             }
 
-            if (worksheetType === "dry-math") {
+            if (worksheetType === "dry-math" && !factsPage) {
               observe(
                 support.capacity.sufficient
                   ? "DSF-suff"
@@ -1580,6 +1660,7 @@ describe("every declared arm of the capacity and advice surface", () => {
     expect(insufficientSources).toContain("earlier D36 find-the-wow");
     expect(insufficientSources).toContain("earlier D34 required dry-math");
     expect(insufficientSources).toContain("catalog dry-math addition-within-5 required dry-math");
+    expect(insufficientSources).toContain("facts division {0} dry-math");
   });
 });
 

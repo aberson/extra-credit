@@ -288,6 +288,72 @@ describe("touched groups", () => {
     expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
   });
 
+  test("a Dry Math practice choice sets the strand and one other group, touches both and raises the epoch once", () => {
+    const start = loaded(seedingDefaults, [equationChild, secondChild]);
+    expect(start.selection.dryMathStrand).toBe("add-subtract");
+    expect(start.selection.dryMathFacts).toEqual({
+      operations: ["multiplication"],
+      factFamilies: [2, 5, 10],
+    });
+    const facts = apply(start, {
+      type: "dryMathPracticeChosen",
+      strand: "multiply-divide",
+      dryMathFacts: { operations: ["division"], factFamilies: [2, 5, 10] },
+    });
+    expect(WORKSHEET_GROUP_KEYS.filter((key) => facts.touched[key])).toEqual([
+      "dryMathStrand",
+      "dryMathFacts",
+    ]);
+    expect(facts.previewEpoch).toBe(start.previewEpoch + 1);
+    expect(facts.selection).toEqual({
+      ...start.selection,
+      dryMathStrand: "multiply-divide",
+      dryMathFacts: { operations: ["division"], factFamilies: [2, 5, 10] },
+    });
+    // The other strand's choice is kept, and still follows the child while untouched.
+    const switched = apply(facts, { type: "childSelected", childId: secondChild.id });
+    expect(switched.selection.dryMathStrand).toBe("multiply-divide");
+    expect(switched.selection.dryMath).toEqual(seededFrom(seedingDefaults, secondChild).dryMath);
+    // Mirror: an addition and subtraction entry touches dryMath, not the facts.
+    const back = apply(switched, {
+      type: "dryMathPracticeChosen",
+      strand: "add-subtract",
+      dryMath: { operations: ["addition"], operandMax: 20, resultMax: 20 },
+    });
+    expect(WORKSHEET_GROUP_KEYS.filter((key) => back.touched[key])).toEqual([
+      "dryMath",
+      "dryMathStrand",
+      "dryMathFacts",
+    ]);
+    expect(back.previewEpoch).toBe(switched.previewEpoch + 1);
+    expect(back.selection.dryMathStrand).toBe("add-subtract");
+    expect(back.selection.dryMathFacts.operations).toEqual(["division"]);
+    const body = defaultsForSave(back);
+    expect(body.dryMathStrand).toBe("add-subtract");
+    expect(body.dryMathFacts).toEqual({ operations: ["division"], factFamilies: [2, 5, 10] });
+    expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
+  });
+
+  test("the reducer never empties the fact families or operations", () => {
+    const start = loaded(defaults(), [identityChild]);
+    expect(
+      apply(start, groupChanged("dryMathFacts", { operations: ["multiplication"], factFamilies: [] })),
+    ).toBe(start);
+    expect(
+      apply(start, {
+        type: "dryMathPracticeChosen",
+        strand: "multiply-divide",
+        dryMathFacts: { operations: [], factFamilies: [3] },
+      }),
+    ).toBe(start);
+    // Mirror: a nonempty list is applied.
+    const one = apply(
+      start,
+      groupChanged("dryMathFacts", { operations: ["multiplication"], factFamilies: [0] }),
+    );
+    expect(one.selection.dryMathFacts.factFamilies).toEqual([0]);
+  });
+
   test("survive a child switch while untouched groups follow the new child", () => {
     const state = apply(touchedState(), {
       type: "childSelected",

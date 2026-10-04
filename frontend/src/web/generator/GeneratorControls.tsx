@@ -6,9 +6,11 @@ import {
 } from "../../shared/config/earlier-settings";
 import {
   EARLIER_SETTING_OPTION_ID,
+  FACT_PRACTICE_ENTRIES,
   PRACTICE_FOCUS_CATALOG,
   SENTENCE_VOCABULARY_LABELS,
   describePracticeFocus,
+  matchFactPracticeEntry,
   matchPracticeFocusOption,
   type PracticeFocusKind,
   type PracticeFocusOption,
@@ -32,10 +34,15 @@ import {
   type WorksheetControlContextV2,
   type WorksheetRegistrationV1,
 } from "../../shared/worksheet/registry";
+import { FACT_FACTOR_MAXIMUM } from "../../shared/worksheet/types";
 import {
   DRY_MATH_REGROUPING_HELP,
   DRY_MATH_REGROUPING_LABELS,
   DRY_MATH_REGROUPING_LEGEND,
+  FACT_FAMILIES_HELP,
+  FACT_FAMILIES_LEGEND,
+  FACT_FAMILY_KEEP_ONE_NOTE,
+  factFamilyLabel,
 } from "../../worksheets/dry-math/definition";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../worksheets/find-the-wow/definition";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
@@ -56,7 +63,10 @@ interface GeneratorControlsProps {
   /** The App-held session: the visible selection and what it was seeded from. */
   readonly session: WorksheetSessionState;
   readonly disabled?: boolean;
-  /** Receives exactly one `childSelected` or `changed` action per control change. */
+  /**
+   * Receives exactly one `childSelected`, `changed` or `dryMathPracticeChosen`
+   * action per control change.
+   */
   readonly onChange: (action: WorksheetPanelAction) => void;
   readonly onGenerate: (generation: GenerationSelection) => void;
   /**
@@ -73,7 +83,7 @@ interface GeneratorControlsProps {
 
 /** One line under each worksheet-type card title. */
 const WORKSHEET_DESCRIPTIONS = {
-  "dry-math": "Addition and subtraction facts written with numbers and symbols.",
+  "dry-math": "Addition, subtraction, multiplication and division facts written with numbers and symbols.",
   "find-the-wow": "Three statements per group; the child circles the one that is true.",
   "sentence-builder": "One prompt to draw, label, copy or write about.",
   "count-compare-make": "Match, compare, complete and draw quantities without symbols.",
@@ -103,6 +113,15 @@ const THEME_LABELS = {
 const THEME_HELP_ID = "worksheet-theme-help";
 
 const REGROUPING_HELP_ID = "worksheet-regrouping-help";
+
+const FACT_FAMILIES_HELP_ID = "worksheet-fact-families-help";
+const FACT_FAMILY_NOTE_ID = "worksheet-fact-families-note";
+
+/** Every fact family a parent can check, 0 through `FACT_FACTOR_MAXIMUM`. */
+const FACT_FAMILIES: readonly number[] = Array.from(
+  { length: FACT_FACTOR_MAXIMUM + 1 },
+  (_, family) => family,
+);
 
 /** The help text under the Theme select. It never names a child's interest. */
 export const THEME_HELP_TEXT =
@@ -176,6 +195,29 @@ function focusCatalog(
   return PRACTICE_FOCUS_CATALOG[kind];
 }
 
+/**
+ * The option the practice-focus select shows as chosen: Dry Math's fact entry
+ * on its multiply-divide strand, else the catalog option the focus matches or
+ * the Earlier setting option.
+ */
+function focusOptionIdFor(
+  control: FocusControl,
+  selection: WorksheetSelectionV2,
+): string {
+  return control.kind === "dry-math" && selection.dryMathStrand === "multiply-divide"
+    ? matchFactPracticeEntry(selection.dryMathFacts.operations).id
+    : matchPracticeFocusOption(control.kind, control.value);
+}
+
+/**
+ * Whether the select offers the Earlier setting option: whenever the stored
+ * focus matches no catalog option, so a Dry Math focus kept while facts are
+ * chosen can still be chosen again.
+ */
+function earlierSettingOffered(control: FocusControl): boolean {
+  return matchPracticeFocusOption(control.kind, control.value) === EARLIER_SETTING_OPTION_ID;
+}
+
 /** The label of the extra option a focus outside the catalog shows. */
 function earlierSettingOptionLabel(control: FocusControl): string {
   return `Earlier setting: ${describePracticeFocus(control.kind, control.value)}`;
@@ -187,7 +229,8 @@ function groupsShownFor(
 ): readonly EarlierSettingsGroup[] {
   switch (selection.worksheetType) {
     case "dry-math":
-      return ["dryMath"];
+      // A facts page shows no addition and subtraction focus to start from.
+      return selection.dryMathStrand === "add-subtract" ? ["dryMath"] : [];
     case "find-the-wow":
       return [
         "findTheWow.variant",
@@ -314,7 +357,8 @@ function OptionGroup({
 
 /**
  * The worksheet-first panel: worksheet type, its variant, the child and the
- * practice focus (with Dry Math's Carrying and borrowing choice after it),
+ * practice focus (with Dry Math's Carrying and borrowing or Fact families
+ * choice after it),
  * then the summary, any blocking guidance and Create. More options holds only Length, the answer key, Personalization and
  * Print layout. The panel is controlled: every choice lives in the App
  * session, so it survives profile edits, saves and in-app reloads.
@@ -370,9 +414,8 @@ export function GeneratorControls({
     ? focusControlFor(selection)
     : undefined;
   const focusOptionId =
-    focusControl === undefined
-      ? undefined
-      : matchPracticeFocusOption(focusControl.kind, focusControl.value);
+    focusControl === undefined ? undefined : focusOptionIdFor(focusControl, selection);
+  const factFamilies = selection.dryMathFacts.factFamilies;
 
   const inUse = earlierSettingsInUse(session);
   const shownGroups = groupsShownFor(selection);
@@ -405,15 +448,19 @@ export function GeneratorControls({
     hasPersonalization ||
     hasPrintLayout;
 
-  function change<K extends WorksheetGroupKey>(
-    group: K,
-    value: WorksheetGroupValue[K],
-  ): void {
+  function dispatch(action: WorksheetPanelAction): void {
     if (disabled) {
       return;
     }
     setDefaultsError(null);
-    onChange(groupChanged(group, value));
+    onChange(action);
+  }
+
+  function change<K extends WorksheetGroupKey>(
+    group: K,
+    value: WorksheetGroupValue[K],
+  ): void {
+    dispatch(groupChanged(group, value));
   }
 
   function selectChild(childId: string): void {
@@ -424,7 +471,37 @@ export function GeneratorControls({
     onChange({ type: "childSelected", childId });
   }
 
+  /**
+   * Dry Math's select dispatches one `dryMathPracticeChosen` action for every
+   * entry it offers, because each entry sets the strand and one other group.
+   */
+  function chooseDryMathPractice(optionId: string): void {
+    const factEntry = FACT_PRACTICE_ENTRIES.find(({ id }) => id === optionId);
+    if (factEntry !== undefined) {
+      dispatch({
+        type: "dryMathPracticeChosen",
+        strand: "multiply-divide",
+        dryMathFacts: {
+          operations: [...factEntry.operations],
+          factFamilies: [...factFamilies],
+        },
+      });
+      return;
+    }
+    const focus =
+      optionId === EARLIER_SETTING_OPTION_ID
+        ? selection.dryMath
+        : PRACTICE_FOCUS_CATALOG["dry-math"].find(({ id }) => id === optionId)?.focus;
+    if (focus !== undefined) {
+      dispatch({ type: "dryMathPracticeChosen", strand: "add-subtract", dryMath: focus });
+    }
+  }
+
   function chooseFocus(optionId: string): void {
+    if (focusControl?.kind === "dry-math") {
+      chooseDryMathPractice(optionId);
+      return;
+    }
     if (focusControl === undefined || optionId === EARLIER_SETTING_OPTION_ID) {
       return;
     }
@@ -438,6 +515,20 @@ export function GeneratorControls({
       focusControl.group,
       option.focus as WorksheetGroupValue[typeof focusControl.group],
     );
+  }
+
+  /** Checks or clears one fact family; the last checked family stays. */
+  function toggleFactFamily(family: number, checked: boolean): void {
+    const next = checked
+      ? FACT_FAMILIES.filter((candidate) => candidate === family || factFamilies.includes(candidate))
+      : factFamilies.filter((candidate) => candidate !== family);
+    if (next.length === 0) {
+      return;
+    }
+    change("dryMathFacts", {
+      operations: [...selection.dryMathFacts.operations],
+      factFamilies: next,
+    });
   }
 
   function effectiveUnitForLength(
@@ -573,7 +664,7 @@ export function GeneratorControls({
                 onChange={(event) => chooseFocus(event.currentTarget.value)}
                 value={focusOptionId}
               >
-                {focusOptionId === EARLIER_SETTING_OPTION_ID && (
+                {earlierSettingOffered(focusControl) && (
                   <option value={EARLIER_SETTING_OPTION_ID}>
                     {earlierSettingOptionLabel(focusControl)}
                   </option>
@@ -583,8 +674,49 @@ export function GeneratorControls({
                     {option.label}
                   </option>
                 ))}
+                {focusControl.kind === "dry-math" &&
+                  FACT_PRACTICE_ENTRIES.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.label}
+                    </option>
+                  ))}
               </select>
             </label>
+          )}
+          {applicable.factFamilies && worksheetType === "dry-math" && (
+            <fieldset
+              aria-describedby={FACT_FAMILIES_HELP_ID}
+              className="worksheet-choice-group"
+              data-panel-control="fact-families"
+            >
+              <legend>{FACT_FAMILIES_LEGEND}</legend>
+              <div className="worksheet-fact-families">
+                {FACT_FAMILIES.map((family) => {
+                  const checked = factFamilies.includes(family);
+                  const keptLast = checked && factFamilies.length === 1;
+                  return (
+                    <label key={family}>
+                      <input
+                        aria-describedby={keptLast ? FACT_FAMILY_NOTE_ID : undefined}
+                        checked={checked}
+                        disabled={disabled || keptLast}
+                        onChange={(event) =>
+                          toggleFactFamily(family, event.currentTarget.checked)
+                        }
+                        type="checkbox"
+                      />{" "}
+                      {factFamilyLabel(family)}
+                    </label>
+                  );
+                })}
+              </div>
+              {factFamilies.length === 1 && (
+                <p data-fact-family-note="true" id={FACT_FAMILY_NOTE_ID}>
+                  {FACT_FAMILY_KEEP_ONE_NOTE}
+                </p>
+              )}
+              <p id={FACT_FAMILIES_HELP_ID}>{FACT_FAMILIES_HELP}</p>
+            </fieldset>
           )}
           {applicable.regrouping && worksheetType === "dry-math" && (
             <RadioGroup

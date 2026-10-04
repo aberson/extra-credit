@@ -396,6 +396,12 @@ describe("the persisted config shape fingerprint", () => {
       "worksheet.arithmetic-focus.operations.canonical-order": (config) => {
         config.defaults.dryMath.operations = ["subtraction", "addition"];
       },
+      "worksheet.dry-math-facts.fact-families.ascending": (config) => {
+        config.defaults.dryMathFacts.factFamilies = [5, 2];
+      },
+      "worksheet.dry-math-facts.operations.canonical-order": (config) => {
+        config.defaults.dryMathFacts.operations = ["division", "multiplication"];
+      },
     };
     expect(Object.keys(violations).sort()).toEqual([...PERSISTED_REFINEMENTS].sort());
     for (const [name, mutate] of Object.entries(violations)) {

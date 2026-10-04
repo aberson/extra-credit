@@ -24,7 +24,9 @@ function dryMathItem(
     operation,
     leftOperand,
     rightOperand,
-    renderedSymbol: operation === "addition" ? "+" : "−",
+    renderedSymbol: { addition: "+", subtraction: "−", multiplication: "×", division: "÷" }[
+      operation
+    ] as DryMathItemV1["renderedSymbol"],
     answer: { kind: "number", value: answer },
   };
 }
@@ -44,6 +46,27 @@ describe("the one objective-answer dispatch", () => {
     expect(objectiveAnswerMatches(dryMathItem("addition", 9, 1, 11))).toBe(false);
     expect(objectiveAnswerMatches(dryMathItem("subtraction", 52, 7, 45))).toBe(true);
     expect(objectiveAnswerMatches(dryMathItem("subtraction", 52, 7, 44))).toBe(false);
+  });
+
+  test("recomputes multiplication and exact division, and gives no answer for a remainder or a zero divisor", () => {
+    expect(recomputeObjectiveAnswer(dryMathItem("multiplication", 12, 12, 0))).toEqual({
+      kind: "number",
+      value: 144,
+    });
+    expect(recomputeObjectiveAnswer(dryMathItem("division", 144, 12, 0))).toEqual({
+      kind: "number",
+      value: 12,
+    });
+    expect(recomputeObjectiveAnswer(dryMathItem("division", 0, 5, 9))).toEqual({
+      kind: "number",
+      value: 0,
+    });
+    expect(recomputeObjectiveAnswer(dryMathItem("division", 7, 2, 3))).toBeUndefined();
+    expect(recomputeObjectiveAnswer(dryMathItem("division", 5, 0, 0))).toBeUndefined();
+    expect(objectiveAnswerMatches(dryMathItem("multiplication", 3, 4, 12))).toBe(true);
+    expect(objectiveAnswerMatches(dryMathItem("multiplication", 3, 4, 13))).toBe(false);
+    expect(objectiveAnswerMatches(dryMathItem("division", 7, 2, 3))).toBe(false);
+    expect(objectiveAnswerMatches(dryMathItem("division", 0, 0, 0))).toBe(false);
   });
 
   test("Two Whats and a Wow and Count, Compare & Make are validated by their own families", () => {

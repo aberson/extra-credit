@@ -184,6 +184,21 @@ describe("selectionFromEarlierSettings (Appendix B.3)", () => {
     expect(chosen.selection.dryMathRegrouping).toBe("required");
   });
 
+  test("earlier settings never set the Dry Math strand or the fact families", () => {
+    const base = {
+      ...BASE,
+      dryMathStrand: "multiply-divide" as const,
+      dryMathFacts: { operations: ["division" as const], factFamilies: [0, 12] },
+    };
+    const result = selectionFromEarlierSettings(legacy(uniform(100)), base);
+    expect(result.selection.dryMathStrand).toBe("multiply-divide");
+    expect(result.selection.dryMathFacts).toEqual({ operations: ["division"], factFamilies: [0, 12] });
+    expect(result.groups).not.toContain("dryMathStrand");
+    expect(result.groups).not.toContain("dryMathFacts");
+    // Mirror: the add-subtract focus those same settings describe is seeded.
+    expect(result.groups).toContain("dryMath");
+  });
+
   test("emerging within 5 with the preschool band seeds addition within 5, Quantity pictures and simpler words", () => {
     const result = selectionFromEarlierSettings(
       legacy(

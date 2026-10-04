@@ -422,7 +422,7 @@ test("shows stored capabilities Version 1 keeps but never prints", async ({
   await expect(preview).toHaveAttribute("data-worksheet-type", "dry-math");
 
   const statements = await preview
-    .locator("[data-item-id] span")
+    .locator("[data-item-id] > span")
     .allInnerTexts();
   expect(statements.length).toBeGreaterThan(0);
   for (const statement of statements) {

@@ -191,3 +191,11 @@
     gap: 3mm;
   }
 }
+
+/*
+ * Times and division signs print at full instruction size (math-activities
+ * plan, MU5). Added on its own so no existing print rule changes.
+ */
+@media print {
+  .print-surface [data-operator] { font-size: var(--instruction-size); }
+}

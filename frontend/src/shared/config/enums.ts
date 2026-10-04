@@ -33,5 +33,13 @@ export const SENTENCE_VOCABULARY_OPTIONS = ["simpler-words", "all-words"] as con
  * version 2 field whose default is `without`.
  */
 export const REGROUPING_MODES = ["without", "required"] as const;
+/**
+ * Dry Math's two strands: addition and subtraction, or multiplication and
+ * division facts (math-activities plan, DD9). An additive schema version 2
+ * field whose default is `add-subtract`.
+ */
+export const DRY_MATH_STRANDS = ["add-subtract", "multiply-divide"] as const;
+/** The fact operations of the multiply-divide strand, in canonical order. */
+export const FACT_OPERATIONS = ["multiplication", "division"] as const;
 /** The decorative theme: art from interests, one reviewed topic, or neutral. */
 export const THEME_CHOICES = ["from-interests", ...TOPIC_IDS] as const;

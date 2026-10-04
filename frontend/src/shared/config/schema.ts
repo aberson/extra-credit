@@ -15,10 +15,13 @@ import { z } from "zod";
 
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
+  FACT_FACTOR_MAXIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../worksheet/types.js";
 import {
+  DRY_MATH_STRANDS,
+  FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   PAPER_SIZES,
@@ -77,6 +80,8 @@ export const PERSISTED_REFINEMENTS = [
   "profile.legacyChoices.mathSkills.representations.canonical-order",
   "profile.reviewedOn.calendar-date",
   "worksheet.arithmetic-focus.operations.canonical-order",
+  "worksheet.dry-math-facts.fact-families.ascending",
+  "worksheet.dry-math-facts.operations.canonical-order",
 ] as const;
 
 export type PersistedRefinement = (typeof PERSISTED_REFINEMENTS)[number];
@@ -98,6 +103,36 @@ function arithmeticFocusV2Schema(ceiling: number) {
 }
 
 const quantityMaximum = () => z.number().int().min(1).max(V1_NUMERIC_MAXIMUM);
+
+/** Whether every value is greater than the one before it. */
+function isStrictlyAscending(values: readonly number[]): boolean {
+  return values.every((value, index) => index === 0 || value > (values[index - 1] ?? value));
+}
+
+/**
+ * Dry Math's multiplication and division facts (math-activities plan, Appendix
+ * A.2): one or both fact operations in canonical order, and at least one fact
+ * family from 0 to `FACT_FACTOR_MAXIMUM`, each once, ascending.
+ */
+export const DryMathFactsV2Schema = z.strictObject({
+  operations: z
+    .array(z.enum(FACT_OPERATIONS))
+    .min(1)
+    .max(FACT_OPERATIONS.length)
+    .refine(
+      (values) => isCanonicalOrderedSubset(values, FACT_OPERATIONS),
+      "Fact operations must be unique and use canonical order.",
+    ),
+  factFamilies: z
+    .array(z.number().int().min(0).max(FACT_FACTOR_MAXIMUM))
+    .min(1)
+    .max(FACT_FACTOR_MAXIMUM + 1)
+    .refine(isStrictlyAscending, "Fact families must be unique and ascending."),
+});
+
+/** The facts a file written before the multiply-divide strand existed reads as (D20). */
+export const DEFAULT_DRY_MATH_FACTS_OPERATIONS = ["multiplication"] as const;
+export const DEFAULT_FACT_FAMILIES = [2, 5, 10] as const;
 
 export const DryMathFocusV2Schema = arithmeticFocusV2Schema(
   DRY_MATH_NUMERIC_MAXIMUM,
@@ -121,6 +156,13 @@ const worksheetSelectionShape = {
   // Additive at version 2: a file written before this key existed parses as
   // `without`, today's regrouping-free page, and is never rewritten on read.
   dryMathRegrouping: z.enum(REGROUPING_MODES).default("without"),
+  // Additive at version 2 like `dryMathRegrouping`: a file without them reads
+  // as the addition and subtraction strand and the default facts.
+  dryMathStrand: z.enum(DRY_MATH_STRANDS).default("add-subtract"),
+  dryMathFacts: DryMathFactsV2Schema.default(() => ({
+    operations: [...DEFAULT_DRY_MATH_FACTS_OPERATIONS],
+    factFamilies: [...DEFAULT_FACT_FAMILIES],
+  })),
   findTheWow: z.strictObject({
     variant: z.enum(FIND_THE_WOW_VARIANTS),
     quantity: QuantityFocusV2Schema,
@@ -202,6 +244,7 @@ export const ConfigResponseV2Schema = z.strictObject({
 });
 
 export type ArithmeticFocusV2 = z.infer<typeof DryMathFocusV2Schema>;
+export type DryMathFactsV2 = z.infer<typeof DryMathFactsV2Schema>;
 export type QuantityFocusV2 = z.infer<typeof QuantityFocusV2Schema>;
 export type CountCompareFocusV2 = z.infer<typeof CountCompareFocusV2Schema>;
 export type WorksheetSelectionV2 = z.infer<typeof WorksheetSelectionV2Schema>;
@@ -214,11 +257,14 @@ export type FindTheWowVariant = (typeof FIND_THE_WOW_VARIANTS)[number];
 export type SentenceVocabulary = (typeof SENTENCE_VOCABULARY_OPTIONS)[number];
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
 export type RegroupingMode = (typeof REGROUPING_MODES)[number];
+export type DryMathStrand = (typeof DRY_MATH_STRANDS)[number];
 
 // The shared value lists live in the `enums.ts` leaf and the frozen Version 1
 // schemas in `legacy-v1.ts`; every name this module exported before the move
 // is re-exported here, so existing imports keep compiling unchanged.
 export {
+  DRY_MATH_STRANDS,
+  FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   PAPER_SIZES,

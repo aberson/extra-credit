@@ -1937,6 +1937,41 @@ describe("App over a file an earlier version saved", () => {
     expect(puts[0]?.defaults.dryMathRegrouping).toBe("required");
   });
 
+  test("a Dry Math fact entry clears the preview once, creates a facts page, and a defaults save sends the strand and families", async () => {
+    const { puts } = stubConfigApi(configWithProfiles([canonicalMorgan, canonicalAvery]), 2);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: "Morgan" })).toBeVisible();
+    const preview = (): HTMLElement | null => screen.queryByLabelText("Worksheet preview");
+    fireEvent.click(screen.getByRole("button", { name: "Create worksheet" }));
+    expect(preview()).not.toBeNull();
+    fireEvent.change(screen.getByRole("combobox", { name: "Practice focus" }), {
+      target: { value: "multiplication-and-division-facts" },
+    });
+    expect(preview()).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make another" })).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: "12s" }));
+    expect(preview()).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Create worksheet" }));
+    const shown = preview();
+    expect(shown).not.toBeNull();
+    const operators = [...(shown?.querySelectorAll("[data-operator]") ?? [])].map(
+      (operator) => operator.textContent,
+    );
+    expect(operators.length).toBeGreaterThan(0);
+    expect(operators.every((operator) => operator === "×" || operator === "÷")).toBe(true);
+    expect(puts).toHaveLength(0);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save these as worksheet defaults" }),
+    );
+    expect(await screen.findByText("Worksheet defaults saved locally.")).toBeVisible();
+    expect(puts).toHaveLength(1);
+    expect(puts[0]?.defaults.dryMathStrand).toBe("multiply-divide");
+    expect(puts[0]?.defaults.dryMathFacts).toEqual({
+      operations: ["multiplication", "division"],
+      factFamilies: [2, 5, 10, 12],
+    });
+  });
+
   test("shows the upgrade notice for a version 1 file until the first save upgrades it", async () => {
     stubConfigApi(migratedConfig(), 1);
     render(<App />);
