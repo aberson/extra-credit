@@ -35,6 +35,7 @@ export function requiredPrintContent(
     "find-the-wow": "Math — Two Whats and a Wow practice",
     "sentence-builder": "Sentence Builder practice",
     "count-compare-make": "Count, Compare & Make practice",
+    "number-bonds": "Number Bonds practice",
   };
   const first = document.items[0];
   const instruction = first?.itemType === "sentence"
@@ -45,7 +46,9 @@ export function requiredPrintContent(
         : "Circle the wow in each group: the one equation that is true."
       : document.worksheetType === "dry-math"
         ? "Practice page · solve each equation."
-        : "";
+        : document.worksheetType === "number-bonds"
+          ? "Write the missing number in each box."
+          : "";
   const title = titles[document.worksheetType];
   text("header h2", surface === "answer"
     ? "Parent answer key"
@@ -122,6 +125,13 @@ export function requiredPrintContent(
         text(`${selector} [data-source-expression]`,
           `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand}`);
       }
+      if (item.itemType === "number-bond") {
+        // The problem as printed, its blank written as ?.
+        const left = item.missing === "left" ? "?" : String(item.leftOperand);
+        const right = item.missing === "right" ? "?" : String(item.rightOperand);
+        text(`${selector} [data-source-expression]`,
+          `${left} ${item.renderedSymbol} ${right} = ${item.result}`);
+      }
       continue;
     }
     switch (item.itemType) {
@@ -131,6 +141,15 @@ export function requiredPrintContent(
         // The sign prints in its own element, so its own visibility is checked.
         text(`${selector} [data-operator]`, item.renderedSymbol);
         break;
+      case "number-bond": {
+        // The blank is one drawn, empty, closed box; the other numbers print.
+        const left = item.missing === "left" ? "" : String(item.leftOperand);
+        const right = item.missing === "right" ? "" : String(item.rightOperand);
+        text(`${selector} > span`, `${left} ${item.renderedSymbol} ${right} = ${item.result}`);
+        text(`${selector} [data-operator]`, item.renderedSymbol);
+        boxes(`${selector} [data-missing-box]`, 1);
+        break;
+      }
       case "sentence":
         sentenceContent(item, selector);
         break;

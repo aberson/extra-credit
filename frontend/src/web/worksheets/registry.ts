@@ -5,6 +5,7 @@ import type { WorksheetDocumentV1 } from "../../shared/worksheet/types";
 import { CountCompareMakeRenderer } from "./count-compare-make/Renderer";
 import { DryMathRenderer } from "./dry-math/Renderer";
 import { FindTheWowRenderer } from "./find-the-wow/Renderer";
+import { NumberBondsRenderer } from "./number-bonds/Renderer";
 import { SentenceBuilderRenderer } from "./sentence-builder/Renderer";
 
 export interface WorksheetRendererProps {
@@ -16,6 +17,7 @@ export const WEB_WORKSHEET_RENDERERS = {
   "find-the-wow": FindTheWowRenderer,
   "sentence-builder": SentenceBuilderRenderer,
   "count-compare-make": CountCompareMakeRenderer,
+  "number-bonds": NumberBondsRenderer,
 } as const satisfies Record<
   RegisteredWorksheetType,
   ComponentType<WorksheetRendererProps>

@@ -69,7 +69,7 @@ export function productionSeedSource(): number {
  * The selected family's own explanation of what bounds its variety.
  *
  * This message used to end with the same numeric advice for every family.
- * That is right for the three math families and wrong for Sentence Builder,
+ * That is right for the math families and wrong for Sentence Builder,
  * whose limiting resource is the breadth of the reviewed vocabulary for a
  * writing activity: a parent following the old advice would change numbers
  * that cannot change the outcome (issue #16). Asking the registration is the

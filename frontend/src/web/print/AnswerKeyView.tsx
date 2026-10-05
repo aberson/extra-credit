@@ -4,6 +4,7 @@ import type {
   WorksheetItemV1,
 } from "../../shared/worksheet/types";
 import { COUNT_COMPARE_RELATION_WORDS } from "../../worksheets/count-compare-make/definition";
+import { numberBondKeyExpression } from "../../worksheets/number-bonds/definition";
 
 interface AnswerKeyViewProps {
   readonly document: WorksheetDocumentV1;
@@ -50,6 +51,22 @@ export function AnswerKeyView({ document }: AnswerKeyViewProps) {
       <ol aria-label="Objective answers" style={{ listStyle: "none", padding: 0 }}>
         {objectiveItems.map((item, index) => {
           const answer = answerText(item.answer);
+          if (item.itemType === "number-bond") {
+            // The problem as printed, its blank written as ?, then its one
+            // answer, so two mirrored sentences never share a key line.
+            const problem = numberBondKeyExpression(item);
+            return (
+              <li
+                data-item-id={item.id}
+                id={`worksheet-${document.worksheetId}-answer-${item.id}`}
+                key={item.id}
+              >
+                <strong data-problem-number={index + 1}>{index + 1}.</strong>{" "}
+                <span data-source-expression={problem}>{problem}</span> (missing number:{" "}
+                <span data-answer-value={answer}>{answer}</span>)
+              </li>
+            );
+          }
           const expression = sourceExpression(item);
           return (
             <li

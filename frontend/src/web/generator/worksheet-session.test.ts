@@ -334,6 +334,24 @@ describe("touched groups", () => {
     expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
   });
 
+  test("Number Bonds is its own group, never seeded, saved as chosen, and never left without an operation", () => {
+    const start = loaded(seedingDefaults, [equationChild, secondChild]);
+    expect(start.selection.numberBonds).toEqual({ operations: ["addition"], wholeMax: 10, regrouping: "without" });
+    const value = { operations: ["subtraction"], wholeMax: 5, regrouping: "included" } as const;
+    const chosen = apply(start, groupChanged("numberBonds", { ...value, operations: [...value.operations] }));
+    expect(WORKSHEET_GROUP_KEYS.filter((key) => chosen.touched[key])).toEqual(["numberBonds"]);
+    expect(chosen.previewEpoch).toBe(start.previewEpoch + 1);
+    expect(chosen.selection).toEqual({ ...start.selection, numberBonds: value });
+    // A child switch re-seeds the untouched groups and keeps the choice.
+    const switched = apply(chosen, { type: "childSelected", childId: secondChild.id });
+    expect(switched.selection.numberBonds).toEqual(value);
+    const body = defaultsForSave(switched);
+    expect(body.numberBonds).toEqual(value);
+    expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
+    // Mirror: an empty operation list is refused.
+    expect(apply(chosen, groupChanged("numberBonds", { ...value, operations: [] }))).toBe(chosen);
+  });
+
   test("the reducer never empties the fact families or operations", () => {
     const start = loaded(defaults(), [identityChild]);
     expect(

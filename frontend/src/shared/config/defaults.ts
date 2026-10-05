@@ -3,7 +3,8 @@
  * config every path that starts from nothing uses: App's missing-file state,
  * the fill-ins of a v1 migration and the recovery replacement.
  *
- * Every practice focus is read from `MATH_PRESETS`, so this module adds no
+ * Every practice focus is read from `MATH_PRESETS` or from the defaults
+ * `schema.ts` declares beside its additive fields, so this module adds no
  * numeric literal of its own.
  */
 import { MATH_PRESETS } from "./math-presets.js";
@@ -11,6 +12,9 @@ import {
   APP_CONFIG_SCHEMA_VERSION,
   DEFAULT_DRY_MATH_FACTS_OPERATIONS,
   DEFAULT_FACT_FAMILIES,
+  DEFAULT_NUMBER_BONDS_OPERATIONS,
+  DEFAULT_NUMBER_BONDS_REGROUPING,
+  DEFAULT_NUMBER_BONDS_WHOLE_MAXIMUM,
   type AppConfigV2,
   type ArithmeticFocusV2,
   type ThemeChoice,
@@ -49,6 +53,11 @@ export const DEFAULT_WORKSHEET_DEFAULTS_V2: Readonly<WorksheetDefaultsV2> =
     dryMathFacts: {
       operations: [...DEFAULT_DRY_MATH_FACTS_OPERATIONS],
       factFamilies: [...DEFAULT_FACT_FAMILIES],
+    },
+    numberBonds: {
+      operations: [...DEFAULT_NUMBER_BONDS_OPERATIONS],
+      wholeMax: DEFAULT_NUMBER_BONDS_WHOLE_MAXIMUM,
+      regrouping: DEFAULT_NUMBER_BONDS_REGROUPING,
     },
     findTheWow: {
       variant: "quantity",
@@ -96,6 +105,10 @@ export function cloneWorksheetDefaults(
       operations: [...defaults.dryMathFacts.operations],
       factFamilies: [...defaults.dryMathFacts.factFamilies],
     },
+    numberBonds: {
+      ...defaults.numberBonds,
+      operations: [...defaults.numberBonds.operations],
+    },
     findTheWow: {
       variant: defaults.findTheWow.variant,
       quantity: { ...defaults.findTheWow.quantity },
@@ -126,6 +139,7 @@ export function worksheetSelectionOf(
     dryMathRegrouping: copy.dryMathRegrouping,
     dryMathStrand: copy.dryMathStrand,
     dryMathFacts: copy.dryMathFacts,
+    numberBonds: copy.numberBonds,
     findTheWow: copy.findTheWow,
     sentenceBuilder: copy.sentenceBuilder,
     countCompareMake: copy.countCompareMake,

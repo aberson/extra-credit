@@ -239,7 +239,7 @@ test("keyboard-only profile creation reaches preview with visible focus", async 
   await recordSurface(page, "keyboard-preview");
 });
 
-for (const family of ["find-the-wow", "sentence-builder", "count-compare-make"] as const) {
+for (const family of ["find-the-wow", "sentence-builder", "count-compare-make", "number-bonds"] as const) {
   test(`accessible responsive preview: ${family}`, async ({ appServer, page }) => {
     await appServer.seedConfig(acceptanceConfig);
     await page.goto(appServer.origin);
@@ -372,11 +372,11 @@ test("worksheet-first panel: axe is clean with More options closed and open, bes
 
   await openMoreOptions(page);
   await expectAxeClean(page);
-  for (const family of ["find-the-wow", "sentence-builder", "count-compare-make"] as const) {
+  for (const family of ["find-the-wow", "sentence-builder", "count-compare-make", "number-bonds"] as const) {
     await chooseWorksheet(page, family);
     // The decorative Theme shows, with its help text, for the two decorating
     // families while graphics are on, so the scan covers it.
-    if (family === "find-the-wow") {
+    if (family === "find-the-wow" || family === "number-bonds") {
       await expect(controls(page).theme()).toHaveCount(0);
     } else {
       await expect(controls(page).graphics()).toBeChecked();
@@ -420,12 +420,12 @@ test("worksheet-first panel: keyboard reaches the cards, variant, child, focus, 
   await expect(page.getByLabel("Worksheet preview").locator('[data-wow-mode="quantity"]')).not.toHaveCount(0);
 });
 
-test("worksheet-first panel: the four cards share a row at 1280 px and stack at 320 px without horizontal scroll", async ({ appServer, page }) => {
+test("worksheet-first panel: the five cards share a row at 1280 px and stack at 320 px without horizontal scroll", async ({ appServer, page }) => {
   await appServer.seedConfig(upgradeNoticeConfig);
   await page.setViewportSize({ width: 1_280, height: 900 });
   await page.goto(appServer.origin);
   const cards = page.locator(".worksheet-type-card");
-  await expect(cards).toHaveCount(4);
+  await expect(cards).toHaveCount(5);
   const wide = await cards.evaluateAll((elements) =>
     elements.map((element) => element.getBoundingClientRect()).map(({ top, left }) => ({ top, left })),
   );
@@ -453,7 +453,7 @@ test("worksheet-first panel: 200% text keeps every label and blocking guidance s
   await openMoreOptions(page);
   // Text-only labels: legends, card titles, the summary and the buttons.
   const labels = [
-    "Worksheet type", "Dry Math", "Math — Two Whats and a Wow", "Sentence Builder", "Count, Compare & Make",
+    "Worksheet type", "Dry Math", "Math — Two Whats and a Wow", "Sentence Builder", "Count, Compare & Make", "Number Bonds",
     "Writing activity", "Vocabulary", "Create worksheet", "More options", "Length",
     "Personalization", "Print layout", "Save these as worksheet defaults",
   ];
@@ -513,6 +513,58 @@ test("Carrying and borrowing: axe is clean, keyboard reaches the group with visi
   const box = await panel.regrouping().boundingBox();
   expect(box).not.toBeNull();
   expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 321).toBe(true);
+  await expectAxeClean(page);
+});
+
+test("Number Bonds: arrow keys move across the five cards, axe is clean, keyboard reaches its groups with visible focus, and they reflow at 320 px", async ({ appServer, page }) => {
+  await appServer.seedConfig(acceptanceConfig);
+  await page.setViewportSize({ width: 1_280, height: 900 });
+  await page.goto(appServer.origin);
+  const panel = controls(page);
+
+  // The checked card is the group's one tab stop; arrow keys walk all five.
+  await tabTo(page, panel.worksheetCard("dry-math"));
+  for (const next of ["find-the-wow", "sentence-builder", "count-compare-make", "number-bonds"] as const) {
+    await page.keyboard.press("ArrowRight");
+    await expect(panel.worksheetCard(next)).toBeChecked();
+    await expect(panel.worksheetCard(next)).toBeFocused();
+  }
+  const regrouping = panel.regrouping();
+  await expect(regrouping).toBeVisible();
+  await expect(regrouping.locator("xpath=ancestor::details")).toHaveCount(0);
+  const without = regrouping.getByRole("radio", { name: "Without carrying or borrowing", exact: true });
+  const include = regrouping.getByRole("radio", { name: "Include problems that carry or borrow", exact: true });
+  await expect(without).toBeChecked();
+  await expectAxeClean(page);
+
+  // The focus, then the checked option, each one tab stop; an arrow key
+  // moves the choice and focus stays visible.
+  await tabTo(page, panel.practiceFocus());
+  await tabTo(page, without);
+  await page.keyboard.press("ArrowDown");
+  await expect(include).toBeChecked();
+  await expect(include).toBeFocused();
+  await expect(page.locator("[data-selection-summary]")).toContainText(
+    "including problems that carry or borrow",
+  );
+  await expectAxeClean(page);
+
+  // The page and its key are clean too, with every box labelled.
+  await tabTo(page, panel.create());
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Preview and print" })).toBeFocused();
+  await expect(page.getByLabel("Worksheet preview").locator("[data-missing-box]")).toHaveCount(12);
+  await expectAxeClean(page);
+  await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+  await expectAxeClean(page);
+
+  await page.setViewportSize({ width: 320, height: 900 });
+  await assertNoOverflow(page);
+  for (const group of [regrouping, panel.practiceFocus()]) {
+    const box = await group.boundingBox();
+    expect(box).not.toBeNull();
+    expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 321).toBe(true);
+  }
   await expectAxeClean(page);
 });
 

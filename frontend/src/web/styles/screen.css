@@ -12,9 +12,10 @@
 
   /*
    * The worksheet-first panel. The worksheet-type cards span the panel: one
-   * column below 36rem, two across from 36rem and four across from 60rem.
-   * Below the cards the rest of the primary block and More options sit side
-   * by side from 60rem, and in DOM order in one column below it.
+   * column below 36rem, two across from 36rem, three from 60rem and all five
+   * across from 72rem. Below the cards the rest of the primary block and More
+   * options sit side by side from 60rem, and in DOM order in one column below
+   * it.
    */
   .worksheet-panel { display: grid; gap: 1rem; margin-top: 1.5rem; }
   .worksheet-panel > h2, .worksheet-panel > p { margin: 0; }
@@ -75,7 +76,10 @@
     .worksheet-type-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (min-width: 60rem) {
-    .worksheet-type-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .worksheet-type-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .worksheet-panel__columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  }
+  @media (min-width: 72rem) {
+    .worksheet-type-cards { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   }
 }

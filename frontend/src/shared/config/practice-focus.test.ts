@@ -5,14 +5,19 @@ import { MATH_PRESETS, MATH_PRESET_IDS } from "./math-presets.js";
 import {
   EARLIER_SETTING_OPTION_ID,
   FACT_PRACTICE_ENTRIES,
+  NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   PRACTICE_FOCUS_KINDS,
   SENTENCE_VOCABULARY_LABELS,
   VOCABULARY_PRESENTATION_BANDS,
+  SAVED_SETTING_OPTION_ID,
   describeFactsFocus,
+  describeNumberBonds,
   describePracticeFocus,
   matchFactPracticeEntry,
+  matchNumberBondsFocusOption,
   matchPracticeFocusOption,
+  savedSettingOptionLabel,
   presentationBandForVocabulary,
   vocabularyForPresentationBand,
   type PracticeFocusKind,
@@ -22,6 +27,7 @@ import {
   DryMathFactsV2Schema,
   DryMathFocusV2Schema,
   EquationFocusV2Schema,
+  NumberBondsV2Schema,
   PRESENTATION_BANDS,
   QuantityFocusV2Schema,
   SENTENCE_VOCABULARY_OPTIONS,
@@ -211,6 +217,45 @@ describe("Dry Math's fact entries", () => {
     expect(
       describeFactsFocus({ operations: ["multiplication", "division"], factFamilies: [3, 12] }),
     ).toBe("Multiplication and division facts for 3 and 12");
+  });
+});
+
+describe("Number Bonds' practice focus", () => {
+  test("nine sentence entries: each operation choice within 5, 10 and 20, as the plan words them", () => {
+    expect(NUMBER_BONDS_FOCUS_CATALOG.map(({ label }) => label)).toEqual([
+      "Addition within 5",
+      "Addition within 10",
+      "Addition within 20",
+      "Subtraction within 5",
+      "Subtraction within 10",
+      "Subtraction within 20",
+      "Addition and subtraction within 5",
+      "Addition and subtraction within 10",
+      "Addition and subtraction within 20",
+    ]);
+    expect(new Set(NUMBER_BONDS_FOCUS_CATALOG.map(({ id }) => id)).size).toBe(9);
+    for (const { focus } of NUMBER_BONDS_FOCUS_CATALOG) {
+      expect(NumberBondsV2Schema.safeParse({ ...focus, regrouping: "without" }).success).toBe(true);
+    }
+    expect(Math.max(...NUMBER_BONDS_FOCUS_CATALOG.map(({ focus }) => focus.wholeMax))).toBe(V1_NUMERIC_MAXIMUM);
+  });
+
+  test("a saved focus outside the catalog shows one Saved setting option in the same words", () => {
+    expect(matchNumberBondsFocusOption({ operations: ["addition"], wholeMax: 10 })).toBe("addition-within-10");
+    const saved = { operations: ["addition"], wholeMax: 3 } as const;
+    expect(matchNumberBondsFocusOption({ ...saved, operations: [...saved.operations] })).toBe(SAVED_SETTING_OPTION_ID);
+    expect(savedSettingOptionLabel({ ...saved, operations: [...saved.operations] })).toBe(
+      "Saved setting: Addition within 3",
+    );
+  });
+
+  test("the summary names the problem style and focus, and says so when problems that carry or borrow are included", () => {
+    expect(describeNumberBonds({ operations: ["addition"], wholeMax: 10, regrouping: "without" })).toBe(
+      "Missing number sentences, Addition within 10",
+    );
+    expect(
+      describeNumberBonds({ operations: ["addition", "subtraction"], wholeMax: 20, regrouping: "included" }),
+    ).toBe("Missing number sentences, Addition and subtraction within 20, including problems that carry or borrow");
   });
 });
 

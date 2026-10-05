@@ -1,10 +1,15 @@
-import { FACT_OPERATIONS } from "../config/enums.js";
+import {
+  FACT_OPERATIONS,
+  MATH_OPERATIONS,
+  NUMBER_BONDS_REGROUPING_MODES,
+} from "../config/enums.js";
 import { objectiveAnswerMatches } from "./answer-oracle.js";
 import { factKey, isInFactFamily, regroups } from "./arithmetic.js";
 import {
   FACT_DIVIDEND_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   GENERATION_INVARIANT_FAILED,
+  NUMBER_BONDS_WHOLE_MINIMUM,
   TOPIC_IDS,
   V1_NUMERIC_MAXIMUM,
   DRY_MATH_NUMERIC_MAXIMUM,
@@ -13,6 +18,7 @@ import {
   type FactOperation,
   type GenerationFailure,
   type GenerationRequestV1,
+  type NumberBondItemV1,
   type ObjectiveAnswerV1,
   type PracticeRequestV1,
   type WorksheetDocumentV1,
@@ -211,6 +217,88 @@ function factItemHolds(
   );
 }
 
+type NumberBondsPractice = Extract<PracticeRequestV1, { readonly kind: "number-bonds" }>;
+
+/**
+ * The Number Bonds member a request carries, or `undefined` when it carries
+ * none Number Bonds accepts: missing number sentences, addition and
+ * subtraction in canonical order, a largest whole from
+ * `NUMBER_BONDS_WHOLE_MINIMUM` to `V1_NUMERIC_MAXIMUM`, and a known carrying
+ * and borrowing choice.
+ */
+function numberBondsPracticeOf(request: GenerationRequestV1): NumberBondsPractice | undefined {
+  const practice = request.practice;
+  if (practice?.kind !== "number-bonds") {
+    return undefined;
+  }
+  const operationIndexes = practice.operations.map((operation) =>
+    (MATH_OPERATIONS as readonly string[]).indexOf(operation),
+  );
+  const wellFormed =
+    practice.variant === "sentence" &&
+    operationIndexes.length > 0 &&
+    operationIndexes.every(
+      (index, position) =>
+        index >= 0 && (position === 0 || index > (operationIndexes[position - 1] ?? index)),
+    ) &&
+    Number.isInteger(practice.wholeMax) &&
+    practice.wholeMax >= NUMBER_BONDS_WHOLE_MINIMUM &&
+    practice.wholeMax <= V1_NUMERIC_MAXIMUM &&
+    (NUMBER_BONDS_REGROUPING_MODES as readonly string[]).includes(practice.regrouping);
+  return wellFormed ? practice : undefined;
+}
+
+/**
+ * One Number Bonds missing number sentence: a requested operation and its
+ * symbol, every number an integer of at least 1, two parts below a whole from
+ * `NUMBER_BONDS_WHOLE_MINIMUM` to the requested largest whole that the
+ * sentence's relation really makes, the answer equal to the one blank number,
+ * and, without carrying or borrowing, a relation whose parts do not regroup
+ * (`regroups` from `arithmetic.ts`, so no problem makes or crosses ten).
+ */
+function numberBondItemHolds(item: NumberBondItemV1, practice: NumberBondsPractice): boolean {
+  const { leftOperand, operation, result, rightOperand } = item;
+  if (
+    item.form !== "sentence" ||
+    (item.missing !== "left" && item.missing !== "right") ||
+    (operation !== "addition" && operation !== "subtraction") ||
+    ![leftOperand, rightOperand, result].every((value) => Number.isInteger(value) && value >= 1)
+  ) {
+    return false;
+  }
+  // Addition puts the whole after the equals sign; subtraction starts from it.
+  const whole = operation === "addition" ? result : leftOperand;
+  const [firstPart, secondPart] =
+    operation === "addition" ? [leftOperand, rightOperand] : [rightOperand, result];
+  const symbolMatches =
+    (operation === "addition" && item.renderedSymbol === "+") ||
+    (operation === "subtraction" && item.renderedSymbol === "−");
+  const blankNumber = item.missing === "left" ? leftOperand : rightOperand;
+  return (
+    practice.operations.includes(operation) &&
+    symbolMatches &&
+    firstPart + secondPart === whole &&
+    firstPart < whole &&
+    secondPart < whole &&
+    whole >= NUMBER_BONDS_WHOLE_MINIMUM &&
+    whole <= practice.wholeMax &&
+    item.answer.value === blankNumber &&
+    (practice.regrouping === "included" || !regroups("addition", firstPart, secondPart))
+  );
+}
+
+/** A sentence's identity: everything it prints, the blank's position included. */
+function numberBondKey(item: NumberBondItemV1): string {
+  return [
+    item.form,
+    item.operation,
+    item.leftOperand,
+    item.rightOperand,
+    item.result,
+    item.missing,
+  ].join(":");
+}
+
 export function validateWorksheetInvariants(
   document: WorksheetDocumentV1,
 ): GenerationFailure | undefined {
@@ -228,13 +316,14 @@ export function validateWorksheetInvariants(
     };
   }
 
-  // A decorative topic is refused on the two families that print no
+  // A decorative topic is refused on the three families that print no
   // decoration, and anywhere as a value outside the declared topic IDs.
   const { options } = document.request;
   if (
     "decorativeTopicId" in options &&
     (document.worksheetType === "dry-math" ||
       document.worksheetType === "find-the-wow" ||
+      document.worksheetType === "number-bonds" ||
       !(TOPIC_IDS as readonly unknown[]).includes(options.decorativeTopicId))
   ) {
     return {
@@ -244,12 +333,18 @@ export function validateWorksheetInvariants(
     };
   }
 
-  // Only Dry Math reads a `practice` member, and only the kinds it accepts; a
-  // family that would ignore the member refuses it instead.
-  const dryMathBranch = dryMathBranchOf(document.request);
+  // Dry Math reads a `practice` member only of the kinds it accepts, and
+  // Number Bonds needs its own; a family that would ignore the member refuses
+  // it instead.
+  const numberBondsPractice =
+    document.worksheetType === "number-bonds" ? numberBondsPracticeOf(document.request) : undefined;
+  const dryMathBranch =
+    document.worksheetType === "number-bonds" ? undefined : dryMathBranchOf(document.request);
   if (
-    dryMathBranch === undefined ||
-    ("practice" in document.request && document.worksheetType !== "dry-math")
+    document.worksheetType === "number-bonds"
+      ? numberBondsPractice === undefined
+      : dryMathBranch === undefined ||
+        ("practice" in document.request && document.worksheetType !== "dry-math")
   ) {
     return {
       ok: false,
@@ -260,6 +355,7 @@ export function validateWorksheetInvariants(
 
   const ids = new Set<string>();
   const dryMathFacts = new Set<string>();
+  const numberBonds = new Set<string>();
   for (const [index, item] of document.items.entries()) {
     const expectedId = `item-${String(index + 1).padStart(3, "0")}`;
     if (item.id !== expectedId || ids.has(item.id)) {
@@ -295,16 +391,36 @@ export function validateWorksheetInvariants(
         message: "A Dry Math answer did not recompute from its source item.",
       };
     }
+    if (item.itemType === "number-bond") {
+      const key = numberBondKey(item);
+      if (
+        numberBondsPractice === undefined ||
+        item.answer.kind !== "number" ||
+        objectiveAnswerMatches(item) !== true ||
+        numberBonds.has(key) ||
+        !numberBondItemHolds(item, numberBondsPractice)
+      ) {
+        return {
+          ok: false,
+          code: GENERATION_INVARIANT_FAILED,
+          message:
+            "A Number Bonds item violated its one blank, answer, uniqueness, operation, range, or carrying and borrowing invariants.",
+        };
+      }
+      numberBonds.add(key);
+    }
     if (item.itemType === "dry-math") {
       const key = factKey(item.operation, item.leftOperand, item.rightOperand);
+      // A Dry Math item in a Number Bonds document has no branch to pass.
       const holds =
-        dryMathBranch.kind === "facts"
+        dryMathBranch !== undefined &&
+        (dryMathBranch.kind === "facts"
           ? factItemHolds(item, dryMathBranch)
           : addSubtractItemHolds(
               item,
               document.request.capabilities.mathSkills,
               dryMathBranch.regroupingRequired,
-            );
+            ));
       if (dryMathFacts.has(key) || !holds) {
         return {
           ok: false,
@@ -336,6 +452,22 @@ export function validateWorksheetInvariants(
       ok: false,
       code: GENERATION_INVARIANT_FAILED,
       message: "Dry Math included unsupported interest or decorative data.",
+    };
+  }
+  // Number Bonds prints numbers alone: no interests, no decoration, and none
+  // of the dormant math permissions.
+  if (
+    document.worksheetType === "number-bonds" &&
+    (document.items.some((item) => item.itemType !== "number-bond") ||
+      "topicIds" in document.request ||
+      document.request.options.includeDecorativeGraphics ||
+      document.request.capabilities.mathSkills.allowRegrouping ||
+      document.request.capabilities.mathSkills.allowNegativeResults)
+  ) {
+    return {
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message: "Number Bonds included unsupported interest or decorative data.",
     };
   }
   return undefined;

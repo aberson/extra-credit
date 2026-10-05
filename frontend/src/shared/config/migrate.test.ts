@@ -405,14 +405,14 @@ describe("the blocked classification of additive current-version changes", () =>
       legacy.mathSkills.allowRemainders = false;
     }],
     ["an unknown enum member in defaults", (config: Editable) => {
-      config.defaults.worksheetType = "number-bonds";
+      config.defaults.worksheetType = "skip-counting";
     }],
     ["an unknown enum member inside a defaults array", (config: Editable) => {
       config.defaults.dryMath.operations = ["addition", "multiplication"];
     }],
     ["an unknown key beside an unknown member", (config: Editable) => {
-      config.defaults.numberBonds = { wholeMax: 10 };
-      config.defaults.worksheetType = "number-bonds";
+      config.defaults.skipCounting = { countBy: 2 };
+      config.defaults.worksheetType = "skip-counting";
     }],
   ] as const)("%s classifies as blocked", (_label, edit) => {
     expect(classifyStoredConfig(edited(edit))).toEqual({ kind: "blocked" });
@@ -489,6 +489,7 @@ describe("the built-in version 2 defaults", () => {
       dryMathRegrouping: "without",
       dryMathStrand: "add-subtract",
       dryMathFacts: { operations: ["multiplication"], factFamilies: [2, 5, 10] },
+      numberBonds: { operations: ["addition"], wholeMax: 10, regrouping: "without" },
       findTheWow: {
         variant: "quantity",
         quantity: { countingMax: quantities.countingMax, numeralMax: quantities.numeralMax },

@@ -402,6 +402,9 @@ describe("the persisted config shape fingerprint", () => {
       "worksheet.dry-math-facts.operations.canonical-order": (config) => {
         config.defaults.dryMathFacts.operations = ["division", "multiplication"];
       },
+      "worksheet.number-bonds.operations.canonical-order": (config) => {
+        config.defaults.numberBonds.operations = ["subtraction", "addition"];
+      },
     };
     expect(Object.keys(violations).sort()).toEqual([...PERSISTED_REFINEMENTS].sort());
     for (const [name, mutate] of Object.entries(violations)) {

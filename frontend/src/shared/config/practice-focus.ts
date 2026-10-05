@@ -11,6 +11,7 @@
  */
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
+  NUMBER_BONDS_WHOLE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
 } from "../worksheet/types.js";
 import { MATH_PRESETS, MATH_PRESET_IDS } from "./math-presets.js";
@@ -19,6 +20,7 @@ import type {
   CountCompareFocusV2,
   DryMathFactsV2,
   MathSkillsV1,
+  NumberBondsV2,
   PresentationBand,
   QuantityFocusV2,
   RegroupingMode,
@@ -211,6 +213,101 @@ function familyList(families: readonly number[]): string {
  */
 export function describeFactsFocus(facts: DryMathFactsV2): string {
   return `${matchFactPracticeEntry(facts.operations).label} for ${familyList(facts.factFamilies)}`;
+}
+
+/** A Number Bonds sentence focus: its operations and its largest whole. */
+export type NumberBondsFocus = Pick<NumberBondsV2, "operations" | "wholeMax">;
+
+/** One entry of Number Bonds' practice-focus select (math-activities plan, Appendix F). */
+export interface NumberBondsFocusOption {
+  readonly id: string;
+  readonly label: string;
+  readonly focus: NumberBondsFocus;
+}
+
+/** The option id a saved Number Bonds focus outside the catalog reports (D51). */
+export const SAVED_SETTING_OPTION_ID = "saved-setting";
+
+/** Number Bonds' one problem style until number bond pictures exist. */
+export const NUMBER_BONDS_SENTENCE_STYLE_LABEL = "Missing number sentences";
+
+/** What a Number Bonds summary adds when problems that carry or borrow are included. */
+export const NUMBER_BONDS_REGROUPING_SUMMARY_PHRASE =
+  ", including problems that carry or borrow";
+
+/** "Addition within 10", "Subtraction within 5" or "Addition and subtraction within 20". */
+export function describeNumberBondsFocus(focus: NumberBondsFocus): string {
+  return `${operationWords(focus.operations)} within ${focus.wholeMax}`;
+}
+
+/**
+ * The one parent-facing summary of a Number Bonds choice: its problem style
+ * and focus, for example "Missing number sentences, Addition within 10", plus
+ * `NUMBER_BONDS_REGROUPING_SUMMARY_PHRASE` when problems that carry or borrow
+ * are included.
+ */
+export function describeNumberBonds(numberBonds: NumberBondsV2): string {
+  return `${NUMBER_BONDS_SENTENCE_STYLE_LABEL}, ${describeNumberBondsFocus(numberBonds)}${
+    numberBonds.regrouping === "included" ? NUMBER_BONDS_REGROUPING_SUMMARY_PHRASE : ""
+  }`;
+}
+
+/** The label of the one extra option a saved focus outside the catalog shows. */
+export function savedSettingOptionLabel(focus: NumberBondsFocus): string {
+  return `Saved setting: ${describeNumberBondsFocus(focus)}`;
+}
+
+/**
+ * The ranges the Number Bonds catalog offers: every concrete preset whose
+ * operand and result maxima are one range a whole can reach, deduplicated and
+ * ascending, so the catalog adds no numeric literal of its own.
+ */
+function numberBondsCatalogWholeMaxima(): readonly number[] {
+  const maxima = new Set<number>();
+  for (const skills of concretePresetSkills()) {
+    if (
+      skills.operations.length > 0 &&
+      skills.operandMax === skills.resultMax &&
+      skills.resultMax >= NUMBER_BONDS_WHOLE_MINIMUM &&
+      skills.resultMax <= V1_NUMERIC_MAXIMUM
+    ) {
+      maxima.add(skills.resultMax);
+    }
+  }
+  return [...maxima].sort((left, right) => left - right);
+}
+
+/** The three operation choices of a sentence focus, in canonical order. */
+const NUMBER_BONDS_OPERATION_CHOICES: readonly NumberBondsFocus["operations"][] = [
+  ["addition"],
+  ["subtraction"],
+  ["addition", "subtraction"],
+];
+
+/**
+ * Number Bonds' closed sentence catalog: each operation choice within each
+ * catalog range, operation choice first, as Appendix F lists them.
+ */
+export const NUMBER_BONDS_FOCUS_CATALOG: readonly NumberBondsFocusOption[] = Object.freeze(
+  NUMBER_BONDS_OPERATION_CHOICES.flatMap((operations) =>
+    numberBondsCatalogWholeMaxima().map((wholeMax) => {
+      const focus: NumberBondsFocus = { operations: [...operations], wholeMax };
+      const label = describeNumberBondsFocus(focus);
+      return Object.freeze({ id: slug(label), label, focus });
+    }),
+  ),
+);
+
+/** The catalog option id a saved Number Bonds focus equals, or `SAVED_SETTING_OPTION_ID`. */
+export function matchNumberBondsFocusOption(focus: NumberBondsFocus): string {
+  return (
+    NUMBER_BONDS_FOCUS_CATALOG.find(
+      (option) =>
+        option.focus.wholeMax === focus.wholeMax &&
+        option.focus.operations.length === focus.operations.length &&
+        option.focus.operations.every((operation, index) => focus.operations[index] === operation),
+    )?.id ?? SAVED_SETTING_OPTION_ID
+  );
 }
 
 function unreachable(value: never): never {

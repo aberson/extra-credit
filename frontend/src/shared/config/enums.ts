@@ -41,5 +41,12 @@ export const REGROUPING_MODES = ["without", "required"] as const;
 export const DRY_MATH_STRANDS = ["add-subtract", "multiply-divide"] as const;
 /** The fact operations of the multiply-divide strand, in canonical order. */
 export const FACT_OPERATIONS = ["multiplication", "division"] as const;
+/**
+ * Number Bonds' own carrying and borrowing choice (math-activities plan, DD10
+ * and D-bonds-ten): leave out every problem whose missing number needs
+ * carrying or borrowing, or include those problems. Part of the additive
+ * schema version 2 `numberBonds` group, whose default is `without`.
+ */
+export const NUMBER_BONDS_REGROUPING_MODES = ["without", "included"] as const;
 /** The decorative theme: art from interests, one reviewed topic, or neutral. */
 export const THEME_CHOICES = ["from-interests", ...TOPIC_IDS] as const;

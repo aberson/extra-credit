@@ -11,11 +11,16 @@ import type {
   WorksheetSelectionV2,
 } from "../../shared/config/schema";
 import { validateWorksheetInvariants } from "../../shared/worksheet/invariants";
-import type { DryMathItemV1 } from "../../shared/worksheet/types";
+import {
+  V1_NUMERIC_MAXIMUM,
+  type DryMathItemV1,
+  type NumberBondItemV1,
+} from "../../shared/worksheet/types";
 import {
   judgeDocument,
   oracleCandidateKeys,
   oracleFactKeys,
+  oracleNumberBondKeys,
   oracleRegroups,
 } from "../../../tests/oracles/arithmetic-oracle";
 import {
@@ -212,5 +217,69 @@ describe("Dry Math multiplication and division facts through the production call
     expect(new Set(second)).toEqual(new Set(first));
     expect(second).not.toEqual(first);
     expect(judgeDocument(another.session.document)).toEqual([]);
+  });
+});
+
+describe("Number Bonds missing number sentences through the production caller", () => {
+  function bondsGeneration(
+    numberBonds: WorksheetSelectionV2["numberBonds"],
+  ): GenerationSelection {
+    return {
+      profile: fictionalChild,
+      selection: {
+        ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+        worksheetType: "number-bonds",
+        numberBonds,
+        length: "long",
+      },
+    };
+  }
+
+  /** The oracle's key for a printed sentence: `addition:8:?:15`. */
+  function printedKey(item: NumberBondItemV1): string {
+    const left = item.missing === "left" ? "?" : String(item.leftOperand);
+    const right = item.missing === "right" ? "?" : String(item.rightOperand);
+    return `${item.operation}:${left}:${right}:${item.result}`;
+  }
+
+  test("within 20, both operations, without carrying or borrowing: a validated document whose every sentence the oracle allows", () => {
+    const numberBonds = {
+      operations: ["addition", "subtraction"],
+      wholeMax: V1_NUMERIC_MAXIMUM,
+      regrouping: "without",
+    } as const;
+    const created = createWorksheetSessionForSeed(
+      bondsGeneration({ ...numberBonds, operations: [...numberBonds.operations] }),
+      0x2026_0026,
+      DEPENDENCIES,
+    );
+    if (!created.ok) {
+      throw new Error(created.message);
+    }
+    const { document } = created.session;
+    expect(document.worksheetType).toBe("number-bonds");
+    expect(document.request.practice).toEqual({ kind: "number-bonds", variant: "sentence", ...numberBonds });
+    expect(document.request.displayName).toBe("Fictional Regrouper");
+    expect(document.items).toHaveLength(18);
+    expect(validateWorksheetInvariants(document)).toBeUndefined();
+    expect(judgeDocument(document)).toEqual([]);
+    const allowed = oracleNumberBondKeys(numberBonds);
+    for (const item of document.items as readonly NumberBondItemV1[]) {
+      expect(allowed.has(printedKey(item)), printedKey(item)).toBe(true);
+    }
+    // Mirror: the same seed with problems that carry or borrow included draws
+    // other sentences, and the oracle still judges them clean.
+    const included = createWorksheetSessionForSeed(
+      bondsGeneration({ ...numberBonds, operations: [...numberBonds.operations], regrouping: "included" }),
+      0x2026_0026,
+      DEPENDENCIES,
+    );
+    if (!included.ok) {
+      throw new Error(included.message);
+    }
+    expect((included.session.document.items as readonly NumberBondItemV1[]).map(printedKey)).not.toEqual(
+      (document.items as readonly NumberBondItemV1[]).map(printedKey),
+    );
+    expect(judgeDocument(included.session.document)).toEqual([]);
   });
 });

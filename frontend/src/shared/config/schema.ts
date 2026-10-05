@@ -16,6 +16,7 @@ import { z } from "zod";
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
+  NUMBER_BONDS_WHOLE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../worksheet/types.js";
@@ -24,6 +25,7 @@ import {
   FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
+  NUMBER_BONDS_REGROUPING_MODES,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
@@ -82,6 +84,7 @@ export const PERSISTED_REFINEMENTS = [
   "worksheet.arithmetic-focus.operations.canonical-order",
   "worksheet.dry-math-facts.fact-families.ascending",
   "worksheet.dry-math-facts.operations.canonical-order",
+  "worksheet.number-bonds.operations.canonical-order",
 ] as const;
 
 export type PersistedRefinement = (typeof PERSISTED_REFINEMENTS)[number];
@@ -134,6 +137,30 @@ export const DryMathFactsV2Schema = z.strictObject({
 export const DEFAULT_DRY_MATH_FACTS_OPERATIONS = ["multiplication"] as const;
 export const DEFAULT_FACT_FAMILIES = [2, 5, 10] as const;
 
+/**
+ * Number Bonds' missing number sentences (math-activities plan, Appendix A.2):
+ * addition, subtraction or both in canonical order, wholes from
+ * `NUMBER_BONDS_WHOLE_MINIMUM` to `wholeMax`, and the family's own carrying
+ * and borrowing choice.
+ */
+export const NumberBondsV2Schema = z.strictObject({
+  operations: z
+    .array(z.enum(MATH_OPERATIONS))
+    .min(1)
+    .max(MATH_OPERATIONS.length)
+    .refine(
+      (values) => isCanonicalOrderedSubset(values, MATH_OPERATIONS),
+      "Number Bonds operations must be unique and use canonical order.",
+    ),
+  wholeMax: z.number().int().min(NUMBER_BONDS_WHOLE_MINIMUM).max(V1_NUMERIC_MAXIMUM),
+  regrouping: z.enum(NUMBER_BONDS_REGROUPING_MODES),
+});
+
+/** What a file written before Number Bonds existed reads as (D41, D-bonds-ten). */
+export const DEFAULT_NUMBER_BONDS_OPERATIONS = ["addition"] as const;
+export const DEFAULT_NUMBER_BONDS_WHOLE_MAXIMUM = 10;
+export const DEFAULT_NUMBER_BONDS_REGROUPING = "without" as const;
+
 export const DryMathFocusV2Schema = arithmeticFocusV2Schema(
   DRY_MATH_NUMERIC_MAXIMUM,
 );
@@ -162,6 +189,13 @@ const worksheetSelectionShape = {
   dryMathFacts: DryMathFactsV2Schema.default(() => ({
     operations: [...DEFAULT_DRY_MATH_FACTS_OPERATIONS],
     factFamilies: [...DEFAULT_FACT_FAMILIES],
+  })),
+  // Additive at version 2 like the Dry Math choices: a file without it reads
+  // as addition within 10 without carrying or borrowing.
+  numberBonds: NumberBondsV2Schema.default(() => ({
+    operations: [...DEFAULT_NUMBER_BONDS_OPERATIONS],
+    wholeMax: DEFAULT_NUMBER_BONDS_WHOLE_MAXIMUM,
+    regrouping: DEFAULT_NUMBER_BONDS_REGROUPING,
   })),
   findTheWow: z.strictObject({
     variant: z.enum(FIND_THE_WOW_VARIANTS),
@@ -245,6 +279,7 @@ export const ConfigResponseV2Schema = z.strictObject({
 
 export type ArithmeticFocusV2 = z.infer<typeof DryMathFocusV2Schema>;
 export type DryMathFactsV2 = z.infer<typeof DryMathFactsV2Schema>;
+export type NumberBondsV2 = z.infer<typeof NumberBondsV2Schema>;
 export type QuantityFocusV2 = z.infer<typeof QuantityFocusV2Schema>;
 export type CountCompareFocusV2 = z.infer<typeof CountCompareFocusV2Schema>;
 export type WorksheetSelectionV2 = z.infer<typeof WorksheetSelectionV2Schema>;
@@ -258,6 +293,7 @@ export type SentenceVocabulary = (typeof SENTENCE_VOCABULARY_OPTIONS)[number];
 export type ThemeChoice = (typeof THEME_CHOICES)[number];
 export type RegroupingMode = (typeof REGROUPING_MODES)[number];
 export type DryMathStrand = (typeof DRY_MATH_STRANDS)[number];
+export type NumberBondsRegroupingMode = (typeof NUMBER_BONDS_REGROUPING_MODES)[number];
 
 // The shared value lists live in the `enums.ts` leaf and the frozen Version 1
 // schemas in `legacy-v1.ts`; every name this module exported before the move
@@ -267,6 +303,7 @@ export {
   FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
+  NUMBER_BONDS_REGROUPING_MODES,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,

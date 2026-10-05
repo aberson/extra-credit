@@ -4,7 +4,10 @@ import {
   DEFAULT_WORKSHEET_DEFAULTS_V2,
   worksheetSelectionOf,
 } from "../../src/shared/config/defaults.js";
-import { REGROUPING_MODES } from "../../src/shared/config/enums.js";
+import {
+  NUMBER_BONDS_REGROUPING_MODES,
+  REGROUPING_MODES,
+} from "../../src/shared/config/enums.js";
 import { PRACTICE_FOCUS_CATALOG } from "../../src/shared/config/practice-focus.js";
 import type {
   ArithmeticFocusV2,
@@ -12,27 +15,38 @@ import type {
   WorksheetSelectionV2,
 } from "../../src/shared/config/schema.js";
 import { projectGenerationRequest } from "../../src/shared/worksheet/project-request.js";
-import type {
-  DryMathItemV1,
-  GenerationRequestV1,
-  WorksheetDocumentV1,
+import {
+  V1_NUMERIC_MAXIMUM,
+  type DryMathItemV1,
+  type GenerationRequestV1,
+  type NumberBondItemV1,
+  type WorksheetDocumentV1,
 } from "../../src/shared/worksheet/types.js";
 import {
   enumerateDryMathCandidates,
   generateDryMath,
 } from "../../src/worksheets/dry-math/generator.js";
 import {
+  enumerateNumberBondsCandidates,
+  generateNumberBonds,
+} from "../../src/worksheets/number-bonds/generator.js";
+import {
   ORACLE_FACT_DIVIDEND_MAXIMUM,
   ORACLE_FACT_FACTOR_MAXIMUM,
+  ORACLE_NUMBER_BONDS_CEILING,
+  ORACLE_NUMBER_BONDS_WHOLE_MINIMUM,
   columnAdd,
   columnSubtract,
   judgeDocument,
   judgeRenderedPage,
+  judgeRenderedSentencesPage,
   oracleCandidateKeys,
   oracleDivide,
   oracleFactClosedForm,
   oracleFactKeys,
+  oracleNumberBondKeys,
   oracleProduct,
+  oracleSolveMissing,
   type OracleCode,
   type RenderedKeyLine,
   type RenderedRow,
@@ -423,3 +437,254 @@ describe("Appendix B.5 judge calibration for facts", () => {
       .toEqual(divisions.map(({ id }) => ({ itemId: id, code: "OUT_OF_SET" })));
   });
 });
+
+describe("Number Bonds missing number sentences (Appendix B.3 and B.4)", () => {
+  const OPERATION_CHOICES = [["addition"], ["subtraction"], ["addition", "subtraction"]] as const;
+  const WHOLE_MAXIMA = Array.from(
+    { length: ORACLE_NUMBER_BONDS_CEILING - ORACLE_NUMBER_BONDS_WHOLE_MINIMUM + 1 },
+    (_, index) => ORACLE_NUMBER_BONDS_WHOLE_MINIMUM + index,
+  );
+
+  function bondsRequest(
+    numberBonds: WorksheetSelectionV2["numberBonds"],
+    seed = "00000001",
+    length: WorksheetSelectionV2["length"] = "long",
+  ): GenerationRequestV1 {
+    const projection = projectGenerationRequest({
+      selection: { ...BASE, worksheetType: "number-bonds", numberBonds, length },
+      generatorVersion: 1,
+      seed,
+    });
+    if (!projection.ok) {
+      throw new Error(projection.message);
+    }
+    return projection.request;
+  }
+
+  function bondsDocument(
+    numberBonds: WorksheetSelectionV2["numberBonds"],
+    seed = "00000001",
+  ): WorksheetDocumentV1<NumberBondItemV1> {
+    const generated = generateNumberBonds(bondsRequest(numberBonds, seed), {
+      worksheetId: "11111111-1111-4111-8111-111111111111",
+    });
+    if (!generated.ok) {
+      throw new Error(generated.message);
+    }
+    return generated.document;
+  }
+
+  /** A generated sentence as printed: its blank as `?`. */
+  function printedKey(item: Pick<NumberBondItemV1, "operation" | "leftOperand" | "rightOperand" | "result" | "missing">): string {
+    const left = item.missing === "left" ? "?" : String(item.leftOperand);
+    const right = item.missing === "right" ? "?" : String(item.rightOperand);
+    return `${item.operation}:${left}:${right}:${item.result}`;
+  }
+
+  test("the solver finds the one completing number of every sentence, and none or many where a sentence has no single blank", () => {
+    expect(oracleSolveMissing({ symbol: "+", left: 8, right: null, result: 15 })).toEqual([7]);
+    expect(oracleSolveMissing({ symbol: "+", left: null, right: 7, result: 15 })).toEqual([8]);
+    expect(oracleSolveMissing({ symbol: "−", left: null, right: 3, result: 5 })).toEqual([8]);
+    expect(oracleSolveMissing({ symbol: "−", left: 9, right: null, result: 4 })).toEqual([5]);
+    expect(oracleSolveMissing({ symbol: "+", left: 8, right: 7, result: 15 })).toEqual([]);
+    expect(oracleSolveMissing({ symbol: "+", left: null, right: null, result: 15 })).toHaveLength(16);
+    // A blank that no number from 0 to 40 completes.
+    expect(oracleSolveMissing({ symbol: "−", left: 3, right: null, result: 5 })).toEqual([]);
+  });
+
+  test.each([
+    [2, 2],
+    [3, 6],
+    [4, 12],
+    [5, 20],
+    [10, 90],
+    [20, 380],
+  ] as const)("within %i one operation holds %i sentences with problems that carry or borrow included", (wholeMax, count) => {
+    for (const operations of [["addition"], ["subtraction"]] as const) {
+      expect(oracleNumberBondKeys({ operations, wholeMax, regrouping: "included" }).size).toBe(count);
+    }
+  });
+
+  test("by default the pools are equal through 9, and 72 and 254 per operation at 10 and 20 (508 for both)", () => {
+    for (const wholeMax of WHOLE_MAXIMA.filter((value) => value <= 9)) {
+      for (const operations of OPERATION_CHOICES) {
+        expect(oracleNumberBondKeys({ operations, wholeMax, regrouping: "without" }))
+          .toEqual(oracleNumberBondKeys({ operations, wholeMax, regrouping: "included" }));
+      }
+    }
+    for (const operations of [["addition"], ["subtraction"]] as const) {
+      expect(oracleNumberBondKeys({ operations, wholeMax: 10, regrouping: "without" }).size).toBe(72);
+      expect(oracleNumberBondKeys({ operations, wholeMax: 20, regrouping: "without" }).size).toBe(254);
+    }
+    const both = ["addition", "subtraction"] as const;
+    expect(oracleNumberBondKeys({ operations: both, wholeMax: 20, regrouping: "without" }).size).toBe(508);
+    expect(oracleNumberBondKeys({ operations: both, wholeMax: 20, regrouping: "included" }).size).toBe(760);
+    // Make-ten and crossing-ten problems are exactly the ones left out.
+    const without = oracleNumberBondKeys({ operations: ["addition"], wholeMax: 20, regrouping: "without" });
+    expect(without.has("addition:3:?:10")).toBe(false);
+    expect(without.has("addition:8:?:15")).toBe(false);
+    expect(without.has("addition:10:?:19")).toBe(true);
+  });
+
+  test("for every largest whole, operation choice and carrying and borrowing choice the generator's problem-key set is the oracle's", () => {
+    const disagreements: string[] = [];
+    for (const operations of OPERATION_CHOICES) {
+      for (const wholeMax of WHOLE_MAXIMA) {
+        for (const regrouping of NUMBER_BONDS_REGROUPING_MODES) {
+          const focus = { operations: [...operations], wholeMax, regrouping };
+          const generated = enumerateNumberBondsCandidates(bondsRequest(focus)).map(printedKey);
+          const expected = oracleNumberBondKeys(focus);
+          if (new Set(generated).size !== generated.length || !setsEqual(new Set(generated), expected)) {
+            disagreements.push(`${operations.join("+")} ${wholeMax} ${regrouping}`);
+          }
+          if (regrouping === "included") {
+            expect(expected.size).toBe(operations.length * wholeMax * (wholeMax - 1));
+          }
+        }
+      }
+    }
+    expect(disagreements).toEqual([]);
+  });
+
+  test("every candidate has exactly one completing number from 0 to 40, equal to its answer, and every number lies from 1 to the largest whole", () => {
+    for (const wholeMax of WHOLE_MAXIMA) {
+      const candidates = enumerateNumberBondsCandidates(
+        bondsRequest({ operations: ["addition", "subtraction"], wholeMax, regrouping: "included" }),
+      );
+      for (const candidate of candidates) {
+        const solutions = oracleSolveMissing({
+          symbol: candidate.renderedSymbol,
+          left: candidate.missing === "left" ? null : candidate.leftOperand,
+          right: candidate.missing === "right" ? null : candidate.rightOperand,
+          result: candidate.result,
+        });
+        expect(solutions).toEqual([candidate.answer.value]);
+        for (const value of [candidate.leftOperand, candidate.rightOperand, candidate.result]) {
+          expect(value >= 1 && value <= wholeMax, `${wholeMax}: ${value}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  describe("Appendix B.5 judge calibration for sentences", () => {
+    const within20 = {
+      operations: ["addition", "subtraction"],
+      wholeMax: V1_NUMERIC_MAXIMUM,
+      regrouping: "without",
+    } as const satisfies WorksheetSelectionV2["numberBonds"];
+    const included20 = { ...within20, regrouping: "included" } as const;
+
+    function withFirstSentence(
+      document: WorksheetDocumentV1<NumberBondItemV1>,
+      replace: (first: NumberBondItemV1) => NumberBondItemV1,
+    ): WorksheetDocumentV1<NumberBondItemV1> {
+      const [first, ...rest] = document.items;
+      if (first === undefined) {
+        throw new Error("A calibration document had no items.");
+      }
+      return { ...document, items: [replace(first), ...rest] };
+    }
+
+    function sentence(
+      id: string,
+      operation: "addition" | "subtraction",
+      leftOperand: number,
+      rightOperand: number,
+      result: number,
+      missing: "left" | "right",
+    ): NumberBondItemV1 {
+      return {
+        id,
+        itemType: "number-bond",
+        answerability: "objective",
+        form: "sentence",
+        operation,
+        leftOperand,
+        rightOperand,
+        result,
+        renderedSymbol: operation === "addition" ? "+" : "−",
+        missing,
+        answer: { kind: "number", value: missing === "left" ? leftOperand : rightOperand },
+      };
+    }
+
+    test("a known-good sentences page in each carrying and borrowing choice scores zero violations", () => {
+      expect(judgeDocument(bondsDocument(within20))).toEqual([]);
+      expect(judgeDocument(bondsDocument(included20))).toEqual([]);
+    });
+
+    test("each known-garbage sentences page scores exactly its one named code", () => {
+      const without = bondsDocument(within20);
+      const included = bondsDocument(included20);
+      const cases: readonly (readonly [OracleCode, WorksheetDocumentV1<NumberBondItemV1>])[] = [
+        ["WRONG_ANSWER", withFirstSentence(without, (first) => ({
+          ...first,
+          answer: { kind: "number", value: first.answer.value + 1 },
+        }))],
+        ["DUPLICATE_FACT", {
+          ...without,
+          items: without.items.map((entry, index) => {
+            const first = without.items[0];
+            return index === 1 && first !== undefined ? { ...first, id: entry.id } : entry;
+          }),
+        }],
+        ["OUT_OF_SET", withFirstSentence(
+          bondsDocument({ ...within20, operations: ["addition"] }),
+          (first) => sentence(first.id, "subtraction", 9, 4, 5, "right"),
+        )],
+        ["BELOW_ONE", withFirstSentence(without, (first) => sentence(first.id, "addition", 0, 5, 5, "right"))],
+        ["NOT_UNIQUE_SOLUTION", withFirstSentence(without, (first) => ({
+          ...first,
+          missing: "both" as unknown as "left",
+        }))],
+        ["OVER_CEILING", withFirstSentence(included, (first) => sentence(first.id, "addition", 11, 10, 21, "right"))],
+        ["REGROUPING_MISMATCH", withFirstSentence(without, (first) => sentence(first.id, "addition", 8, 7, 15, "right"))],
+      ];
+      for (const [code, document] of cases) {
+        expect(codes(judgeDocument(document)), code).toEqual([code]);
+      }
+      // Mirror: the same carrying problem is clean once such problems are included.
+      expect(judgeDocument(withFirstSentence(included, (first) => sentence(first.id, "addition", 8, 7, 15, "right"))))
+        .toEqual([]);
+    });
+
+    test("a rendered page and key are judged against the oracle's own solution of each row", () => {
+      const document = bondsDocument(within20);
+      const printed = (entry: NumberBondItemV1): string => {
+        const left = entry.missing === "left" ? "?" : String(entry.leftOperand);
+        const right = entry.missing === "right" ? "?" : String(entry.rightOperand);
+        return `${left} ${entry.renderedSymbol} ${right} = ${entry.result}`;
+      };
+      const rows: RenderedRow[] = document.items.map((entry) => ({ id: entry.id, text: printed(entry) }));
+      const keyLines: RenderedKeyLine[] = document.items.map((entry, index) => {
+        const answer = String(entry.answer.value);
+        return {
+          id: entry.id,
+          source: printed(entry),
+          answer,
+          text: `${index + 1}. ${printed(entry)} (missing number: ${answer})`,
+        };
+      });
+      expect(judgeRenderedSentencesPage(rows, keyLines, within20)).toEqual([]);
+      const [first, ...rest] = keyLines;
+      if (first === undefined) {
+        throw new Error("The calibration key had no lines.");
+      }
+      const offByOne = String(Number(first.answer) + 1);
+      expect(codes(judgeRenderedSentencesPage(rows, [
+        { ...first, answer: offByOne, text: `1. ${first.source} (missing number: ${offByOne})` },
+        ...rest,
+      ], within20))).toEqual(["KEY_MISMATCH"]);
+      // A key line that prints the completed sentence does not show the blank.
+      const completed = first.source.replace("?", first.answer);
+      expect(codes(judgeRenderedSentencesPage(rows, [
+        { ...first, source: completed, text: `1. ${completed} (missing number: ${first.answer})` },
+        ...rest,
+      ], within20))).toEqual(["KEY_MISMATCH"]);
+    });
+  });
+});
+
+function setsEqual(left: ReadonlySet<string>, right: ReadonlySet<string>): boolean {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}

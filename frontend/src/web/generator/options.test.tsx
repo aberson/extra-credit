@@ -26,6 +26,7 @@ import {
 } from "../../shared/config/earlier-settings";
 import {
   FACT_PRACTICE_ENTRIES,
+  NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   SENTENCE_VOCABULARY_LABELS,
   describePracticeFocus,
@@ -363,6 +364,7 @@ function emptyFamilyTally(): Record<RegisteredWorksheetType, number> {
     "find-the-wow": 0,
     "sentence-builder": 0,
     "count-compare-make": 0,
+    "number-bonds": 0,
   };
 }
 
@@ -600,7 +602,7 @@ describe("capacity-aware availability (issue #14)", () => {
     }
 
     // Every family must still be seen answering BOTH ways. A single global
-    // counter let one family's refusal vouch for all four.
+    // counter let one family's refusal vouch for all of them.
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
       expect(`${worksheetType} offered ${offeredBy[worksheetType] > 0}`).toBe(
         `${worksheetType} offered true`,
@@ -1223,6 +1225,8 @@ describe("family-aware limiting-resource copy (issue #16)", () => {
         "Math — Two Whats and a Wow varies within the counting and numerals range of this practice focus. Choose a practice focus with a wider range, or create a new worksheet later.",
       "sentence-builder":
         "Sentence Builder varies within the reviewed vocabulary for Picture Labels, which no practice focus can widen. Choose a different Writing activity, or create a new worksheet later.",
+      "number-bonds":
+        "Number Bonds varies within the range of this practice focus. Choose a practice focus with a wider range, or create a new worksheet later.",
     };
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
       expect(
@@ -1252,7 +1256,12 @@ describe("family-aware limiting-resource copy (issue #16)", () => {
         const context = contextFor(worksheetType, profile);
         const maximums = registration.controls.getRelevantMaximums(context);
         const advice = registration.controls.getLimitingResourceAdvice(context);
-        if (maximums.length === 0) {
+        if (worksheetType === "number-bonds") {
+          // Number Bonds' range is its own largest whole, carried in its
+          // practice member rather than in a declared focus maximum.
+          expect(maximums).toEqual([]);
+          expect(advice).toMatch(/range of this practice focus/u);
+        } else if (maximums.length === 0) {
           // Nothing numeric bounds this page, so nothing may send the parent
           // to a numeric range.
           expect(`${worksheetType}: ${advice}`).not.toMatch(/range/iu);
@@ -1437,7 +1446,7 @@ describe("stored capabilities Version 1 keeps but never uses", () => {
   test("both stored disclosures are announced on selections that print no arithmetic", () => {
     // Both disclosures are about what the child's earlier settings store and
     // what this version will not do with them, so both belong on every
-    // selection - including the two families that read no operand or result.
+    // selection - including these two families, which read no operand or result.
     for (const worksheetType of [
       "count-compare-make",
       "sentence-builder",
@@ -1811,10 +1820,12 @@ describe("worksheet-first panel", () => {
       `Practice focus for Dry Math: ${shownFocus}, every problem carries or borrows.`,
     );
 
-    // Only Dry Math shows the group.
+    // Only Dry Math and Number Bonds show such a group, each its own.
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
       chooseWorksheet(worksheetType);
-      expect(group() !== null, worksheetType).toBe(worksheetType === "dry-math");
+      expect(group() !== null, worksheetType).toBe(
+        worksheetType === "dry-math" || worksheetType === "number-bonds",
+      );
     }
   });
 
@@ -1910,7 +1921,119 @@ describe("worksheet-first panel", () => {
     }
   });
 
-  test("the four worksheet types are radio cards with a one-line description", () => {
+  test("Number Bonds is the fifth card, with nine sentence entries and its own Carrying and borrowing group after the focus, each choice one action", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
+    chooseWorksheet("number-bonds");
+    expect(onChange.mock.calls).toEqual([
+      [{ type: "changed", group: "worksheetType", value: "number-bonds" }],
+    ]);
+    const card = worksheetCard("number-bonds");
+    expect(document.getElementById(card.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Find the one missing number in each problem.",
+    );
+
+    const focus = (): HTMLSelectElement =>
+      screen.getByRole("combobox", { name: "Practice focus" });
+    expect([...focus().options].map((option) => option.textContent)).toEqual(
+      NUMBER_BONDS_FOCUS_CATALOG.map(({ label }) => label),
+    );
+    expect(focus().selectedOptions[0]?.textContent).toBe("Addition within 10");
+    expect(document.getElementById(focus().getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Each problem has exactly one missing number, and every number is at least 1. The missing number can be a number being added, the number you start with, or the number taken away.",
+    );
+
+    const regrouping = screen.getByRole("group", { name: "Carrying and borrowing" });
+    expect(regrouping.closest("details")).toBeNull();
+    expectDocumentOrder([
+      panelControl("worksheet-type"),
+      screen.getByRole("combobox", { name: "Child profile" }),
+      focus(),
+      regrouping,
+      document.querySelector("[data-selection-summary]"),
+      screen.getByRole("button", { name: "Create worksheet" }),
+    ]);
+    const without = screen.getByRole("radio", { name: "Without carrying or borrowing" });
+    const include = screen.getByRole("radio", { name: "Include problems that carry or borrow" });
+    expect(without).toBeChecked();
+    expect(include).not.toBeChecked();
+    expect(document.getElementById(regrouping.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Without carrying or borrowing, no problem needs carrying or borrowing, so none makes or crosses ten. Include problems that carry or borrow adds problems such as 3 + ? = 10 and 8 + ? = 15.",
+    );
+    for (const name of ["Statements", "Writing activity", "Vocabulary", "Fact families"]) {
+      expect(screen.queryByRole("group", { name }), name).toBeNull();
+    }
+    const summary = (): string => document.querySelector("[data-selection-summary]")?.textContent ?? "";
+    expect(summary()).toContain("Practice focus for Number Bonds: Missing number sentences, Addition within 10.");
+    expect(summary()).toContain("This selection creates 12 unique problems on one practice page.");
+
+    // Nickname, answer key, length, paper and scale apply; interests,
+    // decoration and Theme do not.
+    openMoreOptions();
+    expect(screen.getByLabelText("Put the nickname in the worksheet header")).toBeInTheDocument();
+    expect(screen.getByLabelText("Include a parent answer key")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Length" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Paper size" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Use reviewed interests in worksheet content")).toBeNull();
+    expect(screen.queryByLabelText("Include decorative graphics")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
+
+    // Each choice is one action on the one Number Bonds group, and a new
+    // focus keeps the carrying and borrowing choice.
+    onChange.mockClear();
+    fireEvent.click(include);
+    expect(onChange.mock.calls).toEqual([
+      [{ type: "changed", group: "numberBonds", value: { operations: ["addition"], wholeMax: 10, regrouping: "included" } }],
+    ]);
+    expect(include).toBeChecked();
+    expect(summary()).toContain(
+      "Practice focus for Number Bonds: Missing number sentences, Addition within 10, including problems that carry or borrow.",
+    );
+    onChange.mockClear();
+    fireEvent.change(focus(), { target: { value: "addition-and-subtraction-within-20" } });
+    expect(onChange.mock.calls).toEqual([
+      [
+        {
+          type: "changed",
+          group: "numberBonds",
+          value: { operations: ["addition", "subtraction"], wholeMax: 20, regrouping: "included" },
+        },
+      ],
+    ]);
+    expect(focus()).toHaveValue("addition-and-subtraction-within-20");
+    expect(screen.getByRole("radio", { name: "Include problems that carry or borrow" })).toBeChecked();
+  });
+
+  test("a saved Number Bonds focus outside the catalog shows one selected Saved setting option and is not rewritten", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    renderPanel({
+      defaults: {
+        ...storedDefaults(),
+        worksheetType: "number-bonds",
+        numberBonds: { operations: ["addition"], wholeMax: 3, regrouping: "without" },
+      },
+      onChange,
+      profiles: [nicknamed],
+    });
+    const focus = screen.getByRole("combobox", { name: "Practice focus" });
+    expect(focus).toHaveValue("saved-setting");
+    expect((focus as HTMLSelectElement).selectedOptions[0]?.textContent).toBe("Saved setting: Addition within 3");
+    expect((focus as HTMLSelectElement).options).toHaveLength(NUMBER_BONDS_FOCUS_CATALOG.length + 1);
+    expect(onChange).not.toHaveBeenCalled();
+    // Six problems fill no length: the range remedy, and Create stays off.
+    expect(document.querySelector("[data-capacity-conflict]")?.textContent).toBe(
+      "This practice focus has 6 unique problems, but this length needs 12. Choose a practice focus with a wider range.",
+    );
+    expect(screen.getByRole("button", { name: "Create worksheet" })).toBeDisabled();
+    // Mirror: choosing a catalog entry removes the extra option.
+    fireEvent.change(focus, { target: { value: "addition-within-5" } });
+    expect(focus).toHaveValue("addition-within-5");
+    expect((focus as HTMLSelectElement).options).toHaveLength(NUMBER_BONDS_FOCUS_CATALOG.length);
+    expect(screen.getByRole("button", { name: "Create worksheet" })).toBeEnabled();
+  });
+
+  test("the five worksheet types are radio cards with a one-line description", () => {
     renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
     const cards = screen.getAllByRole("radio").filter(
       (radio) => radio.getAttribute("name") === "worksheet-type",

@@ -21,6 +21,7 @@ import {
   FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
+  NUMBER_BONDS_REGROUPING_MODES,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
@@ -41,6 +42,7 @@ import {
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
+  NUMBER_BONDS_WHOLE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../../src/shared/worksheet/types.js";
@@ -291,6 +293,12 @@ const PARITY_ROWS: Readonly<Record<string, ParityRow>> = {
       probe("[a numeric string]", ["2"], false),
     ],
   },
+  // Additive at version 2 like the Dry Math choices.
+  "$.defaults.numberBonds": objectRow([probe("absent", undefined, true)]),
+  "$.defaults.numberBonds.operations": { probes: [...OPERATION_ARRAY_PROBES, probe("empty", [], false)] },
+  "$.defaults.numberBonds.operations[]": enumItemsRow(MATH_OPERATIONS),
+  "$.defaults.numberBonds.wholeMax": integerRow(NUMBER_BONDS_WHOLE_MINIMUM, V1_NUMERIC_MAXIMUM),
+  "$.defaults.numberBonds.regrouping": enumRow(NUMBER_BONDS_REGROUPING_MODES),
   "$.defaults.findTheWow": objectRow(),
   "$.defaults.findTheWow.variant": enumRow(FIND_THE_WOW_VARIANTS),
   "$.defaults.findTheWow.quantity": objectRow(),
@@ -503,6 +511,34 @@ describe("AppConfigV2 schema and composed transport parity", () => {
     const stored = AppConfigV2Schema.parse(earlier);
     expect(stored.defaults.dryMathStrand).toBe("multiply-divide");
     expect(stored.defaults.dryMathFacts).toEqual({ operations: ["division"], factFamilies: [0, 12] });
+  });
+
+  test("a version 2 file written before Number Bonds existed parses with its defaults", async () => {
+    const earlier = structuredClone(validConfig()) as unknown as {
+      defaults: Record<string, unknown>;
+    };
+    delete earlier.defaults.numberBonds;
+    expect(Object.keys(earlier.defaults)).not.toContain("numberBonds");
+    expect(await transportAccepts(earlier)).toBe(true);
+    expect(AppConfigV2Schema.parse(earlier).defaults.numberBonds).toEqual({
+      operations: ["addition"],
+      wholeMax: 10,
+      regrouping: "without",
+    });
+    // Mirror: a stored Number Bonds choice and worksheet type are read back as stored.
+    earlier.defaults.worksheetType = "number-bonds";
+    earlier.defaults.numberBonds = {
+      operations: ["addition", "subtraction"],
+      wholeMax: 3,
+      regrouping: "included",
+    };
+    const stored = AppConfigV2Schema.parse(earlier);
+    expect(stored.defaults.worksheetType).toBe("number-bonds");
+    expect(stored.defaults.numberBonds).toEqual({
+      operations: ["addition", "subtraction"],
+      wholeMax: 3,
+      regrouping: "included",
+    });
   });
 
   test("every key path the transport schema declares has exactly one parity row", () => {

@@ -7,17 +7,22 @@ import {
 import {
   EARLIER_SETTING_OPTION_ID,
   FACT_PRACTICE_ENTRIES,
+  NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
+  SAVED_SETTING_OPTION_ID,
   SENTENCE_VOCABULARY_LABELS,
   describePracticeFocus,
   matchFactPracticeEntry,
+  matchNumberBondsFocusOption,
   matchPracticeFocusOption,
+  savedSettingOptionLabel,
   type PracticeFocusKind,
   type PracticeFocusOption,
   type PracticeFocusValues,
 } from "../../shared/config/practice-focus";
 import {
   FIND_THE_WOW_VARIANTS,
+  NUMBER_BONDS_REGROUPING_MODES,
   REGROUPING_MODES,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
@@ -45,6 +50,13 @@ import {
   factFamilyLabel,
 } from "../../worksheets/dry-math/definition";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../worksheets/find-the-wow/definition";
+import {
+  NUMBER_BONDS_CARD_DESCRIPTION,
+  NUMBER_BONDS_FOCUS_HELP,
+  NUMBER_BONDS_REGROUPING_HELP,
+  NUMBER_BONDS_REGROUPING_LABELS,
+  NUMBER_BONDS_REGROUPING_LEGEND,
+} from "../../worksheets/number-bonds/definition";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
 import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
@@ -87,6 +99,7 @@ const WORKSHEET_DESCRIPTIONS = {
   "find-the-wow": "Three statements per group; the child circles the one that is true.",
   "sentence-builder": "One prompt to draw, label, copy or write about.",
   "count-compare-make": "Match, compare, complete and draw quantities without symbols.",
+  "number-bonds": NUMBER_BONDS_CARD_DESCRIPTION,
 } as const satisfies Record<RegisteredWorksheetType, string>;
 
 const WORKSHEET_CARDS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
@@ -113,6 +126,9 @@ const THEME_LABELS = {
 const THEME_HELP_ID = "worksheet-theme-help";
 
 const REGROUPING_HELP_ID = "worksheet-regrouping-help";
+
+const NUMBER_BONDS_FOCUS_HELP_ID = "worksheet-number-bonds-focus-help";
+const NUMBER_BONDS_REGROUPING_HELP_ID = "worksheet-number-bonds-regrouping-help";
 
 const FACT_FAMILIES_HELP_ID = "worksheet-fact-families-help";
 const FACT_FAMILY_NOTE_ID = "worksheet-fact-families-note";
@@ -185,6 +201,7 @@ function focusControlFor(selection: WorksheetSelectionV2): FocusControl | undefi
         value: selection.countCompareMake,
       };
     case "sentence-builder":
+    case "number-bonds":
       return undefined;
   }
 }
@@ -242,6 +259,9 @@ function groupsShownFor(
       return ["sentenceBuilder.variant", "sentenceBuilder.vocabulary"];
     case "count-compare-make":
       return ["countCompareMake"];
+    case "number-bonds":
+      // No earlier setting describes Number Bonds.
+      return [];
   }
 }
 
@@ -358,7 +378,7 @@ function OptionGroup({
 /**
  * The worksheet-first panel: worksheet type, its variant, the child and the
  * practice focus (with Dry Math's Carrying and borrowing or Fact families
- * choice after it),
+ * choice, or Number Bonds' own Carrying and borrowing choice, after it),
  * then the summary, any blocking guidance and Create. More options holds only Length, the answer key, Personalization and
  * Print layout. The panel is controlled: every choice lives in the App
  * session, so it survives profile edits, saves and in-app reloads.
@@ -416,6 +436,7 @@ export function GeneratorControls({
   const focusOptionId =
     focusControl === undefined ? undefined : focusOptionIdFor(focusControl, selection);
   const factFamilies = selection.dryMathFacts.factFamilies;
+  const numberBondsFocusId = matchNumberBondsFocusOption(selection.numberBonds);
 
   const inUse = earlierSettingsInUse(session);
   const shownGroups = groupsShownFor(selection);
@@ -515,6 +536,23 @@ export function GeneratorControls({
       focusControl.group,
       option.focus as WorksheetGroupValue[typeof focusControl.group],
     );
+  }
+
+  /**
+   * One Number Bonds focus entry: its operations and range, keeping the
+   * carrying and borrowing choice. The Saved setting option is the value
+   * already chosen, so choosing it changes nothing.
+   */
+  function chooseNumberBondsFocus(optionId: string): void {
+    const option = NUMBER_BONDS_FOCUS_CATALOG.find(({ id }) => id === optionId);
+    if (option === undefined) {
+      return;
+    }
+    change("numberBonds", {
+      ...selection.numberBonds,
+      operations: [...option.focus.operations],
+      wholeMax: option.focus.wholeMax,
+    });
   }
 
   /** Checks or clears one fact family; the last checked family stays. */
@@ -682,6 +720,50 @@ export function GeneratorControls({
                   ))}
               </select>
             </label>
+          )}
+          {applicable.practiceFocus && worksheetType === "number-bonds" && (
+            <>
+              <label className="worksheet-field" data-panel-control="practice-focus">
+                Practice focus
+                <select
+                  aria-describedby={NUMBER_BONDS_FOCUS_HELP_ID}
+                  aria-label="Practice focus"
+                  disabled={disabled}
+                  onChange={(event) => chooseNumberBondsFocus(event.currentTarget.value)}
+                  value={numberBondsFocusId}
+                >
+                  {numberBondsFocusId === SAVED_SETTING_OPTION_ID && (
+                    <option value={SAVED_SETTING_OPTION_ID}>
+                      {savedSettingOptionLabel(selection.numberBonds)}
+                    </option>
+                  )}
+                  {NUMBER_BONDS_FOCUS_CATALOG.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p data-number-bonds-focus-help="true" id={NUMBER_BONDS_FOCUS_HELP_ID}>
+                {NUMBER_BONDS_FOCUS_HELP}
+              </p>
+            </>
+          )}
+          {applicable.regrouping && worksheetType === "number-bonds" && (
+            <RadioGroup
+              disabled={disabled}
+              help={{ id: NUMBER_BONDS_REGROUPING_HELP_ID, text: NUMBER_BONDS_REGROUPING_HELP }}
+              legend={NUMBER_BONDS_REGROUPING_LEGEND}
+              name="number-bonds-regrouping"
+              onSelect={(regrouping) =>
+                change("numberBonds", { ...selection.numberBonds, regrouping })
+              }
+              options={NUMBER_BONDS_REGROUPING_MODES.map((regrouping) => ({
+                value: regrouping,
+                label: NUMBER_BONDS_REGROUPING_LABELS[regrouping],
+              }))}
+              value={selection.numberBonds.regrouping}
+            />
           )}
           {applicable.factFamilies && worksheetType === "dry-math" && (
             <fieldset

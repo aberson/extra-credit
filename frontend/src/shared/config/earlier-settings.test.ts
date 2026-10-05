@@ -199,6 +199,22 @@ describe("selectionFromEarlierSettings (Appendix B.3)", () => {
     expect(result.groups).toContain("dryMath");
   });
 
+  test("earlier settings never set Number Bonds, even from a stored allowRegrouping", () => {
+    const base = {
+      ...BASE,
+      numberBonds: { operations: ["subtraction" as const], wholeMax: 7, regrouping: "without" as const },
+    };
+    const stored = legacy(uniform(100));
+    const result = selectionFromEarlierSettings(
+      { ...stored, mathSkills: { ...stored.mathSkills, allowRegrouping: true } },
+      base,
+    );
+    expect(result.selection.numberBonds).toEqual({ operations: ["subtraction"], wholeMax: 7, regrouping: "without" });
+    expect(result.groups).not.toContain("numberBonds");
+    // Mirror: the add-subtract focus those same settings describe is seeded.
+    expect(result.groups).toContain("dryMath");
+  });
+
   test("emerging within 5 with the preschool band seeds addition within 5, Quantity pictures and simpler words", () => {
     const result = selectionFromEarlierSettings(
       legacy(

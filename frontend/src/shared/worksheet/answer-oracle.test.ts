@@ -8,6 +8,7 @@ import {
 import type {
   CountCompareComparisonItemV1,
   DryMathItemV1,
+  NumberBondItemV1,
   QuantityWowGroupItemV1,
 } from "./types.js";
 
@@ -27,6 +28,30 @@ function dryMathItem(
     renderedSymbol: { addition: "+", subtraction: "−", multiplication: "×", division: "÷" }[
       operation
     ] as DryMathItemV1["renderedSymbol"],
+    answer: { kind: "number", value: answer },
+  };
+}
+
+/** A missing number sentence whose stated answer is `answer`. */
+function sentenceItem(
+  operation: NumberBondItemV1["operation"],
+  leftOperand: number,
+  rightOperand: number,
+  result: number,
+  missing: NumberBondItemV1["missing"],
+  answer: number,
+): NumberBondItemV1 {
+  return {
+    id: "item-001",
+    itemType: "number-bond",
+    answerability: "objective",
+    form: "sentence",
+    operation,
+    leftOperand,
+    rightOperand,
+    result,
+    renderedSymbol: operation === "addition" ? "+" : "−",
+    missing,
     answer: { kind: "number", value: answer },
   };
 }
@@ -67,6 +92,21 @@ describe("the one objective-answer dispatch", () => {
     expect(objectiveAnswerMatches(dryMathItem("multiplication", 3, 4, 13))).toBe(false);
     expect(objectiveAnswerMatches(dryMathItem("division", 7, 2, 3))).toBe(false);
     expect(objectiveAnswerMatches(dryMathItem("division", 0, 0, 0))).toBe(false);
+  });
+
+  test("solves a Number Bonds sentence's missing number from the numbers it shows", () => {
+    // 8 + ? = 15, ? + 7 = 15, ? − 3 = 5 and 9 − ? = 4. The hidden operand is
+    // deliberately wrong in each, so only the shown numbers can give these.
+    expect(recomputeObjectiveAnswer(sentenceItem("addition", 8, 99, 15, "right", 0))).toEqual({ kind: "number", value: 7 });
+    expect(recomputeObjectiveAnswer(sentenceItem("addition", 99, 7, 15, "left", 0))).toEqual({ kind: "number", value: 8 });
+    expect(recomputeObjectiveAnswer(sentenceItem("subtraction", 99, 3, 5, "left", 0))).toEqual({ kind: "number", value: 8 });
+    expect(recomputeObjectiveAnswer(sentenceItem("subtraction", 9, 99, 4, "right", 0))).toEqual({ kind: "number", value: 5 });
+    expect(objectiveAnswerMatches(sentenceItem("addition", 8, 7, 15, "right", 7))).toBe(true);
+    // Mirror: an answer off by one, and a sentence with no one blank, never match.
+    expect(objectiveAnswerMatches(sentenceItem("addition", 8, 7, 15, "right", 8))).toBe(false);
+    expect(
+      recomputeObjectiveAnswer(sentenceItem("addition", 8, 7, 15, "both" as unknown as "left", 7)),
+    ).toBeUndefined();
   });
 
   test("Two Whats and a Wow and Count, Compare & Make are validated by their own families", () => {

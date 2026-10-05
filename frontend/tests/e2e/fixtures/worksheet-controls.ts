@@ -2,11 +2,13 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 import {
   SENTENCE_VOCABULARY_LABELS,
+  describeNumberBondsFocus,
   describePracticeFocus,
   matchFactPracticeEntry,
 } from "../../../src/shared/config/practice-focus.ts";
 import type {
   FindTheWowVariant,
+  NumberBondsRegroupingMode,
   RegroupingMode,
   SentenceVocabulary,
   ThemeChoice,
@@ -25,6 +27,7 @@ import {
   factFamilyLabel,
 } from "../../../src/worksheets/dry-math/definition.ts";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../../src/worksheets/find-the-wow/definition.ts";
+import { NUMBER_BONDS_REGROUPING_LABELS } from "../../../src/worksheets/number-bonds/definition.ts";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../../src/worksheets/sentence-builder/definition.ts";
 
 /**
@@ -51,7 +54,7 @@ export interface WorksheetControls {
   readonly statements: () => Locator;
   readonly child: () => Locator;
   readonly practiceFocus: () => Locator;
-  /** The "Carrying and borrowing" radio group (Dry Math). */
+  /** The "Carrying and borrowing" radio group (Dry Math, or Number Bonds' own). */
   readonly regrouping: () => Locator;
   /** The "Fact families" checkbox group (Dry Math multiplication and division facts). */
   readonly factFamilies: () => Locator;
@@ -163,6 +166,19 @@ export async function chooseRegrouping(page: Page, regrouping: RegroupingMode): 
   await expect(radio).toBeChecked();
 }
 
+/** Chooses Number Bonds' Carrying and borrowing option, for example "included". */
+export async function chooseNumberBondsRegrouping(
+  page: Page,
+  regrouping: NumberBondsRegroupingMode,
+): Promise<void> {
+  const radio = controls(page).regrouping().getByRole("radio", {
+    name: NUMBER_BONDS_REGROUPING_LABELS[regrouping],
+    exact: true,
+  });
+  await radio.check();
+  await expect(radio).toBeChecked();
+}
+
 /**
  * Checks exactly the given fact families, for example [3, 12]. Every wanted
  * box is checked before any other is cleared, so the last checked box, which
@@ -199,9 +215,10 @@ export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabular
 /**
  * The practice choices of a whole worksheet selection, in panel order: the
  * worksheet type, its variant where one exists, then the practice focus (by
- * its `describePracticeFocus` label, or a Dry Math fact entry's label) and,
- * for Dry Math, Carrying and borrowing or the fact families, or, for
- * Sentence Builder, the vocabulary.
+ * its `describePracticeFocus` label, a Dry Math fact entry's label, or a
+ * Number Bonds sentence entry's label) and, for Dry Math, Carrying and
+ * borrowing or the fact families, for Number Bonds its own Carrying and
+ * borrowing, or, for Sentence Builder, the vocabulary.
  * The selection's other fields are left to the functions below.
  */
 export async function chooseWorksheetChoices(
@@ -239,6 +256,10 @@ export async function chooseWorksheetChoices(
         page,
         describePracticeFocus("count-compare-make", selection.countCompareMake),
       );
+      return;
+    case "number-bonds":
+      await choosePracticeFocus(page, describeNumberBondsFocus(selection.numberBonds));
+      await chooseNumberBondsRegrouping(page, selection.numberBonds.regrouping);
       return;
   }
 }

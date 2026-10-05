@@ -1,5 +1,6 @@
 import type {
   DryMathItemV1,
+  NumberBondItemV1,
   ObjectiveAnswerV1,
   WorksheetItemV1,
 } from "./types.js";
@@ -51,8 +52,34 @@ function dryMathAnswer(item: DryMathItemV1): ObjectiveAnswerV1 | undefined {
   }
 }
 
+/**
+ * A Number Bonds sentence's missing number, solved from the numbers it shows:
+ * a missing addend is the result minus the shown addend, a missing minuend is
+ * the result plus the subtrahend, and a missing subtrahend is the minuend
+ * minus the result. A sentence whose `missing` names neither number has none.
+ */
+function numberBondAnswer(item: NumberBondItemV1): ObjectiveAnswerV1 | undefined {
+  const { leftOperand, rightOperand, result } = item;
+  if (item.missing !== "left" && item.missing !== "right") {
+    return undefined;
+  }
+  switch (item.operation) {
+    case "addition":
+      return {
+        kind: "number",
+        value: item.missing === "left" ? result - rightOperand : result - leftOperand,
+      };
+    case "subtraction":
+      return {
+        kind: "number",
+        value: item.missing === "left" ? result + rightOperand : leftOperand - result,
+      };
+  }
+}
+
 const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
   "dry-math": dryMathAnswer,
+  "number-bond": numberBondAnswer,
   "wow-group": FAMILY_VALIDATED,
   "count-compare": FAMILY_VALIDATED,
 } as const satisfies {
@@ -64,7 +91,8 @@ const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
 /**
  * The answer an objective item's own fields imply, `FAMILY_VALIDATED` when its
  * family's validator owns that answer, or `undefined` when its fields imply no
- * answer at all (a division with a remainder or by zero).
+ * answer at all (a division with a remainder or by zero, or a Number Bonds
+ * sentence with no one missing number).
  */
 export function recomputeObjectiveAnswer(
   item: ObjectiveItemV1,
@@ -72,6 +100,8 @@ export function recomputeObjectiveAnswer(
   switch (item.itemType) {
     case "dry-math":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["dry-math"](item);
+    case "number-bond":
+      return OBJECTIVE_ANSWER_RECOMPUTATIONS["number-bond"](item);
     case "wow-group":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["wow-group"];
     case "count-compare":

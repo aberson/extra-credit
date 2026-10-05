@@ -7,9 +7,13 @@
  * focus. Multiplication and division facts are judged the same way: products
  * by repeated column addition, quotients and remainders by repeated column
  * subtraction, fact sets by brute force over every dividend and divisor, and
- * their sizes also by the closed forms of Appendix B.2. Its only `src/`
- * imports are `import type`, so it compiles under every TypeScript project
- * and adds nothing to any production bundle.
+ * their sizes also by the closed forms of Appendix B.2. Number Bonds missing
+ * number sentences (Appendix B.3) are enumerated by brute force over every
+ * printed triple of numbers whose relation holds by column arithmetic,
+ * filtered by column addition of the relation's two parts, and solved by
+ * trying every integer from 0 to 40 in each blank. Its only `src/` imports
+ * are `import type`, so it compiles under every TypeScript project and adds
+ * nothing to any production bundle.
  */
 import type {
   GenerationRequestV1,
@@ -22,6 +26,11 @@ export const ORACLE_DRY_MATH_CEILING = 100;
 /** Appendix B.2: the largest factor, divisor and quotient, and the largest dividend. */
 export const ORACLE_FACT_FACTOR_MAXIMUM = 12;
 export const ORACLE_FACT_DIVIDEND_MAXIMUM = 144;
+
+/** Appendix B.3: the smallest whole, the Number Bonds ceiling, and the range a blank is solved over. */
+export const ORACLE_NUMBER_BONDS_WHOLE_MINIMUM = 2;
+export const ORACLE_NUMBER_BONDS_CEILING = 20;
+export const ORACLE_SOLUTION_MAXIMUM = 40;
 
 export type OracleOperation = "addition" | "subtraction";
 export type OracleFactOperation = "multiplication" | "division";
@@ -38,6 +47,8 @@ export type OracleCode =
   | "OVER_CEILING"
   | "REGROUPING_MISMATCH"
   | "SYMBOL_MISMATCH"
+  | "NOT_UNIQUE_SOLUTION"
+  | "BELOW_ONE"
   | "KEY_MISMATCH";
 
 export interface OracleViolation {
@@ -420,8 +431,14 @@ export function judgeFacts(facts: readonly OracleFact[], focus: OracleFocus): re
   return violations;
 }
 
-/** Judges a generated Dry Math document against the focus its own request states. */
+/**
+ * Judges a generated Dry Math or Number Bonds document against the focus its
+ * own request states.
+ */
 export function judgeDocument(document: WorksheetDocumentV1): readonly OracleViolation[] {
+  if (document.worksheetType === "number-bonds") {
+    return judgeNumberBondsDocument(document);
+  }
   const focus = oracleFocusOf(document.request);
   return judgeFacts(
     document.items.map((item): OracleFact => {
@@ -539,4 +556,283 @@ export function judgeRenderedPage(
     facts.push({ id: row.id, operation: parsed.operation, left: parsed.left, right: parsed.right, symbol: parsed.symbol, answer: solution });
   }
   return [...violations, ...judgeFacts(facts, focus)];
+}
+
+/* Number Bonds missing number sentences (Appendix B.3). */
+
+export type OracleNumberBondsRegrouping = "without" | "included";
+
+/** The operations, largest whole and carrying and borrowing choice a sentences page was asked for. */
+export interface OracleNumberBondsFocus {
+  readonly operations: readonly string[];
+  readonly wholeMax: number;
+  readonly regrouping: OracleNumberBondsRegrouping;
+}
+
+/**
+ * One sentence as printed, `left symbol right = result`, with `null` for each
+ * number printed as a blank, and the answer its key states.
+ */
+export interface OracleSentence {
+  readonly id: string;
+  readonly symbol: string;
+  readonly left: number | null;
+  readonly right: number | null;
+  readonly result: number | null;
+  /** The stated answer; `undefined` when it is not a number. */
+  readonly answer: number | undefined;
+}
+
+/** Whether `left symbol right = result` holds by column arithmetic. */
+function sentenceHolds(symbol: string, left: number, right: number, result: number): boolean {
+  if (symbol === "+") {
+    return columnAdd(left, right).sum === result;
+  }
+  return symbol === "−" && left >= right && columnSubtract(left, right).difference === result;
+}
+
+/**
+ * Every integer from 0 to 40 that completes the sentence when written in its
+ * blank. A sentence with more than one blank lists the value of its first
+ * blank once per complete assignment of its blanks, so it never reports
+ * exactly one solution; a sentence with no blank has none.
+ */
+export function oracleSolveMissing(sentence: Omit<OracleSentence, "id" | "answer">): readonly number[] {
+  const slots = [sentence.left, sentence.right, sentence.result];
+  const blanks = slots.flatMap((value, index) => (value === null ? [index] : []));
+  if (blanks.length === 0) {
+    return [];
+  }
+  const solutions: number[] = [];
+  const assign = (filled: (number | null)[], remaining: readonly number[], first: number | undefined) => {
+    const [slot, ...rest] = remaining;
+    if (slot === undefined) {
+      const [left, right, result] = filled as number[];
+      if (sentenceHolds(sentence.symbol, left ?? 0, right ?? 0, result ?? 0)) {
+        solutions.push(first ?? 0);
+      }
+      return;
+    }
+    for (let value = 0; value <= ORACLE_SOLUTION_MAXIMUM; value += 1) {
+      const next = [...filled];
+      next[slot] = value;
+      assign(next, rest, first ?? value);
+    }
+  };
+  assign([...slots], blanks, undefined);
+  return solutions;
+}
+
+/** A sentence's printed form as a key: `addition:8:?:15`. */
+export function oracleSentenceKey(sentence: Omit<OracleSentence, "id" | "answer">): string {
+  const shown = (value: number | null) => (value === null ? "?" : String(value));
+  const operation = sentence.symbol === "+" ? "addition" : sentence.symbol === "−" ? "subtraction" : sentence.symbol;
+  return `${operation}:${shown(sentence.left)}:${shown(sentence.right)}:${shown(sentence.result)}`;
+}
+
+/**
+ * The relation's whole and its two parts: for addition the result and the
+ * addends, for subtraction the minuend and the subtrahend and result.
+ */
+function relationParts(
+  symbol: string,
+  left: number,
+  right: number,
+  result: number,
+): { readonly whole: number; readonly parts: readonly [number, number] } {
+  return symbol === "+"
+    ? { whole: result, parts: [left, right] }
+    : { whole: left, parts: [right, result] };
+}
+
+/**
+ * Appendix B.3 by brute force: the key of every sentence a focus allows. Every
+ * printed triple of numbers from 1 to the largest whole whose relation holds
+ * by column arithmetic, with its whole at least 2, appears once with each of
+ * its two blank positions; without carrying or borrowing, a relation whose two
+ * parts carry by column addition is left out.
+ */
+export function oracleNumberBondKeys(focus: OracleNumberBondsFocus): ReadonlySet<string> {
+  const keys = new Set<string>();
+  const ceiling = Math.min(focus.wholeMax, ORACLE_NUMBER_BONDS_CEILING);
+  for (const operation of focus.operations) {
+    if (!isOracleOperation(operation)) {
+      continue;
+    }
+    const symbol = SYMBOLS[operation];
+    for (let left = 1; left <= ceiling; left += 1) {
+      for (let right = 1; right <= ceiling; right += 1) {
+        for (let result = 1; result <= ceiling; result += 1) {
+          if (!sentenceHolds(symbol, left, right, result)) {
+            continue;
+          }
+          const { whole, parts } = relationParts(symbol, left, right, result);
+          if (
+            whole < ORACLE_NUMBER_BONDS_WHOLE_MINIMUM ||
+            (focus.regrouping === "without" && columnAdd(parts[0], parts[1]).carried)
+          ) {
+            continue;
+          }
+          keys.add(oracleSentenceKey({ symbol, left: null, right, result }));
+          keys.add(oracleSentenceKey({ symbol, left, right: null, result }));
+        }
+      }
+    }
+  }
+  return keys;
+}
+
+/** The first violation of one sentence, or `undefined` when it is clean. */
+function judgeSentence(sentence: OracleSentence, focus: OracleNumberBondsFocus): OracleCode | undefined {
+  const operation = sentence.symbol === "+" ? "addition" : sentence.symbol === "−" ? "subtraction" : undefined;
+  if (operation === undefined) {
+    return "SYMBOL_MISMATCH";
+  }
+  const shown = [sentence.left, sentence.right, sentence.result];
+  const blanks = shown.filter((value) => value === null).length;
+  if (blanks !== 1 || sentence.result === null) {
+    return "NOT_UNIQUE_SOLUTION";
+  }
+  if (shown.some((value) => value !== null && (!Number.isInteger(value) || value < 1))) {
+    return "BELOW_ONE";
+  }
+  const solutions = oracleSolveMissing(sentence);
+  const [solution] = solutions;
+  if (solutions.length !== 1 || solution === undefined) {
+    return "NOT_UNIQUE_SOLUTION";
+  }
+  if (solution < 1) {
+    return "BELOW_ONE";
+  }
+  if (sentence.answer !== solution) {
+    return "WRONG_ANSWER";
+  }
+  const left = sentence.left ?? solution;
+  const right = sentence.right ?? solution;
+  const { whole, parts } = relationParts(sentence.symbol, left, right, sentence.result);
+  if (whole > ORACLE_NUMBER_BONDS_CEILING) {
+    return "OVER_CEILING";
+  }
+  if (!focus.operations.includes(operation) || whole > focus.wholeMax) {
+    return "OUT_OF_SET";
+  }
+  if (focus.regrouping === "without" && columnAdd(parts[0], parts[1]).carried) {
+    return "REGROUPING_MISMATCH";
+  }
+  return undefined;
+}
+
+/** Every sentence's first violation, plus a repeated printed sentence as a duplicate. */
+export function judgeSentences(
+  sentences: readonly OracleSentence[],
+  focus: OracleNumberBondsFocus,
+): readonly OracleViolation[] {
+  const violations: OracleViolation[] = [];
+  const seen = new Set<string>();
+  for (const sentence of sentences) {
+    const code = judgeSentence(sentence, focus);
+    if (code !== undefined) {
+      violations.push({ itemId: sentence.id, code });
+      continue;
+    }
+    const key = oracleSentenceKey(sentence);
+    if (seen.has(key)) {
+      violations.push({ itemId: sentence.id, code: "DUPLICATE_FACT" });
+    }
+    seen.add(key);
+  }
+  return violations;
+}
+
+/** The sentences focus a Number Bonds request asks for, read from its own fields. */
+export function oracleNumberBondsFocusOf(request: GenerationRequestV1): OracleNumberBondsFocus {
+  const practice = request.practice;
+  if (request.worksheetType !== "number-bonds" || practice?.kind !== "number-bonds") {
+    throw new Error("The arithmetic oracle met a Number Bonds request without its practice choice.");
+  }
+  return {
+    operations: [...practice.operations],
+    wholeMax: practice.wholeMax,
+    regrouping: practice.regrouping,
+  };
+}
+
+/**
+ * Judges a generated Number Bonds document against the focus its own request
+ * states, reading each item as printed: the number `missing` names is a blank,
+ * and an item whose `missing` names neither number prints two.
+ */
+export function judgeNumberBondsDocument(document: WorksheetDocumentV1): readonly OracleViolation[] {
+  const focus = oracleNumberBondsFocusOf(document.request);
+  return judgeSentences(
+    document.items.map((item): OracleSentence => {
+      if (item.itemType !== "number-bond") {
+        return { id: item.id, symbol: "", left: null, right: null, result: null, answer: undefined };
+      }
+      return {
+        id: item.id,
+        symbol: item.renderedSymbol,
+        left: item.missing === "right" ? item.leftOperand : null,
+        right: item.missing === "left" ? item.rightOperand : null,
+        result: item.result,
+        answer: item.answer.kind === "number" ? item.answer.value : undefined,
+      };
+    }),
+    focus,
+  );
+}
+
+/** A rendered sentence row, its blank read as `?`: `8 + ? = 15`. */
+export function parseRenderedSentence(text: string): Omit<OracleSentence, "id" | "answer"> | undefined {
+  const match = /^\s*(\d+|\?)\s*([+−])\s*(\d+|\?)\s*=\s*(\d+|\?)\s*$/u.exec(text);
+  if (match === null) {
+    return undefined;
+  }
+  const number = (token: string | undefined) => (token === "?" || token === undefined ? null : Number(token));
+  return {
+    symbol: match[2] ?? "",
+    left: number(match[1]),
+    right: number(match[3]),
+    result: number(match[4]),
+  };
+}
+
+/**
+ * Judges a rendered sentences page and its rendered key together: every row,
+ * read with its drawn blank as `?`, is solved here, and a key line whose
+ * answer differs from that solution, or whose visible text does not restate
+ * the row with its blank as `?` and then its answer, is `KEY_MISMATCH`. The
+ * rows are then judged as sentences against `focus`.
+ */
+export function judgeRenderedSentencesPage(
+  rows: readonly RenderedRow[],
+  keyLines: readonly RenderedKeyLine[],
+  focus: OracleNumberBondsFocus,
+): readonly OracleViolation[] {
+  const violations: OracleViolation[] = [];
+  const sentences: OracleSentence[] = [];
+  if (keyLines.length !== rows.length) {
+    violations.push({ itemId: "key", code: "KEY_MISMATCH" });
+  }
+  for (const [index, row] of rows.entries()) {
+    const parsed = parseRenderedSentence(row.text);
+    if (parsed === undefined) {
+      violations.push({ itemId: row.id, code: "SYMBOL_MISMATCH" });
+      continue;
+    }
+    const solutions = oracleSolveMissing(parsed);
+    const solution = solutions.length === 1 ? solutions[0] : undefined;
+    const problem = row.text.replace(/\s+/gu, " ").trim();
+    const keyLine = keyLines.find(({ id }) => id === row.id);
+    if (
+      keyLine === undefined ||
+      keyLine.source !== problem ||
+      keyLine.answer !== String(solution) ||
+      keyLine.text !== `${index + 1}. ${problem} (missing number: ${keyLine.answer})`
+    ) {
+      violations.push({ itemId: row.id, code: "KEY_MISMATCH" });
+    }
+    sentences.push({ id: row.id, ...parsed, answer: solution });
+  }
+  return [...violations, ...judgeSentences(sentences, focus)];
 }

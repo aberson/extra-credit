@@ -12,6 +12,7 @@ import {
 } from "../config/earlier-settings.js";
 import { PRACTICE_FOCUS_CATALOG } from "../config/practice-focus.js";
 import {
+  NUMBER_BONDS_REGROUPING_MODES,
   PRINT_SCALES,
   SENTENCE_VOCABULARY_OPTIONS,
   WORKSHEET_LENGTHS,
@@ -47,6 +48,10 @@ import {
   measureFindTheWowStemCapacity,
 } from "../../worksheets/find-the-wow/generator.js";
 import {
+  NUMBER_BONDS_LIMITING_RESOURCE_ADVICE,
+  getNumberBondsItemCount,
+} from "../../worksheets/number-bonds/definition.js";
+import {
   SENTENCE_BUILDER_ITEM_COUNT,
   getSentenceBuilderBankSize,
 } from "../../worksheets/sentence-builder/definition.js";
@@ -69,6 +74,7 @@ import {
 } from "./project-request.js";
 import {
   FACT_FACTOR_MAXIMUM,
+  NUMBER_BONDS_WHOLE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
   type WorksheetLength,
 } from "./types.js";
@@ -343,6 +349,7 @@ const PROBING_WORKSHEET_TYPES: readonly RegisteredWorksheetType[] = [
   "dry-math",
   "find-the-wow",
   "count-compare-make",
+  "number-bonds",
 ];
 
 /**
@@ -361,6 +368,8 @@ const IMPLIED_REPRESENTATION_NOTE: Readonly<Record<RegisteredWorksheetType, stri
     "dead over the whole selection domain: the projection gives Count, Compare & Make the quantities representation",
   "sentence-builder":
     "dead from the registry: the registration always passes the shipped vocabulary, which options.test.tsx proves can starve no (variant, vocabulary, length, scale) cell",
+  "number-bonds":
+    "dead over the whole selection domain: the registration has no capability gate; shortfalls are capacity verdicts",
 };
 
 const registrationArms: readonly DeclaredArm[] = REGISTERED_WORKSHEET_IDS.flatMap(
@@ -489,6 +498,26 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     id: "NA-facts",
     status: "reachable",
     note: "a Dry Math facts page reads no focus maximum: it declares none, and its advice names the chosen fact families",
+  },
+  {
+    id: "NA-number-bonds",
+    status: "reachable",
+    note: "Number Bonds reads no focus maximum: its range is the largest whole in its own practice member, so it declares none and its advice names that range",
+  },
+  {
+    id: "NB-range-only",
+    status: "reachable",
+    note: "a Number Bonds page fell short and no shorter length fills: one operation within 2 or 3, or both operations within 2, in either carrying and borrowing choice",
+  },
+  {
+    id: "NB-range-or-shorter",
+    status: "reachable",
+    note: "a Number Bonds page fell short and a shorter length fills: addition or subtraction within 4 at Long and standard scale (12 problems; Standard fills), in either carrying and borrowing choice",
+  },
+  {
+    id: "NB-shorter-only",
+    status: "dead",
+    note: "in both carrying and borrowing choices the count never decreases as the largest whole grows, and a largest whole of 20 fills every budget (at least 254 problems per operation), so a wider range helps whenever a shortfall exists; the Number Bonds sentence has no shorter-only branch",
   },
   {
     id: "FRM-none",
@@ -746,6 +775,8 @@ const RETIRED_ARMS: readonly { readonly id: string; readonly deletedPath: string
  */
 const DECLARED_SENTENCE_SHAPES: readonly string[] = [
   "The chosen fact families give N unique facts, but this length needs N. Choose more fact families, or a shorter length under More options.",
+  "This practice focus has N unique problems, but this length needs N. Choose a practice focus with a wider range.",
+  "This practice focus has N unique problems, but this length needs N. Choose a practice focus with a wider range. Or choose a shorter length under More options.",
   "This practice focus provides N unique equation groups, but this length needs N. Choose a practice focus with a wider results range.",
   "This practice focus provides N unique equation groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider operands range.",
   "This practice focus provides N unique equation groups, but this length needs N. Choose a shorter length under More options, or a practice focus with a wider results range.",
@@ -1089,6 +1120,27 @@ const FACTS_SOURCES: readonly SweepSource[] = (
   ),
 );
 
+/**
+ * Number Bonds sentences: every schema-valid largest whole with each operation
+ * choice and each carrying and borrowing choice.
+ */
+const NUMBER_BONDS_SOURCES: readonly SweepSource[] = (
+  [["addition"], ["subtraction"], ["addition", "subtraction"]] as const
+).flatMap((operations) =>
+  Array.from(
+    { length: V1_NUMERIC_MAXIMUM - NUMBER_BONDS_WHOLE_MINIMUM + 1 },
+    (_, index) => NUMBER_BONDS_WHOLE_MINIMUM + index,
+  ).flatMap((wholeMax) =>
+    NUMBER_BONDS_REGROUPING_MODES.map((regrouping) => ({
+      name: `number-bonds ${operations.join("+")} ${wholeMax} ${regrouping}`,
+      selection: {
+        ...SWEEP_BASE,
+        numberBonds: { operations: [...operations], wholeMax, regrouping },
+      },
+    })),
+  ),
+);
+
 const SWEEP_SOURCES: readonly SweepSource[] = [
   ...CATALOG_SOURCES,
   ...PROBE_PROFILES.map((profile) => ({
@@ -1099,6 +1151,7 @@ const SWEEP_SOURCES: readonly SweepSource[] = [
   { name: "earlier D36", selection: earlierSelection(D36_PROFILE) },
   ...REGROUPING_SOURCES,
   ...FACTS_SOURCES,
+  ...NUMBER_BONDS_SOURCES,
 ];
 
 // --- observation -----------------------------------------------------------
@@ -1341,6 +1394,14 @@ describe("every declared arm of the capacity and advice surface", () => {
               expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
                 `${where}: ${FACTS_LIMITING_RESOURCE_ADVICE}`,
               );
+            } else if (worksheetType === "number-bonds") {
+              // Number Bonds' range is its own largest whole, never a
+              // declared focus maximum, and its advice names that range.
+              observe("NA-number-bonds");
+              expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
+              expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
+                `${where}: ${NUMBER_BONDS_LIMITING_RESOURCE_ADVICE}`,
+              );
             } else if (worksheetType !== "sentence-builder") {
               const advice =
                 registration.controls.getLimitingResourceAdvice(context);
@@ -1430,6 +1491,26 @@ describe("every declared arm of the capacity and advice surface", () => {
                   : familiesOnly
                     ? "FSH-families-only"
                     : "FSH-shorter-only",
+              );
+            } else if (message !== "" && worksheetType === "number-bonds") {
+              collectSentence(message);
+              // The shorter-length clause appears exactly when some shorter
+              // length's budget fits the count the sentence states, and the
+              // wider range is always named.
+              const stated = /^This practice focus has (\d+) unique problems, but this length needs (\d+)\./u.exec(message);
+              const capacity = Number(stated?.[1]);
+              const shorterFits = WORKSHEET_LENGTHS.slice(0, WORKSHEET_LENGTHS.indexOf(length)).some(
+                (shorter) => getNumberBondsItemCount(shorter, printScale) <= capacity,
+              );
+              const offersShorter = message.endsWith(" Or choose a shorter length under More options.");
+              const offersRange = message.includes(" Choose a practice focus with a wider range.");
+              expect(`${where}: ${offersShorter}`).toBe(`${where}: ${shorterFits}`);
+              observe(
+                offersRange
+                  ? offersShorter
+                    ? "NB-range-or-shorter"
+                    : "NB-range-only"
+                  : "NB-shorter-only",
               );
             } else if (message !== "") {
               collectSentence(message);
@@ -1661,6 +1742,9 @@ describe("every declared arm of the capacity and advice surface", () => {
     expect(insufficientSources).toContain("earlier D34 required dry-math");
     expect(insufficientSources).toContain("catalog dry-math addition-within-5 required dry-math");
     expect(insufficientSources).toContain("facts division {0} dry-math");
+    expect(insufficientSources).toContain("number-bonds addition 3 without number-bonds");
+    expect(insufficientSources).toContain("number-bonds addition 4 included number-bonds");
+    expect(insufficientSources).toContain("number-bonds addition+subtraction 2 without number-bonds");
   });
 });
 

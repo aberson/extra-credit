@@ -208,6 +208,12 @@ export function selectionFromEarlierSettings(
         operations: [...base.dryMathFacts.operations],
         factFamilies: [...base.dryMathFacts.factFamilies],
       },
+      // Nor Number Bonds, whose carrying and borrowing choice stays the
+      // parent's explicit one: no earlier setting describes it.
+      numberBonds: {
+        ...base.numberBonds,
+        operations: [...base.numberBonds.operations],
+      },
       findTheWow: { variant, quantity, equation },
       sentenceBuilder: {
         variant: legacy.writingMode,

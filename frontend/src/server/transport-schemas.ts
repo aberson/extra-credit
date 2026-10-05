@@ -6,6 +6,7 @@ import {
   FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
+  NUMBER_BONDS_REGROUPING_MODES,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
@@ -25,6 +26,7 @@ import {
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
+  NUMBER_BONDS_WHOLE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../shared/worksheet/types.js";
@@ -226,12 +228,30 @@ const dryMathFactsSchema = strictObjectSchema({
   },
 });
 
+/** Number Bonds' sentences: canonical operation order stays Zod's rule. */
+const numberBondsSchema = strictObjectSchema({
+  operations: {
+    type: "array",
+    minItems: 1,
+    maxItems: MATH_OPERATIONS.length,
+    uniqueItems: true,
+    items: { enum: MATH_OPERATIONS },
+  },
+  wholeMax: {
+    type: "integer",
+    minimum: NUMBER_BONDS_WHOLE_MINIMUM,
+    maximum: V1_NUMERIC_MAXIMUM,
+  },
+  regrouping: { enum: NUMBER_BONDS_REGROUPING_MODES },
+});
+
 const worksheetDefaultsProperties = {
   worksheetType: { enum: WORKSHEET_TYPE_IDS },
   dryMath: arithmeticFocusSchema(DRY_MATH_NUMERIC_MAXIMUM),
   dryMathRegrouping: { enum: REGROUPING_MODES },
   dryMathStrand: { enum: DRY_MATH_STRANDS },
   dryMathFacts: dryMathFactsSchema,
+  numberBonds: numberBondsSchema,
   findTheWow: strictObjectSchema({
     variant: { enum: FIND_THE_WOW_VARIANTS },
     quantity: strictObjectSchema({
@@ -328,6 +348,7 @@ export const APP_CONFIG_TRANSPORT_SCHEMA = {
       "dryMathRegrouping",
       "dryMathStrand",
       "dryMathFacts",
+      "numberBonds",
     ]),
   }),
 } as const;

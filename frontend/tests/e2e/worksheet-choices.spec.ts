@@ -14,8 +14,10 @@ import { expect, test } from "./fixtures/app-server.ts";
 import {
   chooseChild,
   chooseLength,
+  chooseNumberBondsRegrouping,
   choosePracticeFocus,
   choosePrintLayout,
+  chooseRegrouping,
   chooseVariant,
   chooseVocabulary,
   chooseWorksheet,
@@ -302,6 +304,48 @@ test("Create and Make another never write the config file", async ({
     await page.getByRole("button", { name: "Make another" }).click();
     await expect(page.getByText("A different worksheet is ready.")).toBeVisible();
   }
+  expect(writes).toEqual([]);
+  expect((await appServer.readRaw()).equals(before)).toBe(true);
+});
+
+test("switching to Number Bonds and back keeps each family's choices", async ({
+  appServer,
+  page,
+}) => {
+  await appServer.seedConfig(fictionalConfig);
+  const before = await appServer.readRaw();
+  const writes = recordConfigWrites(page);
+  await openApp(page, appServer.origin);
+  const regroupingRadio = (name: string) =>
+    controls(page).regrouping().getByRole("radio", { name, exact: true });
+
+  await chooseWorksheet(page, "dry-math");
+  await choosePracticeFocus(page, "Addition within 20");
+  await chooseRegrouping(page, "required");
+  await chooseWorksheet(page, "number-bonds");
+  // Number Bonds starts from its own defaults, untouched by Dry Math's choices.
+  await expect(controls(page).practiceFocus().locator("option:checked")).toHaveText("Addition within 10");
+  await expect(regroupingRadio("Without carrying or borrowing")).toBeChecked();
+  await choosePracticeFocus(page, "Subtraction within 5");
+  await chooseNumberBondsRegrouping(page, "included");
+
+  for (const away of ["dry-math", "find-the-wow"] as const) {
+    await chooseWorksheet(page, away);
+    if (away === "dry-math") {
+      await expect(controls(page).practiceFocus().locator("option:checked")).toHaveText("Addition within 20");
+      await expect(regroupingRadio("Every problem carries or borrows")).toBeChecked();
+    }
+    await chooseWorksheet(page, "number-bonds");
+    await expect(controls(page).practiceFocus().locator("option:checked")).toHaveText("Subtraction within 5");
+    await expect(regroupingRadio("Include problems that carry or borrow")).toBeChecked();
+  }
+
+  // The page Number Bonds creates reads only its own choices.
+  await create(page);
+  const preview = page.getByLabel("Worksheet preview");
+  await expect(preview).toHaveAttribute("data-worksheet-type", "number-bonds");
+  await expect(preview.locator("[data-item-id]")).toHaveCount(12);
+  await expect(preview.locator('[data-operator="subtraction"]')).toHaveCount(12);
   expect(writes).toEqual([]);
   expect((await appServer.readRaw()).equals(before)).toBe(true);
 });

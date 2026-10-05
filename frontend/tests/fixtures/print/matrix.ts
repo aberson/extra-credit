@@ -100,6 +100,20 @@ export const printFixtures: readonly PrintFixture[] = [
     letterStandardOnly: true,
   },
   {
+    id: "bonds-missing-20",
+    profileIndex: 1,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "number-bonds",
+      numberBonds: {
+        operations: ["addition", "subtraction"],
+        wholeMax: V1_NUMERIC_MAXIMUM,
+        regrouping: "without",
+      },
+    },
+    letterStandardOnly: true,
+  },
+  {
     id: "wow-quantity",
     profileIndex: 0,
     selection: {
@@ -255,6 +269,22 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
             item.leftOperand >= 10 &&
             item.rightOperand >= 10,
         )
+      )
+    ) {
+      continue;
+    }
+    // Number Bonds: search for the widest sentence, one whose two printed
+    // numbers both have two digits.
+    if (
+      selection.worksheetType === "number-bonds" &&
+      !generated.document.items.some(
+        (item) =>
+          item.itemType === "number-bond" &&
+          [
+            ...(item.missing === "left" ? [] : [item.leftOperand]),
+            ...(item.missing === "right" ? [] : [item.rightOperand]),
+            item.result,
+          ].every((value) => value >= 10),
       )
     ) {
       continue;

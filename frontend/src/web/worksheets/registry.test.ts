@@ -18,11 +18,13 @@ import {
   type CapabilityProfileV1,
 } from "../../shared/config/earlier-settings";
 import {
+  NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   type PracticeFocusKind,
   type PracticeFocusValues,
 } from "../../shared/config/practice-focus";
 import {
+  NUMBER_BONDS_REGROUPING_MODES,
   PRINT_SCALES,
   SENTENCE_VOCABULARY_OPTIONS,
   WORKSHEET_LENGTHS,
@@ -44,12 +46,14 @@ import {
   type WorksheetControlContextV2,
   type WorksheetRelevantMaximumKey,
 } from "../../shared/worksheet/registry";
-import type {
-  CountCompareItemV1,
-  GenerationRequestV1,
-  SentenceItemV1,
-  WorksheetDocumentV1,
-  WorksheetGeneratorV1,
+import {
+  V1_NUMERIC_MAXIMUM,
+  WORKSHEET_TYPE_IDS,
+  type CountCompareItemV1,
+  type GenerationRequestV1,
+  type SentenceItemV1,
+  type WorksheetDocumentV1,
+  type WorksheetGeneratorV1,
 } from "../../shared/worksheet/types";
 import {
   SENTENCE_BUILDER_BANK_BUDGETS,
@@ -482,7 +486,12 @@ describe("worksheet renderer registry", () => {
       "find-the-wow",
       "sentence-builder",
       "count-compare-make",
+      "number-bonds",
     ]);
+    // Every declared worksheet type is registered, in declaration order, and
+    // has a renderer in that same order.
+    expect(REGISTERED_WORKSHEET_IDS).toEqual([...WORKSHEET_TYPE_IDS]);
+    expect(Object.keys(WEB_WORKSHEET_RENDERERS)).toEqual([...WORKSHEET_TYPE_IDS]);
   });
 
   test("relevant maximums follow the mode each family actually reads", () => {
@@ -1080,6 +1089,16 @@ const otherSentence: SelectionEdit = (selection) => ({
         : "all-words",
   },
 });
+/** Another Number Bonds focus and the other carrying and borrowing choice. */
+const otherNumberBonds: SelectionEdit = (selection) => ({
+  ...selection,
+  numberBonds: {
+    operations:
+      selection.numberBonds.operations.length === 2 ? ["addition"] : ["addition", "subtraction"],
+    wholeMax: selection.numberBonds.wholeMax === V1_NUMERIC_MAXIMUM ? 10 : V1_NUMERIC_MAXIMUM,
+    regrouping: selection.numberBonds.regrouping === "included" ? "without" : "included",
+  },
+});
 /** The focus group of the Statements variant this selection does NOT use. */
 const otherInactiveWowFocus: SelectionEdit = (selection) =>
   selection.findTheWow.variant === "equation"
@@ -1113,6 +1132,7 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherWowEquation,
       otherCountCompare,
       otherSentence,
+      otherNumberBonds,
     ),
   },
   "find-the-wow": {
@@ -1122,6 +1142,7 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherInactiveWowFocus,
       otherCountCompare,
       otherSentence,
+      otherNumberBonds,
     ),
   },
   "sentence-builder": {
@@ -1132,6 +1153,7 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherWowQuantity,
       otherWowEquation,
       otherCountCompare,
+      otherNumberBonds,
     ),
   },
   "count-compare-make": {
@@ -1141,6 +1163,18 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherWowVariant,
       otherWowQuantity,
       otherWowEquation,
+      otherSentence,
+      otherNumberBonds,
+    ),
+  },
+  "number-bonds": {
+    own: otherNumberBonds,
+    foreign: compose(
+      otherDryMath,
+      otherWowVariant,
+      otherWowQuantity,
+      otherWowEquation,
+      otherCountCompare,
       otherSentence,
     ),
   },
@@ -1156,6 +1190,13 @@ const firstFocusEverywhere: SelectionEdit = (selection) => ({
     equation: firstFocus("find-the-wow-equation"),
   },
   countCompareMake: firstFocus("count-compare-make"),
+  numberBonds: { ...selection.numberBonds, ...NUMBER_BONDS_FOCUS_CATALOG[0]!.focus },
+});
+
+/** Number Bonds' focus set to its catalog's second entry. */
+const secondNumberBondsFocus: SelectionEdit = (selection) => ({
+  ...selection,
+  numberBonds: { ...selection.numberBonds, ...NUMBER_BONDS_FOCUS_CATALOG[1]!.focus },
 });
 
 /** Every practice focus group set to a catalog entry other than its first. */
@@ -1165,6 +1206,7 @@ const otherFocusEverywhere: SelectionEdit = (selection) =>
     otherWowQuantity,
     otherWowEquation,
     otherCountCompare,
+    secondNumberBondsFocus,
   )(firstFocusEverywhere(selection));
 
 /**
@@ -1174,9 +1216,14 @@ const otherFocusEverywhere: SelectionEdit = (selection) =>
  */
 const CONTROL_PROBES = [
   {
-    canonicalWhenHidden: INACTIVE_MATH_FIELDS,
+    // A focus reaches the request through `mathSkills`, or for Number Bonds
+    // through its `practice` member.
+    canonicalWhenHidden: { mathSkills: INACTIVE_MATH_FIELDS },
     key: "practiceFocus",
-    observe: (request: GenerationRequestV1) => request.capabilities.mathSkills,
+    observe: (request: GenerationRequestV1) => ({
+      mathSkills: request.capabilities.mathSkills,
+      practice: request.practice,
+    }),
     values: [firstFocusEverywhere, otherFocusEverywhere],
   },
   {
@@ -1318,6 +1365,7 @@ const CONTRACT_PROFILES: Readonly<
     contractProfile(),
     contractProfile({ ...quantityProfile, interests: ["Space"] }),
   ],
+  "number-bonds": [contractProfile()],
 };
 
 function contractSelection(
@@ -3089,6 +3137,14 @@ function catalogSweepCells(): readonly SweepCell[] {
         ),
       ),
     ),
+    ...NUMBER_BONDS_FOCUS_CATALOG.flatMap(({ focus, id }) =>
+      NUMBER_BONDS_REGROUPING_MODES.flatMap((regrouping) =>
+        sweepCells(`number-bonds/${id}/${regrouping}`, "number-bonds", (selection) => ({
+          ...selection,
+          numberBonds: { ...focus, regrouping },
+        })),
+      ),
+    ),
   ];
 }
 
@@ -3124,10 +3180,11 @@ describe("availability equals generation", () => {
       .filter((cell) => !controlAgreesWithGenerator(cell))
       .map(({ label }) => label);
     // Pinned: 7 Dry Math, 2 quantity and 5 equation Wow, and 2 Count, Compare
-    // & Make catalog focuses, plus 5 writing activities x 2 vocabularies, each
-    // at 3 lengths x 2 scales. A catalog change must revisit the pinned
-    // starving set below, so it fails here first.
-    expect(cells).toHaveLength(156);
+    // & Make catalog focuses, 5 writing activities x 2 vocabularies, and 9
+    // Number Bonds focuses x 2 carrying and borrowing choices, each at 3
+    // lengths x 2 scales. A catalog change must revisit the pinned starving
+    // set below, so it fails here first.
+    expect(cells).toHaveLength(264);
     expect(new Set(cells.map(({ label }) => label)).size).toBe(cells.length);
     expect(
       new Set(cells.map(({ selection }) => selection.worksheetType)),

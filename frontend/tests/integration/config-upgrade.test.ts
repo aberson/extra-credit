@@ -248,7 +248,7 @@ describe("the upgrade's refusals leave every file untouched", () => {
       config.profiles[0]!.favoriteColor = "green";
     })],
     ["an unknown enum member in defaults", editedV2Bytes((config) => {
-      config.defaults.worksheetType = "number-bonds";
+      config.defaults.worksheetType = "skip-counting";
     })],
   ])("a v2 file with %s is blocked on GET and on PUT, with and without the recovery header", async (_label, blockedRaw) => {
     const configPath = await temporaryConfigPath();

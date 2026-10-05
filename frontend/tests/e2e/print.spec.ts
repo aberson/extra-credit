@@ -79,8 +79,14 @@ function expectSelectedPage(selectedPage: string | undefined, paper: keyof typeo
 // Millimetres, independent of the stylesheet: collapsing work space must fail
 // even when the resulting sheet fits the paper more easily.
 const responseMetrics = {
-  standard: { lineHeight: 7, drawingHeight: 33, tellingHeight: 100, cellSize: 5 },
-  large: { lineHeight: 9, drawingHeight: 38, tellingHeight: 110, cellSize: 6 },
+  standard: {
+    lineHeight: 7, drawingHeight: 33, tellingHeight: 100, cellSize: 5,
+    missingBoxWidth: 14, missingBoxHeight: 9,
+  },
+  large: {
+    lineHeight: 9, drawingHeight: 38, tellingHeight: 110, cellSize: 6,
+    missingBoxWidth: 16, missingBoxHeight: 11,
+  },
 } as const;
 
 const physicalSelectors = {
@@ -90,6 +96,7 @@ const physicalSelectors = {
   frameCell: '[data-instructional-visual="ten-frame"] [data-instructional-mark]',
   circle: "[data-circle-target]",
   decoration: "[data-decorative-panel]",
+  missingBox: "[data-missing-box]",
 } as const;
 
 async function readPhysicalGeometry(page: Page) {
@@ -161,6 +168,10 @@ function physicalViolations(
         exact("widthMm", 24);
         exact("heightMm", 24);
         break;
+      case "missingBox":
+        exact("widthMm", expected.missingBoxWidth);
+        exact("heightMm", expected.missingBoxHeight);
+        break;
       default:
         throw new Error(`Unspecified physical contract: ${box.kind}`);
     }
@@ -186,10 +197,10 @@ async function comparePrintScales(
       if (smaller === undefined) {
         throw new Error("Missing matching standard response box.");
       }
-      if (["line", "drawing", "guideCell", "frameCell"].includes(box.kind)) {
+      if (["line", "drawing", "guideCell", "frameCell", "missingBox"].includes(box.kind)) {
         expect(box.heightMm, `${box.kind}: large increases response height`)
           .toBeGreaterThan(smaller.heightMm + 0.5);
-        if (["guideCell", "frameCell"].includes(box.kind)) {
+        if (["guideCell", "frameCell", "missingBox"].includes(box.kind)) {
           expect(box.widthMm, `${box.kind}: large increases response width`)
             .toBeGreaterThan(smaller.widthMm + 0.5);
         }
@@ -946,6 +957,37 @@ for (const fixture of printFixtures) {
             });
             expect(await operatorViolations(page), "operator size restored").toEqual([]);
           }
+          if (fixture.id === "bonds-missing-20") {
+            // The widest sentence, two printed two-digit numbers beside its
+            // drawn box, is on the printed page; the required-content and
+            // geometry checks above prove it present and contained.
+            const widest = boundary.document.items.find((item) =>
+              item.itemType === "number-bond" &&
+              [
+                ...(item.missing === "left" ? [] : [item.leftOperand]),
+                ...(item.missing === "right" ? [] : [item.rightOperand]),
+                item.result,
+              ].every((value) => value >= 10));
+            expect(widest, "a sentence printing two two-digit numbers").toBeDefined();
+            await expect(page.locator(`.print-surface [data-item-id="${widest?.id ?? ""}"]`))
+              .toHaveText(/^\s*(?:\d{2}\s*[+−]\s*=\s*\d{2}|[+−]\s*\d{2}\s*=\s*\d{2})\s*$/u);
+            // Every drawn box prints at its physical size, the same check
+            // measurePrint ran above; a 1 px box must fail it, and it restores
+            // clean.
+            const boxes = (await readPhysicalGeometry(page)).filter(({ kind }) => kind === "missingBox");
+            expect(boxes).toHaveLength(boundary.document.items.length);
+            await withPrintStyle(page,
+              ".print-surface [data-missing-box] { width: 1px !important; height: 1px !important; }",
+              async () => {
+                const collapsed = physicalViolations(await readPhysicalGeometry(page), scale);
+                expect(collapsed.some((violation) => violation.startsWith("missingBox[0]: widthMm")),
+                  "a 1 px box must fail its width").toBe(true);
+                expect(collapsed.some((violation) => violation.startsWith("missingBox[0]: heightMm")),
+                  "a 1 px box must fail its height").toBe(true);
+              });
+            expect(physicalViolations(await readPhysicalGeometry(page), scale), "missing box restored")
+              .toEqual([]);
+          }
           if (name === "dry-math-letter-standard-decoration-false") {
             await withPrintStyle(page, ".print-surface { page: auto !important; }", async () => {
               const fallback = await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }));
@@ -1241,10 +1283,10 @@ test("manual print uses the compiled app with canonical temporary profiles and c
   request,
 }) => {
   // The worksheet-choice matrix built from the committed example expands to
-  // 86 distinct worksheet cases, 18 of which also measure a key PDF.
+  // 87 distinct worksheet cases, 19 of which also measure a key PDF.
   expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
-  expect(matrixCases).toHaveLength(86);
-  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(18);
+  expect(matrixCases).toHaveLength(87);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(19);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {

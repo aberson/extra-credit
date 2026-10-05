@@ -1,5 +1,6 @@
 import type {
   FACT_OPERATIONS,
+  NUMBER_BONDS_REGROUPING_MODES,
   PAPER_SIZES,
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
@@ -15,6 +16,7 @@ export const WORKSHEET_TYPE_IDS = [
   "find-the-wow",
   "sentence-builder",
   "count-compare-make",
+  "number-bonds",
 ] as const;
 
 /**
@@ -51,6 +53,12 @@ export const FACT_FACTOR_MAXIMUM = 12;
 
 /** The largest dividend of a Dry Math division fact: the largest product of two factors. */
 export const FACT_DIVIDEND_MAXIMUM = FACT_FACTOR_MAXIMUM * FACT_FACTOR_MAXIMUM;
+
+/**
+ * The smallest whole a Number Bonds problem may have: two parts of at least 1
+ * each (math-activities plan, DD10). The largest is `V1_NUMERIC_MAXIMUM`.
+ */
+export const NUMBER_BONDS_WHOLE_MINIMUM = 2;
 
 export function worksheetMaximum(
   worksheetType: WorksheetType,
@@ -107,6 +115,8 @@ export type MathOperation = MathSkillsV1["operations"][number];
 export type FactOperation = (typeof FACT_OPERATIONS)[number];
 /** Every operation a Dry Math item can hold: the two arithmetic ones and the two fact ones. */
 export type DryMathOperation = MathOperation | FactOperation;
+/** Number Bonds' carrying and borrowing choice. */
+export type NumberBondsRegrouping = (typeof NUMBER_BONDS_REGROUPING_MODES)[number];
 export type MathRepresentation = MathSkillsV1["representations"][number];
 // `enums.ts` imports `TOPIC_IDS` from this module as a value, so these three
 // derive from its arrays through `import type` only (D30).
@@ -153,7 +163,10 @@ export interface GenerationOptionsV1 {
  * add-subtract kind; "Without carrying or borrowing" is no `practice` member at
  * all, so every request an earlier build produced keeps its exact shape. Dry
  * Math's multiplication and division facts are the facts kind: its operations
- * in canonical order and its fact families in ascending order.
+ * in canonical order and its fact families in ascending order. Every Number
+ * Bonds request carries the Number Bonds kind: missing number sentences, their
+ * operations in canonical order, the largest whole and the carrying and
+ * borrowing choice.
  */
 export type PracticeRequestV1 =
   | {
@@ -164,6 +177,13 @@ export type PracticeRequestV1 =
       readonly kind: "dry-math-facts";
       readonly operations: readonly FactOperation[];
       readonly factFamilies: readonly number[];
+    }
+  | {
+      readonly kind: "number-bonds";
+      readonly variant: "sentence";
+      readonly operations: readonly MathOperation[];
+      readonly wholeMax: number;
+      readonly regrouping: NumberBondsRegrouping;
     };
 
 export interface GenerationRequestV1 {
@@ -399,11 +419,33 @@ export type CountCompareItemV1 =
   | CountCompareCompleteItemV1
   | CountCompareDrawItemV1;
 
+/**
+ * One Number Bonds missing number sentence. The item keeps the whole relation
+ * `leftOperand renderedSymbol rightOperand = result`, with every number at
+ * least 1, and `missing` names the one number printed as a blank: an addend
+ * for addition, the minuend or the subtrahend for subtraction. The result is
+ * always shown, and the answer is the missing number.
+ */
+export interface NumberBondSentenceItemV1 extends ObjectiveItemBaseV1 {
+  readonly itemType: "number-bond";
+  readonly form: "sentence";
+  readonly operation: MathOperation;
+  readonly leftOperand: number;
+  readonly rightOperand: number;
+  readonly result: number;
+  readonly renderedSymbol: "+" | "−";
+  readonly missing: "left" | "right";
+  readonly answer: { readonly kind: "number"; readonly value: number };
+}
+
+export type NumberBondItemV1 = NumberBondSentenceItemV1;
+
 export type WorksheetItemV1 =
   | DryMathItemV1
   | WowGroupItemV1
   | SentenceItemV1
-  | CountCompareItemV1;
+  | CountCompareItemV1
+  | NumberBondItemV1;
 
 export interface WorksheetDocumentV1<
   TItem extends WorksheetItemV1 = WorksheetItemV1,

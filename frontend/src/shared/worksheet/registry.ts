@@ -1,5 +1,6 @@
 import {
   describeFactsFocus,
+  describeNumberBonds,
   describePracticeFocus,
   presentationBandForVocabulary,
 } from "../config/practice-focus.js";
@@ -33,6 +34,15 @@ import {
   findTheWowCapacityVerdict,
   generateFindTheWow,
 } from "../../worksheets/find-the-wow/generator.js";
+import {
+  NUMBER_BONDS_DEFINITION,
+  NUMBER_BONDS_LIMITING_RESOURCE_ADVICE,
+  getNumberBondsItemCount,
+} from "../../worksheets/number-bonds/definition.js";
+import {
+  generateNumberBonds,
+  numberBondsCapacityVerdict,
+} from "../../worksheets/number-bonds/generator.js";
 import {
   SENTENCE_BUILDER_DEFINITION,
   SENTENCE_BUILDER_ITEM_COUNT,
@@ -143,7 +153,11 @@ export interface WorksheetApplicableControlsV1 {
   readonly variant: boolean;
   /** Sentence Builder's plain-language vocabulary choice. */
   readonly vocabulary: boolean;
-  /** Dry Math's "Carrying and borrowing" choice beside its addition and subtraction focus. */
+  /**
+   * The family's own "Carrying and borrowing" choice beside its practice
+   * focus: Dry Math's for addition and subtraction, Number Bonds' for its
+   * sentences.
+   */
   readonly regrouping: boolean;
   /** Dry Math's "Fact families" choice beside its multiplication and division focus. */
   readonly factFamilies: boolean;
@@ -173,7 +187,7 @@ export interface WorksheetControlContractV1 {
    * message.
    *
    * The shared message used to end with one piece of numeric advice for every
-   * family. That is true of the three math families, whose variety really is
+   * family. That is true of the math families, whose variety really is
    * bounded by the practice focus, and false of Sentence Builder, whose
    * variety is bounded by the reviewed vocabulary for a writing activity - a
    * parent following that advice would change numbers that cannot change the
@@ -583,6 +597,47 @@ export const WORKSHEET_REGISTRY = {
         variant: false,
         vocabulary: false,
         regrouping: false,
+        factFamilies: false,
+        length: true,
+        includeAnswerKey: true,
+        paperSize: true,
+        printScale: true,
+      }),
+    },
+  },
+  "number-bonds": {
+    ...NUMBER_BONDS_DEFINITION,
+    generate: generateNumberBonds,
+    controls: {
+      // Number Bonds has no capability gate: every schema-valid choice can be
+      // projected, and a range too narrow for the length is a capacity verdict.
+      getCapabilitySupport: (context) => ({
+        available: true,
+        capacity: probeCapacity(
+          NUMBER_BONDS_DEFINITION,
+          context,
+          numberBondsCapacityVerdict,
+        ),
+        statusMessage: `Practice focus for Number Bonds: ${describeNumberBonds(context.selection.numberBonds)}.`,
+      }),
+      // Its range lives in its own practice member, never in a `mathSkills`
+      // maximum, so it declares none and names the range in its own words.
+      getLimitingResourceAdvice: () => NUMBER_BONDS_LIMITING_RESOURCE_ADVICE,
+      getRelevantMaximums: () => NO_MAXIMUMS,
+      getEffectiveUnit: ({ selection }) => ({
+        count: getNumberBondsItemCount(selection.length, selection.printScale),
+        singularLabel: "problem",
+        pluralLabel: "problems",
+      }),
+      getApplicableControls: () => ({
+        useDisplayName: true,
+        useInterests: false,
+        includeDecorativeGraphics: false,
+        theme: false,
+        practiceFocus: true,
+        variant: false,
+        vocabulary: false,
+        regrouping: true,
         factFamilies: false,
         length: true,
         includeAnswerKey: true,

@@ -1,10 +1,12 @@
 # Educational basis and scope
 
 This document records the published sources that bound the reviewed examples in
-Extra Credit's four version 1 worksheet families, and the limits of what those
-sources are being used for. It is the human-readable companion to
-[`plan.md` Section 12.5](../plan.md) and covers `dry-math`, `find-the-wow`,
-`sentence-builder` (all five writing modes), and `count-compare-make`.
+Extra Credit's five worksheet families, and the limits of what those sources
+are being used for. It is the human-readable companion to
+[`plan.md` Section 12.5](../plan.md) and to the
+[math activities plan](math-activities-plan.md), and covers `dry-math`,
+`find-the-wow`, `sentence-builder` (all five writing modes),
+`count-compare-make`, and `number-bonds`.
 
 ## What this document is, and is not
 
@@ -47,7 +49,7 @@ Every generated page, in every family, stays inside one fixed envelope:
 | Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, and length). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
 | Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, and multiplication and division facts with factors, divisors and answers up to 12 and dividends up to 144 for the fact families the parent checks; every quantity, numeral, operand, and result in the other families stays at most 20. |
 | Sign | Nonnegative. No generated result is below zero, and every division is exact with a nonzero divisor. |
-| Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once; otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
+| Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once. In Number Bonds, "Include problems that carry or borrow" adds problems whose missing number needs carrying or borrowing; by default no Number Bonds problem makes or crosses ten. Otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
 | Personalization | A nickname and reviewed interest topics only. Raw unmatched interest text never reaches a request or a page. |
 | Locality | Generation is deterministic local code. The page talks to nothing but its own loopback server on 127.0.0.1: no account, no off-device request, no runtime model, and no telemetry. |
 
@@ -86,6 +88,30 @@ stay at most 12, so no dividend exceeds 144.
 Dry Math always practices equations. Its practice focus names the operations
 and the range, so whether a page can be created depends on the worksheet
 choices alone, not on which child is selected.
+
+### `number-bonds` — Number Bonds
+
+Missing number sentences within 5, 10 or 20. Each problem is an addition or a
+subtraction sentence in which exactly one number is an empty drawn box: one of
+the two numbers being added, the number you start with, or the number taken
+away. The result is always shown, and every number on the page is at least 1,
+so each whole is made of two parts of at least 1 and no whole exceeds 20. A
+blank starting number, as in ? − 3 = 5, asks for the whole: the unknown-start
+problem that Dry Math never poses. Every problem has exactly one answer.
+
+Under Carrying and borrowing the parent chooses whether problems whose missing
+number needs carrying or borrowing appear. By default, "Without carrying or
+borrowing", none does, so no problem makes or crosses ten. "Include problems
+that carry or borrow" adds problems such as 3 + ? = 10 and 8 + ? = 15.
+
+- [Common Core Kindergarten Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/K/OA/) — cited for decomposing a number into two parts.
+- [Common Core Grade 1 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/1/OA/) — cited for addition and subtraction with the unknown number in any position, and for the meaning of the equal sign.
+- [Common Core Grade 2 Number and Operations in Base Ten](https://www.thecorestandards.org/Math/Content/2/NBT/) — cited only for what carrying and borrowing mean: composing and decomposing tens when adding and subtracting.
+- [IES Teaching Math to Young Children](https://ies.ed.gov/ncee/wwc/practiceguide/18)
+
+Number Bonds always practices equations and prints no decoration. Its practice
+focus names the operations and the range, so whether a page can be created
+depends on the worksheet choices alone, not on which child is selected.
 
 ### `find-the-wow` — Two Whats and a Wow
 

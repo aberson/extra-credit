@@ -338,12 +338,15 @@ describe("the current path reproduces every committed hash", () => {
     // the record's earlier settings do not cover, so it runs at the built-in
     // default's focus and cannot be compared with any 5c22159 content. Every
     // committed key is generated (the test above), and nothing else is.
+    // Number Bonds, added after the grid was captured, has no earlier-settings
+    // group, so every one of its cells is a base-only cell.
     const coveringGroup = {
       "dry-math": "dryMath",
       "find-the-wow": "findTheWow.variant",
       "sentence-builder": "sentenceBuilder.variant",
       "count-compare-make": "countCompareMake",
-    } as const satisfies Record<WorksheetType, EarlierSettingsGroup>;
+      "number-bonds": undefined,
+    } as const satisfies Record<WorksheetType, EarlierSettingsGroup | undefined>;
     const committed = new Set(committedKeys);
     const generated: string[] = [];
     const baseOnly: string[] = [];
@@ -359,9 +362,9 @@ describe("the current path reproduces every committed hash", () => {
               }
               generated.push(key);
               if (!committed.has(key)) {
-                const covered = cellSelection(source, cell).groups.includes(
-                  coveringGroup[family],
-                );
+                const group = coveringGroup[family];
+                const covered =
+                  group !== undefined && cellSelection(source, cell).groups.includes(group);
                 expect(`${key} covered by earlier settings: ${covered}`).toBe(
                   `${key} covered by earlier settings: false`,
                 );

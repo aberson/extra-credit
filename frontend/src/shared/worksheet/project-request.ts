@@ -174,6 +174,13 @@ export function projectWorksheetCapabilities(
         writingMode: selection.sentenceBuilder.variant,
         mathSkills: inactiveMath(),
       };
+    case "number-bonds":
+      // Number Bonds reads no `mathSkills` focus: its sentences travel in the
+      // `practice` member.
+      return {
+        ...INACTIVE_WRITING_CAPABILITIES,
+        mathSkills: inactiveMath(),
+      };
   }
 }
 
@@ -201,7 +208,7 @@ function worksheetUsesInterests(worksheetType: WorksheetType): boolean {
  * The decorative topic a selection's Theme resolves to, or `undefined` when
  * the request carries none.
  *
- * Nothing is carried while decorative graphics are off, nor for the two
+ * Nothing is carried while decorative graphics are off, nor for the three
  * families that print no decoration, so the Theme cannot change their
  * requests. An explicit topic or Neutral resolves to itself. "From interests"
  * means the child's first reviewed interest in profile order for Count,
@@ -218,6 +225,7 @@ function projectDecorativeTopicId(
   switch (selection.worksheetType) {
     case "dry-math":
     case "find-the-wow":
+    case "number-bonds":
       return undefined;
     case "sentence-builder":
       return selection.theme === "from-interests" ? undefined : selection.theme;
@@ -233,15 +241,25 @@ function projectDecorativeTopicId(
  * The `practice` member a selection projects for one family (math-activities
  * plan, Appendix A.3). Dry Math's multiply-divide strand projects the facts
  * kind from `dryMathFacts` alone; its add-subtract strand projects the
- * add-subtract kind only for "Every problem carries or borrows". "Without
+ * add-subtract kind only for "Every problem carries or borrows". Number Bonds
+ * always projects its own kind from `numberBonds` alone. Dry Math's "Without
  * carrying or borrowing", and every other family whatever its saved Dry Math
- * choices, projects no member, so those requests keep their earlier exact
- * shape.
+ * or Number Bonds choices, projects no member, so those requests keep their
+ * earlier exact shape.
  */
 export function projectWorksheetPractice(
   selection: WorksheetSelectionV2,
   worksheetType: WorksheetType,
 ): PracticeRequestV1 | undefined {
+  if (worksheetType === "number-bonds") {
+    return {
+      kind: "number-bonds",
+      variant: "sentence",
+      operations: [...selection.numberBonds.operations],
+      wholeMax: selection.numberBonds.wholeMax,
+      regrouping: selection.numberBonds.regrouping,
+    };
+  }
   if (worksheetType !== "dry-math") {
     return undefined;
   }
@@ -318,7 +336,9 @@ export function projectGenerationRequest(
       options: {
         length: projectedLength(selection),
         includeDecorativeGraphics:
-          worksheetType === "dry-math" || worksheetType === "find-the-wow"
+          worksheetType === "dry-math" ||
+          worksheetType === "find-the-wow" ||
+          worksheetType === "number-bonds"
             ? false
             : selection.includeDecorativeGraphics,
         includeAnswerKey:

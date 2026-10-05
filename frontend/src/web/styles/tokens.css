@@ -199,3 +199,30 @@
 @media print {
   .print-surface [data-operator] { font-size: var(--instruction-size); }
 }
+
+/*
+ * Number Bonds' drawn answer box is 14 x 9 mm, 16 x 11 mm at large scale,
+ * room for a two-digit answer (math-activities plan, D24 and MU5), and each
+ * sentence stays on one line. Added on its own so no existing print rule
+ * changes.
+ */
+@media print {
+  .print-surface {
+    --missing-box-width: 14mm;
+    --missing-box-height: 9mm;
+  }
+  .print-surface[data-print-scale="large"] {
+    --missing-box-width: 16mm;
+    --missing-box-height: 11mm;
+  }
+  .print-surface [data-missing-box] {
+    width: var(--missing-box-width) !important;
+    height: var(--missing-box-height) !important;
+    border: 0.4mm solid black !important;
+    border-radius: 1mm !important;
+    vertical-align: middle;
+  }
+  .print-surface [data-worksheet-type="number-bonds"] [data-item-id] {
+    white-space: nowrap;
+  }
+}

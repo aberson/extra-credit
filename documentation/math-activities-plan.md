@@ -276,6 +276,7 @@ Every kept step runs `--reviewers code --isolation worktree`, with no `--ui`, st
 - **Type:** code
 - **Issue:** #37
 - **Flags:** --reviewers code --isolation worktree
+- **Status:** DONE (2026-10-04)
 - **Files:**
   - New family: `frontend/src/worksheets/number-bonds/{definition.ts,generator.ts,generator.test.ts}`; `frontend/src/web/worksheets/number-bonds/{Renderer.tsx,Renderer.test.tsx}`; `frontend/tests/e2e/number-bonds.spec.ts`.
   - Shared: `frontend/src/shared/worksheet/{types.ts,answer-oracle.ts,answer-oracle.test.ts,invariants.ts,project-request.ts,project-request.test.ts,registry.ts,limit-labels.ts,limit-labels.test.ts}`; `frontend/src/shared/config/{enums.ts,schema.ts,defaults.ts,practice-focus.ts,practice-focus.test.ts}`; `frontend/src/server/transport-schemas.ts`.

@@ -34,9 +34,9 @@ describe("CI and package-script contract", () => {
       env: { ...process.env, EXTRA_CREDIT_E2E_BASE_URL: "http://127.0.0.1:1" },
     });
     const listed = stdout.split("\n").filter((line) => /print\.spec\.ts:\d+:\d+/u.test(line));
-    // 86 worksheet rows, four order-bound sweeps, earliest-print probe,
+    // 87 worksheet rows, four order-bound sweeps, earliest-print probe,
     // and 13 manual lifecycle cases.
-    expect(listed).toHaveLength(104);
+    expect(listed).toHaveLength(105);
     expect(listed.filter((line) => line.includes("count ordering and frame bounds"))).toHaveLength(4);
     for (const paper of ["letter", "a4"]) {
       for (const scale of ["standard", "large"]) {
@@ -45,9 +45,10 @@ describe("CI and package-script contract", () => {
             line.includes(`-${paper}-${scale}-decoration-${decoration}`),
           );
           // The Letter/standard cell also prints the carrying and borrowing
-          // row and the multiplication and division facts row.
+          // row, the multiplication and division facts row and the Number
+          // Bonds missing number sentences row.
           expect(rows).toHaveLength(
-            decoration === "true" ? 9 : paper === "letter" && scale === "standard" ? 14 : 12,
+            decoration === "true" ? 9 : paper === "letter" && scale === "standard" ? 15 : 12,
           );
           if (decoration === "true") {
             expect(rows.every((line) => /(?:sentence-|count-all-four-subtypes-)/u.test(line)))

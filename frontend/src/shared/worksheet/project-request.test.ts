@@ -10,6 +10,7 @@ import {
   DRY_MATH_STRANDS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
+  NUMBER_BONDS_REGROUPING_MODES,
   PAPER_SIZES,
   PRINT_SCALES,
   REGROUPING_MODES,
@@ -21,6 +22,7 @@ import {
 import { MATH_PRESETS, MATH_PRESET_IDS } from "../config/math-presets.js";
 import { migrateConfigV1ToV2 } from "../config/migrate.js";
 import {
+  NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   VOCABULARY_PRESENTATION_BANDS,
 } from "../config/practice-focus.js";
@@ -30,6 +32,7 @@ import type {
   ChildProfileV1,
   ChildProfileV2,
   DryMathFactsV2,
+  NumberBondsV2,
   WorksheetSelectionV2,
 } from "../config/schema.js";
 import {
@@ -46,6 +49,7 @@ import { getWorksheetRegistration } from "./registry.js";
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
+  NUMBER_BONDS_WHOLE_MINIMUM,
   REVIEWED_TOPIC_IDS,
   TOPIC_IDS,
   V1_NUMERIC_MAXIMUM,
@@ -470,6 +474,17 @@ const factsArbitrary: fc.Arbitrary<DryMathFactsV2> = fc.record({
   ),
 });
 
+/** Any schema-valid Number Bonds choice: operations, any largest whole and either regrouping choice. */
+const numberBondsArbitrary: fc.Arbitrary<NumberBondsV2> = fc.record({
+  operations: fc.constantFrom<NumberBondsV2["operations"]>(
+    ["addition"],
+    ["subtraction"],
+    [...MATH_OPERATIONS],
+  ),
+  wholeMax: fc.integer({ min: NUMBER_BONDS_WHOLE_MINIMUM, max: V1_NUMERIC_MAXIMUM }),
+  regrouping: fc.constantFrom(...NUMBER_BONDS_REGROUPING_MODES),
+});
+
 /** Any schema-valid worksheet selection. */
 const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
   worksheetType: fc.constantFrom(...WORKSHEET_TYPE_IDS),
@@ -477,6 +492,7 @@ const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
   dryMathRegrouping: fc.constantFrom(...REGROUPING_MODES),
   dryMathStrand: fc.constantFrom(...DRY_MATH_STRANDS),
   dryMathFacts: factsArbitrary,
+  numberBonds: numberBondsArbitrary,
   findTheWow: fc.record({
     variant: fc.constantFrom(...FIND_THE_WOW_VARIANTS),
     quantity: fc.record({ countingMax: quantityMaximum, numeralMax: quantityMaximum }),
@@ -551,10 +567,17 @@ function withOwnFields(
         includeDecorativeGraphics: source.includeDecorativeGraphics,
         ...(source.includeDecorativeGraphics ? { theme: source.theme } : {}),
       };
+    case "number-bonds":
+      return { ...target, ...shared, numberBonds: source.numberBonds };
   }
 }
 
-const NON_SENTENCE_FAMILIES = ["dry-math", "find-the-wow", "count-compare-make"] as const;
+const NON_SENTENCE_FAMILIES = [
+  "dry-math",
+  "find-the-wow",
+  "count-compare-make",
+  "number-bonds",
+] as const;
 
 describe("another family's choices never change a request (U7)", () => {
   test("varying inactive fields, other families' focus, inapplicable controls and the Sentence choices leaves every non-Sentence request and its items unchanged", () => {
@@ -597,6 +620,7 @@ describe("another family's choices never change a request (U7)", () => {
           equation: PRACTICE_FOCUS_CATALOG["find-the-wow-equation"][1]!.focus,
         },
         countCompareMake: PRACTICE_FOCUS_CATALOG["count-compare-make"][0]!.focus,
+        numberBonds: { ...baseSelection.numberBonds, ...NUMBER_BONDS_FOCUS_CATALOG[1]!.focus },
       }, baseSelection);
       const wide = withOwnFields(family, {
         ...baseSelection,
@@ -607,6 +631,7 @@ describe("another family's choices never change a request (U7)", () => {
           equation: PRACTICE_FOCUS_CATALOG["find-the-wow-equation"][2]!.focus,
         },
         countCompareMake: PRACTICE_FOCUS_CATALOG["count-compare-make"][1]!.focus,
+        numberBonds: { ...baseSelection.numberBonds, ...NUMBER_BONDS_FOCUS_CATALOG[2]!.focus },
       }, baseSelection);
       expect(requestFor(wide)).not.toEqual(requestFor(narrow));
       expect(itemsFor(requestFor(wide))).not.toEqual(itemsFor(requestFor(narrow)));
@@ -634,6 +659,80 @@ describe("the carrying and borrowing choice reaches only Dry Math's request", ()
       const carrying = {
         ...request,
         practice: { kind: "dry-math-add-subtract", regrouping: "required" },
+      } as const satisfies GenerationRequestV1;
+      expect(itemsFor(carrying)).toHaveProperty("refused");
+    },
+  );
+});
+
+describe("Number Bonds reads only its own choices", () => {
+  test("its request carries the Number Bonds kind with inactive math and writing fields, no topics and no decoration", () => {
+    const request = requestFor(
+      selectionFor("number-bonds", {
+        numberBonds: { operations: ["subtraction"], wholeMax: 5, regrouping: "included" },
+        includeDecorativeGraphics: true,
+        useInterests: true,
+        theme: "space",
+        dryMathRegrouping: "required",
+      }),
+    );
+    expect(request.practice).toEqual({
+      kind: "number-bonds",
+      variant: "sentence",
+      operations: ["subtraction"],
+      wholeMax: 5,
+      regrouping: "included",
+    });
+    expect(request.capabilities).toEqual({
+      ...INACTIVE_WRITING_CAPABILITIES,
+      mathSkills: INACTIVE_MATH_FIELDS,
+    });
+    expect(request).not.toHaveProperty("topicIds");
+    expect(request.options.includeDecorativeGraphics).toBe(false);
+    expect(request.options).not.toHaveProperty("decorativeTopicId");
+    // The nickname and the answer key still apply.
+    expect(request.displayName).toBe("Distinctive Nickname");
+    expect(request.options.includeAnswerKey).toBe(true);
+  });
+
+  test("property: varying numberBonds leaves every other family's request deep-equal, and moves Number Bonds' own", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...WORKSHEET_TYPE_IDS),
+        selectionArbitrary,
+        numberBondsArbitrary,
+        (worksheetType, source, numberBonds) => {
+          const chosen = selectionFor(worksheetType, source);
+          const varied = { ...chosen, numberBonds };
+          if (worksheetType === "number-bonds") {
+            expect(requestFor(varied).practice).toEqual({
+              kind: "number-bonds",
+              variant: "sentence",
+              ...numberBonds,
+            });
+          } else {
+            expect(requestFor(varied)).toEqual(requestFor(chosen));
+          }
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make"] as const)(
+    "%s refuses a Number Bonds practice member",
+    (worksheetType) => {
+      const request = requestFor(selectionFor(worksheetType));
+      expect(itemsFor(request)).not.toHaveProperty("refused");
+      const carrying = {
+        ...request,
+        practice: {
+          kind: "number-bonds",
+          variant: "sentence",
+          operations: ["addition"],
+          wholeMax: 10,
+          regrouping: "without",
+        },
       } as const satisfies GenerationRequestV1;
       expect(itemsFor(carrying)).toHaveProperty("refused");
     },
@@ -907,6 +1006,7 @@ describe("reviewed-topic allowlist", () => {
       "find-the-wow": [],
       "sentence-builder": ["space"],
       "count-compare-make": [],
+      "number-bonds": [],
     });
   });
 });
@@ -958,6 +1058,11 @@ const DECORATED_TOPIC: Readonly<
     "from-interests": { firstMatching: "vehicles", onlyUnmatched: "neutral", none: "neutral" },
     space: { firstMatching: "space", onlyUnmatched: "space", none: "space" },
     neutral: { firstMatching: "neutral", onlyUnmatched: "neutral", none: "neutral" },
+  },
+  "number-bonds": {
+    "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
   },
 };
 

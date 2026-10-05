@@ -40,6 +40,7 @@ export const WORKSHEET_GROUP_KEYS = [
   "dryMathRegrouping",
   "dryMathStrand",
   "dryMathFacts",
+  "numberBonds",
   "findTheWow.variant",
   "findTheWow.quantity",
   "findTheWow.equation",
@@ -287,10 +288,12 @@ export function worksheetSessionReducer(
           })
         : state;
     case "changed":
-      // The facts always keep at least one operation and one family.
+      // The facts always keep at least one operation and one family, and
+      // Number Bonds at least one operation.
       if (
-        action.group === "dryMathFacts" &&
-        (action.value.operations.length === 0 || action.value.factFamilies.length === 0)
+        (action.group === "dryMathFacts" &&
+          (action.value.operations.length === 0 || action.value.factFamilies.length === 0)) ||
+        (action.group === "numberBonds" && action.value.operations.length === 0)
       ) {
         return state;
       }
