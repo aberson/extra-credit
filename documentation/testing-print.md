@@ -43,7 +43,8 @@ server fixture. It loads the three identity-only fictional profiles from
 `config/children.example.json` and pins only the random seed. Each matrix row
 edits only the nickname (and, for Sentence Builder rows, the interests) through
 the real profile UI, makes every worksheet choice through the worksheet controls
-(type, variant, practice focus or vocabulary, length, paper, and scale), and
+(type, variant, practice focus or vocabulary, carrying and borrowing, fact
+families, length, paper, and scale), and
 after the profile save reads the stored file back and requires every profile to
 stay identity-only. The browser must reproduce the real generator's
 items, prompts, banks, and answers. Count/Compare compares every rendered item's
@@ -55,7 +56,7 @@ except the carrying and borrowing row, the multiplication and division facts
 row and the Number Bonds row, which each print once at Letter/standard.
 Sentence Builder and Count/Compare also cross decoration off/on. Applicable
 keys add 19 separate one-page PDF checks, once
-per renderer/paper/scale: the key does not consume decoration.
+per key-bearing row at each paper/scale it prints: the key does not consume decoration.
 Dry Math and both Wow variants run once per paper/scale; a separate production
 session/render test proves a hidden stored decoration-on preference canonicalizes
 to false and produces no panel.
@@ -91,9 +92,11 @@ overflow in both DOM geometry and an actual multi-page PDF.
 
 Every worksheet includes the exact wide-Unicode nickname `"界".repeat(40)`.
 Sentence Builder rows choose their writing activity and the Include longer
-words vocabulary, and edit only fictional Morgan's interests. Each math row's practice focus
-equals the one its canonical child's earlier settings supplied before the
-example became identity-only. Fixture construction
+words vocabulary, and edit only fictional Morgan's interests. The Dry Math, Quantity Wow, Equation Wow
+and Count, Compare & Make rows use the practice focus their canonical child's
+earlier settings supplied before the example became identity-only; the Dry Math
+carrying and borrowing, Dry Math facts and Number Bonds rows set their focus
+explicitly, as the table states. Fixture construction
 searches bounded real generator outputs for the longest prompt or the complete
 set of longest bank entries; a missing match fails rather than falling back.
 
@@ -109,8 +112,9 @@ worksheets, across rows for the other worksheets and all keys.
 
 Independent measurements enforce response geometry in millimetres: writing lines
 are 7/9 mm high, ordinary drawing boxes 33/38 mm, draw-and-tell boxes 100/110 mm,
-guide/ten-frame cells 5/6 mm square, and Number Bonds answer boxes 14 × 9 mm and
-16 × 11 mm (standard/large). Lines and drawing boxes
+guide/ten-frame cells 5/6 mm square, and Number Bonds answer boxes 14 × 9 mm,
+measured on its single Letter/standard row (no print test measures the
+16 × 11 mm large-scale size in tokens.css). Lines and drawing boxes
 must provide at least 150 mm of usable width. Circle targets stay 4 mm square and
 decoration reservations 24 mm square. For large worksheets, the same content is
 temporarily measured with standard print styles, then restored; response heights
