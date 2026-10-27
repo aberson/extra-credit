@@ -25,11 +25,11 @@ export const SENTENCE_BUILDER_DEFINITION = {
   hasAnswerKey: false,
 } as const;
 
-/** Every Sentence Builder page carries exactly one open prompt (plan.md:199). */
+/** Every Sentence Builder page carries exactly one open prompt (docs/archived-plans/plan.md:199). */
 export const SENTENCE_BUILDER_ITEM_COUNT = 1;
 
 /**
- * Unique word-bank entries per bank-bearing mode and length (plan.md:235).
+ * Unique word-bank entries per bank-bearing mode and length (docs/archived-plans/plan.md:235).
  * `label`/`sentence-frame` take 4/6/8; `independent` takes 6/8/10.
  */
 export const SENTENCE_BUILDER_BANK_BUDGETS = {
@@ -108,7 +108,7 @@ function shorterLength(length: WorksheetLength): WorksheetLength {
 
 /**
  * The canonical stored length for a writing mode. `draw-and-tell` and
- * `copy-with-model` hide the control and normalize to `standard` (plan.md:131);
+ * `copy-with-model` hide the control and normalize to `standard` (docs/archived-plans/plan.md:131);
  * the three bank modes keep the parent's choice because it selects bank width.
  */
 export function getSentenceBuilderCanonicalLength(
@@ -121,7 +121,7 @@ export function getSentenceBuilderCanonicalLength(
 /**
  * Large print may pull a bank-bearing mode down to the next shorter budget to
  * keep the one-page contract; the two no-bank modes only change response
- * geometry, never their canonical length (plan.md:238).
+ * geometry, never their canonical length (docs/archived-plans/plan.md:238).
  */
 export function getSentenceBuilderEffectiveLength(
   writingMode: WritingMode,

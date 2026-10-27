@@ -54,7 +54,7 @@ import {
  *    single root `LICENSE` live above `frontend/`, so the repository-root
  *    contract is checked here, from Node, with `readFileSync`. These are the
  *    same contracts Step 13's release audit re-checks over an exported source
- *    tree (plan.md:756), which also re-runs this suite in its clean room. That
+ *    tree (docs/archived-plans/plan.md:756), which also re-runs this suite in its clean room. That
  *    includes being the ledger/manifest drift gate the ledger names.
  */
 
@@ -69,7 +69,7 @@ function repositoryText(relativePath: string): string {
 /**
  * Every committed `.svg` under a directory, at ANY depth.
  *
- * plan.md:757 gives Step 13's release audit a `**\/*.svg` walk of the line-art
+ * docs/archived-plans/plan.md:757 gives Step 13's release audit a `**\/*.svg` walk of the line-art
  * directory. This step's unmanifested-file guard has to be at least that wide
  * or a nested asset would ship unseen until release, so the scan recurses and
  * a fixture test below proves it really does.
@@ -859,7 +859,7 @@ test("the doodle caption is never cut off, at any text size", async ({
       "[aria-label='Worksheet preview'] { box-sizing: border-box; width: 320px; max-width: 320px; }",
   });
 
-  // 100%, 200% (the resize bar plan.md:255 declares) and 300%, on a 320 CSS
+  // 100%, 200% (the resize bar docs/archived-plans/plan.md:255 declares) and 300%, on a 320 CSS
   // pixel page. The caption is sized as a share of the panel rather than of
   // the root font, so it shrinks with the box that clips it; with the panel's
   // previous root-relative metrics the caption's own rectangle grew past the
@@ -1519,7 +1519,7 @@ test("every committed line-art file has one original manifest row", () => {
 });
 
 test("the committed-asset scan reaches nested files, as Step 13 will", () => {
-  // The guard above is only as wide as this scan. plan.md:757 audits
+  // The guard above is only as wide as this scan. docs/archived-plans/plan.md:757 audits
   // `**\/*.svg`, so a flat scan would let a nested asset through here and
   // meet it for the first time at release.
   const root = mkdtempSync(`${tmpdir()}/extra-credit-line-art-scan-`);
@@ -1566,7 +1566,7 @@ test("the build emits each reviewed asset as its own byte-identical file", () =>
   // bundle - percent-encoded, not base64, and not the committed bytes - which
   // is the payload prefix the last assertion here rejects. Step 13's
   // release audit walks an exported SOURCE tree with build output absent
-  // (plan.md:757), so this test, re-run in its clean room, is what inspects
+  // (docs/archived-plans/plan.md:757), so this test, re-run in its clean room, is what inspects
   // what actually shipped.
   const builtDirectory = `${REPOSITORY_ROOT}${BUILT_ASSET_DIRECTORY}`;
   const builtAssets = readdirSync(builtDirectory);

@@ -7,17 +7,17 @@ import {
 } from "../assets/line-art/manifest";
 
 /**
- * The reserved decorative panel (plan.md:202).
+ * The reserved decorative panel (docs/archived-plans/plan.md:202).
  *
  * The panel is the SAME size in every state. With decorative graphics on and
  * a licensed match, it holds one reviewed monochrome SVG with an empty `alt`
- * attribute (plan.md:246). With graphics off, with no licensed match, or if a
+ * attribute (docs/archived-plans/plan.md:246). With graphics off, with no licensed match, or if a
  * bundled asset cannot be fetched, that same box becomes the optional doodle
  * box. Because the box is always rendered at the same size, nothing below it
  * can move: the prompt, word bank, item count, required response, and
  * response-panel geometry are identical in all three states.
  *
- * The panel belongs OUTSIDE the instructional response area (plan.md:195);
+ * The panel belongs OUTSIDE the instructional response area (docs/archived-plans/plan.md:195);
  * callers place it in the reserved header/side slot, never inside
  * `[data-response-panel]`.
  */

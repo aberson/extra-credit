@@ -5,7 +5,7 @@ import { V1_NUMERIC_MAXIMUM } from "../../shared/worksheet/types";
 /**
  * Instructional visuals: dots, ten-frames, shapes, and writing guides.
  *
- * These are NOT decoration (plan.md:212). This module takes no graphics flag
+ * These are NOT decoration (docs/archived-plans/plan.md:212). This module takes no graphics flag
  * at all, so there is no code path by which turning decoration off can remove
  * a counted group, a ten-frame, or the space a child has to draw into.
  *

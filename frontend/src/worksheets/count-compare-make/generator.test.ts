@@ -379,7 +379,7 @@ describe("Count, Compare & Make availability", () => {
 
 describe("Count, Compare & Make candidate capacity", () => {
   /**
-   * plan.md:209 states four closed forms. This proves each one against the
+   * docs/archived-plans/plan.md:209 states four closed forms. This proves each one against the
    * ACTUAL enumerated collection over the full cube of `countingMax` x
    * `numeralMax` x `compareMax` in `0..20` - the whole range a practice focus
    * can hold plus a 0 sentinel, since `shared/config/schema.ts` bounds each

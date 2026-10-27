@@ -105,7 +105,7 @@ describe("public release audit over the current export", () => {
     reviewedOn: "2026-09-29",
     interests: [["tr", "ains"].join("")],
   });
-  it.each(["notes.json", "documentation/synthetic-notes.md", "frontend/tests/fixtures/changed.json"])("rejects a runtime-synthesized age-free v2 profile: %s", async (path) => {
+  it.each(["notes.json", "docs/synthetic-notes.md", "frontend/tests/fixtures/changed.json"])("rejects a runtime-synthesized age-free v2 profile: %s", async (path) => {
     const room = await clean();
     await put(room, path, JSON.stringify(syntheticV2Profile()));
     expect(audit(room)).toMatchObject({ exit: 1, output: expect.stringContaining("PROFILE_RECORD") });
@@ -123,7 +123,7 @@ describe("public release audit over the current export", () => {
 
   it("keeps passing the canonical v2 records in the example and the v1 records in the fixture and the plan appendix", async () => {
     const room = await clean();
-    for (const path of ["config/children.example.json", "frontend/tests/fixtures/config/children.v1.json", "plan.md"]) {
+    for (const path of ["config/children.example.json", "frontend/tests/fixtures/config/children.v1.json", "docs/archived-plans/plan.md"]) {
       const text = await readFile(join(room, path), "utf8");
       expect(text, path).toContain('"reviewedOn"');
       expect(text, path).toContain('"interests"');
@@ -194,17 +194,17 @@ describe("public release audit over the current export", () => {
     if (kind !== "complete") expect(result.output).toContain("UPSTREAM_TERMS");
   });
 
-  it.each(["notes.json", "plan.md"])("rejects even canonical records outside the permitted location: %s", async (path) => {
+  it.each(["notes.json", "plan.md", "docs/archived-plans/plan.md"])("rejects even canonical records outside the permitted location: %s", async (path) => {
     const room = await clean();
     const config = JSON.parse(await readFile(join(room, "config/children.example.json"), "utf8")) as { profiles: unknown[] };
-    const existing = path === "plan.md" ? await readFile(join(room, path), "utf8") : "";
+    const existing = path.endsWith("plan.md") ? await readFile(join(room, path), "utf8") : "";
     await put(room, path, existing + "\n" + JSON.stringify(config.profiles[0]));
     expect(audit(room)).toMatchObject({ exit: 1, output: expect.stringContaining("PROFILE_RECORD") });
   });
 
   it("rejects duplicate profile fields in the permitted appendix", async () => {
     const room = await clean();
-    const path = "plan.md";
+    const path = "docs/archived-plans/plan.md";
     const original = await readFile(join(room, path), "utf8");
     const key = JSON.stringify("displayName");
     const field = `${key}: ${JSON.stringify("Riley")}`;

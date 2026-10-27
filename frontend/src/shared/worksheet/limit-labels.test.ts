@@ -894,7 +894,7 @@ const bothCapabilitiesProfile: CapabilityProfileV1 = {
 /**
  * Every quantity AND equation maximum stored far above the Version 1 ceiling.
  *
- * The schema permits maxima up to 1000, and plan.md:701 is exactly the
+ * The schema permits maxima up to 1000, and docs/archived-plans/plan.md:701 is exactly the
  * stored-above-the-ceiling case. Without a record like this one the three
  * `*-v1clamp` rows in the catalogue are dead for want of an input rather than
  * by the mechanism they name: every other probe stores at most the ceiling, so

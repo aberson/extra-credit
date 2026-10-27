@@ -54,7 +54,7 @@ rulings under the operator's delegation of routine choices, tweakable at redline
 
 ## Lean revision (recorded 2026-09-30)
 
-On 2026-09-30, after Steps 14–16 had shipped locally, the operator commissioned a read-only over-engineering review of the three plans and then instructed that its proposed changes be incorporated. The review is committed as `documentation/lean-revision-review.html`. The choices below are binding on the plans from Step 17 onward; Steps 14–16 stand as built.
+On 2026-09-30, after Steps 14–16 had shipped locally, the operator commissioned a read-only over-engineering review of the three plans and then instructed that its proposed changes be incorporated. The review is committed as `docs/lean-revision-review.html`. The choices below are binding on the plans from Step 17 onward; Steps 14–16 stand as built.
 
 ### Operator choices (P), continued
 

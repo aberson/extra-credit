@@ -51,7 +51,7 @@ import manifestSourceText from "./manifest.ts?raw";
  * An independent directory scan, resolved by the bundler over the real
  * working tree, so it sees a committed SVG whether or not any module already
  * references it. RECURSIVE, matching the module's own discovery glob and the
- * `**\/*.svg` walk plan.md:757 gives the release audit.
+ * `**\/*.svg` walk docs/archived-plans/plan.md:757 gives the release audit.
  *
  * Repository-root files (`ASSET_PROVENANCE.md`, `CONTRIBUTING.md`, `LICENSE`)
  * are deliberately NOT read here. This file cannot IMPORT one: it runs under
@@ -113,7 +113,7 @@ describe("the reviewed line-art manifest", () => {
       expect(entry.source.length, entry.id).toBeGreaterThan(0);
       expect(entry.description.length, entry.id).toBeGreaterThan(0);
       expect(entry.reviewedOn, entry.id).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
-      // plan.md:244 permits AI-assisted asset creation and requires the note
+      // docs/archived-plans/plan.md:244 permits AI-assisted asset creation and requires the note
       // to record it. A row that hid the assistance would be a false ledger.
       expect(entry.aiAssistance, entry.id).toMatch(/ai[- ]assist/iu);
       expect(entry.origin, entry.id).toBe("original");
@@ -801,8 +801,8 @@ describe("decoration reaches the page through the registered renderer", () => {
     expect(image?.getAttribute("src") ?? "").toContain("space-rocket");
     expect(document.querySelectorAll("[data-doodle-box]")).toHaveLength(0);
 
-    // DECORATION stays out of the instructional response area (plan.md:195).
-    // Scoped to decorative markers rather than to every `img`: plan.md:212
+    // DECORATION stays out of the instructional response area (docs/archived-plans/plan.md:195).
+    // Scoped to decorative markers rather than to every `img`: docs/archived-plans/plan.md:212
     // and :246 require instructional visuals to remain, so a blanket "no
     // image here" assertion would forbid the one thing the response area is
     // explicitly allowed to gain.
@@ -1010,7 +1010,7 @@ describe("a broken catalog degrades decoration instead of taking a page down", (
 
 describe("committed-SVG discovery", () => {
   test("is recursive, matching the release audit's nested-asset walk", () => {
-    // plan.md:757 has Step 13 walk every `.svg` under the line-art directory
+    // docs/archived-plans/plan.md:757 has Step 13 walk every `.svg` under the line-art directory
     // at ANY depth. A flat glob here would let a nested asset pass this
     // step's unmanifested-file guard and be met for the first time at
     // release, so the discovery pattern itself is pinned.

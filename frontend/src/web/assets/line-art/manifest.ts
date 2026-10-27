@@ -9,7 +9,7 @@ import rawManifestJson from "./manifest.json?raw";
  * The reviewed decorative line-art pack.
  *
  * `manifest.json` beside this file is the SINGLE machine-readable source of
- * asset provenance (plan.md:244, :318). This module never re-declares a row:
+ * asset provenance (docs/archived-plans/plan.md:244, :318). This module never re-declares a row:
  * it imports that exact JSON text, validates it, and joins each row to the
  * bundled SVG it names. `ASSET_PROVENANCE.md` is the human ledger of the same
  * rows and `frontend/tests/e2e/graphics.spec.ts` proves the two never drift.
@@ -24,7 +24,7 @@ import rawManifestJson from "./manifest.json?raw";
  * Decoration is decoration. Nothing here can change a prompt, a word bank, an
  * item count, or a required response: its only importer anywhere in
  * `src/` is the reserved panel in `preview/DecorativeGraphic.tsx`, which
- * renders the same box whether art is selected or not (plan.md:202). Decoration is also
+ * renders the same box whether art is selected or not (docs/archived-plans/plan.md:202). Decoration is also
  * OPTIONAL: every failure in this module - an unreadable manifest, an unsafe
  * asset, a missing file - withholds art and leaves the doodle box, and none
  * of them may take the parent UI down with it.
@@ -33,7 +33,7 @@ import rawManifestJson from "./manifest.json?raw";
 /** Repository-relative POSIX directory that owns every reviewed asset. */
 export const LINE_ART_DIRECTORY = "frontend/src/web/assets/line-art/" as const;
 
-/** The root MIT license every project-original asset points at (plan.md:30). */
+/** The root MIT license every project-original asset points at (docs/archived-plans/plan.md:30). */
 export const ROOT_LICENSE_FILE = "LICENSE" as const;
 
 export const LINE_ART_ERROR_CODES = {
@@ -99,7 +99,7 @@ const provenanceFields = {
 };
 
 /**
- * A project-original row. plan.md:244 fixes all three license fields exactly,
+ * A project-original row. docs/archived-plans/plan.md:244 fixes all three license fields exactly,
  * and Step 13 release audit re-checks them on the exported tree.
  */
 const originalRowSchema = z.strictObject({
@@ -170,7 +170,7 @@ function fail(detail: string): never {
 
 /**
  * Every construct this project refuses to bundle inside an SVG. The list is
- * the enforcement side of the plan.md:244 exclusions on remote image URLs and
+ * the enforcement side of the docs/archived-plans/plan.md:244 exclusions on remote image URLs and
  * runtime image generation: an asset that trips any rule is dropped from the
  * runtime catalog and reported as a defect instead of being rendered.
  *
@@ -337,7 +337,7 @@ function repositoryPathOf(globKey: string): string {
  * throwing them.
  *
  * This function is the whole of the module's failure policy. Decoration is
- * optional by contract (plan.md:202, :246), so nothing here may escape as an
+ * optional by contract (docs/archived-plans/plan.md:202, :246), so nothing here may escape as an
  * exception: this module sits in the parent UI's import graph, and a throw at
  * module load would blank profile management, generation and print over a
  * decoration problem. A corrupt manifest, an unsafe asset or a missing file
@@ -414,7 +414,7 @@ export function buildLineArtCatalog(
  * {@link LINE_ART_CATALOG_DEFECTS}, which `manifest.test.ts` requires to be
  * empty and Step 13 release audit re-checks on the exported tree.
  *
- * The glob is RECURSIVE on purpose. plan.md:757 makes the release audit walk
+ * The glob is RECURSIVE on purpose. docs/archived-plans/plan.md:757 makes the release audit walk
  * every `.svg` under this directory at any depth, so this step's own
  * unmanifested-file guard has to be at least that wide; a flat glob would let
  * an asset in a subdirectory ship unseen until release. A nested file can
@@ -449,7 +449,7 @@ const bundledMarkup = import.meta.glob<string>("./**/*.svg", {
  * committed bytes the `?raw` copy above was safety-checked against, and
  * `graphics.spec.ts` compares them file by file.
  *
- * Step 13 does NOT inspect those built files: plan.md:757 audits an EXPORTED
+ * Step 13 does NOT inspect those built files: docs/archived-plans/plan.md:757 audits an EXPORTED
  * WORKING TREE whose manifest proves build output absent, so its asset clause
  * walks committed `line-art/**\/*.svg` sources. It re-runs this suite in the
  * clean room, which is how the built-file check travels to release. The
@@ -490,7 +490,7 @@ if (import.meta.env.DEV && LINE_ART_CATALOG_DEFECTS.length > 0) {
 /** Reviewed assets that may be rendered, in stable asset-ID order. */
 export const LINE_ART_ASSETS: readonly LineArtAssetV1[] = catalog.assets;
 
-/** The exact topic allowlist decoration may be selected by (plan.md:318). */
+/** The exact topic allowlist decoration may be selected by (docs/archived-plans/plan.md:318). */
 export const LINE_ART_TOPIC_IDS = TOPIC_IDS;
 
 /**
@@ -515,7 +515,7 @@ export function decorativeAssetsForTopic(
  * Deterministic in exactly the way every other worksheet family is: the same
  * seed over the same candidate list always yields the same asset. Returning
  * `undefined` is the documented no-licensed-match path, and the caller draws
- * the same-size doodle box instead (plan.md:202).
+ * the same-size doodle box instead (docs/archived-plans/plan.md:202).
  */
 export function selectDecorativeAsset(
   topicId: string,

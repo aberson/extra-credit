@@ -1,0 +1,696 @@
+{
+  "schema_version": 1,
+  "plan_path": "docs/plans/master_plan.md",
+  "plan_sha256": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+  "estimates": [
+    {
+      "step_id": "27",
+      "title": "Number bond pictures and the last pending choice",
+      "status": "DEFERRED (optional; operator selection required)",
+      "type": "code",
+      "worker_hours": {
+        "low": 12.0,
+        "high": 24.0
+      },
+      "attention_hours": {
+        "low": 1.0,
+        "high": 3.0
+      },
+      "dependencies": [],
+      "rationale": "Bond representation crosses default/schema projection, generator, oracle, SVG and print geometry; optional selection required.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.886703Z",
+      "confidence": 0.55,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Optional feature not selected",
+      "work_id": "work_0900ec2b83c7c23fa239d62932e900e490f47752a759e085647915feb8da4cb0",
+      "source_digest": "f70f723cdac53fa69fa089df01c78ffd7657e71e877ceebb022a39a86c9161f9",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "Step 26"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 62,
+        "line_end": 91
+      }
+    },
+    {
+      "step_id": "31",
+      "title": "Add to packet, reorder and remove (session queue)",
+      "status": "PENDING",
+      "type": "code",
+      "worker_hours": {
+        "low": 8.0,
+        "high": 16.0
+      },
+      "attention_hours": {
+        "low": 0.75,
+        "high": 2.0
+      },
+      "dependencies": [
+        "work_82bd460c61dd34fe6b555362e1cd6061bba501b2156900c6ce528195c98d46f6"
+      ],
+      "rationale": "Queue reducer/UI integrates immutable documents, labels, privacy and browser seams.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887030Z",
+      "confidence": 0.55,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Math screen acceptance required",
+      "work_id": "work_2d77af3126ff6bc6116b90c3a7fd96b7bef60a552b8f17c664275967dc75b41f",
+      "source_digest": "90820214f364a2882c39de561be89211379f4c421ab9d1249178d189714c98c2",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 92,
+        "line_end": 120
+      }
+    },
+    {
+      "step_id": "33",
+      "title": "Preview and print the whole packet once",
+      "status": "PENDING",
+      "type": "code",
+      "worker_hours": {
+        "low": 10.0,
+        "high": 22.0
+      },
+      "attention_hours": {
+        "low": 1.0,
+        "high": 3.0
+      },
+      "dependencies": [
+        "work_2d77af3126ff6bc6116b90c3a7fd96b7bef60a552b8f17c664275967dc75b41f"
+      ],
+      "rationale": "Whole packet preview/print, three key placements and ten-sheet paper geometry.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887301Z",
+      "confidence": 0.55,
+      "enabled": true,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "",
+      "work_id": "work_6a1138e2a9d94e18b3250d49a605bf45e0ff7e6386d03bd70454f9d25d94ae4b",
+      "source_digest": "b07cd555688fe4bdb8b6221b491005be144a83d191c2c7029220c0d2c56c8dbe",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 121,
+        "line_end": 153
+      }
+    },
+    {
+      "step_id": "WF1",
+      "title": "Retained-store transition observation",
+      "status": "PENDING",
+      "type": "operator",
+      "worker_hours": {
+        "low": 0.5,
+        "high": 1.5
+      },
+      "attention_hours": {
+        "low": 0.75,
+        "high": 2.0
+      },
+      "dependencies": [],
+      "rationale": "Operator-owned retained-store transition; observe without private-file access.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887340Z",
+      "confidence": 0.5,
+      "enabled": true,
+      "manual_wait": true,
+      "calendar_wait": "Operator/printer/family or pushed CI availability; elapsed wait not estimated",
+      "hold_reason": "",
+      "work_id": "work_84db7735bbb3b009c4a30b10f2b1143db0f1d6691e8121acf753c78cd19a5280",
+      "source_digest": "7f2f565f38e65312e510f2c47d516291cc27224b4f8a2714362ba6eaa74e121b",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 154,
+        "line_end": 163
+      }
+    },
+    {
+      "step_id": "WF2",
+      "title": "Worksheet-first screen review",
+      "status": "PENDING",
+      "type": "operator",
+      "worker_hours": {
+        "low": 0.25,
+        "high": 0.75
+      },
+      "attention_hours": {
+        "low": 0.5,
+        "high": 1.5
+      },
+      "dependencies": [],
+      "rationale": "Observe shipped worksheet controls and earlier settings.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887375Z",
+      "confidence": 0.5,
+      "enabled": true,
+      "manual_wait": true,
+      "calendar_wait": "Operator/printer/family or pushed CI availability; elapsed wait not estimated",
+      "hold_reason": "",
+      "work_id": "work_373f045dc3766b001fb6689cee54bf131dceeb1558d64ecc6494f0f4a0513395",
+      "source_digest": "afadf16d192430af3e86865052d53e18f4dc440e4dd98be4d5c4650f08fc9504",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 164,
+        "line_end": 173
+      }
+    },
+    {
+      "step_id": "MA2",
+      "title": "Math screen review before packets",
+      "status": "PENDING",
+      "type": "operator",
+      "worker_hours": {
+        "low": 0.25,
+        "high": 0.75
+      },
+      "attention_hours": {
+        "low": 0.5,
+        "high": 1.5
+      },
+      "dependencies": [],
+      "rationale": "Math screen review before packets, repeated if optional27 ships.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887407Z",
+      "confidence": 0.5,
+      "enabled": true,
+      "manual_wait": true,
+      "calendar_wait": "Operator/printer/family or pushed CI availability; elapsed wait not estimated",
+      "hold_reason": "",
+      "work_id": "work_82bd460c61dd34fe6b555362e1cd6061bba501b2156900c6ce528195c98d46f6",
+      "source_digest": "ac57f84b1384cc20cb09685da51c9210e092e549f85ec574c5c219d9954831f2",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 174,
+        "line_end": 183
+      }
+    },
+    {
+      "step_id": "PK1",
+      "title": "Session packet screen review",
+      "status": "PENDING",
+      "type": "operator",
+      "worker_hours": {
+        "low": 0.25,
+        "high": 1.0
+      },
+      "attention_hours": {
+        "low": 0.75,
+        "high": 2.0
+      },
+      "dependencies": [
+        "work_6a1138e2a9d94e18b3250d49a605bf45e0ff7e6386d03bd70454f9d25d94ae4b"
+      ],
+      "rationale": "Ten-sheet packet screen observation including intentional reload loss.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887438Z",
+      "confidence": 0.5,
+      "enabled": true,
+      "manual_wait": true,
+      "calendar_wait": "Operator/printer/family or pushed CI availability; elapsed wait not estimated",
+      "hold_reason": "",
+      "work_id": "work_a1f4ea4498cf824ca14809147aa3c64bfdff8311b3efe9cf57f8f5d561fa0ca2",
+      "source_digest": "fb79f9b3af3dcc3748e693eb3cff4cf08ddc0b6e287e3fb951f0453edcfd9d15",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 184,
+        "line_end": 193
+      }
+    },
+    {
+      "step_id": "M1",
+      "title": "Physical print acceptance across shipped features",
+      "status": "PENDING",
+      "type": "operator",
+      "worker_hours": {
+        "low": 0.5,
+        "high": 2.0
+      },
+      "attention_hours": {
+        "low": 2.0,
+        "high": 5.0
+      },
+      "dependencies": [],
+      "rationale": "Real printer/browser matrix, writing geometry and key clarity.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887501Z",
+      "confidence": 0.5,
+      "enabled": true,
+      "manual_wait": true,
+      "calendar_wait": "Operator/printer/family or pushed CI availability; elapsed wait not estimated",
+      "hold_reason": "",
+      "work_id": "work_5d8ea8d251ad87d668d99c851dc17f009f99f9d526d0c4fd8eece296041011f0",
+      "source_digest": "6ea9e654e66540c1cf99c837a160579c5cbe58ef06b02c01db15cf0eaf4d43d9",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 194,
+        "line_end": 203
+      }
+    },
+    {
+      "step_id": "M2",
+      "title": "Family usability pilot",
+      "status": "PENDING",
+      "type": "operator",
+      "worker_hours": {
+        "low": 0.25,
+        "high": 0.75
+      },
+      "attention_hours": {
+        "low": 1.0,
+        "high": 3.0
+      },
+      "dependencies": [],
+      "rationale": "Private family observation and nonidentifying product findings.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887560Z",
+      "confidence": 0.5,
+      "enabled": true,
+      "manual_wait": true,
+      "calendar_wait": "Operator/printer/family or pushed CI availability; elapsed wait not estimated",
+      "hold_reason": "",
+      "work_id": "work_b63bb41c30e3c9ec3a61ebbb935cff496627bd7eae9241dc177c06a4411fb999",
+      "source_digest": "47be3886a651e2b194639b34973b3af373936935a516d6c924f875bd501f1591",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 204,
+        "line_end": 213
+      }
+    },
+    {
+      "step_id": "M3",
+      "title": "Exact pushed-commit Ubuntu CI acceptance",
+      "status": "PENDING",
+      "type": "operator",
+      "worker_hours": {
+        "low": 0.25,
+        "high": 1.0
+      },
+      "attention_hours": {
+        "low": 0.1,
+        "high": 0.5
+      },
+      "dependencies": [],
+      "rationale": "Watch exact pushed-head Ubuntu CI; fixes separately estimated.",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887609Z",
+      "confidence": 0.5,
+      "enabled": true,
+      "manual_wait": true,
+      "calendar_wait": "Operator/printer/family or pushed CI availability; elapsed wait not estimated",
+      "hold_reason": "",
+      "work_id": "work_e352802c60af1710a0568b06cc6d8ed04943e7088a97ed6ffe15ff35ebda1129",
+      "source_digest": "7377db9e05028c2d19d52f422329bcab2b968b06c69c1b96a883066473190ea8",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 214,
+        "line_end": 223
+      }
+    },
+    {
+      "step_id": "F1",
+      "title": "Mini Mission",
+      "status": "DEFERRED",
+      "type": "planning",
+      "worker_hours": {
+        "low": 2.0,
+        "high": 5.0
+      },
+      "attention_hours": {
+        "low": 0.5,
+        "high": 1.5
+      },
+      "dependencies": [],
+      "rationale": "Mini Mission instructional design",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887710Z",
+      "confidence": 0.35,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Future selection/design required; planning-only estimate",
+      "work_id": "work_b27e1dae46347c574b533c11a548691b6c443eb2e1f115388a71f2ffdceca420",
+      "source_digest": "c5fe295d961a7d396e42da181f3ef2b6df8c62ec01a3d05c27c5726c861f4e55",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 224,
+        "line_end": 232
+      }
+    },
+    {
+      "step_id": "F2",
+      "title": "Skip Counting and Number Patterns",
+      "status": "DEFERRED",
+      "type": "planning",
+      "worker_hours": {
+        "low": 2.0,
+        "high": 5.0
+      },
+      "attention_hours": {
+        "low": 0.5,
+        "high": 1.5
+      },
+      "dependencies": [],
+      "rationale": "Pattern ambiguity and capacity design",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887738Z",
+      "confidence": 0.35,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Future selection/design required; planning-only estimate",
+      "work_id": "work_ebea4a1ae084ec5a8de0d8b3363b9fd2f2a2daf85ad8890d64bf4297b8f57a60",
+      "source_digest": "c3fd892482aa39ef29a0682a34e2432d7c20e15e46075a04406b5e90c06bb56d",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 233,
+        "line_end": 241
+      }
+    },
+    {
+      "step_id": "F3",
+      "title": "Equal Groups and Arrays",
+      "status": "DEFERRED",
+      "type": "planning",
+      "worker_hours": {
+        "low": 3.0,
+        "high": 6.0
+      },
+      "attention_hours": {
+        "low": 0.5,
+        "high": 2.0
+      },
+      "dependencies": [],
+      "rationale": "Groups/arrays diagram and fact proofs",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887762Z",
+      "confidence": 0.35,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Future selection/design required; planning-only estimate",
+      "work_id": "work_42716cc5f285396813fb97ea3719b63386ac7a8e56422cb3b00aef3375d0fd94",
+      "source_digest": "edab6c16b67f1830499e89d0d198f85e3eb481c5f0dda5ef5d0f589c90e96a70",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 242,
+        "line_end": 250
+      }
+    },
+    {
+      "step_id": "F4",
+      "title": "Place Value Build and Compare",
+      "status": "DEFERRED",
+      "type": "planning",
+      "worker_hours": {
+        "low": 3.0,
+        "high": 6.0
+      },
+      "attention_hours": {
+        "low": 0.5,
+        "high": 2.0
+      },
+      "dependencies": [],
+      "rationale": "Base-ten diagram and response-space design",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887785Z",
+      "confidence": 0.35,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Future selection/design required; planning-only estimate",
+      "work_id": "work_14066f08a74c4c5e9a8f8692df25e478ebf5af73144aad109b60b6b2438a3620",
+      "source_digest": "c26eb70d40fd1fde98dd7e050da1f160a5766a6b609934086740d42712e8fd46",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 251,
+        "line_end": 259
+      }
+    },
+    {
+      "step_id": "F5",
+      "title": "Broader content packs",
+      "status": "DEFERRED",
+      "type": "planning",
+      "worker_hours": {
+        "low": 4.0,
+        "high": 10.0
+      },
+      "attention_hours": {
+        "low": 1.0,
+        "high": 3.0
+      },
+      "dependencies": [],
+      "rationale": "Split broad content candidates into bounded proposals",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887808Z",
+      "confidence": 0.35,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Future selection/design required; planning-only estimate",
+      "work_id": "work_cd422cdcd7b79673cf611983e94146d154e8d09f1643666970bb6d4d5a62b513",
+      "source_digest": "a93f018ffd5f53bd31a33c30222dd951fc2796860140bcfaa85f0cdb89c01ce4",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 260,
+        "line_end": 268
+      }
+    },
+    {
+      "step_id": "F6",
+      "title": "Interest-related instructional icons",
+      "status": "DEFERRED",
+      "type": "planning",
+      "worker_hours": {
+        "low": 3.0,
+        "high": 7.0
+      },
+      "attention_hours": {
+        "low": 0.5,
+        "high": 2.0
+      },
+      "dependencies": [],
+      "rationale": "Instructional icon provenance and invariant design",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887831Z",
+      "confidence": 0.35,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Future selection/design required; planning-only estimate",
+      "work_id": "work_4e0fd64f66c4fe91bc0bc6f87c06e75bf7fb1df197dfcd57533e8d0388b7e157",
+      "source_digest": "e3128a1e128968fb90636b9af1e119291a4be1083c32a56a2e80d4195fa710f8",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 269,
+        "line_end": 277
+      }
+    },
+    {
+      "step_id": "F7",
+      "title": "Optional future runtime AI",
+      "status": "DEFERRED",
+      "type": "planning",
+      "worker_hours": {
+        "low": 6.0,
+        "high": 14.0
+      },
+      "attention_hours": {
+        "low": 2.0,
+        "high": 4.0
+      },
+      "dependencies": [],
+      "rationale": "Privacy/security and local-fallback design before runtime AI",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887861Z",
+      "confidence": 0.35,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Future selection/design required; planning-only estimate",
+      "work_id": "work_f63347a4ffa56533c0a49c44c55acda5ce48e5fcefd31e9854ed346b1a03f23f",
+      "source_digest": "938385b1cd1f8acfb7c2abc482f1b54965ce86f78564cbb8d8e03f2d5a1cce95",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 278,
+        "line_end": 286
+      }
+    },
+    {
+      "step_id": "F8",
+      "title": "Possible durable packet increment",
+      "status": "DEFERRED",
+      "type": "planning",
+      "worker_hours": {
+        "low": 3.0,
+        "high": 8.0
+      },
+      "attention_hours": {
+        "low": 1.0,
+        "high": 2.0
+      },
+      "dependencies": [],
+      "rationale": "Explicit reselection and corruption/recovery design before packet durability",
+      "basis": "model",
+      "model_id": "Codex session; runtime model not exposed",
+      "estimated_at": "2026-10-14T17:35:05.887889Z",
+      "confidence": 0.35,
+      "enabled": false,
+      "manual_wait": false,
+      "calendar_wait": null,
+      "hold_reason": "Future selection/design required; planning-only estimate",
+      "work_id": "work_dddcb21debd9e4d058a5e5d5db51023b4197436f7e05941b346518473bc464c8",
+      "source_digest": "0c29df37d5df4fdb478a2f9da736d57a80cfa38ab7be0a1d535818522b369b3d",
+      "plan_path": "docs/plans/master_plan.md",
+      "unresolved_dependencies": [
+        "none"
+      ],
+      "source_ref": {
+        "source_id": "src_fbad1da4a34daa8ad9327c1f3297f372027b84a47f7c8c59d16177e11931db42",
+        "locator": "extra-credit/docs/plans/master_plan.md",
+        "digest": "49ba4924c392766c22ed63aeb7fe7dc4ad49ab1ef26f7430583988a8e010e555",
+        "line_start": 287,
+        "line_end": 343
+      }
+    }
+  ],
+  "excluded_units": [
+    {
+      "step_id": "1-19",
+      "reason": "Code DONE; acceptance retained separately"
+    },
+    {
+      "step_id": "20-23",
+      "reason": "20 folded18;21 folded24;22/23 removed"
+    },
+    {
+      "step_id": "24-26",
+      "reason": "Code DONE; MA2/M1/M2/M3 retained"
+    },
+    {
+      "step_id": "28-30,32,34",
+      "reason": "Removed/folded by lean P9 session-only scope; original design archived"
+    }
+  ],
+  "project": "extra-credit",
+  "identity_note": "work_id and source_digest come from Observatory normalization and forecast.fingerprint; raw plan SHA is separate.",
+  "compatibility": "Rows validate as ForecastEstimate. Portable worksheet only: production ForecastConfig is currently restricted to dev-observatory and 100 estimates; no saved forecast was modified.",
+  "assumptions": "Forward remaining effort in hours, including implementation and its checks/review. Operator attention is separate. Elapsed waits, service quotas and hardware availability are not labor. These are model forecasts, not measured history. Held rows remain disabled.",
+  "validated_at": "2026-10-14T17:55:52.444082Z"
+}

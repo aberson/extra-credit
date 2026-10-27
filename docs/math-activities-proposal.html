@@ -504,7 +504,7 @@
               <li>repo-sync has committed this plan, plan 03, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section. It has also created seven issues for Steps 21–27 and written each number into its step (item 4, D-planindex).</li>
               <li>After any halt, never run an interim build against the retained store or a real file (item 5).</li>
             </ul>
-            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Check:</b> <code>git grep -c -E -e 'Issue:[*][*] #[0-9]+' -- documentation/math-activities-plan.md</code> reports 7, and <code>Get-NetTCPConnection -State Listen -LocalPort 4310,4311</code> finds nothing.</span></div>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Check:</b> <code>git grep -c -E -e 'Issue:[*][*] #[0-9]+' -- docs/plans/master_plan.md</code> reports 7, and <code>Get-NetTCPConnection -State Listen -LocalPort 4310,4311</code> finds nothing.</span></div>
           </div>
         </li>
         <li>
@@ -520,7 +520,7 @@
           <div class="tl-body">
             <div class="tl-head"><h3>Step 21 · Oracle, content freeze, one owner each</h3><span class="flag">issue pending repo-sync</span><span class="flag">deep review</span></div>
             <p>The independent arithmetic checker lands and already agrees with today's Dry Math and Two Whats and a Wow generators. A committed script freezes the content and generation request of every catalog selection, plus 256 sampled saved selections. Generator versions are pinned under a written rule. The three carry and borrow copies become one. One answer check replaces the Dry Math-only one, and a guard refuses the new request field until it has a meaning. No content changes.</p>
-            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the app looks and prints exactly as it does today. <code>node frontend/scripts/capture-arithmetic-golden.mjs --compare</code> re-captures the frozen keys and byte-compares them. <code>documentation/math-activities-evidence.md</code> begins recording each step.</span></div>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the app looks and prints exactly as it does today. <code>node frontend/scripts/capture-arithmetic-golden.mjs --compare</code> re-captures the frozen keys and byte-compares them. <code>docs/math-activities-evidence.md</code> begins recording each step.</span></div>
           </div>
         </li>
         <li>
@@ -591,7 +591,7 @@
     <section id="picked" aria-labelledby="picked-title">
       <p class="kicker">Choices you already made</p>
       <h2 id="picked-title">Your picks, which bind this plan.</h2>
-      <p class="section-lead">These were recorded on 2026-09-29 in <code>documentation/feature-seeds/operator-decisions.md</code>. You can change them, but only you can. P3, P5, P6, P7 and P8 are this plan's. P1, P2 and P4 were recorded for plans 01 and 03 and are shown dashed, together with what they mean here.</p>
+      <p class="section-lead">These were recorded on 2026-09-29 in <code>docs/feature-seeds/operator-decisions.md</code>. You can change them, but only you can. P3, P5, P6, P7 and P8 are this plan's. P1, P2 and P4 were recorded for plans 01 and 03 and are shown dashed, together with what they mean here.</p>
       <div class="grid">
         <article class="card" id="p3"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P3</span>Facts 0–12, dividends through 144</h3><p>Factors 0–12, dividends through 144, parent-selected fact families, exact division only, no remainders, and a divisor that is never zero. 3 × 4 and 4 × 3 are distinct facts.</p></article>
         <article class="card" id="p5"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P5</span>Number Bonds comes first</h3><p>The first new activity family is Number Bonds / Missing Numbers.</p></article>
@@ -684,7 +684,7 @@
           <article class="card dec" id="d46"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D46</span>Each slice is proved through the real caller</h3><dl><dt>What</dt><dd>Every content slice adds a <code>src/web/generator/math-generation.test.ts</code> case that runs through <code>createWorksheetSessionForSeed</code>, the production caller. The test sits under <code>src/web</code> because that module compiles only there.</dd><dt>Why</dt><dd>New components need an integration test through their production caller (the code-quality rule), without changing any tsconfig.</dd><dt>Tweak</dt><dd class="tweak">Give <code>create-session.ts</code> <code>.js</code> imports and keep the test in <code>tests/integration</code>.</dd></dl></article>
           <article class="card dec" id="d27"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D27</span>Each slice brings its own print rows</h3><dl><dt>What</dt><dd>Each slice adds its print fixture and updates the <code>ci-contract</code> pins in the same diff. The totals go from 84 worksheet cases and 16 key PDFs today to 100 and 32 after Step 27.</dd><dt>Why</dt><dd>Print evidence belongs to the slice that owns the renderer.</dd><dt>Tweak</dt><dd class="tweak">One print step at the end.</dd></dl></article>
           <article class="card dec" id="d28"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D28</span>One compiled smoke that grows</h3><dl><dt>What</dt><dd><code>math-practice-smoke</code> is a single-test Playwright project (120 s), created in Step 24 and extended by every later slice. It runs a v2 file through the notice and the upgrade, then generates, keys and prints each new kind. The log-privacy calibration becomes 1/1/1/1/0/0/0.</dd><dt>Why</dt><dd>Each slice proves itself on the compiled app, and the "1 passed" check stays exact.</dd><dt>Tweak</dt><dd class="tweak">A dedicated smoke step at the end.</dd></dl></article>
-          <article class="card dec" id="d29"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D29</span>A committed evidence file</h3><dl><dt>What</dt><dd>Step 21 creates <code>documentation/math-activities-evidence.md</code>, and every step extends it. It serves as the step checkpoint and lists every file touched outside a step's Files list.</dd><dt>Why</dt><dd>The checkpoint commit is a fixed one-line message and can't carry evidence.</dd><dt>Tweak</dt><dd class="tweak">Use issue comments.</dd></dl></article>
+          <article class="card dec" id="d29"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D29</span>A committed evidence file</h3><dl><dt>What</dt><dd>Step 21 creates <code>docs/math-activities-evidence.md</code>, and every step extends it. It serves as the step checkpoint and lists every file touched outside a step's Files list.</dd><dt>Why</dt><dd>The checkpoint commit is a fixed one-line message and can't carry evidence.</dd><dt>Tweak</dt><dd class="tweak">Use issue comments.</dd></dl></article>
           <article class="card dec" id="d62"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D62</span>The upgrade check reads backup names</h3><dl><dt>What</dt><dd>The upgrade oracle takes a listing that includes file names. It checks the single backup's bytes and its <code>.v1-</code> or <code>.v2-</code> prefix.</dd><dt>Why</dt><dd>The old listing discarded names, so it couldn't reject a backup with the wrong prefix.</dd><dt>Tweak</dt><dd class="tweak">Read names in each spec, or convert profile-flow's inline v1 check.</dd></dl></article>
           <article class="card dec" id="d54"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D54</span>New controls go through the test helper</h3><dl><dt>What</dt><dd>Plan 01's helper-routing grep stays a standing check. It is extended with every new legend and option label and calibrated by a synthetic spec line that clicks "Every problem carries or borrows".</dd><dt>Why</dt><dd>Specs click options by their own labels, so the routing rule needs a mechanical check.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
           <article class="card dec" id="d37"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D37</span>No new public error codes</h3><dl><dt>What</dt><dd>Pending and unavailable states use <code>GENERATION_CONSTRAINT_CONFLICT</code>. Invariant failures use <code>GENERATION_INVARIANT_FAILED</code>.</dd><dt>Why</dt><dd>The pin of 20 error codes stays.</dd><dt>Tweak</dt><dd class="tweak">None expected.</dd></dl></article>
@@ -785,10 +785,10 @@ P3 -&gt; stop at the 10s for now             <span class="c"># reopen one of you
 Step 25 -&gt; split facts into two steps     <span class="c"># reshape the plan</span>
 heard #4 is off: I meant …                 <span class="c"># fix my read of an ask</span></div>
         <dl class="kv">
-          <dt>Source of truth</dt><dd><code>documentation/math-activities-plan.md</code>. This page is a view of it, and its Appendix Decision Inventory lists every ID.</dd>
-          <dt>Builds on</dt><dd>Plan 01, <code>documentation/worksheet-first-plan.md</code> (Steps 14–20, issues #25–#31; its proposal is <code>documentation/worksheet-first-proposal.html</code>). Before Step 21, the pre-build delta check re-verifies this plan's plan 01 assumptions (A1–A54) against the shipped code.</dd>
-          <dt>Your choices</dt><dd><code>documentation/feature-seeds/operator-decisions.md</code></dd>
-          <dt>Seed and UAT</dt><dd><code>documentation/feature-seeds/02-math-activities.md</code> · <code>documentation/feature-seeds/README.md</code> · <code>documentation/uat-round-2-review.md</code></dd>
+          <dt>Source of truth</dt><dd><code>docs/plans/master_plan.md</code>. This page is a view of it, and its Appendix Decision Inventory lists every ID.</dd>
+          <dt>Builds on</dt><dd>Plan 01, <code>docs/plans/master_plan.md</code> (Steps 14–20, issues #25–#31; its proposal is <code>docs/worksheet-first-proposal.html</code>). Before Step 21, the pre-build delta check re-verifies this plan's plan 01 assumptions (A1–A54) against the shipped code.</dd>
+          <dt>Your choices</dt><dd><code>docs/feature-seeds/operator-decisions.md</code></dd>
+          <dt>Seed and UAT</dt><dd><code>docs/plans/master_plan.md</code> · <code>docs/feature-seeds/README.md</code> · <code>docs/uat-round-2-review.md</code></dd>
           <dt>Issues</dt><dd>Steps 21–27 don't have issue numbers yet, so a reply now needs no issue edits. Once repo-sync creates the seven issues, any change to a step needs repo-sync again so the issues match the plan.</dd>
           <dt>Publication 1</dt><dd>This is the first view of this plan. The Decision Inventory already held every row shown here, with IDs unchanged. This publication adds the Proposal locator and an inventory note, and marks P1, P2 and P4 as recorded for plans 01 and 03.</dd>
           <dt>Next</dt><dd>Fold your replies into the plan and republish this same file as publication 2. If the changes are material, plan-review and plan-wrap run again. Then repo-sync commits the plans and creates the issues, and you arm the unattended run (P7).</dd>
@@ -798,7 +798,7 @@ heard #4 is off: I meant …                 <span class="c"># fix my read of an
   </main>
 
   <footer>
-    <p>Math operations and activities · proposal publication 1 · 2026-09-29 · a redline view of <code>documentation/math-activities-plan.md</code>, which remains the source of truth.</p>
+    <p>Math operations and activities · proposal publication 1 · 2026-09-29 · a redline view of <code>docs/plans/master_plan.md</code>, which remains the source of truth.</p>
   </footer>
 </body>
 </html>

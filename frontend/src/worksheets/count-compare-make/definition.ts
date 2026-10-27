@@ -22,7 +22,7 @@ export const COUNT_COMPARE_MAKE_DEFINITION = {
 
 /**
  * Every rendered quantity is clamped to the v1 source envelope even when a
- * request carries a higher capability (plan.md:211). The selection schema
+ * request carries a higher capability (docs/archived-plans/plan.md:211). The selection schema
  * already bounds every quantity focus to it, and the earlier-settings mapping
  * clamps a stored value into that range; repeating the clamp here keeps the
  * family's own limit arithmetic from being able to widen past it.
@@ -78,8 +78,8 @@ export type CountCompareSubtypeCountsV1 = Readonly<
 >;
 
 /**
- * The fixed subtype mix (plan.md:208). The sums are the family's one-page
- * budgets from plan.md:236 - 6 short, 8 standard, 10 long - and
+ * The fixed subtype mix (docs/archived-plans/plan.md:208). The sums are the family's one-page
+ * budgets from docs/archived-plans/plan.md:236 - 6 short, 8 standard, 10 long - and
  * `count-compare-make.spec.ts` plus `generator.test.ts` pin both readings.
  */
 export const COUNT_COMPARE_MAKE_ALLOCATIONS = {
@@ -90,7 +90,7 @@ export const COUNT_COMPARE_MAKE_ALLOCATIONS = {
 
 /**
  * Large print may pull an item-bearing activity down to the next shorter
- * effective budget to keep the one-page contract (plan.md:238), exactly as
+ * effective budget to keep the one-page contract (docs/archived-plans/plan.md:238), exactly as
  * Dry Math and Two Whats and a Wow already do.
  */
 export function getCountCompareMakeEffectiveLength(
@@ -130,7 +130,7 @@ type CountCompareRelevantSkills = Pick<
 
 /**
  * `min(countingMax, numeralMax, COUNT_COMPARE_MAKE_V1_MAXIMUM)`: numeral,
- * complete, and make work (plan.md:207).
+ * complete, and make work (docs/archived-plans/plan.md:207).
  */
 export function getCountCompareMakeNumeralLimit(
   mathSkills: CountCompareRelevantSkills,
@@ -144,7 +144,7 @@ export function getCountCompareMakeNumeralLimit(
 
 /**
  * `min(countingMax, compareMax, COUNT_COMPARE_MAKE_V1_MAXIMUM)`: comparison
- * work only (plan.md:207).
+ * work only (docs/archived-plans/plan.md:207).
  */
 export function getCountCompareMakeComparisonLimit(
   mathSkills: CountCompareRelevantSkills,
@@ -161,7 +161,7 @@ export type CountCompareMakeCapabilitySupport =
   | { readonly available: false; readonly reason: string };
 
 /**
- * Availability is the representation gate and nothing else (plan.md:206):
+ * Availability is the representation gate and nothing else (docs/archived-plans/plan.md:206):
  * numeric maxima do not independently authorize a representation. Whether the
  * confirmed limits can actually fill the chosen length is a capacity question
  * the generator answers with `GENERATION_CONSTRAINT_CONFLICT`; surfacing that

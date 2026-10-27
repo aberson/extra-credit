@@ -62,7 +62,7 @@ function jsonObjects(text) {
 }
 
 function inspectProfiles(text, path) {
-  const appendix = path === "plan.md" ? /### 12\.1[^]*?```json\s*([^]*?)```/u.exec(text) : null;
+  const appendix = path === "docs/archived-plans/plan.md" ? /### 12\.1[^]*?```json\s*([^]*?)```/u.exec(text) : null;
   const start = appendix ? text.indexOf(appendix[1], appendix.index) : -1;
   for (const { value, raw, start: offset } of jsonObjects(text)) {
     if (!value || !profileFields.every((key) => Object.hasOwn(value, key))) continue;

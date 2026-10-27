@@ -3,8 +3,8 @@
 This document records the published sources that bound the reviewed examples in
 Extra Credit's five worksheet families, and the limits of what those sources
 are being used for. It is the human-readable companion to
-[`plan.md` Section 12.5](../plan.md) and to the
-[math activities plan](math-activities-plan.md), and covers `dry-math`,
+[`plan.md` Section 12.5](plans/master_plan.md) and to the
+[math activities plan](plans/master_plan.md), and covers `dry-math`,
 `find-the-wow`, `sentence-builder` (all five writing modes),
 `count-compare-make`, and `number-bonds`.
 

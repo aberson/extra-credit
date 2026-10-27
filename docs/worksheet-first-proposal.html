@@ -486,7 +486,7 @@
             <ul>
               <li>No <code>config/children.local.json</code> or <code>children.local.json.*</code> copy in the main checkout; nothing listening on 127.0.0.1:4310 or :4311.</li>
               <li>Stop the retained UAT launcher and keep it stopped for the whole run: free ports and no retained preview process. Agents never touch <code>config/uat-session/</code> or the launcher's TEMP file (D-uatbackup).</li>
-              <li>repo-sync has committed the three plans, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section (D-planindex); <code>plan.md</code> and <code>documentation/</code> are clean.</li>
+              <li>repo-sync has committed the three plans, <code>operator-decisions.md</code> and the <code>plan.md</code> pointer section (D-planindex); <code>plan.md</code> and <code>docs/</code> are clean.</li>
               <li>After any halt, never run an interim build against the retained store or a real file.</li>
             </ul>
             <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Check:</b> <code>Test-Path config\children.local.json</code> prints False, <code>Get-ChildItem config -Name -Filter 'children.local.json*'</code> lists nothing, and <code>Get-NetTCPConnection -State Listen -LocalPort 4310,4311</code> finds nothing.</span></div>
@@ -497,7 +497,7 @@
           <div class="tl-body">
             <div class="tl-head"><h3>Step 14 · Refactor and content baseline</h3><span class="flag">issue #25</span><span class="flag">deep review</span></div>
             <p>Pure refactor: the version 1 reader is frozen in its own module, a fictional version 1 file is pinned byte for byte, the Practice content grid is captured from 5c22159, the 1920×1080 layout check moves onto a temporary fictional fixture, and every browser test routes its choices through one helper.</p>
-            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the app looks and saves exactly as today. <code>node frontend/scripts/capture-practice-golden.mjs 5c22159</code> prints the frozen grid, and <code>documentation/worksheet-first-evidence.md</code> starts recording each step.</span></div>
+            <div class="after"><span class="arw" aria-hidden="true">→</span><span><b>Afterwards:</b> the app looks and saves exactly as today. <code>node frontend/scripts/capture-practice-golden.mjs 5c22159</code> prints the frozen grid, and <code>docs/worksheet-first-evidence.md</code> starts recording each step.</span></div>
           </div>
         </li>
         <li>
@@ -569,7 +569,7 @@
     <section id="picked" aria-labelledby="picked-title">
       <p class="kicker">Choices you already made</p>
       <h2 id="picked-title">Your picks — binding on this plan.</h2>
-      <p class="section-lead">Recorded 2026-09-29 in <code>documentation/feature-seeds/operator-decisions.md</code>. Changeable, but only by you. P3–P6 belong to plans 02 and 03.</p>
+      <p class="section-lead">Recorded 2026-09-29 in <code>docs/feature-seeds/operator-decisions.md</code>. Changeable, but only by you. P3–P6 belong to plans 02 and 03.</p>
       <div class="grid">
         <article class="card" id="p1"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P1</span>Global defaults, saved explicitly</h3><p>Worksheet choices (type, variant, practice focus, theme, layout) persist only as global worksheet defaults, saved through "Save these as worksheet defaults". Current selections are session state and survive profile saves. No per-child attribute recreates the old coupling, and Create never writes.</p></article>
         <article class="card" id="p2"><span class="tag picked">Operator pick</span><h3><span class="id p-id">P2</span>Age removed entirely</h3><p>The 4–8 generation gate goes away; capability checks own availability; help text says the content is designed for early primary. The version 1 backup written at the first version 2 save keeps the old value.</p></article>
@@ -649,7 +649,7 @@
           <article class="card dec" id="d26"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D26</span>One browser-test helper, introduced early</h3><dl><dt>What</dt><dd>Step 14 routes every browser spec's worksheet choices and toggles through one helper, with no title, assertion or threshold change.</dd><dt>Why</dt><dd>Later layout changes edit one file instead of about ten specs, and Step 16, the broadest step, carries only intended changes.</dd><dt>Tweak</dt><dd class="tweak">Introduce it in Step 16 or Step 17.</dd></dl></article>
           <article class="card dec" id="d28"><span class="tag defaulted">Proposed default · changed at redline</span><h3><span class="id d-id">D28</span>This plan never edits plan.md</h3><dl><dt>What</dt><dd>No step, wrap or repo-update edits <code>plan.md</code>, and this plan names the passages it supersedes. Changed 2026-09-29: the former default — revert the planning session's pointer section and keep the three-plan index in the seeds README — is reversed by <a href="#d-planindex">D-planindex</a>.</dd><dt>Why</dt><dd>53 registered citations anchor lines 30–757 of <code>plan.md</code>.</dd><dt>Tweak</dt><dd class="tweak">Add an in-place pointer with a same-diff citation-manifest update.</dd></dl></article>
           <article class="card dec" id="d35"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D35</span>No example names in test titles</h3><dl><dt>What</dt><dd>No browser-test title, step name or console output contains an example id, nickname or interest word; from Step 17 a test checks every listed title.</dd><dt>Why</dt><dd>The browser-gate privacy oracle fails the whole gate on such output with a generic error.</dd><dt>Tweak</dt><dd class="tweak">Keep the rule without the guard.</dd></dl></article>
-          <article class="card dec" id="d38"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D38</span>A committed evidence file</h3><dl><dt>What</dt><dd><code>documentation/worksheet-first-evidence.md</code>, created in Step 14 and extended by every step, holds the suites run, both counts, per-file test changes, digests and command outputs.</dd><dt>Why</dt><dd>The checkpoint commit is a fixed one-line message, and step scratch output never lands.</dd><dt>Tweak</dt><dd class="tweak">Post the same records as issue comments instead.</dd></dl></article>
+          <article class="card dec" id="d38"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D38</span>A committed evidence file</h3><dl><dt>What</dt><dd><code>docs/worksheet-first-evidence.md</code>, created in Step 14 and extended by every step, holds the suites run, both counts, per-file test changes, digests and command outputs.</dd><dt>Why</dt><dd>The checkpoint commit is a fixed one-line message, and step scratch output never lands.</dd><dt>Tweak</dt><dd class="tweak">Post the same records as issue comments instead.</dd></dl></article>
           <article class="card dec" id="d44"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D44</span>One declared way to count tests</h3><dl><dt>What</dt><dd>The unit count is the gate's Vitest summary; the browser count is the Playwright listing total, which must equal the browser stage's pass count; neither is read from a log-privacy run.</dd><dt>Why</dt><dd><code>check</code> prints several Playwright summaries, and the build needs one declared measurement.</dd><dt>Tweak</dt><dd class="tweak">Use the Vitest listing for the unit count as well.</dd></dl></article>
           <article class="card dec" id="d45"><span class="tag defaulted">Proposed default</span><h3><span class="id d-id">D45</span>A scan for stale parent-facing copy</h3><dl><dt>What</dt><dd>A test rejects leftover Difficulty identifiers and any message text in the generator, registry, label and projection sources that names the profile, its presentation band or age.</dd><dt>Why</dt><dd>Those strings become false once choices leave the profile, and review alone missed several.</dd><dt>Tweak</dt><dd class="tweak">Extend the scan to the web components, with an allowlist for the profile editor's own copy.</dd></dl></article>
           <article class="card dec" id="d-planindex"><span class="tag ruling">Coordinator ruling · adopted at redline</span><h3><span class="id d-id">D-planindex</span>Keep the plan.md pointer section</h3><dl><dt>What</dt><dd>The pointer section appended to the end of <code>plan.md</code> ("Post-UAT feature plans") is kept and committed with the plans by repo-sync. It adds no plan-line citation, moves no cited line and leaves Steps 1–13 untouched. Nothing later edits <code>plan.md</code>; build-phase writes its status lines in the sub-plans themselves.</dd><dt>Why</dt><dd>It follows the workspace convention that one canonical entry plan may point to sub-plans, without disturbing any registered citation.</dd><dt>Tweak</dt><dd class="tweak">Revert the append and carry the index in the seeds README instead (D28's former default).</dd></dl></article>
@@ -697,7 +697,7 @@
           <ul class="compact">
             <li>New runtime dependencies, AI, cloud services, accounts, telemetry or asset licenses</li>
             <li>Physical print (M1) and family pilot (M2) acceptance — human-only</li>
-            <li>Editing <code>plan.md</code> beyond the committed pointer section (D-planindex), or the historical review records in <code>documentation/</code></li>
+            <li>Editing <code>plan.md</code> beyond the committed pointer section (D-planindex), or the historical review records in <code>docs/</code></li>
             <li>Reading or changing your real config, its backups or the UAT session store</li>
           </ul>
         </article>
@@ -732,9 +732,9 @@ P1 -&gt; also remember last used per family <span class="c"># reopen one of your
 Step 16 -&gt; split into two steps          <span class="c"># reshape the plan</span>
 heard #3 is off: I meant …               <span class="c"># fix my read of an ask</span></div>
         <dl class="kv">
-          <dt>Source of truth</dt><dd><code>documentation/worksheet-first-plan.md</code> — this page is a view of it; its Appendix Decision Inventory lists every ID.</dd>
-          <dt>Your choices</dt><dd><code>documentation/feature-seeds/operator-decisions.md</code></dd>
-          <dt>Seed and UAT</dt><dd><code>documentation/feature-seeds/01-worksheet-first.md</code> · <code>documentation/uat-round-1.md</code> · <code>documentation/uat-round-2-review.md</code></dd>
+          <dt>Source of truth</dt><dd><code>docs/plans/master_plan.md</code> — this page is a view of it; its Appendix Decision Inventory lists every ID.</dd>
+          <dt>Your choices</dt><dd><code>docs/feature-seeds/operator-decisions.md</code></dd>
+          <dt>Seed and UAT</dt><dd><code>docs/plans/master_plan.md</code> · <code>docs/uat-round-1.md</code> · <code>docs/uat-round-2-review.md</code></dd>
           <dt>Issues</dt><dd>Steps 14–20 carry issues #25–#31 (synced in 985c174). A reply that changes a step now also needs repo-sync again, so the issues match the plan.</dd>
           <dt>Publication 2</dt><dd>Folded in: D28 reversed by the new D-planindex; the new D-uatbackup (WF-0 is now a recommended morning step); D-foundation settled. IDs unchanged; the two new rows are appended.</dd>
           <dt>Publication 3</dt><dd>After the plan-review autofixes, plan-wrap gap closures and issue sync (985c174, d45066d): three new plan-wrap cards (<a href="#d-gap-migration-report">D-gap-migration-report</a>, <a href="#d-gap-golden-id">D-gap-golden-id</a>, <a href="#d-gap-session-reducer">D-gap-session-reducer</a>) and issue numbers on the step timeline. Every earlier ID and card is unchanged.</dd>
@@ -745,7 +745,7 @@ heard #3 is off: I meant …               <span class="c"># fix my read of an a
   </main>
 
   <footer>
-    <p>Worksheet-first controls · proposal publication 3 · 2026-09-29 · a redline view of <code>documentation/worksheet-first-plan.md</code>, which remains the source of truth.</p>
+    <p>Worksheet-first controls · proposal publication 3 · 2026-09-29 · a redline view of <code>docs/plans/master_plan.md</code>, which remains the source of truth.</p>
   </footer>
 </body>
 </html>

@@ -125,7 +125,7 @@ export function measureSentenceBuilderCapacity(
 /**
  * Sentence Builder hides the answer key for every mode, and hides length for
  * the two no-bank modes. A request that carries a different hidden value never
- * reached the canonical normalization (plan.md:131).
+ * reached the canonical normalization (docs/archived-plans/plan.md:131).
  */
 function hiddenControlFailure(
   request: GenerationRequestV1,

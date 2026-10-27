@@ -8,9 +8,9 @@ import { z } from "zod";
 /**
  * Mechanical guard for every plan.md line citation in this repository.
  *
- * A `plan.md:NNN` reference in a comment is a claim about a line of a LIVING
+ * A `plan.md:NNN` reference in a comment is a claim about a line of the preserved original
  * document. Nothing about it is checked by the compiler, the linter, or any
- * other test, and every edit to plan.md silently rots every citation below the
+ * other test, and an edit to the preserved plan would rot every citation below the
  * edit. Step 8 was gated three consecutive times on exactly that shape - one
  * round fixed a wrong citation and introduced another two lines away - which is
  * this workspace's stop-and-audit signal: stop hand-verifying named lines and
@@ -59,7 +59,7 @@ const manifestPath = resolve(testDirectory, "plan-citations.json");
  * source carries no scannable citation and the scan can therefore cover this
  * file like any other rather than needing a self-exemption.
  */
-const PLAN_FILE = "plan.md";
+const PLAN_FILE = "docs/archived-plans/plan.md";
 
 /**
  * Places scanned for citations, repository-relative. `recursive: false` reads
@@ -73,7 +73,7 @@ const SCANNED_ROOTS = [
   { path: "frontend/src", recursive: true },
   { path: "frontend/scripts", recursive: true },
   { path: "frontend/tests", recursive: true },
-  { path: "documentation", recursive: true },
+  { path: "docs", recursive: true },
 ] as const;
 
 const SCANNED_EXTENSIONS = [
@@ -185,6 +185,8 @@ function filesUnder(directory: string, recursive: boolean): readonly string[] {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     const path = `${directory}/${entry.name}`;
     if (entry.isDirectory()) {
+      // Frozen originals preserve old citation sites; only live docs are callers.
+      if (path === `${repositoryRoot}/docs/archived-plans` || path === `${repositoryRoot}/docs/completed`) continue;
       if (recursive) {
         found.push(...filesUnder(path, true));
       }

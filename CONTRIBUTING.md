@@ -2,7 +2,7 @@
 
 Extra Credit is a local, parent-facing worksheet generator with no accounts,
 no cloud services, no telemetry, and no runtime AI. Before contributing, read
-[plan.md](plan.md) and pick up the GitHub issue for the plan step you want to
+[plan.md](docs/plans/master_plan.md) and pick up the GitHub issue for the plan step you want to
 work on.
 
 ## Licensing of contributions

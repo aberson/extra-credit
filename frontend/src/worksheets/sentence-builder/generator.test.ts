@@ -281,7 +281,7 @@ describe("reviewed Sentence Builder vocabulary", () => {
   test("offers a second reachable prompt for every no-bank mode, topic, and band", () => {
     // A no-bank document has no seed-varying field other than its prompt
     // record, so one eligible record means one possible worksheet forever and
-    // a permanently dead "Make another" (plan.md:240).
+    // a permanently dead "Make another" (docs/archived-plans/plan.md:240).
     for (const pools of SENTENCE_BUILDER_VOCABULARY.wordPools) {
       for (const writingMode of ["draw-and-tell", "copy-with-model"] as const) {
         for (const presentationBand of PRESENTATION_BANDS) {

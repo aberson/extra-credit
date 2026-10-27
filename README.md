@@ -2,7 +2,7 @@
 
 Extra Credit is an open-source, local web application for creating personalized, printable activity sheets for children. Parents configure reusable child profiles, choose a worksheet and options, preview it, and print the worksheet with an optional answer key. Version 1 targets U.S.-English early primary practice and uses deterministic local generation—no accounts, cloud services, telemetry, or runtime AI.
 
-> **Steps 1-19, the [worksheet-first controls](documentation/worksheet-first-plan.md) plan, Steps 24-26 of the [math operations and activities](documentation/math-activities-plan.md) plan and two iterative UAT revisions are implemented** — issues #25-#31 and #35-#37 closed (Step 20 was folded into Step 18; Steps 21-23 were skipped by the 2026-09-30 lean revision). Parents choose the worksheet type, variant, practice focus or vocabulary, and decorative Theme in a worksheet-first panel. Dry Math adds carrying and borrowing and multiplication and division fact families, and Number Bonds is a fifth worksheet. Profiles hold only a nickname, review date and interests. Saved files use schema version 2 with a lossless upgrade and one byte-identical backup. The final Windows check passed 1047 unit tests and 195 browser specs, lint/types, and log-privacy calibration. Physical-print and family-pilot acceptance remain pending. Optional Step 27 (number bond pictures, issue #38) is not built; the remaining follow-on plan is [printable packets](documentation/printable-packets-plan.md) (Steps 31 and 33). See [plan.md](plan.md), the [UAT review](documentation/uat-round-2-review.md), and the [operator decisions](documentation/feature-seeds/operator-decisions.md).
+> **Steps 1-19, the [worksheet-first controls](docs/plans/master_plan.md) plan, Steps 24-26 of the [math operations and activities](docs/plans/master_plan.md) plan and two iterative UAT revisions are implemented** — issues #25-#31 and #35-#37 closed (Step 20 was folded into Step 18; Steps 21-23 were skipped by the 2026-09-30 lean revision). Parents choose the worksheet type, variant, practice focus or vocabulary, and decorative Theme in a worksheet-first panel. Dry Math adds carrying and borrowing and multiplication and division fact families, and Number Bonds is a fifth worksheet. Profiles hold only a nickname, review date and interests. Saved files use schema version 2 with a lossless upgrade and one byte-identical backup. The final Windows check passed 1047 unit tests and 195 browser specs, lint/types, and log-privacy calibration. Physical-print and family-pilot acceptance remain pending. Optional Step 27 (number bond pictures, issue #38) is not built; the remaining follow-on plan is [printable packets](docs/plans/master_plan.md) (Steps 31 and 33). See [plan.md](docs/plans/master_plan.md), the [UAT review](docs/uat-round-2-review.md), and the [operator decisions](docs/feature-seeds/operator-decisions.md).
 
 ## V1 worksheets
 
@@ -131,7 +131,7 @@ npm --prefix frontend run security
 Tests use fictional profiles and temporary config paths; they must never read or write a real family profile.
 Run `npm --prefix frontend run release:verify` for a candidate public release. It exports current working-tree bytes (including new public files), excludes private config, recovery/download, environment, dependency, build, and orchestration files before reading them, rejects links, and audits the export. It then runs `npm ci`, installs Chromium, and runs the full `check` gate in an owned OS temporary clean room. Installation requires network access. No push occurs.
 
-Path/SHA-256 manifests, command logs and actual exits are retained under `.build-step/release-*/`. Successful clean rooms are removed; failures retain the clean room and browser artifacts, with the path and cleanup outcome recorded in `06-result.json`. The audit permits canonical fictional serialized profiles only in the example, test fixtures, and the plan appendix. Runtime source links are allowed only as non-executable comments or documentation/provenance; an external runtime URL is never approved by its domain. Physical Edge/Chrome printing (M1), the family pilot (M2), and Ubuntu live CI on the pushed commit (M3) remain separate manual acceptance.
+Path/SHA-256 manifests, command logs and actual exits are retained under `.build-step/release-*/`. Successful clean rooms are removed; failures retain the clean room and browser artifacts, with the path and cleanup outcome recorded in `06-result.json`. The audit permits canonical fictional serialized profiles only in the example, test fixtures, and the plan appendix. Runtime source links are allowed only as non-executable comments or docs/provenance; an external runtime URL is never approved by its domain. Physical Edge/Chrome printing (M1), the family pilot (M2), and Ubuntu live CI on the pushed commit (M3) remain separate manual acceptance.
 
 ## Data and project structure
 
@@ -139,7 +139,7 @@ Path/SHA-256 manifests, command logs and actual exits are retained under `.build
 config/
   children.example.json       # committed fictional examples
   children.local.json         # real profiles; always gitignored
-documentation/                # confirmed proposal and plan-review record
+docs/                # confirmed proposal and plan-review record
 frontend/
   src/server/                 # loopback API and static server
   src/shared/                 # schemas and worksheet contracts
@@ -171,7 +171,7 @@ A profile contains an optional nickname, a review date, and up to five broad int
 
 ## Roadmap
 
-The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-13 are merged; physical-print, family-pilot, and post-push Ubuntu acceptance remain pending. The worksheet-first controls plan (Steps 14-19) is merged. The math operations plan's Steps 24-26 are merged; its optional Step 27 (number bond pictures) is not built. The printable packets plan (kept Steps 31 and 33) is linked from plan.md and is not yet built.
+The confirmed V1 plan contains thirteen gated implementation steps. Steps 1-13 are merged; physical-print, family-pilot, and post-push Ubuntu acceptance remain pending. The worksheet-first controls plan (Steps 14-19) is merged. The math operations plan's Steps 24-26 are merged; its optional Step 27 (number bond pictures) is not built. The printable packets plan (kept Steps 31 and 33) is retained in [the master plan](docs/plans/master_plan.md) and is not yet built.
 
 1. Application and continuous-integration foundation — complete
 2. Secure local-profile storage and setup — complete
@@ -185,7 +185,7 @@ Later feature plans may add Mini Missions, shapes, measurement, language and sci
 
 ## Contributing
 
-Steps 1-19 and math-activities Steps 24-26 are merged (Steps 21-23 were skipped; optional Step 27 is not built). Manual acceptance remains pending. Before contributing, read [plan.md](plan.md) and choose work from the corresponding GitHub issue.
+Steps 1-19 and math-activities Steps 24-26 are merged (Steps 21-23 were skipped; optional Step 27 is not built). Manual acceptance remains pending. Before contributing, read [plan.md](docs/plans/master_plan.md) and choose work from the corresponding GitHub issue.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) is the single source of truth for contribution rules: licensing, third-party material, asset rules, privacy rules, and the quality gates every pull request must pass. Read it before opening a pull request.
 

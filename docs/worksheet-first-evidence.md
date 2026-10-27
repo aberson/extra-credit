@@ -1,6 +1,6 @@
 # Worksheet-first evidence
 
-This file holds the durable evidence for the worksheet-first controls plan (`documentation/worksheet-first-plan.md`, D38): the suites each step ran, both test counts measured as the plan header declares, per-file deleted and added tests (D23), golden-capture digests, and the outputs of Done-when shell commands. Each step appends its own section. It holds no profile records, no real data and no text from `frontend/test-results/`.
+This file holds the durable evidence for the worksheet-first controls plan (`docs/plans/master_plan.md`, D38): the suites each step ran, both test counts measured as the plan header declares, per-file deleted and added tests (D23), golden-capture digests, and the outputs of Done-when shell commands. Each step appends its own section. It holds no profile records, no real data and no text from `frontend/test-results/`.
 
 ## Step 14: Config module leaves, frozen v1 read path and content baseline
 

@@ -21,13 +21,13 @@ import {
 import type { WorksheetRendererProps } from "../registry";
 
 /**
- * Count, Compare & Make prints four subtypes on one page (plan.md:208).
+ * Count, Compare & Make prints four subtypes on one page (docs/archived-plans/plan.md:208).
  *
  * Every counted group, ten-frame, and drawing grid comes from
  * `preview/InstructionalVisual.tsx`; the item prompts are written here.
  * Neither takes a graphics flag, and the only consumer of the parent's
  * decorative choice on this page is the reserved header panel
- * (plan.md:202, :212). That separation is what makes
+ * (docs/archived-plans/plan.md:202, :212). That separation is what makes
  * "graphics off changes decoration only" a structural fact rather than a
  * promise: `tests/e2e/count-compare-make.spec.ts` reads every ITEM's rendered
  * text, visual counts, and guide cells in both states and requires them to be

@@ -387,7 +387,7 @@ async function expectEquationAccessibleNames(
   }
 }
 
-/** plan.md:255 makes 320 CSS pixels an explicit reflow target. */
+/** docs/archived-plans/plan.md:255 makes 320 CSS pixels an explicit reflow target. */
 async function expectNarrowReflow(
   page: Page,
   preview: Locator,

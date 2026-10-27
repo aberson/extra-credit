@@ -327,7 +327,7 @@ test("renders Count, Compare & Make through the compiled UI", async ({
 
   const standard = await readSheet(preview);
   expect(standard.items).toHaveLength(8);
-  // plan.md:208 - the fixed standard mix. This checks the COUNTS only; the
+  // docs/archived-plans/plan.md:208 - the fixed standard mix. This checks the COUNTS only; the
   // seeded interleave is proved in `src/worksheets/count-compare-make/
   // generator.test.ts` ("the seeded shuffle really interleaves the four
   // subtypes"), because an all-match-then-all-compare page would satisfy the
@@ -434,7 +434,7 @@ test("renders Count, Compare & Make through the compiled UI", async ({
 
   // Length changes the item count AND the subtype mix, and this checks
   // both: the standard page above is 2/2/2/2 over 8 items, the long page
-  // below is 3/3/2/2 over 10 - the two mixes plan.md:208 fixes.
+  // below is 3/3/2/2 over 10 - the two mixes docs/archived-plans/plan.md:208 fixes.
   const lengthSelect = controls(page).length();
   await expect(lengthSelect.locator('option[value="short"]')).toHaveText(
     "Short · 6 items",

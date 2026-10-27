@@ -36,7 +36,7 @@ export type CountCompareMakeDocumentV1 =
 
 /**
  * One drawable match exercise: a target numeral and the two distinct in-range
- * distractors it deterministically receives (plan.md:209).
+ * distractors it deterministically receives (docs/archived-plans/plan.md:209).
  *
  * The pool holds ONE candidate per target numeral - never a
  * target-by-distractor product - which is what keeps the counted collection
@@ -133,7 +133,7 @@ export function countCompareRelation(
  * one-per-target.
  *
  * Returns `undefined` below three in-range quantities, which is precisely the
- * `L >= 3` condition in plan.md:209.
+ * `L >= 3` condition in docs/archived-plans/plan.md:209.
  */
 function nearestDistractors(
   target: number,
@@ -309,7 +309,7 @@ export function countCompareMakeCapacityVerdict(
 }
 
 /**
- * The closed forms plan.md:209 states, kept beside the enumeration so
+ * The closed forms docs/archived-plans/plan.md:209 states, kept beside the enumeration so
  * `generator.test.ts` can prove the two agree instead of trusting either
  * alone. The two limits are INDEPENDENT: `MathSkillsV1Schema` declares
  * `countingMax`, `numeralMax` and `compareMax` as three unrelated integer
@@ -663,7 +663,7 @@ export function generateCountCompareMake(
     drafts.push({ candidate, subtype: "draw" });
   }
 
-  // The seeded shuffle that interleaves the four subtypes (plan.md:208). Item
+  // The seeded shuffle that interleaves the four subtypes (docs/archived-plans/plan.md:208). Item
   // IDs are assigned after it, so they stay sequential in printed order.
   const items = seededShuffle(drafts, random).map((draft, index) =>
     buildItem(draft, index),

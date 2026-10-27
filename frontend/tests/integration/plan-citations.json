@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "planFile": "plan.md",
+  "planFile": "docs/archived-plans/plan.md",
   "citations": [
     {
-      "file": "documentation/plan-review.md",
+      "file": "docs/plan-review.md",
       "planLine": 44,
       "anchors": [
         "The sole durable user-data store is"
@@ -11,7 +11,7 @@
       "siteCount": 1
     },
     {
-      "file": "documentation/plan-review.md",
+      "file": "docs/plan-review.md",
       "planLine": 159,
       "anchors": [
         "children.local.json.invalid-YYYYMMDDTHHMMSSZ-<8hex>.bak"
@@ -19,7 +19,7 @@
       "siteCount": 1
     },
     {
-      "file": "documentation/plan-review.md",
+      "file": "docs/plan-review.md",
       "planLine": 510,
       "anchors": [
         "From the completed clone's repository root"

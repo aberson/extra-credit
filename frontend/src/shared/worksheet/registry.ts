@@ -513,7 +513,7 @@ export const WORKSHEET_REGISTRY = {
         // per-document singular names that prompt. Length scales bank breadth
         // instead of prompt count, so the plural — the only form a bank-bearing
         // count of 4 or more can select — names the word-bank entries the
-        // preview must state before generation (plan.md:238).
+        // preview must state before generation (docs/archived-plans/plan.md:238).
         return bankSize === 0
           ? {
               count: SENTENCE_BUILDER_ITEM_COUNT,
@@ -531,7 +531,7 @@ export const WORKSHEET_REGISTRY = {
         useInterests: true,
         // Sentence Builder and Count, Compare & Make are the two families
         // whose parent-chosen decorative value reaches `GenerationRequestV1`
-        // (plan.md:202 for the reserved panel, plan.md:217 for the control);
+        // (docs/archived-plans/plan.md:202 for the reserved panel, docs/archived-plans/plan.md:217 for the control);
         // the sole projection boundary forces `false` for Dry Math and Two
         // Whats and a Wow and passes these two through. The reserved panel
         // and its same-size doodle-box fallback landed in Step 7, so the
@@ -579,7 +579,7 @@ export const WORKSHEET_REGISTRY = {
         ),
       // The three focus maxima the sole projection boundary carries for this
       // family: counting and numerals bound match/complete/draw work,
-      // comparisons bound the two compared groups (plan.md:207).
+      // comparisons bound the two compared groups (docs/archived-plans/plan.md:207).
       getRelevantMaximums: () => COUNTING_NUMERAL_COMPARE_MAXIMUMS,
       getEffectiveUnit: ({ selection }) => ({
         count: getCountCompareMakeItemCount(selection.length, selection.printScale),

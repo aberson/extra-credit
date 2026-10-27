@@ -1926,7 +1926,7 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
   });
 
   test("length changes response space as well as word-bank breadth", () => {
-    // plan.md:238 - "its length setting changes word-bank breadth and
+    // docs/archived-plans/plan.md:238 - "its length setting changes word-bank breadth and
     // response space rather than adding prompts".
     for (const writingMode of BANK_WRITING_MODES) {
       const byLength = WORKSHEET_LENGTHS.map((length) =>
@@ -2055,7 +2055,7 @@ describe("Sentence Builder reaches paper through the registered renderer", () =>
     // Not a mocked generator: the registered Sentence Builder generator, the
     // leanest shipped configuration (preschool band, unknown interest, no word
     // bank to vary). One reviewed prompt per topic and mode made this
-    // permanently exhausted on first press (plan.md:240).
+    // permanently exhausted on first press (docs/archived-plans/plan.md:240).
     for (const writingMode of ["draw-and-tell", "copy-with-model"] as const) {
       const sourceProfile: CapabilityProfileV1 = {
         ...profile,
