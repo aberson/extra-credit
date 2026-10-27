@@ -226,3 +226,49 @@
     white-space: nowrap;
   }
 }
+
+/*
+ * Operation Grid's cells are 14.5 mm square, 17 mm at large scale: room for
+ * four handwritten digits, and a 12 x 12 grid with its headers (13 cells,
+ * 188.5 mm) fits one Letter or A4 page at standard scale. Large print offers
+ * at most 10 x 10 (11 cells, 187 mm) and is never shrunk. Given cells keep a
+ * heavy double border and bold digits, which survive monochrome print.
+ * Added on its own so no existing print rule changes.
+ */
+@media print {
+  .print-surface { --grid-cell-size: 14.5mm; }
+  .print-surface[data-print-scale="large"] { --grid-cell-size: 17mm; }
+  .print-surface [data-operation-grid] {
+    break-inside: avoid;
+    max-width: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .print-surface [data-operation-grid] table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    table-layout: fixed;
+  }
+  .print-surface [data-grid-cell] {
+    box-sizing: border-box !important;
+    width: var(--grid-cell-size) !important;
+    min-width: var(--grid-cell-size) !important;
+    max-width: var(--grid-cell-size) !important;
+    height: var(--grid-cell-size) !important;
+    padding: 0 !important;
+    font-size: var(--instruction-size) !important;
+    line-height: 1 !important;
+    text-align: center;
+    vertical-align: middle;
+    border: 0.3mm solid black !important;
+  }
+  .print-surface [data-grid-cell="header"],
+  .print-surface [data-grid-cell="corner"] {
+    border-width: 0.6mm !important;
+    font-weight: 700;
+  }
+  .print-surface [data-grid-given] {
+    border: 0.9mm double black !important;
+    font-weight: 700;
+  }
+}

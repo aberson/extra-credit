@@ -5,6 +5,11 @@ import type {
 } from "../../shared/worksheet/types";
 import { COUNT_COMPARE_RELATION_WORDS } from "../../worksheets/count-compare-make/definition";
 import { numberBondKeyExpression } from "../../worksheets/number-bonds/definition";
+import {
+  OPERATION_GRID_KEY_NOTE,
+  operationGridItemOf,
+} from "../../worksheets/operation-grid/definition";
+import { OperationGridTable } from "../worksheets/operation-grid/Renderer";
 
 interface AnswerKeyViewProps {
   readonly document: WorksheetDocumentV1;
@@ -33,10 +38,17 @@ function answerText(answer: ObjectiveAnswerV1): string {
       // here because this is a PRINT sink: an unmapped relation must still put
       // something a parent can read on the page rather than "undefined".
       return COUNT_COMPARE_RELATION_WORDS[answer.value] ?? answer.value;
+    case "grid":
+      // A grid's key is the completed table itself; this line form is never
+      // printed for one, and lists the cells row by row if it ever were.
+      return answer.value.join(", ");
   }
 }
 
 export function AnswerKeyView({ document }: AnswerKeyViewProps) {
+  if (document.worksheetType === "operation-grid") {
+    return <OperationGridAnswerKey document={document} />;
+  }
   const objectiveItems = document.items.filter(
     (item) => item.answerability === "objective",
   );
@@ -88,6 +100,32 @@ export function AnswerKeyView({ document }: AnswerKeyViewProps) {
           );
         })}
       </ol>
+    </article>
+  );
+}
+
+/**
+ * Operation Grid's key: the same table as the worksheet, every cell completed
+ * and the given cells still in their heavy border.
+ */
+function OperationGridAnswerKey({ document }: AnswerKeyViewProps) {
+  const item = operationGridItemOf(document);
+  if (item === undefined) {
+    return <p role="alert">This answer key could not be rendered safely.</p>;
+  }
+  return (
+    <article aria-labelledby={`worksheet-${document.worksheetId}-answer-title`}>
+      <header style={{ borderBottom: "2px solid #24324a", marginBottom: "1rem" }}>
+        <h2 id={`worksheet-${document.worksheetId}-answer-title`}>
+          Parent answer key
+        </h2>
+        <p>{OPERATION_GRID_KEY_NOTE}</p>
+      </header>
+      <OperationGridTable
+        completed
+        idPrefix={`worksheet-${document.worksheetId}-answer`}
+        item={item}
+      />
     </article>
   );
 }

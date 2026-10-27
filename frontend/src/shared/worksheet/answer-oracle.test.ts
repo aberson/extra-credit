@@ -9,8 +9,28 @@ import type {
   CountCompareComparisonItemV1,
   DryMathItemV1,
   NumberBondItemV1,
+  OperationGridItemV1,
   QuantityWowGroupItemV1,
 } from "./types.js";
+
+/** An Operation Grid whose stored cells and answer are `values`, row by row. */
+function gridItem(
+  operation: OperationGridItemV1["operation"],
+  rows: number,
+  columns: number,
+  values: readonly number[],
+): OperationGridItemV1 {
+  return {
+    id: "item-001",
+    itemType: "operation-grid",
+    answerability: "objective",
+    operation,
+    rowHeaders: Array.from({ length: rows }, (_, index) => index + 1),
+    columnHeaders: Array.from({ length: columns }, (_, index) => index + 1),
+    cells: values.map((value, index) => ({ value, given: index === 0 })),
+    answer: { kind: "grid", value: [...values] },
+  };
+}
 
 function dryMathItem(
   operation: DryMathItemV1["operation"],
@@ -107,6 +127,39 @@ describe("the one objective-answer dispatch", () => {
     expect(
       recomputeObjectiveAnswer(sentenceItem("addition", 8, 7, 15, "both" as unknown as "left", 7)),
     ).toBeUndefined();
+  });
+
+  test("recomputes every Operation Grid cell from its headers alone", () => {
+    // The stored cells are deliberately all zero, so only the headers can give these.
+    expect(recomputeObjectiveAnswer(gridItem("addition", 2, 3, [0, 0, 0, 0, 0, 0]))).toEqual({
+      kind: "grid",
+      value: [2, 3, 4, 3, 4, 5],
+    });
+    expect(recomputeObjectiveAnswer(gridItem("multiplication", 3, 3, Array<number>(9).fill(0)))).toEqual({
+      kind: "grid",
+      value: [1, 2, 3, 2, 4, 6, 3, 6, 9],
+    });
+    expect(recomputeObjectiveAnswer(gridItem("powers", 3, 3, Array<number>(9).fill(0)))).toEqual({
+      kind: "grid",
+      value: [1, 1, 1, 2, 4, 8, 3, 9, 27],
+    });
+    expect(objectiveAnswerMatches(gridItem("multiplication", 2, 2, [1, 2, 2, 4]))).toBe(true);
+    // Mirror: one wrong cell, a short answer, or an unknown operation never matches.
+    expect(objectiveAnswerMatches(gridItem("multiplication", 2, 2, [1, 2, 2, 5]))).toBe(false);
+    expect(objectiveAnswerMatches(gridItem("multiplication", 2, 2, [1, 2, 2]))).toBe(false);
+    expect(
+      objectiveAnswerMatches(gridItem("division" as unknown as "addition", 2, 2, [1, 1, 2, 1])),
+    ).toBe(false);
+    expect(
+      recomputeObjectiveAnswer({ ...gridItem("addition", 2, 2, [2, 3, 3, 4]), rowHeaders: [0, 1] }),
+    ).toBeUndefined();
+    // A grid answer never matches a number answer, nor the reverse.
+    expect(
+      objectiveAnswerMatches({
+        ...gridItem("addition", 2, 2, [2, 3, 3, 4]),
+        answer: { kind: "number", value: 2 } as unknown as OperationGridItemV1["answer"],
+      }),
+    ).toBe(false);
   });
 
   test("Two Whats and a Wow and Count, Compare & Make are validated by their own families", () => {

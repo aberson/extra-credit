@@ -76,6 +76,10 @@ import { WorksheetPreview } from "../preview/WorksheetPreview";
 import { AnswerKeyView } from "../print/AnswerKeyView";
 import { PrintView } from "../print/PrintView";
 import { WEB_WORKSHEET_RENDERERS } from "./registry";
+import {
+  OPERATION_GRID_PREFILL_PRESETS,
+  operationGridPresetCount,
+} from "../../worksheets/operation-grid/definition";
 
 const profile: CapabilityProfileV1 = {
   id: "6af42f16-8c91-4c88-a726-5a0b8e7dd940",
@@ -466,7 +470,11 @@ describe("worksheet renderer registry", () => {
     const ids = [...document.querySelectorAll("[id]")].map((element) => element.id);
     expect(new Set(ids).size).toBe(ids.length);
     const worksheet = screen.getByLabelText("Worksheet preview");
-    const key = screen.getByRole("list", { name: "Objective answers" });
+    // Operation Grid's key is its completed table rather than a list of answers.
+    const key =
+      worksheetType === "operation-grid"
+        ? screen.getByRole("article", { name: "Parent answer key" })
+        : screen.getByRole("list", { name: "Objective answers" });
     expect(worksheet.querySelectorAll("[data-item-id][id]")).toHaveLength(session.document.items.length);
     expect(key.querySelectorAll("[data-item-id][id]")).toHaveLength(
       session.document.items.filter((item) => item.answerability === "objective").length,
@@ -487,6 +495,7 @@ describe("worksheet renderer registry", () => {
       "sentence-builder",
       "count-compare-make",
       "number-bonds",
+      "operation-grid",
     ]);
     // Every declared worksheet type is registered, in declaration order, and
     // has a renderer in that same order.
@@ -1089,6 +1098,18 @@ const otherSentence: SelectionEdit = (selection) => ({
         : "all-words",
   },
 });
+/** Another Operation Grid: every one of its choices moved. */
+const otherOperationGrid: SelectionEdit = (selection) => ({
+  ...selection,
+  operationGrid: {
+    operation: selection.operationGrid.operation === "addition" ? "multiplication" : "addition",
+    rows: selection.operationGrid.rows === 6 ? 7 : 6,
+    columns: selection.operationGrid.columns === 6 ? 7 : 6,
+    prefilled: selection.operationGrid.prefilled === 4 ? 5 : 4,
+    placement: "random",
+  },
+});
+
 /** Another Number Bonds focus and the other carrying and borrowing choice. */
 const otherNumberBonds: SelectionEdit = (selection) => ({
   ...selection,
@@ -1133,6 +1154,7 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherCountCompare,
       otherSentence,
       otherNumberBonds,
+      otherOperationGrid,
     ),
   },
   "find-the-wow": {
@@ -1143,6 +1165,7 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherCountCompare,
       otherSentence,
       otherNumberBonds,
+      otherOperationGrid,
     ),
   },
   "sentence-builder": {
@@ -1154,6 +1177,7 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherWowEquation,
       otherCountCompare,
       otherNumberBonds,
+      otherOperationGrid,
     ),
   },
   "count-compare-make": {
@@ -1165,6 +1189,7 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherWowEquation,
       otherSentence,
       otherNumberBonds,
+      otherOperationGrid,
     ),
   },
   "number-bonds": {
@@ -1176,6 +1201,19 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherWowEquation,
       otherCountCompare,
       otherSentence,
+      otherOperationGrid,
+    ),
+  },
+  "operation-grid": {
+    own: otherOperationGrid,
+    foreign: compose(
+      otherDryMath,
+      otherWowVariant,
+      otherWowQuantity,
+      otherWowEquation,
+      otherCountCompare,
+      otherSentence,
+      otherNumberBonds,
     ),
   },
 };
@@ -1217,14 +1255,22 @@ const otherFocusEverywhere: SelectionEdit = (selection) =>
 const CONTROL_PROBES = [
   {
     // A focus reaches the request through `mathSkills`, or for Number Bonds
-    // through its `practice` member.
+    // through its `practice` member. Operation Grid's member is its own
+    // control, probed below.
     canonicalWhenHidden: { mathSkills: INACTIVE_MATH_FIELDS },
     key: "practiceFocus",
     observe: (request: GenerationRequestV1) => ({
       mathSkills: request.capabilities.mathSkills,
-      practice: request.practice,
+      practice: request.practice?.kind === "operation-grid" ? undefined : request.practice,
     }),
     values: [firstFocusEverywhere, otherFocusEverywhere],
+  },
+  {
+    canonicalWhenHidden: undefined,
+    key: "operationGrid",
+    observe: (request: GenerationRequestV1) =>
+      request.practice?.kind === "operation-grid" ? request.practice : undefined,
+    values: [unchanged, otherOperationGrid],
   },
   {
     canonicalWhenHidden: {
@@ -1366,6 +1412,7 @@ const CONTRACT_PROFILES: Readonly<
     contractProfile({ ...quantityProfile, interests: ["Space"] }),
   ],
   "number-bonds": [contractProfile()],
+  "operation-grid": [contractProfile()],
 };
 
 function contractSelection(
@@ -3145,6 +3192,26 @@ function catalogSweepCells(): readonly SweepCell[] {
         })),
       ),
     ),
+    // Operation Grid: each operation at its default or largest legal size,
+    // with each Pre-filled cells preset the size can use (Diagonal needs a
+    // square addition or multiplication grid).
+    ...(["addition", "multiplication", "powers"] as const).flatMap((operation) => {
+      const [rows, columns] = operation === "powers" ? [10, 3] : [10, 10];
+      return OPERATION_GRID_PREFILL_PRESETS.filter(
+        ({ id }) => id !== "diagonal" || operation !== "powers",
+      ).flatMap(({ id }) =>
+        sweepCells(`operation-grid/${operation}/${id}`, "operation-grid", (selection) => ({
+          ...selection,
+          operationGrid: {
+            operation,
+            rows,
+            columns,
+            prefilled: operationGridPresetCount(id, rows, columns),
+            placement: id === "diagonal" ? "diagonal-first" : "random",
+          },
+        })),
+      );
+    }),
   ];
 }
 
@@ -3181,10 +3248,11 @@ describe("availability equals generation", () => {
       .map(({ label }) => label);
     // Pinned: 7 Dry Math, 2 quantity and 5 equation Wow, and 2 Count, Compare
     // & Make catalog focuses, 5 writing activities x 2 vocabularies, and 9
-    // Number Bonds focuses x 2 carrying and borrowing choices, each at 3
-    // lengths x 2 scales. A catalog change must revisit the pinned starving
-    // set below, so it fails here first.
-    expect(cells).toHaveLength(264);
+    // Number Bonds focuses x 2 carrying and borrowing choices, and 11 Operation
+    // Grid operation and preset choices, each at 3 lengths x 2 scales. A
+    // catalog change must revisit the pinned starving set below, so it fails
+    // here first.
+    expect(cells).toHaveLength(330);
     expect(new Set(cells.map(({ label }) => label)).size).toBe(cells.length);
     expect(
       new Set(cells.map(({ selection }) => selection.worksheetType)),

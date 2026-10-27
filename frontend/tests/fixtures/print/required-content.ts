@@ -1,4 +1,5 @@
 import type {
+  OperationGridItemV1,
   SentenceItemV1,
   WorksheetDocumentV1,
 } from "../../../src/shared/worksheet/types.ts";
@@ -36,6 +37,7 @@ export function requiredPrintContent(
     "sentence-builder": "Sentence Builder practice",
     "count-compare-make": "Count, Compare & Make practice",
     "number-bonds": "Number Bonds practice",
+    "operation-grid": "Operation Grid practice",
   };
   const first = document.items[0];
   const instruction = first?.itemType === "sentence"
@@ -48,13 +50,21 @@ export function requiredPrintContent(
         ? "Practice page · solve each equation."
         : document.worksheetType === "number-bonds"
           ? "Write the missing number in each box."
-          : "";
+          : first?.itemType === "operation-grid"
+            ? {
+                addition: "Fill in each empty box: add its row number and its column number.",
+                multiplication: "Fill in each empty box: multiply its row number by its column number.",
+                powers: "Fill in each empty box: raise its row number to the power of its column number.",
+              }[first.operation]
+            : "";
   const title = titles[document.worksheetType];
   text("header h2", surface === "answer"
     ? "Parent answer key"
     : `${document.request.displayName}’s ${title}`);
   text("header p:not([data-doodle-note])", ...(surface === "answer"
-    ? ["Answers match the numbered problems on the worksheet."]
+    ? [document.worksheetType === "operation-grid"
+      ? "The completed grid. Pre-filled cells keep their heavy border."
+      : "Answers match the numbered problems on the worksheet."]
     : instruction === "" ? [] : [instruction]));
   required.push({ selector: "[data-item-id]", count: document.items.length });
 
@@ -106,9 +116,35 @@ export function requiredPrintContent(
     }
   }
 
+  /**
+   * One grid: the corner symbol, every header, each given cell's value and,
+   * on the worksheet, every other cell as an empty closed box; on the key,
+   * every cell's value and no empty box.
+   */
+  function gridContent(item: OperationGridItemV1, selector: string) {
+    const symbol = { addition: "+", multiplication: "×", powers: "^" }[item.operation];
+    text(`${selector} [data-grid-corner]`, symbol);
+    text(`${selector} [data-grid-column-header]`, ...item.columnHeaders.map(String));
+    text(`${selector} [data-grid-row-header]`, ...item.rowHeaders.map(String));
+    text(`${selector} [data-grid-given]`,
+      ...item.cells.filter(({ given }) => given).map(({ value }) => String(value)));
+    if (surface === "answer") {
+      text(`${selector} [data-grid-value]`, ...item.cells.map(({ value }) => String(value)));
+      required.push({ selector: `${selector} [data-grid-blank]`, count: 0 });
+    } else {
+      text(`${selector} [data-grid-value]`,
+        ...item.cells.filter(({ given }) => given).map(({ value }) => String(value)));
+      boxes(`${selector} [data-grid-blank]`, item.cells.filter(({ given }) => !given).length);
+    }
+  }
+
   for (const [index, item] of document.items.entries()) {
     const selector = `[data-item-id="${item.id}"]`;
     required.push({ selector, count: 1 });
+    if (item.itemType === "operation-grid") {
+      gridContent(item, selector);
+      continue;
+    }
     if (surface === "answer") {
       if (item.answerability !== "objective") {
         throw new Error("An open response cannot have an answer key.");

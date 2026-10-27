@@ -11,8 +11,10 @@
  * number sentences (Appendix B.3) are enumerated by brute force over every
  * printed triple of numbers whose relation holds by column arithmetic,
  * filtered by column addition of the relation's two parts, and solved by
- * trying every integer from 0 to 40 in each blank. Its only `src/` imports
- * are `import type`, so it compiles under every TypeScript project and adds
+ * trying every integer from 0 to 40 in each blank. Operation Grid cells are
+ * recomputed by column addition, repeated column addition and repeated
+ * products from 1, and each grid is judged as printed and as keyed. Its only
+ * `src/` imports are `import type`, so it compiles under every TypeScript project and adds
  * nothing to any production bundle.
  */
 import type {
@@ -835,4 +837,228 @@ export function judgeRenderedSentencesPage(
     sentences.push({ id: row.id, ...parsed, answer: solution });
   }
   return [...violations, ...judgeSentences(sentences, focus)];
+}
+
+// --- Operation Grid (master plan Step 34) -----------------------------------
+
+/** The grid bounds the plan states: sizes 2..12, powers bases to 10 and exponents to 3. */
+export const ORACLE_GRID_SIZE_MINIMUM = 2;
+export const ORACLE_GRID_SIZE_MAXIMUM = 12;
+export const ORACLE_POWERS_BASE_MAXIMUM = 10;
+export const ORACLE_POWERS_EXPONENT_MAXIMUM = 3;
+export const ORACLE_POWERS_CELL_MAXIMUM = 1000;
+
+export type OracleGridOperation = "addition" | "multiplication" | "powers";
+export type OracleGridPlacement = "random" | "diagonal-first";
+
+/** The corner symbol each grid operation prints. */
+export const ORACLE_GRID_SYMBOLS: Readonly<Record<OracleGridOperation, string>> = {
+  addition: "+",
+  multiplication: "×",
+  powers: "^",
+};
+
+/** What a grid page was asked for, read from its request. */
+export interface OracleGridFocus {
+  readonly operation: OracleGridOperation;
+  readonly rows: number;
+  readonly columns: number;
+  readonly prefilled: number;
+  readonly placement: OracleGridPlacement;
+}
+
+/**
+ * One cell by column arithmetic: a sum by column addition, a product by
+ * repeated column addition, and a power by repeated products starting from 1.
+ */
+export function oracleGridCell(operation: OracleGridOperation, row: number, column: number): number {
+  switch (operation) {
+    case "addition":
+      return columnAdd(row, column).sum;
+    case "multiplication":
+      return oracleProduct(row, column);
+    case "powers": {
+      let power = 1;
+      for (let step = 0; step < column; step += 1) {
+        power = oracleProduct(power, row);
+      }
+      return power;
+    }
+  }
+}
+
+/** The completed grid, row by row, for headers 1..rows and 1..columns. */
+export function oracleGrid(
+  operation: OracleGridOperation,
+  rows: number,
+  columns: number,
+): readonly (readonly number[])[] {
+  return Array.from({ length: rows }, (_, row) =>
+    Array.from({ length: columns }, (_, column) => oracleGridCell(operation, row + 1, column + 1)),
+  );
+}
+
+/** Whether a grid of this shape can print at all, by the plan's own bounds. */
+export function oracleGridPrintable(focus: OracleGridFocus): boolean {
+  const sized = (value: number) =>
+    Number.isInteger(value) && value >= ORACLE_GRID_SIZE_MINIMUM && value <= ORACLE_GRID_SIZE_MAXIMUM;
+  return (
+    sized(focus.rows) &&
+    sized(focus.columns) &&
+    (focus.operation !== "powers" ||
+      (focus.rows <= ORACLE_POWERS_BASE_MAXIMUM && focus.columns <= ORACLE_POWERS_EXPONENT_MAXIMUM)) &&
+    focus.prefilled >= 0 &&
+    focus.prefilled < focus.rows * focus.columns &&
+    (focus.placement !== "diagonal-first" ||
+      (focus.operation !== "powers" && focus.rows === focus.columns))
+  );
+}
+
+/** One grid as the judge reads it, from a document item or a rendered table. */
+export interface OracleGridTable {
+  readonly corner: string;
+  readonly columnHeaders: readonly number[];
+  readonly rowHeaders: readonly number[];
+  /** Each cell row by row: its printed number, or `null` for an empty box. */
+  readonly cells: readonly (readonly (number | null)[])[];
+  /** Which cells print pre-filled, row by row. */
+  readonly given: readonly (readonly boolean[])[];
+}
+
+/** The Operation Grid codes the judge adds to Appendix B.5's. */
+export type OracleGridCode =
+  | OracleCode
+  | "HEADER_MISMATCH"
+  | "WRONG_CELL"
+  | "GIVEN_COUNT_MISMATCH"
+  | "NO_BLANK"
+  | "DIAGONAL_ORDER"
+  | "UNPRINTABLE";
+
+export interface OracleGridViolation {
+  readonly where: string;
+  readonly code: OracleGridCode;
+}
+
+function oneToCount(count: number): readonly number[] {
+  return Array.from({ length: count }, (_, index) => index + 1);
+}
+
+/**
+ * Judges one grid against its focus. On a worksheet (`completed` false) every
+ * given cell prints its oracle value and every other cell is empty; on a key
+ * every cell prints its oracle value and the given cells are still marked.
+ */
+export function judgeGridTable(
+  table: OracleGridTable,
+  focus: OracleGridFocus,
+  completed: boolean,
+): readonly OracleGridViolation[] {
+  const violations: OracleGridViolation[] = [];
+  if (!oracleGridPrintable(focus)) {
+    violations.push({ where: "grid", code: "UNPRINTABLE" });
+  }
+  if (
+    table.corner !== ORACLE_GRID_SYMBOLS[focus.operation] ||
+    JSON.stringify(table.columnHeaders) !== JSON.stringify(oneToCount(focus.columns)) ||
+    JSON.stringify(table.rowHeaders) !== JSON.stringify(oneToCount(focus.rows)) ||
+    table.cells.length !== focus.rows
+  ) {
+    violations.push({ where: "headers", code: "HEADER_MISMATCH" });
+  }
+  const expected = oracleGrid(focus.operation, focus.rows, focus.columns);
+  let given = 0;
+  let blank = 0;
+  let diagonalGiven = 0;
+  for (const [row, cells] of table.cells.entries()) {
+    if (cells.length !== focus.columns) {
+      violations.push({ where: "row " + String(row + 1), code: "HEADER_MISMATCH" });
+    }
+    for (const [column, printed] of cells.entries()) {
+      const where = String(row + 1) + "," + String(column + 1);
+      const isGiven = table.given[row]?.[column] === true;
+      const value = expected[row]?.[column];
+      if (isGiven) {
+        given += 1;
+        diagonalGiven += row === column ? 1 : 0;
+      } else {
+        blank += 1;
+      }
+      const shown = isGiven || completed;
+      if (shown ? printed !== value : printed !== null) {
+        violations.push({ where, code: "WRONG_CELL" });
+      }
+      if (focus.operation === "powers" && printed !== null && printed > ORACLE_POWERS_CELL_MAXIMUM) {
+        violations.push({ where, code: "OVER_CEILING" });
+      }
+    }
+  }
+  if (given !== focus.prefilled) {
+    violations.push({ where: "grid", code: "GIVEN_COUNT_MISMATCH" });
+  }
+  if (blank === 0) {
+    violations.push({ where: "grid", code: "NO_BLANK" });
+  }
+  if (
+    focus.placement === "diagonal-first" &&
+    given > diagonalGiven &&
+    diagonalGiven !== Math.min(focus.rows, focus.columns)
+  ) {
+    violations.push({ where: "grid", code: "DIAGONAL_ORDER" });
+  }
+  return violations;
+}
+
+/** The grid focus an Operation Grid request asks for, read from its own fields. */
+export function oracleGridFocusOf(request: GenerationRequestV1): OracleGridFocus {
+  const practice = request.practice;
+  if (request.worksheetType !== "operation-grid" || practice?.kind !== "operation-grid") {
+    throw new Error("The arithmetic oracle met an Operation Grid request without its grid choice.");
+  }
+  return {
+    operation: practice.operation,
+    rows: practice.rows,
+    columns: practice.columns,
+    prefilled: practice.prefilled,
+    placement: practice.placement,
+  };
+}
+
+/**
+ * Judges a generated Operation Grid document: its one item read as the
+ * worksheet prints it and as the key prints it, plus its stored answer, which
+ * must be every oracle cell row by row (`KEY_MISMATCH` otherwise).
+ */
+export function judgeOperationGridDocument(
+  document: WorksheetDocumentV1,
+): readonly OracleGridViolation[] {
+  const focus = oracleGridFocusOf(document.request);
+  const item = document.items[0];
+  if (document.items.length !== 1 || item?.itemType !== "operation-grid") {
+    return [{ where: "document", code: "OUT_OF_SET" }];
+  }
+  const columns = item.columnHeaders.length;
+  const table = (completed: boolean): OracleGridTable => ({
+    corner: ORACLE_GRID_SYMBOLS[item.operation],
+    columnHeaders: item.columnHeaders,
+    rowHeaders: item.rowHeaders,
+    given: item.rowHeaders.map((_, row) =>
+      item.columnHeaders.map((__, column) => item.cells[row * columns + column]?.given === true),
+    ),
+    cells: item.rowHeaders.map((_, row) =>
+      item.columnHeaders.map((__, column) => {
+        const cell = item.cells[row * columns + column];
+        return cell === undefined ? null : cell.given || completed ? cell.value : null;
+      }),
+    ),
+  });
+  const expected = oracleGrid(focus.operation, focus.rows, focus.columns).flat();
+  const answer = item.answer.kind === "grid" ? item.answer.value : [];
+  const keyMatches =
+    answer.length === expected.length && expected.every((value, index) => answer[index] === value);
+  return [
+    ...judgeGridTable(table(false), focus, false),
+    ...judgeGridTable(table(true), focus, true).filter(({ code }) => code === "WRONG_CELL" || code === "OVER_CEILING"),
+    ...(keyMatches ? [] : [{ where: "answer", code: "KEY_MISMATCH" as const }]),
+  ];
 }

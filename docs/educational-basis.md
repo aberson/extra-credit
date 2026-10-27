@@ -1,12 +1,12 @@
 # Educational basis and scope
 
 This document records the published sources that bound the reviewed examples in
-Extra Credit's five worksheet families, and the limits of what those sources
+Extra Credit's six worksheet families, and the limits of what those sources
 are being used for. It is the human-readable companion to
 [`plan.md` Section 12.5](plans/master_plan.md) and to the
 [math activities plan](plans/master_plan.md), and covers `dry-math`,
 `find-the-wow`, `sentence-builder` (all five writing modes),
-`count-compare-make`, and `number-bonds`.
+`count-compare-make`, `number-bonds`, and `operation-grid`.
 
 ## What this document is, and is not
 
@@ -47,9 +47,9 @@ Every generated page, in every family, stays inside one fixed envelope:
 | Bound | Value |
 |---|---|
 | Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, Carrying and borrowing, fact families, length, and print scale). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
-| Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, and multiplication and division facts with factors, divisors and answers up to 12 and dividends up to 144 for the fact families the parent checks; every quantity, numeral, operand, and result in the other families stays at most 20. |
+| Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, and multiplication and division facts with factors, divisors and answers up to 12 and dividends up to 144 for the fact families the parent checks; Operation Grid's headers run from 1 to at most 12, so its sums stay at most 24 and its products at most 144, and a powers grid's bases run to 10 and exponents to 3, so no cell exceeds 1,000; every quantity, numeral, operand, and result in the other families stays at most 20. |
 | Sign | Nonnegative. No generated result is below zero, and every division is exact with a nonzero divisor. |
-| Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once. In Number Bonds, "Include problems that carry or borrow" adds problems whose missing number needs carrying or borrowing; by default no Number Bonds problem makes or crosses ten. Otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
+| Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once. In Number Bonds, "Include problems that carry or borrow" adds problems whose missing number needs carrying or borrowing; by default no Number Bonds problem makes or crosses ten. Operation Grid's cells follow from its headers alone, so an addition grid's sums that make or cross ten are a fixed part of the table rather than a choice. Otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
 | Personalization | A nickname and reviewed interest topics only. Raw unmatched interest text never reaches a request or a page. |
 | Locality | Generation is deterministic local code. The page talks to nothing but its own loopback server on 127.0.0.1: no account, no off-device request, no runtime model, and no telemetry. |
 
@@ -113,6 +113,35 @@ that carry or borrow" adds problems such as 3 + ? = 10 and 8 + ? = 15.
 Number Bonds always practices equations and prints no decoration. Its practice
 focus names the operations and the range, so whether a page can be created
 depends on the worksheet choices alone, not on which child is selected.
+
+### `operation-grid` — Operation Grid
+
+One table per page. Column headers run across the top and row headers down the
+side, each from 1 to the size the parent chooses (2 to 12, 10 × 10 by default),
+and the corner shows the operation: `+` for addition, `×` for multiplication or
+`^` for powers. Every cell is its row header combined with its column header,
+so every cell has exactly one answer. A few cells print filled in as anchors,
+the number the parent sets with a number input or a preset (Nearly blank,
+Half, Mostly filled, or Diagonal), and at least one cell is always left for the
+child; the rest are empty boxes sized for four handwritten digits. Random
+placement scatters the given cells by seed; Diagonal first gives the cells
+where the row and column match, the squares on a multiplication grid, before
+any other. The key prints the same table completed, the given cells still in
+their heavy border.
+
+Powers is offered as parent-chosen enrichment: the row header is the base and
+the column header the exponent, bases run to 10 and exponents to 3, so no cell
+exceeds 1,000, and a larger powers grid is refused with a remedy rather than
+narrowed. Choosing it asserts no grade, placement, or readiness for it.
+
+- [Common Core Grade 1 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/1/OA/) — cited for addition facts and the meaning of the equal sign.
+- [Common Core Grade 3 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/3/OA/) — cited for multiplication within 100 and the patterns of a multiplication table.
+- [Common Core Grade 6 Expressions and Equations](https://www.thecorestandards.org/Math/Content/6/EE/) — cited only for what a whole-number exponent means.
+- [IES Teaching Math to Young Children](https://ies.ed.gov/ncee/wwc/practiceguide/18)
+
+Operation Grid prints numbers alone, with no decoration and no length choice:
+one grid fills one page. Whether a page can be created depends on the grid
+choices and the print scale alone, not on which child is selected.
 
 ### `find-the-wow` — Two Whats and a Wow
 

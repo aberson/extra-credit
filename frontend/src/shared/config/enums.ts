@@ -48,5 +48,17 @@ export const FACT_OPERATIONS = ["multiplication", "division"] as const;
  * schema version 2 `numberBonds` group, whose default is `without`.
  */
 export const NUMBER_BONDS_REGROUPING_MODES = ["without", "included"] as const;
+/**
+ * Operation Grid's three operations: addition `x + y`, multiplication
+ * `x × y` and powers `x^y`. Part of the additive schema version 2
+ * `operationGrid` group, whose default is `multiplication`.
+ */
+export const OPERATION_GRID_OPERATIONS = ["addition", "multiplication", "powers"] as const;
+/**
+ * Where Operation Grid's pre-filled cells go: picked by seed, or the diagonal
+ * cells first and then seeded extras. Part of the `operationGrid` group, whose
+ * default is `random`.
+ */
+export const OPERATION_GRID_PLACEMENTS = ["random", "diagonal-first"] as const;
 /** The decorative theme: art from interests, one reviewed topic, or neutral. */
 export const THEME_CHOICES = ["from-interests", ...TOPIC_IDS] as const;

@@ -214,6 +214,8 @@ export function selectionFromEarlierSettings(
         ...base.numberBonds,
         operations: [...base.numberBonds.operations],
       },
+      // Nor Operation Grid: no earlier setting describes a grid.
+      operationGrid: { ...base.operationGrid },
       findTheWow: { variant, quantity, equation },
       sentenceBuilder: {
         variant: legacy.writingMode,

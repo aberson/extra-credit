@@ -15,10 +15,13 @@ import {
   V1_NUMERIC_MAXIMUM,
   type DryMathItemV1,
   type NumberBondItemV1,
+  type OperationGridItemV1,
 } from "../../shared/worksheet/types";
 import {
   judgeDocument,
+  judgeOperationGridDocument,
   oracleCandidateKeys,
+  oracleGrid,
   oracleFactKeys,
   oracleNumberBondKeys,
   oracleRegroups,
@@ -281,5 +284,75 @@ describe("Number Bonds missing number sentences through the production caller", 
       (document.items as readonly NumberBondItemV1[]).map(printedKey),
     );
     expect(judgeDocument(included.session.document)).toEqual([]);
+  });
+});
+
+describe("Operation Grid through the production caller", () => {
+  function gridGeneration(operationGrid: WorksheetSelectionV2["operationGrid"]): GenerationSelection {
+    return {
+      profile: fictionalChild,
+      selection: {
+        ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+        worksheetType: "operation-grid",
+        operationGrid,
+      },
+    };
+  }
+
+  test.each(["addition", "multiplication", "powers"] as const)(
+    "%s: createWorksheetSessionForSeed returns a validated document whose every cell equals the oracle",
+    (operation) => {
+      const operationGrid = {
+        operation,
+        rows: operation === "powers" ? 10 : 12,
+        columns: operation === "powers" ? 3 : 12,
+        prefilled: 7,
+        placement: "random",
+      } as const;
+      const created = createWorksheetSessionForSeed(gridGeneration(operationGrid), 0x2026_0034, DEPENDENCIES);
+      if (!created.ok) {
+        throw new Error(created.message);
+      }
+      const { document } = created.session;
+      expect(document.worksheetType).toBe("operation-grid");
+      expect(document.request.practice).toEqual({ kind: "operation-grid", ...operationGrid });
+      expect(document.request.displayName).toBe("Fictional Regrouper");
+      expect(validateWorksheetInvariants(document)).toBeUndefined();
+      expect(judgeOperationGridDocument(document)).toEqual([]);
+      const item = document.items[0] as OperationGridItemV1;
+      expect(item.cells.map(({ value }) => value)).toEqual(
+        oracleGrid(operation, operationGrid.rows, operationGrid.columns).flat(),
+      );
+    },
+  );
+
+  test("Make another finds a different grid with random placement, and explains the one fixed Diagonal grid", () => {
+    const random = gridGeneration({ operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random" });
+    const first = createWorksheetSessionForSeed(random, 1, DEPENDENCIES);
+    if (!first.ok) {
+      throw new Error(first.message);
+    }
+    let seed = 1;
+    const another = makeAnotherWorksheetSession(first.session, random, () => (seed += 1), DEPENDENCIES);
+    expect(another.status).toBe("changed");
+    // Diagonal first with exactly the diagonal pre-filled has one arrangement.
+    const diagonal = gridGeneration({
+      operation: "multiplication",
+      rows: 10,
+      columns: 10,
+      prefilled: 10,
+      placement: "diagonal-first",
+    });
+    const fixed = createWorksheetSessionForSeed(diagonal, 1, DEPENDENCIES);
+    if (!fixed.ok) {
+      throw new Error(fixed.message);
+    }
+    seed = 1;
+    const exhausted = makeAnotherWorksheetSession(fixed.session, diagonal, () => (seed += 1), DEPENDENCIES);
+    expect(exhausted).toEqual({
+      status: "exhausted",
+      message:
+        "No different worksheet was found in 16 attempts. Operation Grid varies only in which cells are pre-filled. Choose Random placement or a different number of pre-filled cells, or create a new worksheet later.",
+    });
   });
 });

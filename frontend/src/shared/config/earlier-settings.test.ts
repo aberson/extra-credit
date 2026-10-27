@@ -215,6 +215,15 @@ describe("selectionFromEarlierSettings (Appendix B.3)", () => {
     expect(result.groups).toContain("dryMath");
   });
 
+  test("earlier settings never set Operation Grid", () => {
+    const operationGrid = { operation: "addition", rows: 4, columns: 9, prefilled: 3, placement: "random" } as const;
+    const result = selectionFromEarlierSettings(legacy(uniform(100)), { ...BASE, operationGrid });
+    expect(result.selection.operationGrid).toEqual(operationGrid);
+    expect(result.groups).not.toContain("operationGrid");
+    // Mirror: the add-subtract focus those same settings describe is seeded.
+    expect(result.groups).toContain("dryMath");
+  });
+
   test("emerging within 5 with the preschool band seeds addition within 5, Quantity pictures and simpler words", () => {
     const result = selectionFromEarlierSettings(
       legacy(

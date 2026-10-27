@@ -79,13 +79,15 @@ function expectSelectedPage(selectedPage: string | undefined, paper: keyof typeo
 // Millimetres, independent of the stylesheet: collapsing work space must fail
 // even when the resulting sheet fits the paper more easily.
 const responseMetrics = {
+  // An Operation Grid cell holds four handwritten digits: 14.5 mm square,
+  // 17 mm at large scale.
   standard: {
     lineHeight: 7, drawingHeight: 33, tellingHeight: 100, cellSize: 5,
-    missingBoxWidth: 14, missingBoxHeight: 9,
+    missingBoxWidth: 14, missingBoxHeight: 9, gridCell: 14.5,
   },
   large: {
     lineHeight: 9, drawingHeight: 38, tellingHeight: 110, cellSize: 6,
-    missingBoxWidth: 16, missingBoxHeight: 11,
+    missingBoxWidth: 16, missingBoxHeight: 11, gridCell: 17,
   },
 } as const;
 
@@ -97,6 +99,7 @@ const physicalSelectors = {
   circle: "[data-circle-target]",
   decoration: "[data-decorative-panel]",
   missingBox: "[data-missing-box]",
+  gridCell: "[data-grid-cell]",
 } as const;
 
 async function readPhysicalGeometry(page: Page) {
@@ -172,6 +175,10 @@ function physicalViolations(
         exact("widthMm", expected.missingBoxWidth);
         exact("heightMm", expected.missingBoxHeight);
         break;
+      case "gridCell":
+        exact("widthMm", expected.gridCell);
+        exact("heightMm", expected.gridCell);
+        break;
       default:
         throw new Error(`Unspecified physical contract: ${box.kind}`);
     }
@@ -197,10 +204,10 @@ async function comparePrintScales(
       if (smaller === undefined) {
         throw new Error("Missing matching standard response box.");
       }
-      if (["line", "drawing", "guideCell", "frameCell", "missingBox"].includes(box.kind)) {
+      if (["line", "drawing", "guideCell", "frameCell", "missingBox", "gridCell"].includes(box.kind)) {
         expect(box.heightMm, `${box.kind}: large increases response height`)
           .toBeGreaterThan(smaller.heightMm + 0.5);
-        if (["guideCell", "frameCell", "missingBox"].includes(box.kind)) {
+        if (["guideCell", "frameCell", "missingBox", "gridCell"].includes(box.kind)) {
           expect(box.widthMm, `${box.kind}: large increases response width`)
             .toBeGreaterThan(smaller.widthMm + 0.5);
         }
@@ -812,12 +819,19 @@ for (const fixture of printFixtures) {
   const decorationApplicable = ["sentence-builder", "count-compare-make"]
     .includes(fixture.selection.worksheetType);
   for (const scale of ["standard", "large"] as const) {
-    if (fixture.letterStandardOnly === true && scale !== "standard") {
+    if (
+      (fixture.letterStandardOnly === true && scale !== "standard") ||
+      (fixture.printedOn !== undefined && !fixture.printedOn.some((only) => only.scale === scale))
+    ) {
       continue;
     }
     const boundary = createPrintFixture(fixture, scale);
     for (const paper of ["letter", "a4"] as const) {
-      if (fixture.letterStandardOnly === true && paper !== "letter") {
+      if (
+        (fixture.letterStandardOnly === true && paper !== "letter") ||
+        (fixture.printedOn !== undefined &&
+          !fixture.printedOn.some((only) => only.paper === paper && only.scale === scale))
+      ) {
         continue;
       }
       for (const decoration of decorationApplicable ? [false, true] : [false]) {
@@ -987,6 +1001,38 @@ for (const fixture of printFixtures) {
               });
             expect(physicalViolations(await readPhysicalGeometry(page), scale), "missing box restored")
               .toEqual([]);
+          }
+          if (boundary.document.worksheetType === "operation-grid") {
+            // The whole table prints on this one page: every cell is the
+            // handwriting size, measured above, and the grid is one uncut
+            // group. A collapsed cell must fail that measurement, a table cut
+            // short must fail the containment check, and both restore clean.
+            const item = boundary.document.items[0];
+            const cells = (await readPhysicalGeometry(page)).filter(({ kind }) => kind === "gridCell");
+            expect(item?.itemType).toBe("operation-grid");
+            if (item?.itemType === "operation-grid") {
+              expect(cells).toHaveLength((item.rowHeaders.length + 1) * (item.columnHeaders.length + 1));
+            }
+            await withPrintStyle(page,
+              ".print-surface [data-grid-cell] { width: 1px !important; min-width: 1px !important; " +
+              "max-width: 1px !important; height: 1px !important; }",
+              async () => {
+                const collapsed = physicalViolations(await readPhysicalGeometry(page), scale);
+                expect(collapsed.some((violation) => violation.startsWith("gridCell[0]: widthMm")),
+                  "a collapsed cell must fail its width").toBe(true);
+                expect(collapsed.some((violation) => /^gridCell\[\d+\]: heightMm/u.test(violation)),
+                  "a collapsed cell must fail its height").toBe(true);
+              });
+            await withPrintStyle(page,
+              ".print-surface [data-operation-grid] { height: 40mm !important; overflow: hidden !important; }",
+              async () => {
+                expect((await readPrintGeometry(page)).violations.some((violation) =>
+                  violation.startsWith("outside group:") || violation.startsWith("clipping ancestor:")),
+                "a table cut short must fail").toBe(true);
+              });
+            expect(physicalViolations(await readPhysicalGeometry(page), scale), "grid cells restored")
+              .toEqual([]);
+            expect((await readPrintGeometry(page)).violations, "grid restored").toEqual([]);
           }
           if (name === "dry-math-letter-standard-decoration-false") {
             await withPrintStyle(page, ".print-surface { page: auto !important; }", async () => {
@@ -1283,10 +1329,10 @@ test("manual print uses the compiled app with canonical temporary profiles and c
   request,
 }) => {
   // The worksheet-choice matrix built from the committed example expands to
-  // 87 distinct worksheet cases, 19 of which also measure a key PDF.
+  // 91 distinct worksheet cases, 23 of which also measure a key PDF.
   expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
-  expect(matrixCases).toHaveLength(87);
-  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(19);
+  expect(matrixCases).toHaveLength(91);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(23);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {

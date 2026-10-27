@@ -30,11 +30,17 @@ import {
   enumerateNumberBondsCandidates,
   generateNumberBonds,
 } from "../../src/worksheets/number-bonds/generator.js";
+import { generateOperationGrid } from "../../src/worksheets/operation-grid/generator.js";
 import {
   ORACLE_FACT_DIVIDEND_MAXIMUM,
   ORACLE_FACT_FACTOR_MAXIMUM,
   ORACLE_NUMBER_BONDS_CEILING,
   ORACLE_NUMBER_BONDS_WHOLE_MINIMUM,
+  ORACLE_GRID_SIZE_MAXIMUM,
+  ORACLE_GRID_SIZE_MINIMUM,
+  ORACLE_POWERS_BASE_MAXIMUM,
+  ORACLE_POWERS_CELL_MAXIMUM,
+  ORACLE_POWERS_EXPONENT_MAXIMUM,
   columnAdd,
   columnSubtract,
   judgeDocument,
@@ -44,10 +50,17 @@ import {
   oracleDivide,
   oracleFactClosedForm,
   oracleFactKeys,
+  oracleGrid,
+  oracleGridCell,
+  judgeGridTable,
+  judgeOperationGridDocument,
   oracleNumberBondKeys,
   oracleProduct,
   oracleSolveMissing,
   type OracleCode,
+  type OracleGridFocus,
+  type OracleGridOperation,
+  type OracleGridTable,
   type RenderedKeyLine,
   type RenderedRow,
 } from "../oracles/arithmetic-oracle.js";
@@ -682,6 +695,135 @@ describe("Number Bonds missing number sentences (Appendix B.3 and B.4)", () => {
         ...rest,
       ], within20))).toEqual(["KEY_MISMATCH"]);
     });
+  });
+});
+
+describe("the Operation Grid oracle slice", () => {
+  function gridRequest(focus: OracleGridFocus, seed = "00000001"): GenerationRequestV1 {
+    const projection = projectGenerationRequest({
+      selection: { ...BASE, worksheetType: "operation-grid", operationGrid: focus },
+      generatorVersion: 1,
+      seed,
+    });
+    if (!projection.ok) {
+      throw new Error(projection.message);
+    }
+    return projection.request;
+  }
+
+  function gridDocument(focus: OracleGridFocus, seed = "00000001"): WorksheetDocumentV1 {
+    const result = generateOperationGrid(gridRequest(focus, seed), {
+      worksheetId: "11111111-1111-4111-8111-111111111111",
+    });
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
+    return result.document;
+  }
+
+  test("cells by column arithmetic match the closed forms, and powers stop at 1,000", () => {
+    for (let row = 1; row <= ORACLE_GRID_SIZE_MAXIMUM; row += 1) {
+      for (let column = 1; column <= ORACLE_GRID_SIZE_MAXIMUM; column += 1) {
+        expect(oracleGridCell("addition", row, column)).toBe(row + column);
+        expect(oracleGridCell("multiplication", row, column)).toBe(row * column);
+      }
+    }
+    for (let base = 1; base <= ORACLE_POWERS_BASE_MAXIMUM; base += 1) {
+      for (let exponent = 1; exponent <= ORACLE_POWERS_EXPONENT_MAXIMUM; exponent += 1) {
+        expect(oracleGridCell("powers", base, exponent)).toBe(base ** exponent);
+      }
+    }
+    expect(oracleGridCell("powers", ORACLE_POWERS_BASE_MAXIMUM, ORACLE_POWERS_EXPONENT_MAXIMUM)).toBe(
+      ORACLE_POWERS_CELL_MAXIMUM,
+    );
+    expect(oracleGrid("multiplication", 12, 12).at(-1)?.at(-1)).toBe(144);
+    expect(oracleGrid("addition", 12, 12).at(-1)?.at(-1)).toBe(24);
+  });
+
+  test("for every operation and every legal size, the generated grid is the oracle's grid", () => {
+    let judged = 0;
+    for (const operation of ["addition", "multiplication", "powers"] as const satisfies readonly OracleGridOperation[]) {
+      const rowMaximum = operation === "powers" ? ORACLE_POWERS_BASE_MAXIMUM : ORACLE_GRID_SIZE_MAXIMUM;
+      const columnMaximum = operation === "powers" ? ORACLE_POWERS_EXPONENT_MAXIMUM : ORACLE_GRID_SIZE_MAXIMUM;
+      for (let rows = ORACLE_GRID_SIZE_MINIMUM; rows <= rowMaximum; rows += 1) {
+        for (let columns = ORACLE_GRID_SIZE_MINIMUM; columns <= columnMaximum; columns += 1) {
+          const focus: OracleGridFocus = {
+            operation,
+            rows,
+            columns,
+            prefilled: Math.min(rows, columns),
+            placement: operation !== "powers" && rows === columns ? "diagonal-first" : "random",
+          };
+          const document = gridDocument(focus);
+          expect(judgeOperationGridDocument(document), `${operation} ${rows}x${columns}`).toEqual([]);
+          judged += 1;
+        }
+      }
+    }
+    expect(judged).toBe(11 * 11 * 2 + 9 * 2);
+  });
+
+  test("calibration: a known-good table passes and each kind of known-garbage table fails with its own code", () => {
+    const focus: OracleGridFocus = {
+      operation: "multiplication",
+      rows: 3,
+      columns: 3,
+      prefilled: 3,
+      placement: "diagonal-first",
+    };
+    const good: OracleGridTable = {
+      corner: "×",
+      columnHeaders: [1, 2, 3],
+      rowHeaders: [1, 2, 3],
+      cells: [
+        [1, null, null],
+        [null, 4, null],
+        [null, null, 9],
+      ],
+      given: [
+        [true, false, false],
+        [false, true, false],
+        [false, false, true],
+      ],
+    };
+    expect(judgeGridTable(good, focus, false)).toEqual([]);
+    const keyed = { ...good, cells: [[1, 2, 3], [2, 4, 6], [3, 6, 9]] };
+    expect(judgeGridTable(keyed, focus, true)).toEqual([]);
+    const codesOf = (table: OracleGridTable, completed = false, judged = focus) =>
+      [...new Set(judgeGridTable(table, judged, completed).map(({ code }) => code))];
+    // A wrong given value, a filled blank, and a key with one wrong cell.
+    expect(codesOf({ ...good, cells: [[1, null, null], [null, 5, null], [null, null, 9]] })).toEqual(["WRONG_CELL"]);
+    expect(codesOf({ ...good, cells: [[1, 2, null], [null, 4, null], [null, null, 9]] })).toEqual(["WRONG_CELL"]);
+    expect(codesOf({ ...keyed, cells: [[1, 2, 3], [2, 4, 7], [3, 6, 9]] }, true)).toEqual(["WRONG_CELL"]);
+    // The wrong corner, or headers that do not run from 1.
+    expect(codesOf({ ...good, corner: "+" })).toEqual(["HEADER_MISMATCH"]);
+    expect(codesOf({ ...good, columnHeaders: [0, 1, 2] })).toEqual(["HEADER_MISMATCH"]);
+    // One given cell too many, then a page with every cell given.
+    expect(codesOf(
+      { ...good, cells: [[1, 2, null], [null, 4, null], [null, null, 9]], given: [[true, true, false], [false, true, false], [false, false, true]] },
+    )).toEqual(["GIVEN_COUNT_MISMATCH"]);
+    expect(codesOf(
+      { ...keyed, given: [[true, true, true], [true, true, true], [true, true, true]] },
+      false,
+      { ...focus, prefilled: 9 },
+    )).toEqual(["UNPRINTABLE", "NO_BLANK"]);
+    // An off-diagonal cell given before the whole diagonal is.
+    expect(codesOf(
+      {
+        ...good,
+        cells: [[1, 2, null], [null, 4, null], [null, null, null]],
+        given: [[true, true, false], [false, true, false], [false, false, false]],
+      },
+    )).toEqual(["DIAGONAL_ORDER"]);
+    // A powers cell above 1,000 on a powers page, and the unprintable shapes.
+    const powers: OracleGridFocus = { operation: "powers", rows: 2, columns: 2, prefilled: 1, placement: "random" };
+    expect(codesOf(
+      { corner: "^", columnHeaders: [1, 2], rowHeaders: [1, 2], cells: [[1001, null], [null, null]], given: [[true, false], [false, false]] },
+      false,
+      powers,
+    )).toEqual(["WRONG_CELL", "OVER_CEILING"]);
+    expect(codesOf(good, false, { ...focus, columns: 4, operation: "powers" })).toContain("UNPRINTABLE");
+    expect(codesOf(good, false, { ...focus, rows: 3, columns: 4 })).toContain("UNPRINTABLE");
   });
 });
 

@@ -17,6 +17,9 @@ import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
+  OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
+  OPERATION_GRID_SIZE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../worksheet/types.js";
@@ -26,6 +29,8 @@ import {
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_OPERATIONS,
+  OPERATION_GRID_PLACEMENTS,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
@@ -161,6 +166,40 @@ export const DEFAULT_NUMBER_BONDS_OPERATIONS = ["addition"] as const;
 export const DEFAULT_NUMBER_BONDS_WHOLE_MAXIMUM = 10;
 export const DEFAULT_NUMBER_BONDS_REGROUPING = "without" as const;
 
+/** What a file written before Operation Grid existed reads as: a 10 × 10 multiplication grid. */
+export const DEFAULT_OPERATION_GRID_OPERATION = "multiplication" as const;
+export const DEFAULT_OPERATION_GRID_SIZE = 10;
+export const DEFAULT_OPERATION_GRID_PREFILLED = 10;
+export const DEFAULT_OPERATION_GRID_PLACEMENT = "random" as const;
+
+const operationGridSize = () =>
+  z
+    .number()
+    .int()
+    .min(OPERATION_GRID_SIZE_MINIMUM)
+    .max(OPERATION_GRID_SIZE_MAXIMUM)
+    .default(DEFAULT_OPERATION_GRID_SIZE);
+
+/**
+ * Operation Grid's choices: the operation, the rows and columns, how many
+ * cells print pre-filled and where they go. Every field has its own default,
+ * so a group missing a field also reads unchanged. Whether a schema-valid
+ * choice can print (a powers size, a full grid, a diagonal on a non-square
+ * grid) is the family's refusal, not a schema rule.
+ */
+export const OperationGridV2Schema = z.strictObject({
+  operation: z.enum(OPERATION_GRID_OPERATIONS).default(DEFAULT_OPERATION_GRID_OPERATION),
+  rows: operationGridSize(),
+  columns: operationGridSize(),
+  prefilled: z
+    .number()
+    .int()
+    .min(0)
+    .max(OPERATION_GRID_PREFILLED_MAXIMUM)
+    .default(DEFAULT_OPERATION_GRID_PREFILLED),
+  placement: z.enum(OPERATION_GRID_PLACEMENTS).default(DEFAULT_OPERATION_GRID_PLACEMENT),
+});
+
 export const DryMathFocusV2Schema = arithmeticFocusV2Schema(
   DRY_MATH_NUMERIC_MAXIMUM,
 );
@@ -196,6 +235,15 @@ const worksheetSelectionShape = {
     operations: [...DEFAULT_NUMBER_BONDS_OPERATIONS],
     wholeMax: DEFAULT_NUMBER_BONDS_WHOLE_MAXIMUM,
     regrouping: DEFAULT_NUMBER_BONDS_REGROUPING,
+  })),
+  // Additive at version 2 like Number Bonds: a file without it reads as a
+  // 10 × 10 multiplication grid with 10 cells pre-filled at random.
+  operationGrid: OperationGridV2Schema.default(() => ({
+    operation: DEFAULT_OPERATION_GRID_OPERATION,
+    rows: DEFAULT_OPERATION_GRID_SIZE,
+    columns: DEFAULT_OPERATION_GRID_SIZE,
+    prefilled: DEFAULT_OPERATION_GRID_PREFILLED,
+    placement: DEFAULT_OPERATION_GRID_PLACEMENT,
   })),
   findTheWow: z.strictObject({
     variant: z.enum(FIND_THE_WOW_VARIANTS),
@@ -280,6 +328,7 @@ export const ConfigResponseV2Schema = z.strictObject({
 export type ArithmeticFocusV2 = z.infer<typeof DryMathFocusV2Schema>;
 export type DryMathFactsV2 = z.infer<typeof DryMathFactsV2Schema>;
 export type NumberBondsV2 = z.infer<typeof NumberBondsV2Schema>;
+export type OperationGridV2 = z.infer<typeof OperationGridV2Schema>;
 export type QuantityFocusV2 = z.infer<typeof QuantityFocusV2Schema>;
 export type CountCompareFocusV2 = z.infer<typeof CountCompareFocusV2Schema>;
 export type WorksheetSelectionV2 = z.infer<typeof WorksheetSelectionV2Schema>;
@@ -304,6 +353,8 @@ export {
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_OPERATIONS,
+  OPERATION_GRID_PLACEMENTS,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,

@@ -10,18 +10,26 @@ import { AppConfigV2Schema, type ChildProfileV2 } from "../../src/shared/config/
 import { projectGenerationRequest } from "../../src/shared/worksheet/project-request.js";
 import { generateDryMath } from "../../src/worksheets/dry-math/generator.js";
 import { generateNumberBonds } from "../../src/worksheets/number-bonds/generator.js";
+import { generateOperationGrid } from "../../src/worksheets/operation-grid/generator.js";
 import {
   acceptanceConfig,
   childrenV1FixtureBytes,
   isIdentityOnlyProfile,
   migratedV1FixtureConfig,
 } from "../fixtures/profiles.js";
-import { judgeRenderedPage, judgeRenderedSentencesPage } from "../oracles/arithmetic-oracle.js";
+import {
+  judgeGridTable,
+  judgeRenderedPage,
+  judgeRenderedSentencesPage,
+  oracleGrid,
+} from "../oracles/arithmetic-oracle.js";
 import { expect, test } from "./fixtures/app-server.js";
+import { readGridTable } from "./fixtures/grid-table.js";
 import {
   chooseChild,
   chooseFactFamilies,
   chooseLength,
+  chooseOperationGrid,
   choosePracticeFocus,
   chooseRegrouping,
   chooseVariant,
@@ -774,6 +782,77 @@ test("compiled Number Bonds missing number sentences page: create, key and print
     })),
   );
   expect(judgeRenderedSentencesPage(rows, keyLines, numberBonds)).toEqual([]);
+
+  // Creating the page wrote nothing, and nothing left the local origin.
+  expect((await appServer.readRaw()).equals(seeded)).toBe(true);
+  await expectPrivateBrowser(page, appServer.origin);
+  expect(consoleMessages).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  for (const url of requests) expect(new URL(url).origin).toBe(appServer.origin);
+});
+
+test("compiled Operation Grid page: create, key and print a ten by ten multiplication grid", async ({ appServer, page, context }) => {
+  const consoleMessages: string[] = [];
+  const pageErrors: string[] = [];
+  const requests: string[] = [];
+  context.on("request", (request) => requests.push(request.url()));
+  page.on("console", (message) => consoleMessages.push(`${message.type()}: ${message.text()}`));
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await appServer.seedConfig(acceptanceConfig);
+  const seeded = await appServer.readRaw();
+  const [child] = acceptanceConfig.profiles;
+  if (child === undefined) throw new Error("Canonical fixture missing.");
+  const operationGrid = {
+    operation: "multiplication",
+    rows: 10,
+    columns: 10,
+    prefilled: 10,
+    placement: "diagonal-first",
+  } as const;
+
+  await page.goto(appServer.origin);
+  await chooseChild(page, child.id);
+  await chooseWorksheet(page, "operation-grid");
+  // The shipped default is a 10 x 10 multiplication grid; the Diagonal preset
+  // gives the reference shape.
+  await expect(controls(page).gridRows()).toHaveValue("10");
+  await expect(controls(page).gridColumns()).toHaveValue("10");
+  await controls(page).gridPresets().getByRole("button", { name: "Diagonal", exact: true }).click();
+  await chooseOperationGrid(page, operationGrid);
+  await controls(page).create().click();
+  const preview = page.getByLabel("Worksheet preview");
+  await expect(preview).toHaveAttribute("data-worksheet-type", "operation-grid");
+  const seed = await preview.getAttribute("data-seed");
+  expect(seed).toMatch(/^(?!00000000)[\da-f]{8}$/u);
+
+  // The compiled page equals the source projection and generator for the same
+  // selection and seed, read only from the rendered table.
+  const projected = projectGenerationRequest({
+    profile: child,
+    selection: { ...worksheetSelectionOf(acceptanceConfig.defaults), worksheetType: "operation-grid", operationGrid },
+    generatorVersion: 1,
+    seed: seed ?? "",
+  });
+  if (!projected.ok) throw new Error(projected.message);
+  const expected = generateOperationGrid(projected.request, { worksheetId: "11111111-1111-4111-8111-111111111111" });
+  if (!expected.ok) throw new Error(expected.message);
+  const worksheet = await readGridTable(preview);
+  const item = expected.document.items[0];
+  expect(worksheet.cells.flat()).toEqual(item?.cells.map(({ given, value }) => (given ? value : null)));
+  expect(judgeGridTable(worksheet, operationGrid, false)).toEqual([]);
+
+  for (const surface of ["worksheet", "answer"] as const) {
+    if (surface === "answer") await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+    const printed = page.locator(`.print-surface[data-surface="${surface}"]`);
+    await page.emulateMedia({ media: "print" });
+    await expect(printed).toBeVisible();
+    const pdf = await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }));
+    expect(pdf.getPageCount()).toBe(1);
+    await page.emulateMedia({ media: "screen" });
+  }
+  const key = await readGridTable(page.locator(".print-surface[data-surface='answer']"));
+  expect(judgeGridTable(key, operationGrid, true)).toEqual([]);
+  expect(key.cells.flat()).toEqual(oracleGrid("multiplication", 10, 10).flat());
 
   // Creating the page wrote nothing, and nothing left the local origin.
   expect((await appServer.readRaw()).equals(seeded)).toBe(true);

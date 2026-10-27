@@ -44,6 +44,13 @@ import {
   numberBondsCapacityVerdict,
 } from "../../worksheets/number-bonds/generator.js";
 import {
+  OPERATION_GRID_DEFINITION,
+  OPERATION_GRID_LIMITING_RESOURCE_ADVICE,
+  describeOperationGrid,
+  operationGridRefusal,
+} from "../../worksheets/operation-grid/definition.js";
+import { generateOperationGrid } from "../../worksheets/operation-grid/generator.js";
+import {
   SENTENCE_BUILDER_DEFINITION,
   SENTENCE_BUILDER_ITEM_COUNT,
   SENTENCE_BUILDER_VARIANT_LABELS,
@@ -161,6 +168,8 @@ export interface WorksheetApplicableControlsV1 {
   readonly regrouping: boolean;
   /** Dry Math's "Fact families" choice beside its multiplication and division focus. */
   readonly factFamilies: boolean;
+  /** Operation Grid's operation, size, pre-filled count and placement. */
+  readonly operationGrid: boolean;
   readonly length: boolean;
   readonly includeAnswerKey: boolean;
   readonly paperSize: boolean;
@@ -415,6 +424,7 @@ export const WORKSHEET_REGISTRY = {
         vocabulary: false,
         regrouping: !dryMathFactsChosen(context),
         factFamilies: dryMathFactsChosen(context),
+        operationGrid: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
@@ -463,6 +473,7 @@ export const WORKSHEET_REGISTRY = {
         vocabulary: false,
         regrouping: false,
         factFamilies: false,
+        operationGrid: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
@@ -546,6 +557,7 @@ export const WORKSHEET_REGISTRY = {
         vocabulary: true,
         regrouping: false,
         factFamilies: false,
+        operationGrid: false,
         length: isBankWritingMode(selection.sentenceBuilder.variant),
         includeAnswerKey: false,
         paperSize: true,
@@ -598,6 +610,7 @@ export const WORKSHEET_REGISTRY = {
         vocabulary: false,
         regrouping: false,
         factFamilies: false,
+        operationGrid: false,
         length: true,
         includeAnswerKey: true,
         paperSize: true,
@@ -639,7 +652,53 @@ export const WORKSHEET_REGISTRY = {
         vocabulary: false,
         regrouping: true,
         factFamilies: false,
+        operationGrid: false,
         length: true,
+        includeAnswerKey: true,
+        paperSize: true,
+        printScale: true,
+      }),
+    },
+  },
+  "operation-grid": {
+    ...OPERATION_GRID_DEFINITION,
+    generate: generateOperationGrid,
+    controls: {
+      // A grid that cannot print is refused before Create with the remedy
+      // naming only the limit that binds. One grid per page has nothing more
+      // to run short of, so an available grid always has the capacity.
+      getCapabilitySupport: ({ selection }) => {
+        const refusal = operationGridRefusal(selection.operationGrid, selection.printScale);
+        return refusal === undefined
+          ? {
+              available: true,
+              capacity: SUFFICIENT_CAPACITY,
+              statusMessage: `Operation Grid: ${describeOperationGrid(selection.operationGrid)}.`,
+            }
+          : { available: false, message: refusal };
+      },
+      // Its size and operation fix the grid; only the pre-filled cells vary.
+      getLimitingResourceAdvice: () => OPERATION_GRID_LIMITING_RESOURCE_ADVICE,
+      getRelevantMaximums: () => NO_MAXIMUMS,
+      getEffectiveUnit: () => ({
+        count: 1,
+        singularLabel: "grid",
+        pluralLabel: "grids",
+      }),
+      // One grid per page has no length, and decoration would take the
+      // table's print area.
+      getApplicableControls: () => ({
+        useDisplayName: true,
+        useInterests: false,
+        includeDecorativeGraphics: false,
+        theme: false,
+        practiceFocus: false,
+        variant: false,
+        vocabulary: false,
+        regrouping: false,
+        factFamilies: false,
+        operationGrid: true,
+        length: false,
         includeAnswerKey: true,
         paperSize: true,
         printScale: true,

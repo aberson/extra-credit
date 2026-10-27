@@ -1,6 +1,8 @@
 import type {
   FACT_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_OPERATIONS,
+  OPERATION_GRID_PLACEMENTS,
   PAPER_SIZES,
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
@@ -17,6 +19,7 @@ export const WORKSHEET_TYPE_IDS = [
   "sentence-builder",
   "count-compare-make",
   "number-bonds",
+  "operation-grid",
 ] as const;
 
 /**
@@ -59,6 +62,29 @@ export const FACT_DIVIDEND_MAXIMUM = FACT_FACTOR_MAXIMUM * FACT_FACTOR_MAXIMUM;
  * each (math-activities plan, DD10). The largest is `V1_NUMERIC_MAXIMUM`.
  */
 export const NUMBER_BONDS_WHOLE_MINIMUM = 2;
+
+/**
+ * The fewest and the most rows or columns an Operation Grid may have. Its
+ * headers run from 1 to that count.
+ */
+export const OPERATION_GRID_SIZE_MINIMUM = 2;
+export const OPERATION_GRID_SIZE_MAXIMUM = 12;
+
+/**
+ * A powers grid's bounds: row headers are bases from 1 to at most
+ * `OPERATION_GRID_POWERS_BASE_MAXIMUM` and column headers are exponents from 1
+ * to at most `OPERATION_GRID_POWERS_EXPONENT_MAXIMUM`, so no cell exceeds
+ * `OPERATION_GRID_POWERS_CELL_MAXIMUM`. These are Operation Grid's own bounds,
+ * not a numeric envelope; a selection beyond them is refused, never narrowed.
+ */
+export const OPERATION_GRID_POWERS_BASE_MAXIMUM = 10;
+export const OPERATION_GRID_POWERS_EXPONENT_MAXIMUM = 3;
+export const OPERATION_GRID_POWERS_CELL_MAXIMUM =
+  OPERATION_GRID_POWERS_BASE_MAXIMUM ** OPERATION_GRID_POWERS_EXPONENT_MAXIMUM;
+
+/** The most pre-filled cells any grid can hold: one fewer than the largest grid. */
+export const OPERATION_GRID_PREFILLED_MAXIMUM =
+  OPERATION_GRID_SIZE_MAXIMUM * OPERATION_GRID_SIZE_MAXIMUM - 1;
 
 export function worksheetMaximum(
   worksheetType: WorksheetType,
@@ -117,6 +143,10 @@ export type FactOperation = (typeof FACT_OPERATIONS)[number];
 export type DryMathOperation = MathOperation | FactOperation;
 /** Number Bonds' carrying and borrowing choice. */
 export type NumberBondsRegrouping = (typeof NUMBER_BONDS_REGROUPING_MODES)[number];
+/** Operation Grid's operation: addition, multiplication or powers. */
+export type OperationGridOperation = (typeof OPERATION_GRID_OPERATIONS)[number];
+/** Where Operation Grid's pre-filled cells go. */
+export type OperationGridPlacement = (typeof OPERATION_GRID_PLACEMENTS)[number];
 export type MathRepresentation = MathSkillsV1["representations"][number];
 // `enums.ts` imports `TOPIC_IDS` from this module as a value, so these three
 // derive from its arrays through `import type` only (D30).
@@ -166,7 +196,8 @@ export interface GenerationOptionsV1 {
  * in canonical order and its fact families in ascending order. Every Number
  * Bonds request carries the Number Bonds kind: missing number sentences, their
  * operations in canonical order, the largest whole and the carrying and
- * borrowing choice.
+ * borrowing choice. Every Operation Grid request carries the Operation Grid
+ * kind: its operation, its size, how many cells are pre-filled and where.
  */
 export type PracticeRequestV1 =
   | {
@@ -184,6 +215,14 @@ export type PracticeRequestV1 =
       readonly operations: readonly MathOperation[];
       readonly wholeMax: number;
       readonly regrouping: NumberBondsRegrouping;
+    }
+  | {
+      readonly kind: "operation-grid";
+      readonly operation: OperationGridOperation;
+      readonly rows: number;
+      readonly columns: number;
+      readonly prefilled: number;
+      readonly placement: OperationGridPlacement;
     };
 
 export interface GenerationRequestV1 {
@@ -205,6 +244,11 @@ export type ObjectiveAnswerV1 =
   | {
       readonly kind: "comparison";
       readonly value: "less" | "equal" | "greater";
+    }
+  | {
+      /** Every cell of an Operation Grid, row by row, completed. */
+      readonly kind: "grid";
+      readonly value: readonly number[];
     };
 
 interface ObjectiveItemBaseV1 {
@@ -440,12 +484,36 @@ export interface NumberBondSentenceItemV1 extends ObjectiveItemBaseV1 {
 
 export type NumberBondItemV1 = NumberBondSentenceItemV1;
 
+/** One cell of an Operation Grid: its exact result, and whether it prints pre-filled. */
+export interface OperationGridCellV1 {
+  readonly value: number;
+  readonly given: boolean;
+}
+
+/**
+ * A whole Operation Grid, the one item of its document. Row headers run down
+ * the side and column headers across the top, each from 1; `cells` holds the
+ * table row by row, `rowHeaders.length × columnHeaders.length` cells, each the
+ * exact result of its row header and column header under `operation` (for
+ * powers, the row header raised to the column header). The answer is every
+ * cell's value in the same order, which the key prints as the completed grid.
+ */
+export interface OperationGridItemV1 extends ObjectiveItemBaseV1 {
+  readonly itemType: "operation-grid";
+  readonly operation: OperationGridOperation;
+  readonly rowHeaders: readonly number[];
+  readonly columnHeaders: readonly number[];
+  readonly cells: readonly OperationGridCellV1[];
+  readonly answer: { readonly kind: "grid"; readonly value: readonly number[] };
+}
+
 export type WorksheetItemV1 =
   | DryMathItemV1
   | WowGroupItemV1
   | SentenceItemV1
   | CountCompareItemV1
-  | NumberBondItemV1;
+  | NumberBondItemV1
+  | OperationGridItemV1;
 
 export interface WorksheetDocumentV1<
   TItem extends WorksheetItemV1 = WorksheetItemV1,

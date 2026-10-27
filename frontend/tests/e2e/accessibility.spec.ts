@@ -372,11 +372,11 @@ test("worksheet-first panel: axe is clean with More options closed and open, bes
 
   await openMoreOptions(page);
   await expectAxeClean(page);
-  for (const family of ["find-the-wow", "sentence-builder", "count-compare-make", "number-bonds"] as const) {
+  for (const family of ["find-the-wow", "sentence-builder", "count-compare-make", "number-bonds", "operation-grid"] as const) {
     await chooseWorksheet(page, family);
     // The decorative Theme shows, with its help text, for the two decorating
     // families while graphics are on, so the scan covers it.
-    if (family === "find-the-wow" || family === "number-bonds") {
+    if (family === "find-the-wow" || family === "number-bonds" || family === "operation-grid") {
       await expect(controls(page).theme()).toHaveCount(0);
     } else {
       await expect(controls(page).graphics()).toBeChecked();
@@ -420,12 +420,12 @@ test("worksheet-first panel: keyboard reaches the cards, variant, child, focus, 
   await expect(page.getByLabel("Worksheet preview").locator('[data-wow-mode="quantity"]')).not.toHaveCount(0);
 });
 
-test("worksheet-first panel: the five cards share a row at 1280 px and stack at 320 px without horizontal scroll", async ({ appServer, page }) => {
+test("worksheet-first panel: the six cards share a row at 1280 px and stack at 320 px without horizontal scroll", async ({ appServer, page }) => {
   await appServer.seedConfig(upgradeNoticeConfig);
   await page.setViewportSize({ width: 1_280, height: 900 });
   await page.goto(appServer.origin);
   const cards = page.locator(".worksheet-type-card");
-  await expect(cards).toHaveCount(5);
+  await expect(cards).toHaveCount(6);
   const wide = await cards.evaluateAll((elements) =>
     elements.map((element) => element.getBoundingClientRect()).map(({ top, left }) => ({ top, left })),
   );
@@ -453,7 +453,7 @@ test("worksheet-first panel: 200% text keeps every label and blocking guidance s
   await openMoreOptions(page);
   // Text-only labels: legends, card titles, the summary and the buttons.
   const labels = [
-    "Worksheet type", "Dry Math", "Math — Two Whats and a Wow", "Sentence Builder", "Count, Compare & Make", "Number Bonds",
+    "Worksheet type", "Dry Math", "Math — Two Whats and a Wow", "Sentence Builder", "Count, Compare & Make", "Number Bonds", "Operation Grid",
     "Writing activity", "Vocabulary", "Create worksheet", "More options", "Length",
     "Personalization", "Print layout", "Save these as worksheet defaults",
   ];
@@ -516,13 +516,13 @@ test("Carrying and borrowing: axe is clean, keyboard reaches the group with visi
   await expectAxeClean(page);
 });
 
-test("Number Bonds: arrow keys move across the five cards, axe is clean, keyboard reaches its groups with visible focus, and they reflow at 320 px", async ({ appServer, page }) => {
+test("Number Bonds: arrow keys move across the cards, axe is clean, keyboard reaches its groups with visible focus, and they reflow at 320 px", async ({ appServer, page }) => {
   await appServer.seedConfig(acceptanceConfig);
   await page.setViewportSize({ width: 1_280, height: 900 });
   await page.goto(appServer.origin);
   const panel = controls(page);
 
-  // The checked card is the group's one tab stop; arrow keys walk all five.
+  // The checked card is the group's one tab stop; arrow keys walk across the cards.
   await tabTo(page, panel.worksheetCard("dry-math"));
   for (const next of ["find-the-wow", "sentence-builder", "count-compare-make", "number-bonds"] as const) {
     await page.keyboard.press("ArrowRight");
@@ -604,5 +604,79 @@ test("Fact families: axe is clean, keyboard reaches every box with visible focus
   const box = await families.boundingBox();
   expect(box).not.toBeNull();
   expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 321).toBe(true);
+  await expectAxeClean(page);
+});
+
+test("Operation Grid: axe is clean on its controls, page and key, keyboard reaches every control with visible focus, and it reflows at 320 px", async ({ appServer, page }) => {
+  test.setTimeout(60_000);
+  await appServer.seedConfig(acceptanceConfig);
+  await page.setViewportSize({ width: 1_280, height: 900 });
+  await page.goto(appServer.origin);
+  const panel = controls(page);
+
+  // The checked card is the group's one tab stop; arrow keys reach the sixth.
+  await tabTo(page, panel.worksheetCard("dry-math"));
+  for (const next of ["find-the-wow", "sentence-builder", "count-compare-make", "number-bonds", "operation-grid"] as const) {
+    await page.keyboard.press("ArrowRight");
+    await expect(panel.worksheetCard(next)).toBeFocused();
+  }
+  await expect(panel.worksheetCard("operation-grid")).toBeChecked();
+  await expect(panel.gridOperation().locator("xpath=ancestor::details")).toHaveCount(0);
+  await expectAxeClean(page);
+
+  // Every grid control is reachable in order, one tab stop each, with
+  // visible focus; arrow keys move a radio choice and typing sets a number.
+  const multiplication = panel.gridOperation().getByRole("radio", { name: "Multiplication x × y", exact: true });
+  await tabTo(page, multiplication);
+  await page.keyboard.press("ArrowDown");
+  await expect(panel.gridOperation().getByRole("radio", { name: "Powers x^y", exact: true })).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(multiplication).toBeChecked();
+  await tabTo(page, panel.gridRows());
+  await tabTo(page, panel.gridColumns());
+  await tabTo(page, panel.gridPlacement().getByRole("radio", { name: "Random", exact: true }));
+  await tabTo(page, panel.gridPrefilled());
+  await page.keyboard.press("Control+A");
+  await page.keyboard.type("25");
+  await expect(panel.gridPrefilled()).toHaveValue("25");
+  for (const preset of ["Nearly blank (10%)", "Half (50%)", "Mostly filled (75%)", "Diagonal"]) {
+    await tabTo(page, panel.gridPresets().getByRole("button", { name: preset, exact: true }));
+  }
+  await page.keyboard.press("Enter");
+  await expect(panel.gridPrefilled()).toHaveValue("10");
+  await expect(panel.gridPlacement().getByRole("radio", { name: "Diagonal first", exact: true })).toBeChecked();
+  await expectAxeClean(page);
+
+  // A refusal is announced beside a disabled Create, and axe stays clean.
+  await panel.gridColumns().fill("9");
+  await expect(page.locator("[data-blocking-message]")).toBeVisible();
+  await expectAxeClean(page);
+  await panel.gridColumns().fill("10");
+
+  // The page and its key are clean too, and the table scrolls inside its own
+  // keyboard-reachable region.
+  await tabTo(page, panel.create());
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Preview and print" })).toBeFocused();
+  const preview = page.getByLabel("Worksheet preview");
+  await expect(preview.getByRole("table")).toBeVisible();
+  await expect(preview.locator("[data-grid-blank]")).toHaveCount(90);
+  await expectAxeClean(page);
+  await page.getByRole("button", { name: "Parent answer key", exact: true }).click();
+  await expect(page.locator(".print-surface[data-surface='answer'] [data-grid-blank]")).toHaveCount(0);
+  await expectAxeClean(page);
+  await page.getByRole("button", { name: "Worksheet", exact: true }).click();
+
+  await page.setViewportSize({ width: 320, height: 900 });
+  await assertNoOverflow(page);
+  for (const control of [panel.gridOperation(), panel.gridRows(), panel.gridPrefilled(), panel.gridPresets()]) {
+    const box = await control.boundingBox();
+    expect(box).not.toBeNull();
+    expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 321).toBe(true);
+  }
+  const region = page.getByLabel("Worksheet preview").locator("[data-operation-grid]");
+  await tabTo(page, region);
+  const scroll = await region.evaluate((element) => ({ client: element.clientWidth, scroll: element.scrollWidth }));
+  expect(scroll.scroll).toBeGreaterThan(scroll.client);
   await expectAxeClean(page);
 });

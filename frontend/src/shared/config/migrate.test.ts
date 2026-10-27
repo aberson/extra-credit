@@ -490,6 +490,13 @@ describe("the built-in version 2 defaults", () => {
       dryMathStrand: "add-subtract",
       dryMathFacts: { operations: ["multiplication"], factFamilies: [2, 5, 10] },
       numberBonds: { operations: ["addition"], wholeMax: 10, regrouping: "without" },
+      operationGrid: {
+        operation: "multiplication",
+        rows: 10,
+        columns: 10,
+        prefilled: 10,
+        placement: "random",
+      },
       findTheWow: {
         variant: "quantity",
         quantity: { countingMax: quantities.countingMax, numeralMax: quantities.numeralMax },

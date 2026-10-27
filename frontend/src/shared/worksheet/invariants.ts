@@ -2,6 +2,8 @@ import {
   FACT_OPERATIONS,
   MATH_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_OPERATIONS,
+  OPERATION_GRID_PLACEMENTS,
 } from "../config/enums.js";
 import { objectiveAnswerMatches } from "./answer-oracle.js";
 import { factKey, isInFactFamily, regroups } from "./arithmetic.js";
@@ -10,6 +12,11 @@ import {
   FACT_FACTOR_MAXIMUM,
   GENERATION_INVARIANT_FAILED,
   NUMBER_BONDS_WHOLE_MINIMUM,
+  OPERATION_GRID_POWERS_BASE_MAXIMUM,
+  OPERATION_GRID_POWERS_CELL_MAXIMUM,
+  OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
+  OPERATION_GRID_SIZE_MINIMUM,
   TOPIC_IDS,
   V1_NUMERIC_MAXIMUM,
   DRY_MATH_NUMERIC_MAXIMUM,
@@ -20,6 +27,7 @@ import {
   type GenerationRequestV1,
   type NumberBondItemV1,
   type ObjectiveAnswerV1,
+  type OperationGridItemV1,
   type PracticeRequestV1,
   type WorksheetDocumentV1,
   type WorksheetItemV1,
@@ -299,6 +307,108 @@ function numberBondKey(item: NumberBondItemV1): string {
   ].join(":");
 }
 
+type OperationGridPractice = Extract<PracticeRequestV1, { readonly kind: "operation-grid" }>;
+
+/** Whether a size is an integer Operation Grid row or column count. */
+function isGridSize(value: number): boolean {
+  return (
+    Number.isInteger(value) &&
+    value >= OPERATION_GRID_SIZE_MINIMUM &&
+    value <= OPERATION_GRID_SIZE_MAXIMUM
+  );
+}
+
+/**
+ * The Operation Grid member a request carries, or `undefined` when it carries
+ * none Operation Grid can print: a known operation and placement, rows and
+ * columns from `OPERATION_GRID_SIZE_MINIMUM` to `OPERATION_GRID_SIZE_MAXIMUM`,
+ * a powers grid within its base and exponent bounds, a pre-filled count that
+ * leaves at least one blank cell, and Diagonal first only on a square
+ * addition or multiplication grid.
+ */
+function operationGridPracticeOf(request: GenerationRequestV1): OperationGridPractice | undefined {
+  const practice = request.practice;
+  if (practice?.kind !== "operation-grid") {
+    return undefined;
+  }
+  const { columns, operation, placement, prefilled, rows } = practice;
+  const wellFormed =
+    (OPERATION_GRID_OPERATIONS as readonly string[]).includes(operation) &&
+    (OPERATION_GRID_PLACEMENTS as readonly string[]).includes(placement) &&
+    isGridSize(rows) &&
+    isGridSize(columns) &&
+    (operation !== "powers" ||
+      (rows <= OPERATION_GRID_POWERS_BASE_MAXIMUM &&
+        columns <= OPERATION_GRID_POWERS_EXPONENT_MAXIMUM)) &&
+    Number.isInteger(prefilled) &&
+    prefilled >= 0 &&
+    prefilled <= rows * columns - 1 &&
+    (placement !== "diagonal-first" || (operation !== "powers" && rows === columns));
+  return wellFormed ? practice : undefined;
+}
+
+/** Headers that run 1, 2, ... up to `count`, and nothing else. */
+function headersRunFromOne(headers: readonly number[], count: number): boolean {
+  return headers.length === count && headers.every((header, index) => header === index + 1);
+}
+
+/**
+ * Whether one Operation Grid cell value is within its operation's ceiling: a
+ * powers cell may not exceed `OPERATION_GRID_POWERS_CELL_MAXIMUM`; addition and
+ * multiplication cells have no ceiling of their own. Within a document whose
+ * request passed `operationGridPracticeOf` and whose cells recompute exactly,
+ * this always holds; it is checked as a second line behind those bounds.
+ */
+export function operationGridCellWithinCeiling(
+  operation: OperationGridItemV1["operation"],
+  value: number,
+): boolean {
+  return operation !== "powers" || value <= OPERATION_GRID_POWERS_CELL_MAXIMUM;
+}
+
+/**
+ * The one Operation Grid item: the request's operation, headers from 1 to its
+ * rows and columns, one cell per row and column holding the exact result its
+ * headers imply and within its ceiling, an answer that is exactly those cells
+ * in order, exactly `prefilled` given cells, and under Diagonal first every
+ * diagonal cell given before any other cell is. At least one blank cell is
+ * owned by the request guard, which accepts no `prefilled` above the cell
+ * count less one.
+ */
+function operationGridItemHolds(
+  item: OperationGridItemV1,
+  practice: OperationGridPractice,
+): boolean {
+  const { columns, rows } = practice;
+  const answer = item.answer;
+  if (
+    item.operation !== practice.operation ||
+    !headersRunFromOne(item.rowHeaders, rows) ||
+    !headersRunFromOne(item.columnHeaders, columns) ||
+    item.cells.length !== rows * columns ||
+    answer.kind !== "grid" ||
+    answer.value.length !== item.cells.length ||
+    objectiveAnswerMatches(item) !== true
+  ) {
+    return false;
+  }
+  const cellsHold = item.cells.every(
+    (cell, index) =>
+      Number.isSafeInteger(cell.value) &&
+      cell.value === answer.value[index] &&
+      typeof cell.given === "boolean" &&
+      operationGridCellWithinCeiling(item.operation, cell.value),
+  );
+  const isDiagonal = (index: number) => Math.floor(index / columns) === index % columns;
+  const given = item.cells.filter((cell) => cell.given).length;
+  const diagonalGiven = item.cells.filter((cell, index) => cell.given && isDiagonal(index)).length;
+  const diagonalHolds =
+    practice.placement !== "diagonal-first" ||
+    given === diagonalGiven ||
+    diagonalGiven === Math.min(rows, columns);
+  return cellsHold && given === practice.prefilled && diagonalHolds;
+}
+
 export function validateWorksheetInvariants(
   document: WorksheetDocumentV1,
 ): GenerationFailure | undefined {
@@ -316,7 +426,7 @@ export function validateWorksheetInvariants(
     };
   }
 
-  // A decorative topic is refused on the three families that print no
+  // A decorative topic is refused on the four families that print no
   // decoration, and anywhere as a value outside the declared topic IDs.
   const { options } = document.request;
   if (
@@ -324,6 +434,7 @@ export function validateWorksheetInvariants(
     (document.worksheetType === "dry-math" ||
       document.worksheetType === "find-the-wow" ||
       document.worksheetType === "number-bonds" ||
+      document.worksheetType === "operation-grid" ||
       !(TOPIC_IDS as readonly unknown[]).includes(options.decorativeTopicId))
   ) {
     return {
@@ -334,17 +445,25 @@ export function validateWorksheetInvariants(
   }
 
   // Dry Math reads a `practice` member only of the kinds it accepts, and
-  // Number Bonds needs its own; a family that would ignore the member refuses
-  // it instead.
+  // Number Bonds and Operation Grid each need their own; a family that would
+  // ignore the member refuses it instead.
   const numberBondsPractice =
     document.worksheetType === "number-bonds" ? numberBondsPracticeOf(document.request) : undefined;
+  const operationGridPractice =
+    document.worksheetType === "operation-grid"
+      ? operationGridPracticeOf(document.request)
+      : undefined;
   const dryMathBranch =
-    document.worksheetType === "number-bonds" ? undefined : dryMathBranchOf(document.request);
+    document.worksheetType === "number-bonds" || document.worksheetType === "operation-grid"
+      ? undefined
+      : dryMathBranchOf(document.request);
   if (
     document.worksheetType === "number-bonds"
       ? numberBondsPractice === undefined
-      : dryMathBranch === undefined ||
-        ("practice" in document.request && document.worksheetType !== "dry-math")
+      : document.worksheetType === "operation-grid"
+        ? operationGridPractice === undefined
+        : dryMathBranch === undefined ||
+          ("practice" in document.request && document.worksheetType !== "dry-math")
   ) {
     return {
       ok: false,
@@ -409,6 +528,18 @@ export function validateWorksheetInvariants(
       }
       numberBonds.add(key);
     }
+    if (
+      item.itemType === "operation-grid" &&
+      (operationGridPractice === undefined ||
+        !operationGridItemHolds(item, operationGridPractice))
+    ) {
+      return {
+        ok: false,
+        code: GENERATION_INVARIANT_FAILED,
+        message:
+          "An Operation Grid violated its operation, header, cell value, cell ceiling, answer, pre-filled count, or diagonal invariants.",
+      };
+    }
     if (item.itemType === "dry-math") {
       const key = factKey(item.operation, item.leftOperand, item.rightOperand);
       // A Dry Math item in a Number Bonds document has no branch to pass.
@@ -468,6 +599,24 @@ export function validateWorksheetInvariants(
       ok: false,
       code: GENERATION_INVARIANT_FAILED,
       message: "Number Bonds included unsupported interest or decorative data.",
+    };
+  }
+  // Operation Grid prints exactly one grid and numbers alone: no interests,
+  // no decoration, and none of the dormant math permissions.
+  if (
+    document.worksheetType === "operation-grid" &&
+    (document.items.length !== 1 ||
+      document.items.some((item) => item.itemType !== "operation-grid") ||
+      "topicIds" in document.request ||
+      document.request.options.includeDecorativeGraphics ||
+      document.request.capabilities.mathSkills.allowRegrouping ||
+      document.request.capabilities.mathSkills.allowNegativeResults)
+  ) {
+    return {
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message:
+        "Operation Grid held other than one grid, or included unsupported interest or decorative data.",
     };
   }
   return undefined;

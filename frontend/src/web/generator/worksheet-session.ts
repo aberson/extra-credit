@@ -23,10 +23,11 @@ import {
   type EarlierSettingDisclosure,
   type EarlierSettingsGroup,
 } from "../../shared/config/earlier-settings";
-import type {
-  ChildProfileV2,
-  WorksheetDefaultsV2,
-  WorksheetSelectionV2,
+import {
+  OperationGridV2Schema,
+  type ChildProfileV2,
+  type WorksheetDefaultsV2,
+  type WorksheetSelectionV2,
 } from "../../shared/config/schema";
 
 /**
@@ -41,6 +42,7 @@ export const WORKSHEET_GROUP_KEYS = [
   "dryMathStrand",
   "dryMathFacts",
   "numberBonds",
+  "operationGrid",
   "findTheWow.variant",
   "findTheWow.quantity",
   "findTheWow.equation",
@@ -288,12 +290,14 @@ export function worksheetSessionReducer(
           })
         : state;
     case "changed":
-      // The facts always keep at least one operation and one family, and
-      // Number Bonds at least one operation.
+      // The facts always keep at least one operation and one family,
+      // Number Bonds at least one operation, and Operation Grid only values
+      // its saved shape can hold.
       if (
         (action.group === "dryMathFacts" &&
           (action.value.operations.length === 0 || action.value.factFamilies.length === 0)) ||
-        (action.group === "numberBonds" && action.value.operations.length === 0)
+        (action.group === "numberBonds" && action.value.operations.length === 0) ||
+        (action.group === "operationGrid" && !OperationGridV2Schema.safeParse(action.value).success)
       ) {
         return state;
       }

@@ -34,9 +34,9 @@ describe("CI and package-script contract", () => {
       env: { ...process.env, EXTRA_CREDIT_E2E_BASE_URL: "http://127.0.0.1:1" },
     });
     const listed = stdout.split("\n").filter((line) => /print\.spec\.ts:\d+:\d+/u.test(line));
-    // 87 worksheet rows, four order-bound sweeps, earliest-print probe,
+    // 91 worksheet rows, four order-bound sweeps, earliest-print probe,
     // and 13 manual lifecycle cases.
-    expect(listed).toHaveLength(105);
+    expect(listed).toHaveLength(109);
     expect(listed.filter((line) => line.includes("count ordering and frame bounds"))).toHaveLength(4);
     for (const paper of ["letter", "a4"]) {
       for (const scale of ["standard", "large"]) {
@@ -45,10 +45,23 @@ describe("CI and package-script contract", () => {
             line.includes(`-${paper}-${scale}-decoration-${decoration}`),
           );
           // The Letter/standard cell also prints the carrying and borrowing
-          // row, the multiplication and division facts row and the Number
-          // Bonds missing number sentences row.
+          // row, the multiplication and division facts row, the Number Bonds
+          // missing number sentences row, the 10 x 10 multiplication grid and
+          // the 12 x 12 addition grid; A4/standard prints the 12 x 12 addition
+          // grid and Letter/large the powers grid.
+          const gridCells: Readonly<Record<string, number>> = {
+            "letter-standard": 2,
+            "a4-standard": 1,
+            "letter-large": 1,
+          };
+          const gridRows = gridCells[`${paper}-${scale}`] ?? 0;
           expect(rows).toHaveLength(
-            decoration === "true" ? 9 : paper === "letter" && scale === "standard" ? 15 : 12,
+            decoration === "true"
+              ? 9
+              : (paper === "letter" && scale === "standard" ? 15 : 12) + gridRows,
+          );
+          expect(rows.filter((line) => line.includes("grid-"))).toHaveLength(
+            decoration === "true" ? 0 : gridRows,
           );
           if (decoration === "true") {
             expect(rows.every((line) => /(?:sentence-|count-all-four-subtypes-)/u.test(line)))

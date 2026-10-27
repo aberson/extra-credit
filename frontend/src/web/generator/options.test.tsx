@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest";
 
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import {
   createElement,
   useEffect,
@@ -365,6 +365,7 @@ function emptyFamilyTally(): Record<RegisteredWorksheetType, number> {
     "sentence-builder": 0,
     "count-compare-make": 0,
     "number-bonds": 0,
+    "operation-grid": 0,
   };
 }
 
@@ -1227,6 +1228,8 @@ describe("family-aware limiting-resource copy (issue #16)", () => {
         "Sentence Builder varies within the reviewed vocabulary for Picture Labels, which no practice focus can widen. Choose a different Writing activity, or create a new worksheet later.",
       "number-bonds":
         "Number Bonds varies within the range of this practice focus. Choose a practice focus with a wider range, or create a new worksheet later.",
+      "operation-grid":
+        "Operation Grid varies only in which cells are pre-filled. Choose Random placement or a different number of pre-filled cells, or create a new worksheet later.",
     };
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
       expect(
@@ -1710,11 +1713,16 @@ describe("age-free generator introduction and child choice", () => {
       expect(`${worksheetType}: ${text}`).not.toMatch(
         /difficulty|stretch|confidence/iu,
       );
-      // The stored length still reaches the panel without a Difficulty step.
-      expect(
-        screen.getByRole("combobox", { name: "Length" }),
-        worksheetType,
-      ).toHaveValue("long");
+      // The stored length still reaches the panel without a Difficulty step;
+      // Operation Grid, one grid per page, shows no length at all.
+      if (worksheetType === "operation-grid") {
+        expect(screen.queryByRole("combobox", { name: "Length" }), worksheetType).toBeNull();
+      } else {
+        expect(
+          screen.getByRole("combobox", { name: "Length" }),
+          worksheetType,
+        ).toHaveValue("long");
+      }
       cleanup();
     }
   });
@@ -2033,7 +2041,125 @@ describe("worksheet-first panel", () => {
     expect(screen.getByRole("button", { name: "Create worksheet" })).toBeEnabled();
   });
 
-  test("the five worksheet types are radio cards with a one-line description", () => {
+  test("Operation Grid is the sixth card, with its operation, size, placement and pre-filled controls, each choice one action", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
+    chooseWorksheet("operation-grid");
+    expect(onChange.mock.calls).toEqual([
+      [{ type: "changed", group: "worksheetType", value: "operation-grid" }],
+    ]);
+    const card = worksheetCard("operation-grid");
+    expect(document.getElementById(card.getAttribute("aria-describedby") ?? "")?.textContent).toBe(
+      "Fill in a table from its row and column numbers, with a few cells given.",
+    );
+
+    const operation = screen.getByRole("group", { name: "Operation" });
+    expect(
+      within(operation).getAllByRole("radio").map((radio) => radio.closest("label")?.textContent?.trim()),
+    ).toEqual(["Addition x + y", "Multiplication x × y", "Powers x^y"]);
+    expect(within(operation).getByRole("radio", { name: "Multiplication x × y" })).toBeChecked();
+    const rows = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "Rows" });
+    const columns = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "Columns" });
+    const prefilled = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "Pre-filled cells" });
+    expect([rows().value, columns().value, prefilled().value]).toEqual(["10", "10", "10"]);
+    expect([rows().min, rows().max, prefilled().min, prefilled().max]).toEqual(["2", "12", "0", "143"]);
+    const placement = screen.getByRole("group", { name: "Placement" });
+    expect(within(placement).getByRole("radio", { name: "Random" })).toBeChecked();
+    const presets = screen.getByRole("group", { name: "Pre-filled cells presets" });
+    expect(within(presets).getAllByRole("button").map((button) => button.textContent)).toEqual([
+      "Nearly blank (10%)",
+      "Half (50%)",
+      "Mostly filled (75%)",
+      "Diagonal",
+    ]);
+    expectDocumentOrder([
+      panelControl("worksheet-type"),
+      operation,
+      rows(),
+      columns(),
+      placement,
+      prefilled(),
+      presets,
+      screen.getByRole("combobox", { name: "Child profile" }),
+      document.querySelector("[data-selection-summary]"),
+      screen.getByRole("button", { name: "Create worksheet" }),
+    ]);
+    expect(operation.closest("details")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Practice focus" })).toBeNull();
+    const summary = (): string => document.querySelector("[data-selection-summary]")?.textContent ?? "";
+    expect(summary()).toContain(
+      "Operation Grid: Multiplication x × y, 10 rows by 10 columns, 10 cells pre-filled, Random.",
+    );
+    expect(summary()).toContain("This selection creates 1 unique grid on one practice page.");
+
+    // Nickname, answer key, paper and scale apply; length, interests,
+    // decoration and Theme do not.
+    openMoreOptions();
+    expect(screen.getByLabelText("Put the nickname in the worksheet header")).toBeInTheDocument();
+    expect(screen.getByLabelText("Include a parent answer key")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Paper size" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Print scale" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Length" })).toBeNull();
+    expect(screen.queryByLabelText("Use reviewed interests in worksheet content")).toBeNull();
+    expect(screen.queryByLabelText("Include decorative graphics")).toBeNull();
+    expect(screen.queryByRole("combobox", { name: "Theme" })).toBeNull();
+
+    // A density preset writes only the count; Diagonal also chooses Diagonal first.
+    const grid = (changes: Partial<WorksheetSelectionV2["operationGrid"]>) => ({
+      type: "changed",
+      group: "operationGrid",
+      value: { operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random", ...changes },
+    });
+    onChange.mockClear();
+    fireEvent.click(within(presets).getByRole("button", { name: "Half (50%)" }));
+    expect(onChange.mock.calls).toEqual([[grid({ prefilled: 50 })]]);
+    expect(prefilled().value).toBe("50");
+    onChange.mockClear();
+    fireEvent.click(within(presets).getByRole("button", { name: "Mostly filled (75%)" }));
+    expect(onChange.mock.calls).toEqual([[grid({ prefilled: 75 })]]);
+    onChange.mockClear();
+    fireEvent.click(within(presets).getByRole("button", { name: "Diagonal" }));
+    expect(onChange.mock.calls).toEqual([[grid({ prefilled: 10, placement: "diagonal-first" })]]);
+    expect(within(placement).getByRole("radio", { name: "Diagonal first" })).toBeChecked();
+    expect(prefilled().value).toBe("10");
+
+    // A typed size outside 2..12 changes nothing, and leaving the field shows
+    // the kept value; a size inside it is one action.
+    onChange.mockClear();
+    fireEvent.change(rows(), { target: { value: "1" } });
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.blur(rows());
+    expect(rows().value).toBe("10");
+    fireEvent.change(rows(), { target: { value: "12" } });
+    expect(onChange.mock.calls).toEqual([[grid({ rows: 12, placement: "diagonal-first" })]]);
+    // Diagonal first on a 12 x 10 grid is refused with its one remedy.
+    const blocking = (): string => document.querySelector("[data-blocking-message]")?.textContent ?? "";
+    expect(blocking()).toBe(
+      "Diagonal first needs a square grid. Choose the same number of rows and columns, or Random placement.",
+    );
+    expect(screen.getByRole("button", { name: "Create worksheet" })).toBeDisabled();
+    onChange.mockClear();
+    fireEvent.click(within(placement).getByRole("radio", { name: "Random" }));
+    fireEvent.click(within(presets).getByRole("button", { name: "Nearly blank (10%)" }));
+    expect(onChange.mock.calls).toEqual([
+      [grid({ rows: 12 })],
+      [grid({ rows: 12, prefilled: 12 })],
+    ]);
+    expect(document.querySelector("[data-blocking-message]")).toBeNull();
+
+    // Powers with 4 columns names only the exponent limit.
+    fireEvent.click(within(operation).getByRole("radio", { name: "Powers x^y" }));
+    fireEvent.change(rows(), { target: { value: "10" } });
+    fireEvent.change(columns(), { target: { value: "4" } });
+    expect(blocking()).toBe(
+      "Powers use exponents from 1 to 3, so a powers grid has at most 3 columns. Choose 3 or fewer columns.",
+    );
+    fireEvent.change(columns(), { target: { value: "3" } });
+    expect(document.querySelector("[data-blocking-message]")).toBeNull();
+    expect(screen.getByRole("button", { name: "Create worksheet" })).toBeEnabled();
+  });
+
+  test("the six worksheet types are radio cards with a one-line description", () => {
     renderPanel({ defaults: storedDefaults(), profiles: [nicknamed] });
     const cards = screen.getAllByRole("radio").filter(
       (radio) => radio.getAttribute("name") === "worksheet-type",

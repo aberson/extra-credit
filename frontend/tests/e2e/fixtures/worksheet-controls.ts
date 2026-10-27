@@ -28,6 +28,16 @@ import {
 } from "../../../src/worksheets/dry-math/definition.ts";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../../src/worksheets/find-the-wow/definition.ts";
 import { NUMBER_BONDS_REGROUPING_LABELS } from "../../../src/worksheets/number-bonds/definition.ts";
+import {
+  OPERATION_GRID_COLUMNS_LABEL,
+  OPERATION_GRID_OPERATION_LABELS,
+  OPERATION_GRID_OPERATION_LEGEND,
+  OPERATION_GRID_PLACEMENT_LABELS,
+  OPERATION_GRID_PLACEMENT_LEGEND,
+  OPERATION_GRID_PREFILLED_LABEL,
+  OPERATION_GRID_PRESETS_LABEL,
+  OPERATION_GRID_ROWS_LABEL,
+} from "../../../src/worksheets/operation-grid/definition.ts";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../../src/worksheets/sentence-builder/definition.ts";
 
 /**
@@ -60,6 +70,16 @@ export interface WorksheetControls {
   readonly factFamilies: () => Locator;
   /** The "Vocabulary" radio group (Sentence Builder). */
   readonly vocabulary: () => Locator;
+  /** Operation Grid's "Operation" radio group. */
+  readonly gridOperation: () => Locator;
+  /** Operation Grid's "Rows" and "Columns" number inputs. */
+  readonly gridRows: () => Locator;
+  readonly gridColumns: () => Locator;
+  /** Operation Grid's "Placement" radio group. */
+  readonly gridPlacement: () => Locator;
+  /** Operation Grid's "Pre-filled cells" number input and its presets. */
+  readonly gridPrefilled: () => Locator;
+  readonly gridPresets: () => Locator;
   readonly moreOptions: () => Locator;
   readonly length: () => Locator;
   readonly paperSize: () => Locator;
@@ -87,6 +107,16 @@ export function controls(page: Page): WorksheetControls {
     regrouping: () => page.getByRole("group", { name: "Carrying and borrowing", exact: true }),
     factFamilies: () => page.getByRole("group", { name: FACT_FAMILIES_LEGEND, exact: true }),
     vocabulary: () => page.getByRole("group", { name: "Vocabulary", exact: true }),
+    gridOperation: () =>
+      page.getByRole("group", { name: OPERATION_GRID_OPERATION_LEGEND, exact: true }),
+    gridRows: () => page.getByRole("spinbutton", { name: OPERATION_GRID_ROWS_LABEL, exact: true }),
+    gridColumns: () =>
+      page.getByRole("spinbutton", { name: OPERATION_GRID_COLUMNS_LABEL, exact: true }),
+    gridPlacement: () =>
+      page.getByRole("group", { name: OPERATION_GRID_PLACEMENT_LEGEND, exact: true }),
+    gridPrefilled: () =>
+      page.getByRole("spinbutton", { name: OPERATION_GRID_PREFILLED_LABEL, exact: true }),
+    gridPresets: () => page.getByRole("group", { name: OPERATION_GRID_PRESETS_LABEL, exact: true }),
     moreOptions: () => page.locator("summary").filter({ hasText: /^More options$/u }),
     length: () => page.getByRole("combobox", { name: "Length", exact: true }),
     paperSize: () => page.getByRole("combobox", { name: "Paper size" }),
@@ -203,6 +233,36 @@ export async function chooseFactFamilies(page: Page, families: readonly number[]
   }
 }
 
+/**
+ * Makes every Operation Grid choice: the operation and the size, then the
+ * placement and the pre-filled count, each through its own control, and
+ * asserts each visible result.
+ */
+export async function chooseOperationGrid(
+  page: Page,
+  grid: WorksheetSelectionV2["operationGrid"],
+): Promise<void> {
+  const named = controls(page);
+  const operation = named.gridOperation().getByRole("radio", {
+    name: OPERATION_GRID_OPERATION_LABELS[grid.operation],
+    exact: true,
+  });
+  await operation.check();
+  await expect(operation).toBeChecked();
+  await named.gridRows().fill(String(grid.rows));
+  await expect(named.gridRows()).toHaveValue(String(grid.rows));
+  await named.gridColumns().fill(String(grid.columns));
+  await expect(named.gridColumns()).toHaveValue(String(grid.columns));
+  const placement = named.gridPlacement().getByRole("radio", {
+    name: OPERATION_GRID_PLACEMENT_LABELS[grid.placement],
+    exact: true,
+  });
+  await placement.check();
+  await expect(placement).toBeChecked();
+  await named.gridPrefilled().fill(String(grid.prefilled));
+  await expect(named.gridPrefilled()).toHaveValue(String(grid.prefilled));
+}
+
 export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabulary): Promise<void> {
   const radio = controls(page).vocabulary().getByRole("radio", {
     name: SENTENCE_VOCABULARY_LABELS[vocabulary],
@@ -218,7 +278,8 @@ export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabular
  * its `describePracticeFocus` label, a Dry Math fact entry's label, or a
  * Number Bonds sentence entry's label) and, for Dry Math, Carrying and
  * borrowing or the fact families, for Number Bonds its own Carrying and
- * borrowing, or, for Sentence Builder, the vocabulary.
+ * borrowing, for Sentence Builder the vocabulary, or, for Operation Grid,
+ * every grid choice (`chooseOperationGrid`).
  * The selection's other fields are left to the functions below.
  */
 export async function chooseWorksheetChoices(
@@ -260,6 +321,9 @@ export async function chooseWorksheetChoices(
     case "number-bonds":
       await choosePracticeFocus(page, describeNumberBondsFocus(selection.numberBonds));
       await chooseNumberBondsRegrouping(page, selection.numberBonds.regrouping);
+      return;
+    case "operation-grid":
+      await chooseOperationGrid(page, selection.operationGrid);
       return;
   }
 }

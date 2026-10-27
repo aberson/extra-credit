@@ -7,6 +7,8 @@ import {
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_OPERATIONS,
+  OPERATION_GRID_PLACEMENTS,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
@@ -27,6 +29,9 @@ import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
+  OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
+  OPERATION_GRID_SIZE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../shared/worksheet/types.js";
@@ -245,6 +250,28 @@ const numberBondsSchema = strictObjectSchema({
   regrouping: { enum: NUMBER_BONDS_REGROUPING_MODES },
 });
 
+const operationGridSizeSchema = {
+  type: "integer",
+  minimum: OPERATION_GRID_SIZE_MINIMUM,
+  maximum: OPERATION_GRID_SIZE_MAXIMUM,
+} as const;
+
+/**
+ * Operation Grid's choices. Every field carries a Zod default, so every field
+ * stays out of `required`; whether a valid choice can print is the family's
+ * refusal, not a transport rule.
+ */
+const operationGridSchema = strictObjectSchema(
+  {
+    operation: { enum: OPERATION_GRID_OPERATIONS },
+    rows: operationGridSizeSchema,
+    columns: operationGridSizeSchema,
+    prefilled: { type: "integer", minimum: 0, maximum: OPERATION_GRID_PREFILLED_MAXIMUM },
+    placement: { enum: OPERATION_GRID_PLACEMENTS },
+  },
+  ["operation", "rows", "columns", "prefilled", "placement"],
+);
+
 const worksheetDefaultsProperties = {
   worksheetType: { enum: WORKSHEET_TYPE_IDS },
   dryMath: arithmeticFocusSchema(DRY_MATH_NUMERIC_MAXIMUM),
@@ -252,6 +279,7 @@ const worksheetDefaultsProperties = {
   dryMathStrand: { enum: DRY_MATH_STRANDS },
   dryMathFacts: dryMathFactsSchema,
   numberBonds: numberBondsSchema,
+  operationGrid: operationGridSchema,
   findTheWow: strictObjectSchema({
     variant: { enum: FIND_THE_WOW_VARIANTS },
     quantity: strictObjectSchema({
@@ -349,6 +377,7 @@ export const APP_CONFIG_TRANSPORT_SCHEMA = {
       "dryMathStrand",
       "dryMathFacts",
       "numberBonds",
+      "operationGrid",
     ]),
   }),
 } as const;

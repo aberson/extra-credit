@@ -90,7 +90,7 @@ HEAD `268183162e3fe9a4778bc8d8fc07544872ff7331`. Initial untracked operator scre
 - **Depends on:** Step 26
 
 ### Step 34: Operation Grid (fill-in table) as the sixth family
-- **Status:** PENDING
+- **Status:** DONE (2026-10-26)
 
 - **Problem:** Implement master Step 34; touch further files when a gate requires it and record them in the checkpoint. Add a sixth worksheet family, `operation-grid` (display name "Operation Grid"), modeled on the operator's reference screenshot `C:/Users/abero/extra-credit-private/examples/Screenshot 2026-10-04 140609.png` (kept outside the checkout so the release audit never exports it): one table per page with an operator corner cell, column headers across the top, row headers down the side, a few cells pre-filled as anchors and every other cell an empty box the child completes. The parent chooses the operation (addition `x + y`, multiplication `x × y`, powers `x^y`), the grid size (rows and columns each 2..12, default 10 × 10), and how many cells are pre-filled through a number input with presets; an answer key prints the completed grid. Choices are App session state persisted only by the explicit worksheet-defaults save, as an additive schemaVersion 2 `operationGrid` group whose every field has a Zod default, so a v2 file lacking it parses unchanged, reading never writes, and there is no migration, backup, notice or version bump.
 - **Type:** code
@@ -358,7 +358,7 @@ Inline contract summary (verified in shared/config/schema.ts, shared/worksheet/t
 | AppConfigV2 | schemaVersion:2, profiles:ChildProfileV2[], defaults:WorksheetDefaultsV2 (selection and useEarlierChildSettings). Strict unknown-key refusal. |
 | ConfigResponseV2 | config:AppConfigV2 and storedSchemaVersion:1 or2, so reading v1 does not write it. |
 
-Profile id and worksheetId are UUIDv4 strings generated with browser crypto.randomUUID by ProfileEditor and create-session respectively; packet rows retain existing IDs rather than minting replacements. Worksheet family slug is one of dry-math, find-the-wow, sentence-builder, count-compare-make, number-bonds (and operation-grid once Step 34 ships). Item identity and problem deduplication remain family-specific typed/oracle contracts.
+Profile id and worksheetId are UUIDv4 strings generated with browser crypto.randomUUID by ProfileEditor and create-session respectively; packet rows retain existing IDs rather than minting replacements. Worksheet family slug is one of dry-math, find-the-wow, sentence-builder, count-compare-make, number-bonds, operation-grid. Item identity and problem deduplication remain family-specific typed/oracle contracts.
 
 No packet API is introduced. Existing GET /api/config returns ConfigResponseV2 and ETag; PUT /api/config accepts validated AppConfigV2 under the session/precondition guards and returns ConfigResponseV2 with new ETag. Config conflict/error codes stay in server/routes/config.ts; no packet action calls PUT. Recovery and session-bootstrap routes remain unchanged; the existing README describes them and the private-file recovery boundary.
 

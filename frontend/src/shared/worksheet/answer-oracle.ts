@@ -2,6 +2,7 @@ import type {
   DryMathItemV1,
   NumberBondItemV1,
   ObjectiveAnswerV1,
+  OperationGridItemV1,
   WorksheetItemV1,
 } from "./types.js";
 
@@ -77,9 +78,47 @@ function numberBondAnswer(item: NumberBondItemV1): ObjectiveAnswerV1 | undefined
   }
 }
 
+/**
+ * An Operation Grid's completed cells, recomputed from its headers alone: row
+ * by row, each row header combined with each column header by the grid's
+ * operation (for powers, the row header raised to the column header). A grid
+ * whose operation is unknown, or whose headers are not positive integers, has
+ * none.
+ */
+function operationGridAnswer(item: OperationGridItemV1): ObjectiveAnswerV1 | undefined {
+  const headers = [...item.rowHeaders, ...item.columnHeaders];
+  if (!headers.every((header) => Number.isSafeInteger(header) && header >= 1)) {
+    return undefined;
+  }
+  const combine = (row: number, column: number): number | undefined => {
+    switch (item.operation) {
+      case "addition":
+        return row + column;
+      case "multiplication":
+        return row * column;
+      case "powers":
+        return row ** column;
+      default:
+        return undefined;
+    }
+  };
+  const value: number[] = [];
+  for (const row of item.rowHeaders) {
+    for (const column of item.columnHeaders) {
+      const cell = combine(row, column);
+      if (cell === undefined) {
+        return undefined;
+      }
+      value.push(cell);
+    }
+  }
+  return { kind: "grid", value };
+}
+
 const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
   "dry-math": dryMathAnswer,
   "number-bond": numberBondAnswer,
+  "operation-grid": operationGridAnswer,
   "wow-group": FAMILY_VALIDATED,
   "count-compare": FAMILY_VALIDATED,
 } as const satisfies {
@@ -91,8 +130,9 @@ const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
 /**
  * The answer an objective item's own fields imply, `FAMILY_VALIDATED` when its
  * family's validator owns that answer, or `undefined` when its fields imply no
- * answer at all (a division with a remainder or by zero, or a Number Bonds
- * sentence with no one missing number).
+ * answer at all (a division with a remainder or by zero, a Number Bonds
+ * sentence with no one missing number, or an Operation Grid with an unknown
+ * operation or a header that is not a positive integer).
  */
 export function recomputeObjectiveAnswer(
   item: ObjectiveItemV1,
@@ -102,6 +142,8 @@ export function recomputeObjectiveAnswer(
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["dry-math"](item);
     case "number-bond":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["number-bond"](item);
+    case "operation-grid":
+      return OBJECTIVE_ANSWER_RECOMPUTATIONS["operation-grid"](item);
     case "wow-group":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["wow-group"];
     case "count-compare":
@@ -121,9 +163,20 @@ export function objectiveAnswerMatches(
   if (expected === FAMILY_VALIDATED) {
     return FAMILY_VALIDATED;
   }
-  return (
-    expected !== undefined &&
-    expected.kind === item.answer.kind &&
-    expected.value === item.answer.value
-  );
+  if (expected === undefined) {
+    return false;
+  }
+  const actual: ObjectiveAnswerV1 = item.answer;
+  if (expected.kind === "grid" || actual.kind === "grid") {
+    // A grid matches only cell for cell, in the same row-by-row order.
+    if (expected.kind !== "grid" || actual.kind !== "grid") {
+      return false;
+    }
+    const cells = actual.value;
+    return (
+      expected.value.length === cells.length &&
+      expected.value.every((value, index) => cells[index] === value)
+    );
+  }
+  return expected.kind === actual.kind && expected.value === actual.value;
 }

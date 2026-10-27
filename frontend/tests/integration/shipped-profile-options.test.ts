@@ -30,9 +30,17 @@ import {
 import {
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
+  OPERATION_GRID_POWERS_BASE_MAXIMUM,
+  OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
+  OPERATION_GRID_SIZE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
   type WorksheetType,
 } from "../../src/shared/worksheet/types.js";
+import {
+  OPERATION_GRID_PREFILL_PRESETS,
+  operationGridPresetCount,
+} from "../../src/worksheets/operation-grid/definition.js";
 import {
   acceptanceConfig,
   isIdentityOnlyProfile,
@@ -166,6 +174,27 @@ const CATALOG_CELLS: readonly { readonly name: string; readonly selection: Works
       },
     })),
   ),
+  // Operation Grid: each operation at its default size (powers at its
+  // largest legal one) with each preset that size can use.
+  ...(["addition", "multiplication", "powers"] as const).flatMap((operation) => {
+    const [rows, columns] = operation === "powers" ? [10, 3] : [10, 10];
+    return OPERATION_GRID_PREFILL_PRESETS.filter(
+      ({ id }) => id !== "diagonal" || operation !== "powers",
+    ).map(({ id }) => ({
+      name: `operation-grid ${operation} ${id}`,
+      selection: {
+        ...base,
+        worksheetType: "operation-grid" as const,
+        operationGrid: {
+          operation,
+          rows,
+          columns,
+          prefilled: operationGridPresetCount(id, rows, columns),
+          placement: id === "diagonal" ? ("diagonal-first" as const) : ("random" as const),
+        },
+      },
+    }));
+  }),
 ];
 
 /** A fictional child built at runtime, carrying only the given earlier settings. */
@@ -500,6 +529,113 @@ describe("Number Bonds missing number sentences", () => {
   });
 });
 
+describe("Operation Grid", () => {
+  /** One Operation Grid selection on the shipped defaults. */
+  const gridCell = (choices: Partial<WorksheetSelectionV2["operationGrid"]>): WorksheetSelectionV2 => ({
+    ...base,
+    worksheetType: "operation-grid",
+    operationGrid: { ...base.operationGrid, ...choices },
+  });
+
+  test("each preset writes its count: 10 x 10 gives 10, 50, 75 and 10, and 12 x 12 gives 14, 72, 108 and 12", () => {
+    const counts = (rows: number, columns: number) =>
+      OPERATION_GRID_PREFILL_PRESETS.map(({ id }) => operationGridPresetCount(id, rows, columns));
+    expect(OPERATION_GRID_PREFILL_PRESETS.map(({ id }) => id)).toEqual([
+      "nearly-blank",
+      "half",
+      "mostly-filled",
+      "diagonal",
+    ]);
+    expect(counts(10, 10)).toEqual([10, 50, 75, 10]);
+    expect(counts(12, 12)).toEqual([14, 72, 108, 12]);
+    // Rounding down and always keeping one blank: 2 x 2 is 0, 2, 3 and 2.
+    expect(counts(2, 2)).toEqual([0, 2, 3, 2]);
+    // A non-square grid's diagonal is its shorter side.
+    expect(counts(10, 3)).toEqual([3, 15, 22, 3]);
+    // Every preset count prints on its own grid: it leaves a blank, and
+    // Diagonal fits a square addition or multiplication grid.
+    for (let size = OPERATION_GRID_SIZE_MINIMUM; size <= OPERATION_GRID_SIZE_MAXIMUM; size += 1) {
+      for (const { id } of OPERATION_GRID_PREFILL_PRESETS) {
+        const prefilled = operationGridPresetCount(id, size, size);
+        const where = `${size} x ${size} ${id}`;
+        expect(
+          agreedVerdict(
+            where,
+            gridCell({
+              rows: size,
+              columns: size,
+              prefilled,
+              placement: id === "diagonal" ? "diagonal-first" : "random",
+            }),
+            acceptanceConfig.profiles[0],
+          ),
+        ).toEqual({ offered: true });
+      }
+    }
+  });
+
+  test("availability equals generation for every operation and size at both scales, and refuses exactly the powers bounds and the large-print cap", () => {
+    const refused: string[] = [];
+    for (const operation of ["addition", "multiplication", "powers"] as const) {
+      for (let rows = OPERATION_GRID_SIZE_MINIMUM; rows <= OPERATION_GRID_SIZE_MAXIMUM; rows += 1) {
+        for (let columns = OPERATION_GRID_SIZE_MINIMUM; columns <= OPERATION_GRID_SIZE_MAXIMUM; columns += 1) {
+          for (const printScale of PRINT_SCALES) {
+            const where = `${operation} ${rows}x${columns} ${printScale}`;
+            const verdict = agreedVerdict(
+              where,
+              { ...gridCell({ operation, rows, columns, prefilled: 1 }), printScale },
+              undefined,
+            );
+            if (!verdict.offered) {
+              refused.push(where);
+            }
+          }
+        }
+      }
+    }
+    const expected: string[] = [];
+    for (const operation of ["addition", "multiplication", "powers"] as const) {
+      for (let rows = OPERATION_GRID_SIZE_MINIMUM; rows <= OPERATION_GRID_SIZE_MAXIMUM; rows += 1) {
+        for (let columns = OPERATION_GRID_SIZE_MINIMUM; columns <= OPERATION_GRID_SIZE_MAXIMUM; columns += 1) {
+          const powersRefused =
+            operation === "powers" &&
+            (rows > OPERATION_GRID_POWERS_BASE_MAXIMUM || columns > OPERATION_GRID_POWERS_EXPONENT_MAXIMUM);
+          if (powersRefused) {
+            expected.push(`${operation} ${rows}x${columns} standard`);
+          }
+          if (powersRefused || rows > 10 || columns > 10) {
+            expected.push(`${operation} ${rows}x${columns} large`);
+          }
+        }
+      }
+    }
+    expect(refused.sort()).toEqual(expected.sort());
+  });
+
+  test("powers with 4 or more columns or 11 or more rows, a full grid, and Diagonal first on a non-square grid name only the limit that binds", () => {
+    const refusal = (choices: Partial<WorksheetSelectionV2["operationGrid"]>) => {
+      const verdict = agreedVerdict(JSON.stringify(choices), gridCell(choices), acceptanceConfig.profiles[0]);
+      return verdict.offered ? "offered" : verdict.message;
+    };
+    expect(refusal({ operation: "powers", rows: 10, columns: 4 })).toBe(
+      "Powers use exponents from 1 to 3, so a powers grid has at most 3 columns. Choose 3 or fewer columns.",
+    );
+    expect(refusal({ operation: "powers", rows: 11, columns: 3 })).toBe(
+      "Powers use bases from 1 to 10, so a powers grid has at most 10 rows. Choose 10 or fewer rows.",
+    );
+    expect(refusal({ rows: 3, columns: 3, prefilled: 9 })).toBe(
+      "This grid has 9 cells and at least one must stay blank. Choose 8 or fewer pre-filled cells.",
+    );
+    expect(refusal({ rows: 10, columns: 8, prefilled: 8, placement: "diagonal-first" })).toBe(
+      "Diagonal first needs a square grid. Choose the same number of rows and columns, or Random placement.",
+    );
+    // Mirrors: one step back from each limit prints.
+    expect(refusal({ operation: "powers", rows: 10, columns: 3 })).toBe("offered");
+    expect(refusal({ rows: 3, columns: 3, prefilled: 8 })).toBe("offered");
+    expect(refusal({ rows: 8, columns: 8, prefilled: 8, placement: "diagonal-first" })).toBe("offered");
+  });
+});
+
 describe("shipped example profiles", () => {
   /** Every family's shipped-default selection, one per variant and vocabulary. */
   function shippedDefaultSelections(): readonly { readonly name: string; readonly selection: WorksheetSelectionV2 }[] {
@@ -525,6 +661,7 @@ describe("shipped example profiles", () => {
       ),
       { name: "count-compare-make", selection: { ...base, worksheetType: "count-compare-make" } },
       { name: "number-bonds", selection: { ...base, worksheetType: "number-bonds" } },
+      { name: "operation-grid", selection: { ...base, worksheetType: "operation-grid" } },
     ];
   }
 

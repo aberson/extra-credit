@@ -52,6 +52,11 @@ import {
   getNumberBondsItemCount,
 } from "../../worksheets/number-bonds/definition.js";
 import {
+  OPERATION_GRID_LIMITING_RESOURCE_ADVICE,
+  operationGridRefusal,
+  type OperationGridChoices,
+} from "../../worksheets/operation-grid/definition.js";
+import {
   SENTENCE_BUILDER_ITEM_COUNT,
   getSentenceBuilderBankSize,
 } from "../../worksheets/sentence-builder/definition.js";
@@ -75,6 +80,9 @@ import {
 import {
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
+  OPERATION_GRID_POWERS_BASE_MAXIMUM,
+  OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
   V1_NUMERIC_MAXIMUM,
   type WorksheetLength,
 } from "./types.js";
@@ -370,7 +378,12 @@ const IMPLIED_REPRESENTATION_NOTE: Readonly<Record<RegisteredWorksheetType, stri
     "dead from the registry: the registration always passes the shipped vocabulary, which options.test.tsx proves can starve no (variant, vocabulary, length, scale) cell",
   "number-bonds":
     "dead over the whole selection domain: the registration has no capability gate; shortfalls are capacity verdicts",
+  "operation-grid":
+    "reachable: an Operation Grid that cannot print (a powers grid beyond its bases or exponents, a full grid, Diagonal first on a non-square or powers grid, a large-print grid above its size) is refused before Create",
 };
+
+/** The families whose availability gate can refuse a schema-valid selection. */
+const REFUSING_WORKSHEET_TYPES: readonly RegisteredWorksheetType[] = ["operation-grid"];
 
 const registrationArms: readonly DeclaredArm[] = REGISTERED_WORKSHEET_IDS.flatMap(
   (worksheetType): DeclaredArm[] => [
@@ -381,7 +394,7 @@ const registrationArms: readonly DeclaredArm[] = REGISTERED_WORKSHEET_IDS.flatMa
     },
     {
       id: `REG-${worksheetType}-UNAVAIL`,
-      status: "dead",
+      status: REFUSING_WORKSHEET_TYPES.includes(worksheetType) ? "reachable" : "dead",
       note: IMPLIED_REPRESENTATION_NOTE[worksheetType],
     },
   ],
@@ -503,6 +516,11 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     id: "NA-number-bonds",
     status: "reachable",
     note: "Number Bonds reads no focus maximum: its range is the largest whole in its own practice member, so it declares none and its advice names that range",
+  },
+  {
+    id: "NA-operation-grid",
+    status: "reachable",
+    note: "Operation Grid reads no focus maximum: its one grid is fixed by its operation and size, so it declares none and its advice names the pre-filled cells",
   },
   {
     id: "NB-range-only",
@@ -774,7 +792,16 @@ const RETIRED_ARMS: readonly { readonly id: string; readonly deletedPath: string
  * pasting the observed set back in without deciding the new prose is right.
  */
 const DECLARED_SENTENCE_SHAPES: readonly string[] = [
+  "Diagonal first needs a square grid. Choose the same number of rows and columns, or Random placement.",
+  "Diagonal first works with addition and multiplication grids. Choose Random placement.",
+  "Large print fits at most N columns. Choose N or fewer columns, or Standard print scale under More options.",
+  "Large print fits at most N rows. Choose N or fewer rows, or Standard print scale under More options.",
+  "Large print fits at most N rows. Choose N or fewer rows, or Standard print scale under More options. Large print fits at most N columns. Choose N or fewer columns, or Standard print scale under More options.",
+  "Powers use bases from N to N, so a powers grid has at most N rows. Choose N or fewer rows.",
+  "Powers use bases from N to N, so a powers grid has at most N rows. Choose N or fewer rows. Large print fits at most N rows. Choose N or fewer rows, or Standard print scale under More options.",
+  "Powers use exponents from N to N, so a powers grid has at most N columns. Choose N or fewer columns.",
   "The chosen fact families give N unique facts, but this length needs N. Choose more fact families, or a shorter length under More options.",
+  "This grid has N cells and at least one must stay blank. Choose N or fewer pre-filled cells.",
   "This practice focus has N unique problems, but this length needs N. Choose a practice focus with a wider range.",
   "This practice focus has N unique problems, but this length needs N. Choose a practice focus with a wider range. Or choose a shorter length under More options.",
   "This practice focus provides N unique equation groups, but this length needs N. Choose a practice focus with a wider results range.",
@@ -1141,6 +1168,52 @@ const NUMBER_BONDS_SOURCES: readonly SweepSource[] = (
   ),
 );
 
+/**
+ * Operation Grid: the default grid, each refusal on its own, and the powers
+ * grid at its largest legal size, so each refusal is reached alone and the
+ * large-print cap is reached over a grid it binds.
+ */
+function operationGridSource(name: string, choices: Partial<OperationGridChoices>): SweepSource {
+  return {
+    name: `operation-grid ${name}`,
+    selection: { ...SWEEP_BASE, operationGrid: { ...SWEEP_BASE.operationGrid, ...choices } },
+  };
+}
+
+const OPERATION_GRID_SOURCES: readonly SweepSource[] = [
+  operationGridSource("default", {}),
+  operationGridSource("largest", {
+    rows: OPERATION_GRID_SIZE_MAXIMUM,
+    columns: OPERATION_GRID_SIZE_MAXIMUM,
+  }),
+  operationGridSource("powers largest", {
+    operation: "powers",
+    rows: OPERATION_GRID_POWERS_BASE_MAXIMUM,
+    columns: OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  }),
+  operationGridSource("powers wide", {
+    operation: "powers",
+    rows: OPERATION_GRID_POWERS_BASE_MAXIMUM,
+    columns: OPERATION_GRID_POWERS_EXPONENT_MAXIMUM + 1,
+  }),
+  operationGridSource("powers tall", {
+    operation: "powers",
+    rows: OPERATION_GRID_POWERS_BASE_MAXIMUM + 1,
+    columns: OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  }),
+  operationGridSource("full", { rows: 2, columns: 2, prefilled: 4 }),
+  operationGridSource("diagonal non-square", { rows: 10, columns: 9, placement: "diagonal-first" }),
+  operationGridSource("diagonal powers", {
+    operation: "powers",
+    rows: 3,
+    columns: 3,
+    prefilled: 3,
+    placement: "diagonal-first",
+  }),
+  operationGridSource("tall", { rows: OPERATION_GRID_SIZE_MAXIMUM, columns: 10 }),
+  operationGridSource("wide", { rows: 10, columns: OPERATION_GRID_SIZE_MAXIMUM }),
+];
+
 const SWEEP_SOURCES: readonly SweepSource[] = [
   ...CATALOG_SOURCES,
   ...PROBE_PROFILES.map((profile) => ({
@@ -1152,6 +1225,7 @@ const SWEEP_SOURCES: readonly SweepSource[] = [
   ...REGROUPING_SOURCES,
   ...FACTS_SOURCES,
   ...NUMBER_BONDS_SOURCES,
+  ...OPERATION_GRID_SOURCES,
 ];
 
 // --- observation -----------------------------------------------------------
@@ -1401,6 +1475,15 @@ describe("every declared arm of the capacity and advice surface", () => {
               expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
               expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
                 `${where}: ${NUMBER_BONDS_LIMITING_RESOURCE_ADVICE}`,
+              );
+            } else if (worksheetType === "operation-grid") {
+              // Operation Grid's one grid is fixed by its operation and size,
+              // never a declared focus maximum, and its advice names the
+              // pre-filled cells.
+              observe("NA-operation-grid");
+              expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
+              expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
+                `${where}: ${OPERATION_GRID_LIMITING_RESOURCE_ADVICE}`,
               );
             } else if (worksheetType !== "sentence-builder") {
               const advice =
@@ -1963,5 +2046,103 @@ describe("the equation families' binding-maximum arms", () => {
     expect(disagreements).toContain(
       "find-the-wow subtraction 2/2: probe operands, min both",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 4. Operation Grid's refusals name only the limit that binds
+// ---------------------------------------------------------------------------
+
+describe("Operation Grid refusals", () => {
+  const grid = (choices: Partial<OperationGridChoices>): OperationGridChoices => ({
+    operation: "multiplication",
+    rows: 10,
+    columns: 10,
+    prefilled: 10,
+    placement: "random",
+    ...choices,
+  });
+
+  test("a powers grid with 4 or more columns names only the exponent limit", () => {
+    for (let columns = OPERATION_GRID_POWERS_EXPONENT_MAXIMUM + 1; columns <= OPERATION_GRID_SIZE_MAXIMUM; columns += 1) {
+      const message = operationGridRefusal(grid({ operation: "powers", columns }), "standard") ?? "";
+      expect(message).toBe(
+        "Powers use exponents from 1 to 3, so a powers grid has at most 3 columns. Choose 3 or fewer columns.",
+      );
+      expect(message).not.toContain("rows");
+    }
+    // Mirror: the same grid at the exponent limit prints.
+    expect(operationGridRefusal(grid({ operation: "powers", columns: 3 }), "standard")).toBeUndefined();
+  });
+
+  test("a powers grid with 11 or more rows names only the base limit", () => {
+    for (let rows = OPERATION_GRID_POWERS_BASE_MAXIMUM + 1; rows <= OPERATION_GRID_SIZE_MAXIMUM; rows += 1) {
+      const message = operationGridRefusal(grid({ operation: "powers", rows, columns: 3 }), "standard") ?? "";
+      expect(message).toBe(
+        "Powers use bases from 1 to 10, so a powers grid has at most 10 rows. Choose 10 or fewer rows.",
+      );
+      expect(message).not.toContain("columns");
+    }
+    expect(operationGridRefusal(grid({ operation: "powers", rows: 10, columns: 3 }), "standard")).toBeUndefined();
+    // A multiplication grid of the same size is not a powers grid.
+    expect(operationGridRefusal(grid({ rows: 12, columns: 12 }), "standard")).toBeUndefined();
+  });
+
+  test("a full grid names only the blank-cell limit", () => {
+    expect(operationGridRefusal(grid({ rows: 2, columns: 2, prefilled: 4 }), "standard")).toBe(
+      "This grid has 4 cells and at least one must stay blank. Choose 3 or fewer pre-filled cells.",
+    );
+    expect(operationGridRefusal(grid({ rows: 2, columns: 2, prefilled: 3 }), "standard")).toBeUndefined();
+    expect(operationGridRefusal(grid({ rows: 12, columns: 12, prefilled: 143 }), "standard")).toBeUndefined();
+  });
+
+  test("Diagonal first on a non-square grid names only the square-grid limit", () => {
+    const message =
+      operationGridRefusal(grid({ rows: 10, columns: 9, placement: "diagonal-first" }), "standard") ?? "";
+    expect(message).toBe(
+      "Diagonal first needs a square grid. Choose the same number of rows and columns, or Random placement.",
+    );
+    expect(message).not.toContain("pre-filled");
+    expect(operationGridRefusal(grid({ rows: 9, columns: 9, placement: "diagonal-first" }), "standard")).toBeUndefined();
+    expect(
+      operationGridRefusal(grid({ operation: "powers", rows: 3, columns: 3, prefilled: 3, placement: "diagonal-first" }), "standard"),
+    ).toBe("Diagonal first works with addition and multiplication grids. Choose Random placement.");
+  });
+
+  test("large print caps the size it offers and names only the side that binds", () => {
+    expect(operationGridRefusal(grid({ rows: 11, columns: 10 }), "large")).toBe(
+      "Large print fits at most 10 rows. Choose 10 or fewer rows, or Standard print scale under More options.",
+    );
+    expect(operationGridRefusal(grid({ rows: 10, columns: 12 }), "large")).toBe(
+      "Large print fits at most 10 columns. Choose 10 or fewer columns, or Standard print scale under More options.",
+    );
+    expect(operationGridRefusal(grid({ rows: 10, columns: 10 }), "large")).toBeUndefined();
+    expect(operationGridRefusal(grid({ rows: 12, columns: 12 }), "standard")).toBeUndefined();
+  });
+
+  test("the registration refuses exactly what the refusal names, and offers everything else", () => {
+    const registration = getWorksheetRegistration("operation-grid");
+    const base = worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2);
+    const refused = registration.controls.getCapabilitySupport({
+      selection: {
+        ...base,
+        worksheetType: "operation-grid",
+        operationGrid: { ...base.operationGrid, operation: "powers", columns: 4 },
+      },
+    });
+    expect(refused).toEqual({
+      available: false,
+      message:
+        "Powers use exponents from 1 to 3, so a powers grid has at most 3 columns. Choose 3 or fewer columns.",
+    });
+    const offered = registration.controls.getCapabilitySupport({
+      selection: { ...base, worksheetType: "operation-grid" },
+    });
+    expect(offered).toEqual({
+      available: true,
+      capacity: { sufficient: true },
+      statusMessage:
+        "Operation Grid: Multiplication x × y, 10 rows by 10 columns, 10 cells pre-filled, Random.",
+    });
   });
 });

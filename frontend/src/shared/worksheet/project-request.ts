@@ -175,8 +175,9 @@ export function projectWorksheetCapabilities(
         mathSkills: inactiveMath(),
       };
     case "number-bonds":
-      // Number Bonds reads no `mathSkills` focus: its sentences travel in the
-      // `practice` member.
+    case "operation-grid":
+      // Number Bonds and Operation Grid read no `mathSkills` focus: their
+      // choices travel in the `practice` member.
       return {
         ...INACTIVE_WRITING_CAPABILITIES,
         mathSkills: inactiveMath(),
@@ -208,7 +209,7 @@ function worksheetUsesInterests(worksheetType: WorksheetType): boolean {
  * The decorative topic a selection's Theme resolves to, or `undefined` when
  * the request carries none.
  *
- * Nothing is carried while decorative graphics are off, nor for the three
+ * Nothing is carried while decorative graphics are off, nor for the four
  * families that print no decoration, so the Theme cannot change their
  * requests. An explicit topic or Neutral resolves to itself. "From interests"
  * means the child's first reviewed interest in profile order for Count,
@@ -226,6 +227,7 @@ function projectDecorativeTopicId(
     case "dry-math":
     case "find-the-wow":
     case "number-bonds":
+    case "operation-grid":
       return undefined;
     case "sentence-builder":
       return selection.theme === "from-interests" ? undefined : selection.theme;
@@ -242,7 +244,8 @@ function projectDecorativeTopicId(
  * plan, Appendix A.3). Dry Math's multiply-divide strand projects the facts
  * kind from `dryMathFacts` alone; its add-subtract strand projects the
  * add-subtract kind only for "Every problem carries or borrows". Number Bonds
- * always projects its own kind from `numberBonds` alone. Dry Math's "Without
+ * always projects its own kind from `numberBonds` alone, and Operation Grid
+ * its own from `operationGrid` alone. Dry Math's "Without
  * carrying or borrowing", and every other family whatever its saved Dry Math
  * or Number Bonds choices, projects no member, so those requests keep their
  * earlier exact shape.
@@ -260,6 +263,10 @@ export function projectWorksheetPractice(
       regrouping: selection.numberBonds.regrouping,
     };
   }
+  if (worksheetType === "operation-grid") {
+    const { columns, operation, placement, prefilled, rows } = selection.operationGrid;
+    return { kind: "operation-grid", operation, rows, columns, prefilled, placement };
+  }
   if (worksheetType !== "dry-math") {
     return undefined;
   }
@@ -275,11 +282,15 @@ export function projectWorksheetPractice(
     : undefined;
 }
 
-/** The canonical length: the two no-bank Sentence activities always print standard. */
+/**
+ * The canonical length: the two no-bank Sentence activities and Operation
+ * Grid, whose one grid per page has no length, always print standard.
+ */
 function projectedLength(selection: WorksheetSelectionV2): WorksheetSelectionV2["length"] {
-  return selection.worksheetType === "sentence-builder" &&
+  return (selection.worksheetType === "sentence-builder" &&
     (selection.sentenceBuilder.variant === "draw-and-tell" ||
-      selection.sentenceBuilder.variant === "copy-with-model")
+      selection.sentenceBuilder.variant === "copy-with-model")) ||
+    selection.worksheetType === "operation-grid"
     ? "standard"
     : selection.length;
 }
@@ -338,7 +349,8 @@ export function projectGenerationRequest(
         includeDecorativeGraphics:
           worksheetType === "dry-math" ||
           worksheetType === "find-the-wow" ||
-          worksheetType === "number-bonds"
+          worksheetType === "number-bonds" ||
+          worksheetType === "operation-grid"
             ? false
             : selection.includeDecorativeGraphics,
         includeAnswerKey:

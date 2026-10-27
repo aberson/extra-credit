@@ -22,6 +22,8 @@ import {
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_OPERATIONS,
+  OPERATION_GRID_PLACEMENTS,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
@@ -43,6 +45,9 @@ import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
+  OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
+  OPERATION_GRID_SIZE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
   WORKSHEET_TYPE_IDS,
 } from "../../src/shared/worksheet/types.js";
@@ -299,6 +304,35 @@ const PARITY_ROWS: Readonly<Record<string, ParityRow>> = {
   "$.defaults.numberBonds.operations[]": enumItemsRow(MATH_OPERATIONS),
   "$.defaults.numberBonds.wholeMax": integerRow(NUMBER_BONDS_WHOLE_MINIMUM, V1_NUMERIC_MAXIMUM),
   "$.defaults.numberBonds.regrouping": enumRow(NUMBER_BONDS_REGROUPING_MODES),
+  // Additive at version 2 like Number Bonds, and every field inside it has
+  // its own default, so each may be absent too.
+  "$.defaults.operationGrid": objectRow([probe("absent", undefined, true)]),
+  "$.defaults.operationGrid.operation": {
+    members: OPERATION_GRID_OPERATIONS,
+    probes: [...enumRow(OPERATION_GRID_OPERATIONS).probes, probe("absent", undefined, true)],
+  },
+  "$.defaults.operationGrid.rows": {
+    probes: [
+      ...integerRow(OPERATION_GRID_SIZE_MINIMUM, OPERATION_GRID_SIZE_MAXIMUM).probes,
+      probe("absent", undefined, true),
+    ],
+  },
+  "$.defaults.operationGrid.columns": {
+    probes: [
+      ...integerRow(OPERATION_GRID_SIZE_MINIMUM, OPERATION_GRID_SIZE_MAXIMUM).probes,
+      probe("absent", undefined, true),
+    ],
+  },
+  "$.defaults.operationGrid.prefilled": {
+    probes: [
+      ...integerRow(0, OPERATION_GRID_PREFILLED_MAXIMUM).probes,
+      probe("absent", undefined, true),
+    ],
+  },
+  "$.defaults.operationGrid.placement": {
+    members: OPERATION_GRID_PLACEMENTS,
+    probes: [...enumRow(OPERATION_GRID_PLACEMENTS).probes, probe("absent", undefined, true)],
+  },
   "$.defaults.findTheWow": objectRow(),
   "$.defaults.findTheWow.variant": enumRow(FIND_THE_WOW_VARIANTS),
   "$.defaults.findTheWow.quantity": objectRow(),
@@ -538,6 +572,53 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       operations: ["addition", "subtraction"],
       wholeMax: 3,
       regrouping: "included",
+    });
+  });
+
+  test("a version 2 file written before Operation Grid existed parses with its defaults", async () => {
+    const earlier = structuredClone(validConfig()) as unknown as {
+      defaults: Record<string, unknown>;
+    };
+    delete earlier.defaults.operationGrid;
+    expect(Object.keys(earlier.defaults)).not.toContain("operationGrid");
+    expect(await transportAccepts(earlier)).toBe(true);
+    const parsed = AppConfigV2Schema.parse(earlier);
+    expect(parsed.defaults.operationGrid).toEqual({
+      operation: "multiplication",
+      rows: 10,
+      columns: 10,
+      prefilled: 10,
+      placement: "random",
+    });
+    // Parsing never adds the key to the object it read.
+    expect(Object.keys(earlier.defaults)).not.toContain("operationGrid");
+    // A group missing a field reads that field's default and keeps the rest.
+    earlier.defaults.operationGrid = { operation: "powers", columns: 3 };
+    expect(await transportAccepts(earlier)).toBe(true);
+    expect(AppConfigV2Schema.parse(earlier).defaults.operationGrid).toEqual({
+      operation: "powers",
+      rows: 10,
+      columns: 3,
+      prefilled: 10,
+      placement: "random",
+    });
+    // Mirror: a stored Operation Grid choice and worksheet type are read back as stored.
+    earlier.defaults.worksheetType = "operation-grid";
+    earlier.defaults.operationGrid = {
+      operation: "addition",
+      rows: 12,
+      columns: 7,
+      prefilled: 83,
+      placement: "diagonal-first",
+    };
+    const stored = AppConfigV2Schema.parse(earlier);
+    expect(stored.defaults.worksheetType).toBe("operation-grid");
+    expect(stored.defaults.operationGrid).toEqual({
+      operation: "addition",
+      rows: 12,
+      columns: 7,
+      prefilled: 83,
+      placement: "diagonal-first",
     });
   });
 

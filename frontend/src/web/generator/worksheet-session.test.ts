@@ -352,6 +352,35 @@ describe("touched groups", () => {
     expect(apply(chosen, groupChanged("numberBonds", { ...value, operations: [] }))).toBe(chosen);
   });
 
+  test("Operation Grid is its own group, never seeded, saved only as chosen, and never holds a value its saved shape cannot", () => {
+    const start = loaded(seedingDefaults, [equationChild, secondChild]);
+    expect(start.selection.operationGrid).toEqual({
+      operation: "multiplication",
+      rows: 10,
+      columns: 10,
+      prefilled: 10,
+      placement: "random",
+    });
+    const value = { operation: "powers", rows: 10, columns: 3, prefilled: 4, placement: "random" } as const;
+    const chosen = apply(start, groupChanged("operationGrid", { ...value }));
+    expect(WORKSHEET_GROUP_KEYS.filter((key) => chosen.touched[key])).toEqual(["operationGrid"]);
+    expect(chosen.previewEpoch).toBe(start.previewEpoch + 1);
+    expect(chosen.selection).toEqual({ ...start.selection, operationGrid: value });
+    // A child switch re-seeds the untouched groups and keeps the choice.
+    const switched = apply(chosen, { type: "childSelected", childId: secondChild.id });
+    expect(switched.selection.operationGrid).toEqual(value);
+    const body = defaultsForSave(switched);
+    expect(body.operationGrid).toEqual(value);
+    expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
+    // Mirror: a size outside 2..12, a fractional count and a count beyond the
+    // largest grid are refused. A full grid fits the saved shape, and the
+    // family refuses it before Create instead.
+    for (const wrong of [{ rows: 13 }, { columns: 1 }, { prefilled: 2.5 }, { prefilled: 144 }]) {
+      expect(apply(chosen, groupChanged("operationGrid", { ...value, ...wrong })), JSON.stringify(wrong)).toBe(chosen);
+    }
+    expect(apply(chosen, groupChanged("operationGrid", { ...value, prefilled: 30 })).selection.operationGrid.prefilled).toBe(30);
+  });
+
   test("the reducer never empties the fact families or operations", () => {
     const start = loaded(defaults(), [identityChild]);
     expect(

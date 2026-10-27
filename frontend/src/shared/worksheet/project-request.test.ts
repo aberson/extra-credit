@@ -11,6 +11,8 @@ import {
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_OPERATIONS,
+  OPERATION_GRID_PLACEMENTS,
   PAPER_SIZES,
   PRINT_SCALES,
   REGROUPING_MODES,
@@ -33,6 +35,7 @@ import type {
   ChildProfileV2,
   DryMathFactsV2,
   NumberBondsV2,
+  OperationGridV2,
   WorksheetSelectionV2,
 } from "../config/schema.js";
 import {
@@ -50,6 +53,9 @@ import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
+  OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
+  OPERATION_GRID_SIZE_MINIMUM,
   REVIEWED_TOPIC_IDS,
   TOPIC_IDS,
   V1_NUMERIC_MAXIMUM,
@@ -485,6 +491,19 @@ const numberBondsArbitrary: fc.Arbitrary<NumberBondsV2> = fc.record({
   regrouping: fc.constantFrom(...NUMBER_BONDS_REGROUPING_MODES),
 });
 
+/**
+ * Any schema-valid Operation Grid choice, including the ones the family
+ * refuses (a powers grid beyond its bounds, a full grid, a diagonal on a
+ * non-square grid): the schema holds them and the generator refuses them.
+ */
+const operationGridArbitrary: fc.Arbitrary<OperationGridV2> = fc.record({
+  operation: fc.constantFrom(...OPERATION_GRID_OPERATIONS),
+  rows: fc.integer({ min: OPERATION_GRID_SIZE_MINIMUM, max: OPERATION_GRID_SIZE_MAXIMUM }),
+  columns: fc.integer({ min: OPERATION_GRID_SIZE_MINIMUM, max: OPERATION_GRID_SIZE_MAXIMUM }),
+  prefilled: fc.integer({ min: 0, max: OPERATION_GRID_PREFILLED_MAXIMUM }),
+  placement: fc.constantFrom(...OPERATION_GRID_PLACEMENTS),
+});
+
 /** Any schema-valid worksheet selection. */
 const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
   worksheetType: fc.constantFrom(...WORKSHEET_TYPE_IDS),
@@ -493,6 +512,7 @@ const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
   dryMathStrand: fc.constantFrom(...DRY_MATH_STRANDS),
   dryMathFacts: factsArbitrary,
   numberBonds: numberBondsArbitrary,
+  operationGrid: operationGridArbitrary,
   findTheWow: fc.record({
     variant: fc.constantFrom(...FIND_THE_WOW_VARIANTS),
     quantity: fc.record({ countingMax: quantityMaximum, numeralMax: quantityMaximum }),
@@ -569,6 +589,8 @@ function withOwnFields(
       };
     case "number-bonds":
       return { ...target, ...shared, numberBonds: source.numberBonds };
+    case "operation-grid":
+      return { ...target, ...shared, operationGrid: source.operationGrid };
   }
 }
 
@@ -577,6 +599,7 @@ const NON_SENTENCE_FAMILIES = [
   "find-the-wow",
   "count-compare-make",
   "number-bonds",
+  "operation-grid",
 ] as const;
 
 describe("another family's choices never change a request (U7)", () => {
@@ -621,6 +644,7 @@ describe("another family's choices never change a request (U7)", () => {
         },
         countCompareMake: PRACTICE_FOCUS_CATALOG["count-compare-make"][0]!.focus,
         numberBonds: { ...baseSelection.numberBonds, ...NUMBER_BONDS_FOCUS_CATALOG[1]!.focus },
+        operationGrid: { ...baseSelection.operationGrid, rows: 5, columns: 5, prefilled: 3 },
       }, baseSelection);
       const wide = withOwnFields(family, {
         ...baseSelection,
@@ -632,6 +656,7 @@ describe("another family's choices never change a request (U7)", () => {
         },
         countCompareMake: PRACTICE_FOCUS_CATALOG["count-compare-make"][1]!.focus,
         numberBonds: { ...baseSelection.numberBonds, ...NUMBER_BONDS_FOCUS_CATALOG[2]!.focus },
+        operationGrid: { ...baseSelection.operationGrid, rows: 6, columns: 6, prefilled: 3 },
       }, baseSelection);
       expect(requestFor(wide)).not.toEqual(requestFor(narrow));
       expect(itemsFor(requestFor(wide))).not.toEqual(itemsFor(requestFor(narrow)));
@@ -719,7 +744,7 @@ describe("Number Bonds reads only its own choices", () => {
     );
   });
 
-  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make"] as const)(
+  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "operation-grid"] as const)(
     "%s refuses a Number Bonds practice member",
     (worksheetType) => {
       const request = requestFor(selectionFor(worksheetType));
@@ -732,6 +757,111 @@ describe("Number Bonds reads only its own choices", () => {
           operations: ["addition"],
           wholeMax: 10,
           regrouping: "without",
+        },
+      } as const satisfies GenerationRequestV1;
+      expect(itemsFor(carrying)).toHaveProperty("refused");
+    },
+  );
+});
+
+describe("Operation Grid reads only its own choices", () => {
+  test("its request carries the Operation Grid kind with inactive math and writing fields, standard length, no topics and no decoration", () => {
+    const request = requestFor(
+      selectionFor("operation-grid", {
+        operationGrid: { operation: "powers", rows: 7, columns: 3, prefilled: 5, placement: "random" },
+        includeDecorativeGraphics: true,
+        useInterests: true,
+        theme: "space",
+        length: "long",
+        dryMathRegrouping: "required",
+      }),
+    );
+    expect(request.practice).toEqual({
+      kind: "operation-grid",
+      operation: "powers",
+      rows: 7,
+      columns: 3,
+      prefilled: 5,
+      placement: "random",
+    });
+    expect(request.capabilities).toEqual({
+      ...INACTIVE_WRITING_CAPABILITIES,
+      mathSkills: INACTIVE_MATH_FIELDS,
+    });
+    expect(request).not.toHaveProperty("topicIds");
+    expect(request.options.includeDecorativeGraphics).toBe(false);
+    expect(request.options).not.toHaveProperty("decorativeTopicId");
+    // One grid per page has no length: every length projects the same request.
+    expect(request.options.length).toBe("standard");
+    for (const length of WORKSHEET_LENGTHS) {
+      expect(
+        requestFor(
+          selectionFor("operation-grid", {
+            includeDecorativeGraphics: true,
+            useInterests: true,
+            theme: "space",
+            length,
+            operationGrid: { operation: "powers", rows: 7, columns: 3, prefilled: 5, placement: "random" },
+          }),
+        ),
+      ).toEqual(request);
+    }
+    // The nickname and the answer key still apply.
+    expect(request.displayName).toBe("Distinctive Nickname");
+    expect(request.options.includeAnswerKey).toBe(true);
+  });
+
+  test("property: varying operationGrid leaves every other family's request deep-equal, and moves Operation Grid's own", () => {
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...WORKSHEET_TYPE_IDS),
+        selectionArbitrary,
+        operationGridArbitrary,
+        (worksheetType, source, operationGrid) => {
+          const chosen = selectionFor(worksheetType, source);
+          const varied = { ...chosen, operationGrid };
+          if (worksheetType === "operation-grid") {
+            expect(requestFor(varied).practice).toEqual({ kind: "operation-grid", ...operationGrid });
+          } else {
+            expect(requestFor(varied)).toEqual(requestFor(chosen));
+          }
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  test.each([
+    ["a powers grid with 4 columns", { operation: "powers", rows: 10, columns: 4 }, "Choose 3 or fewer columns."],
+    ["a powers grid with 11 rows", { operation: "powers", rows: 11, columns: 3 }, "Choose 10 or fewer rows."],
+    ["a full grid", { rows: 3, columns: 3, prefilled: 9 }, "Choose 8 or fewer pre-filled cells."],
+    ["Diagonal first on a non-square grid", { rows: 4, columns: 5, prefilled: 4, placement: "diagonal-first" }, "Choose the same number of rows and columns"],
+  ] as const)("%s projects, and its generator refuses it with the remedy", (_label, choices, remedy) => {
+    const request = requestFor(
+      selectionFor("operation-grid", { operationGrid: { ...baseSelection.operationGrid, ...choices } }),
+    );
+    const result = getWorksheetRegistration("operation-grid").generate(request, {
+      worksheetId: "11111111-1111-4111-8111-111111111111",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.ok ? "" : result.code).toBe("GENERATION_CONSTRAINT_CONFLICT");
+    expect(result.ok ? "" : result.message).toContain(remedy);
+  });
+
+  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "number-bonds"] as const)(
+    "%s refuses an Operation Grid practice member",
+    (worksheetType) => {
+      const request = requestFor(selectionFor(worksheetType));
+      expect(itemsFor(request)).not.toHaveProperty("refused");
+      const carrying = {
+        ...request,
+        practice: {
+          kind: "operation-grid",
+          operation: "multiplication",
+          rows: 10,
+          columns: 10,
+          prefilled: 10,
+          placement: "random",
         },
       } as const satisfies GenerationRequestV1;
       expect(itemsFor(carrying)).toHaveProperty("refused");
@@ -1007,6 +1137,7 @@ describe("reviewed-topic allowlist", () => {
       "sentence-builder": ["space"],
       "count-compare-make": [],
       "number-bonds": [],
+      "operation-grid": [],
     });
   });
 });
@@ -1060,6 +1191,11 @@ const DECORATED_TOPIC: Readonly<
     neutral: { firstMatching: "neutral", onlyUnmatched: "neutral", none: "neutral" },
   },
   "number-bonds": {
+    "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+  },
+  "operation-grid": {
     "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
     space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
     neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },

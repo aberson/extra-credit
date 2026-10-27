@@ -10,6 +10,9 @@ import { PRACTICE_FOCUS_CATALOG } from "../../../src/shared/config/practice-focu
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
+  OPERATION_GRID_POWERS_BASE_MAXIMUM,
+  OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
   V1_NUMERIC_MAXIMUM,
   type PrintScale,
 } from "../../../src/shared/worksheet/types.ts";
@@ -52,6 +55,8 @@ export interface PrintFixture {
   readonly boundary?: "prompt" | "bank";
   /** Printed only at Letter and standard scale: one worksheet row and its key. */
   readonly letterStandardOnly?: true;
+  /** Printed only on these papers and scales: one worksheet row and its key each. */
+  readonly printedOn?: readonly { readonly paper: "letter" | "a4"; readonly scale: PrintScale }[];
 }
 
 /** The Dry Math catalog focus "Addition and subtraction within 100". */
@@ -112,6 +117,60 @@ export const printFixtures: readonly PrintFixture[] = [
       },
     },
     letterStandardOnly: true,
+  },
+  // Operation Grid: the reference screenshot's shape (a 10 x 10
+  // multiplication grid with its diagonal given), the largest grid on Letter and A4, and
+  // the largest powers grid at large scale, whose last cell is 1,000.
+  {
+    id: "grid-multiplication-10",
+    profileIndex: 0,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "operation-grid",
+      operationGrid: {
+        operation: "multiplication",
+        rows: 10,
+        columns: 10,
+        prefilled: 10,
+        placement: "diagonal-first",
+      },
+    },
+    printedOn: [{ paper: "letter", scale: "standard" }],
+  },
+  {
+    id: "grid-addition-12",
+    profileIndex: 1,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "operation-grid",
+      operationGrid: {
+        operation: "addition",
+        rows: OPERATION_GRID_SIZE_MAXIMUM,
+        columns: OPERATION_GRID_SIZE_MAXIMUM,
+        prefilled: 14,
+        placement: "random",
+      },
+    },
+    printedOn: [
+      { paper: "letter", scale: "standard" },
+      { paper: "a4", scale: "standard" },
+    ],
+  },
+  {
+    id: "grid-powers-10x3",
+    profileIndex: 2,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "operation-grid",
+      operationGrid: {
+        operation: "powers",
+        rows: OPERATION_GRID_POWERS_BASE_MAXIMUM,
+        columns: OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+        prefilled: 3,
+        placement: "random",
+      },
+    },
+    printedOn: [{ paper: "letter", scale: "large" }],
   },
   {
     id: "wow-quantity",

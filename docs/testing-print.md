@@ -51,11 +51,12 @@ items, prompts, banks, and answers. Count/Compare compares every rendered item's
 activity, quantities, choices, and target with the boundary document, including
 the quantity-20 cases. No manufactured worksheet is injected into React.
 
-The 87 worksheet cases cross every row below with Letter/A4 and standard/large,
+The 91 worksheet cases cross every row below with Letter/A4 and standard/large,
 except the carrying and borrowing row, the multiplication and division facts
-row and the Number Bonds row, which each print once at Letter/standard.
-Sentence Builder and Count/Compare also cross decoration off/on. Applicable
-keys add 19 separate one-page PDF checks, once
+row and the Number Bonds row, which each print once at Letter/standard, and the
+three Operation Grid rows, which print only on the papers and scales the table
+names. Sentence Builder and Count/Compare also cross decoration off/on.
+Applicable keys add 23 separate one-page PDF checks, once
 per key-bearing row at each paper/scale it prints: the key does not consume decoration.
 Dry Math and both Wow variants run once per paper/scale; a separate production
 session/render test proves a hidden stored decoration-on preference canonicalizes
@@ -81,6 +82,9 @@ overflow in both DOM geometry and an actual multi-page PDF.
 | Dry Math carrying and borrowing (Letter/standard only) | 18 problems | Practice focus Addition and subtraction within 100, Every problem carries or borrows; includes a subtraction from 100 |
 | Dry Math facts (Letter/standard only) | 18 problems | Multiplication and division facts, fact families 0s through 12s; includes a three-digit dividend over a two-digit divisor and a product of two two-digit factors, and every × and ÷ sign measures at least 2 mm wide (a 1 px sign must fail) |
 | Number Bonds (Letter/standard only) | 18 problems | Missing number sentences, practice focus Addition and subtraction within 20, Without carrying or borrowing; includes a sentence whose two printed numbers both have two digits, and every drawn answer box measures 14 × 9 mm (a 1 px box must fail) |
+| Operation Grid `grid-multiplication-10` (Letter/standard only) | One 10 × 10 grid | Multiplication, Diagonal first with 10 cells pre-filled: the reference screenshot's shape |
+| Operation Grid `grid-addition-12` (Letter/standard and A4/standard only) | One 12 × 12 grid | Addition, the largest grid, 14 cells pre-filled at random; sums reach 24 |
+| Operation Grid `grid-powers-10x3` (Letter/large only) | One 10 × 3 grid | Powers, the largest powers grid, 3 cells pre-filled at random; its key prints 1,000 |
 | Quantity Wow | 8 / 6 groups | Quantity pictures, practice focus Quantities to 10 |
 | Equation Wow | 8 / 6 groups | Equations, practice focus Addition and subtraction within 20 |
 | Count, Compare & Make | 10 / 8 items | All four subtypes; each reaches quantity 20, including complete/draw frames |
@@ -112,9 +116,14 @@ worksheets, across rows for the other worksheets and all keys.
 
 Independent measurements enforce response geometry in millimetres: writing lines
 are 7/9 mm high, ordinary drawing boxes 33/38 mm, draw-and-tell boxes 100/110 mm,
-guide/ten-frame cells 5/6 mm square, and Number Bonds answer boxes 14 × 9 mm,
+guide/ten-frame cells 5/6 mm square, Number Bonds answer boxes 14 × 9 mm,
 measured on its single Letter/standard row (no print test measures the
-16 × 11 mm large-scale size in tokens.css). Lines and drawing boxes
+16 × 11 mm large-scale size in tokens.css), and every Operation Grid cell,
+headers and corner included, 14.5/17 mm square, room for four handwritten
+digits. A 12 × 12 grid fits one Letter or A4 page at standard scale; large print
+offers grids up to 10 × 10 and refuses a larger one with its remedy rather than
+shrinking it. On each grid row a collapsed cell must fail its size and a table
+cut short must fail containment, then both restore clean. Lines and drawing boxes
 must provide at least 150 mm of usable width. Circle targets stay 4 mm square and
 decoration reservations 24 mm square. For large worksheets, the same content is
 temporarily measured with standard print styles, then restored; response heights
@@ -140,8 +149,8 @@ Registered worksheet/key components also render together in Vitest to detect
 duplicate document-scoped IDs. Parent controls must be hidden in print media.
 
 Evidence is written only to the ignored `.build-step/print-evidence/` directory:
-PDFs, JSON content/page/geometry reports, and screenshots for all 106 distinct
-measured surfaces (87 worksheets and 19 keys). These are disposable review evidence, not committed
+PDFs, JSON content/page/geometry reports, and screenshots for all 114 distinct
+measured surfaces (91 worksheets and 23 keys). These are disposable review evidence, not committed
 fixtures. The CI contract discovers the full print matrix through Playwright's
 actual unfiltered test entry point and guards against OS skips and pixel baselines.
 The Step 1 Ubuntu 24.04 workflow runs that same `check` command. Local Windows

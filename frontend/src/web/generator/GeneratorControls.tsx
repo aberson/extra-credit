@@ -23,6 +23,8 @@ import {
 import {
   FIND_THE_WOW_VARIANTS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_OPERATIONS,
+  OPERATION_GRID_PLACEMENTS,
   REGROUPING_MODES,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
@@ -39,7 +41,12 @@ import {
   type WorksheetControlContextV2,
   type WorksheetRegistrationV1,
 } from "../../shared/worksheet/registry";
-import { FACT_FACTOR_MAXIMUM } from "../../shared/worksheet/types";
+import {
+  FACT_FACTOR_MAXIMUM,
+  OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
+  OPERATION_GRID_SIZE_MINIMUM,
+} from "../../shared/worksheet/types";
 import {
   DRY_MATH_REGROUPING_HELP,
   DRY_MATH_REGROUPING_LABELS,
@@ -57,6 +64,23 @@ import {
   NUMBER_BONDS_REGROUPING_LABELS,
   NUMBER_BONDS_REGROUPING_LEGEND,
 } from "../../worksheets/number-bonds/definition";
+import {
+  OPERATION_GRID_CARD_DESCRIPTION,
+  OPERATION_GRID_COLUMNS_LABEL,
+  OPERATION_GRID_OPERATION_LABELS,
+  OPERATION_GRID_OPERATION_LEGEND,
+  OPERATION_GRID_PLACEMENT_LABELS,
+  OPERATION_GRID_PLACEMENT_LEGEND,
+  OPERATION_GRID_PREFILL_PRESETS,
+  OPERATION_GRID_PREFILLED_LABEL,
+  OPERATION_GRID_PRESET_HELP,
+  OPERATION_GRID_PRESETS_LABEL,
+  OPERATION_GRID_ROWS_LABEL,
+  OPERATION_GRID_SIZE_HELP,
+  OPERATION_GRID_SIZE_LEGEND,
+  operationGridPresetCount,
+  type OperationGridPrefillPresetId,
+} from "../../worksheets/operation-grid/definition";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
 import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
@@ -100,6 +124,7 @@ const WORKSHEET_DESCRIPTIONS = {
   "sentence-builder": "One prompt to draw, label, copy or write about.",
   "count-compare-make": "Match, compare, complete and draw quantities without symbols.",
   "number-bonds": NUMBER_BONDS_CARD_DESCRIPTION,
+  "operation-grid": OPERATION_GRID_CARD_DESCRIPTION,
 } as const satisfies Record<RegisteredWorksheetType, string>;
 
 const WORKSHEET_CARDS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
@@ -129,6 +154,9 @@ const REGROUPING_HELP_ID = "worksheet-regrouping-help";
 
 const NUMBER_BONDS_FOCUS_HELP_ID = "worksheet-number-bonds-focus-help";
 const NUMBER_BONDS_REGROUPING_HELP_ID = "worksheet-number-bonds-regrouping-help";
+
+const OPERATION_GRID_SIZE_HELP_ID = "worksheet-operation-grid-size-help";
+const OPERATION_GRID_PRESET_HELP_ID = "worksheet-operation-grid-preset-help";
 
 const FACT_FAMILIES_HELP_ID = "worksheet-fact-families-help";
 const FACT_FAMILY_NOTE_ID = "worksheet-fact-families-note";
@@ -202,6 +230,7 @@ function focusControlFor(selection: WorksheetSelectionV2): FocusControl | undefi
       };
     case "sentence-builder":
     case "number-bonds":
+    case "operation-grid":
       return undefined;
   }
 }
@@ -260,7 +289,8 @@ function groupsShownFor(
     case "count-compare-make":
       return ["countCompareMake"];
     case "number-bonds":
-      // No earlier setting describes Number Bonds.
+    case "operation-grid":
+      // No earlier setting describes Number Bonds or Operation Grid.
       return [];
   }
 }
@@ -331,6 +361,67 @@ function RadioGroup<TValue extends string>({
       ))}
       {help !== undefined && <p id={help.id}>{help.text}</p>}
     </fieldset>
+  );
+}
+
+/**
+ * A whole-number input that keeps what the parent is typing and passes on
+ * only a value within its bounds; leaving the field shows the kept value.
+ */
+function NumberField({
+  describedBy,
+  disabled,
+  label,
+  maximum,
+  minimum,
+  name,
+  onCommit,
+  value,
+}: {
+  readonly describedBy?: string;
+  readonly disabled: boolean;
+  readonly label: string;
+  readonly maximum: number;
+  readonly minimum: number;
+  readonly name: string;
+  readonly onCommit: (value: number) => void;
+  readonly value: number;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  const [shown, setShown] = useState(value);
+  if (shown !== value) {
+    // A value set from outside (a preset, a reload) replaces the draft.
+    setShown(value);
+    setDraft(String(value));
+  }
+  return (
+    <label className="worksheet-field" data-panel-control={name}>
+      {label}
+      <input
+        aria-describedby={describedBy}
+        disabled={disabled}
+        inputMode="numeric"
+        max={maximum}
+        min={minimum}
+        onBlur={() => setDraft(String(value))}
+        onChange={(event) => {
+          const text = event.currentTarget.value;
+          setDraft(text);
+          const parsed = Number(text);
+          if (
+            text.trim() !== "" &&
+            Number.isInteger(parsed) &&
+            parsed >= minimum &&
+            parsed <= maximum
+          ) {
+            onCommit(parsed);
+          }
+        }}
+        step={1}
+        type="number"
+        value={draft}
+      />
+    </label>
   );
 }
 
@@ -569,6 +660,23 @@ export function GeneratorControls({
     });
   }
 
+  /** One Operation Grid field, keeping the others. */
+  function changeOperationGrid(next: Partial<WorksheetSelectionV2["operationGrid"]>): void {
+    change("operationGrid", { ...selection.operationGrid, ...next });
+  }
+
+  /**
+   * A Pre-filled cells preset writes only the count (and, for Diagonal, the
+   * placement); it never changes the size or the operation.
+   */
+  function choosePrefillPreset(presetId: OperationGridPrefillPresetId): void {
+    const { columns, rows } = selection.operationGrid;
+    const prefilled = operationGridPresetCount(presetId, rows, columns);
+    changeOperationGrid(
+      presetId === "diagonal" ? { prefilled, placement: "diagonal-first" } : { prefilled },
+    );
+  }
+
   function effectiveUnitForLength(
     nextLength: WorksheetSelectionV2["length"],
   ): number {
@@ -649,6 +757,89 @@ export function GeneratorControls({
 
       <div className="worksheet-panel__columns">
         <div className="worksheet-panel__primary">
+          {applicable.operationGrid && worksheetType === "operation-grid" && (
+            <>
+              <RadioGroup
+                disabled={disabled}
+                legend={OPERATION_GRID_OPERATION_LEGEND}
+                name="operation-grid-operation"
+                onSelect={(operation) => changeOperationGrid({ operation })}
+                options={OPERATION_GRID_OPERATIONS.map((operation) => ({
+                  value: operation,
+                  label: OPERATION_GRID_OPERATION_LABELS[operation],
+                }))}
+                value={selection.operationGrid.operation}
+              />
+              <fieldset
+                className="worksheet-choice-group"
+                data-panel-control="operation-grid-size"
+              >
+                <legend>{OPERATION_GRID_SIZE_LEGEND}</legend>
+                <NumberField
+                  describedBy={OPERATION_GRID_SIZE_HELP_ID}
+                  disabled={disabled}
+                  label={OPERATION_GRID_ROWS_LABEL}
+                  maximum={OPERATION_GRID_SIZE_MAXIMUM}
+                  minimum={OPERATION_GRID_SIZE_MINIMUM}
+                  name="operation-grid-rows"
+                  onCommit={(rows) => changeOperationGrid({ rows })}
+                  value={selection.operationGrid.rows}
+                />
+                <NumberField
+                  describedBy={OPERATION_GRID_SIZE_HELP_ID}
+                  disabled={disabled}
+                  label={OPERATION_GRID_COLUMNS_LABEL}
+                  maximum={OPERATION_GRID_SIZE_MAXIMUM}
+                  minimum={OPERATION_GRID_SIZE_MINIMUM}
+                  name="operation-grid-columns"
+                  onCommit={(columns) => changeOperationGrid({ columns })}
+                  value={selection.operationGrid.columns}
+                />
+                <p id={OPERATION_GRID_SIZE_HELP_ID}>{OPERATION_GRID_SIZE_HELP}</p>
+              </fieldset>
+              <RadioGroup
+                disabled={disabled}
+                legend={OPERATION_GRID_PLACEMENT_LEGEND}
+                name="operation-grid-placement"
+                onSelect={(placement) => changeOperationGrid({ placement })}
+                options={OPERATION_GRID_PLACEMENTS.map((placement) => ({
+                  value: placement,
+                  label: OPERATION_GRID_PLACEMENT_LABELS[placement],
+                }))}
+                value={selection.operationGrid.placement}
+              />
+              <div className="worksheet-choice-group" data-panel-control="operation-grid-prefilled">
+                <NumberField
+                  describedBy={OPERATION_GRID_PRESET_HELP_ID}
+                  disabled={disabled}
+                  label={OPERATION_GRID_PREFILLED_LABEL}
+                  maximum={OPERATION_GRID_PREFILLED_MAXIMUM}
+                  minimum={0}
+                  name="operation-grid-prefilled-count"
+                  onCommit={(prefilled) => changeOperationGrid({ prefilled })}
+                  value={selection.operationGrid.prefilled}
+                />
+                <div
+                  aria-label={OPERATION_GRID_PRESETS_LABEL}
+                  className="worksheet-presets"
+                  data-operation-grid-presets="true"
+                  role="group"
+                >
+                  {OPERATION_GRID_PREFILL_PRESETS.map((preset) => (
+                    <button
+                      disabled={disabled}
+                      key={preset.id}
+                      onClick={() => choosePrefillPreset(preset.id)}
+                      type="button"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+                <p id={OPERATION_GRID_PRESET_HELP_ID}>{OPERATION_GRID_PRESET_HELP}</p>
+              </div>
+            </>
+          )}
           {applicable.variant && worksheetType === "find-the-wow" && (
             <RadioGroup
               disabled={disabled}
