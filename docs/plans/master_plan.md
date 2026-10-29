@@ -129,7 +129,7 @@ As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff733
 
 - **Problem:** Implement master Step 31, using this leaf and the [packet contract](../plan-reference/packet-contracts.md) as the specification; touch further files when a gate requires it and record them in the checkpoint. Let a parent add the currently previewed worksheet, its answers included, to a printable packet held only in App session state (a reducer beside the worksheet session; P9 and the lean revision: no draft file, no packet route, no browser storage), list the queued sheets with a per-sheet label, move a sheet up or down, remove it, refuse a document that is already queued with a message, and cap the packet at 10 sheets with Add disabled at the cap; sheets for different children may share one packet, queued documents never change when controls, the selected child or profiles change, the panel says the packet is kept only until the page is closed or reloaded, and no packet action ever writes saved profiles or worksheet defaults.
 - **Type:** code
-- **Issue:** not assigned (preserve; later authorized repo-sync only)
+- **Issue:** #47
 - **Flags:** --reviewers code --isolation worktree
 - **Files:**
   - Web: new `frontend/src/web/packet/{packet-session.ts,packet-session.test.ts,PacketPanel.tsx,PacketPanel.test.tsx}`; `frontend/src/web/App.tsx` (the packet reducer beside the worksheet session, Add to packet beside Make another, the panel); `frontend/src/web/styles/screen.css` (packet screen rules only).
@@ -158,7 +158,7 @@ As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff733
 
 - **Problem:** Implement master Step 33, using this leaf and the [packet contract](../plan-reference/packet-contracts.md) as the specification; touch further files when a gate requires it and record them in the checkpoint. Let a parent preview every page of the session packet in print order and print the whole packet with one print action, each worksheet and each applicable answer key on its own page, keys grouped at the end by default with a per-packet choice of at the end, after each sheet or left out, and every key heading labeled with its sheet; one packet paper size, Letter or A4, chosen in the packet panel re-renders every sheet at its own stored scale without changing any problem (paper only: no length search, no regeneration); printing never clears the queue, and the profile delete dialog says how many queued sheets belong to that profile and leaves them in the queue.
 - **Type:** code
-- **Issue:** not assigned (preserve; later authorized repo-sync only)
+- **Issue:** #48
 - **Flags:** --reviewers code --isolation worktree
 - **Files:**
   - Shared: new `frontend/src/shared/packet/{compose.ts,compose.test.ts}`.
