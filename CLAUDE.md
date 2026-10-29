@@ -119,7 +119,13 @@ Master plan Step 36 (Phase V, issue #44) builds Tally Detective (`tally-detectiv
 - Print: 72 × 20 mm strips (81 × 22.5 mm large) and 18/22 mm count lines on four cards; `print.spec.ts` reads every painted `line` for ink and counts it back through `tests/oracles/tally-oracle.ts`, calibrated by hiding or zeroing a crossing and an upright and by shortening a crossing. `tests/e2e/visual-math.spec.ts` also counts all twenty totals in the compiled app.
 - Developer gate (worktree): Vitest 1303 (44 files), Playwright 223, lint/types clean, log-privacy 1/1/0.
 
-Next comes the operator's MA-2 screen review (it now covers Operation Grid too), then plan 03 in its own window. Before any build, nothing may listen on 4310/4311 and `config/children.local.json` must be absent (metadata check only).
+Master plan Step 31 (plan 03, issue #47) adds the session packet queue.
+- `frontend/src/web/packet/packet-session.ts` owns `PACKET_SHEET_LIMIT` (10) and the pure `packetReducer` (`add`, `moveUp`, `moveDown`, `remove`); App holds it with `useReducer` beside the worksheet session. A queued sheet keeps the previewed document unchanged plus its profile id and selection; a duplicate `worksheetId` (`already-in-packet`) or an eleventh sheet (`packet-full`) is refused with state unchanged. Nothing reaches the server or browser storage: a reload empties the packet.
+- "Add to packet" sits beside Make another while a preview is visible; `PacketPanel` lists "Sheet N · family · detail · for child · length" rows (`describeQueuedSheet`, from the shipped label owners; the child is the current nickname, "Profile N" or "a removed profile") with Move up, Move down and Remove. Live messages are `aria-live="polite"` without `role="status"`.
+- The Length labels and `profileLabel` live in `frontend/src/web/generator/control-labels.ts`, shared by the panel and the packet. Step 33 (packet preview and print) is next.
+- Developer gate (worktree): Vitest 1324 (46 files), lint/types clean; the full Playwright run listed 227 specs (223 + 4 new).
+
+Next comes Step 33 (packet preview and print), then the operator's MA-2 screen review. Before any build, nothing may listen on 4310/4311 and `config/children.local.json` must be absent (metadata check only).
 
 ## Environment requirements
 

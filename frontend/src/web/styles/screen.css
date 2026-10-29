@@ -73,6 +73,24 @@
   .worksheet-defaults-slot { display: grid; gap: 0.4rem; justify-items: start; }
   .worksheet-defaults-slot > p { margin: 0; }
 
+  /*
+   * The printable packet: Add to packet beside Make another, then the panel's
+   * rows, each label above its three buttons, which wrap at narrow widths.
+   */
+  .packet-add { display: grid; gap: 0.4rem; justify-items: start; margin-top: 0.75rem; }
+  .packet-add > p { margin: 0; }
+  .packet-panel { border-top: 1px solid #dbe1e8; display: grid; gap: 0.6rem; margin-top: 1.25rem; padding-top: 0.8rem; }
+  .packet-panel > h2, .packet-panel > p { margin: 0; }
+  .packet-panel__rows { display: grid; gap: 0.6rem; list-style: none; margin: 0; padding: 0; }
+  .packet-panel__row {
+    border: 1px solid #d3dae3;
+    border-radius: 0.6rem;
+    display: grid;
+    gap: 0.45rem;
+    padding: 0.6rem 0.8rem;
+  }
+  .packet-panel__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
   @media (min-width: 36rem) {
     .worksheet-type-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }

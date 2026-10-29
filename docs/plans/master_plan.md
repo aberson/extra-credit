@@ -125,7 +125,7 @@ As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff733
 - **Operator inputs (2026-10-26):** operations `x + y`, `x × y`, `x^y`; size customizable with a 10 × 10 default; pre-filled count is a number input with Random/Diagonal/density presets; answer key prints the completed grid. The powers cap (exponents 1..3, cells ≤ 1,000) and the 12 × 12 maximum were proposed by the planner and confirmed by the operator the same day (Decision Inventory P4, P5).
 
 ### Step 31: Add to packet, reorder and remove (session queue)
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 
 - **Problem:** Implement master Step 31, using this leaf and the [packet contract](../plan-reference/packet-contracts.md) as the specification; touch further files when a gate requires it and record them in the checkpoint. Let a parent add the currently previewed worksheet, its answers included, to a printable packet held only in App session state (a reducer beside the worksheet session; P9 and the lean revision: no draft file, no packet route, no browser storage), list the queued sheets with a per-sheet label, move a sheet up or down, remove it, refuse a document that is already queued with a message, and cap the packet at 10 sheets with Add disabled at the cap; sheets for different children may share one packet, queued documents never change when controls, the selected child or profiles change, the panel says the packet is kept only until the page is closed or reloaded, and no packet action ever writes saved profiles or worksheet defaults.
 - **Type:** code

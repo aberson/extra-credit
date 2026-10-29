@@ -28,6 +28,7 @@ import {
   REGROUPING_MODES,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
+  WORKSHEET_LENGTHS,
   WRITING_MODES,
   type ChildProfileV2,
   type ThemeChoice,
@@ -86,6 +87,7 @@ import {
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
 import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
+import { WORKSHEET_LENGTH_LABELS, profileLabel } from "./control-labels";
 import type { GenerationSelection } from "./create-session";
 import {
   earlierSettingsInUse,
@@ -174,11 +176,6 @@ const FACT_FAMILIES: readonly number[] = Array.from(
 /** The help text under the Theme select. It never names a child's interest. */
 export const THEME_HELP_TEXT =
   "Neutral, and interests with no matching artwork, use the simple star. A theme changes only the decoration, never the work or the answers.";
-
-/** Each child by nickname, or as "Profile N" when it has none (U3). */
-function profileLabel(profile: ChildProfileV2, index: number): string {
-  return profile.displayName ?? `Profile ${index + 1}`;
-}
 
 function worksheetAvailability(
   profile: ChildProfileV2 | undefined,
@@ -1111,15 +1108,11 @@ export function GeneratorControls({
                       }
                       value={selection.length}
                     >
-                      <option value="short">
-                        Short · {effectiveUnitForLength("short")} {unitLabel}
-                      </option>
-                      <option value="standard">
-                        Standard · {effectiveUnitForLength("standard")} {unitLabel}
-                      </option>
-                      <option value="long">
-                        Long · {effectiveUnitForLength("long")} {unitLabel}
-                      </option>
+                      {WORKSHEET_LENGTHS.map((length) => (
+                        <option key={length} value={length}>
+                          {WORKSHEET_LENGTH_LABELS[length]} · {effectiveUnitForLength(length)} {unitLabel}
+                        </option>
+                      ))}
                     </select>
                   </OptionGroup>
                 )}

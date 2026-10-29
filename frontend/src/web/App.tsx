@@ -44,6 +44,14 @@ import {
   worksheetSessionReducer,
   type WorksheetPanelAction,
 } from "./generator/worksheet-session";
+import { AddToPacket, PacketPanel } from "./packet/PacketPanel";
+import {
+  EMPTY_PACKET,
+  PACKET_REFUSAL_MESSAGES,
+  PACKET_SHEET_LIMIT,
+  packetAddRefusal,
+  packetReducer,
+} from "./packet/packet-session";
 import { PrintView } from "./print/PrintView";
 
 const DOCUMENT_TITLE = "Extra Credit Worksheet";
@@ -568,6 +576,17 @@ export function App() {
     null,
   );
   const worksheetSessionStartedRef = useRef(false);
+  /**
+   * The printable packet (P9): queued documents held only here, beside the
+   * worksheet session, so no profile operation, reload of saved profiles or
+   * selection change touches them, and a page reload empties it. The Add
+   * outcome belongs to the preview it was pressed for.
+   */
+  const [packet, dispatchPacket] = useReducer(packetReducer, EMPTY_PACKET);
+  const [packetMessage, setPacketMessage] = useState<{
+    readonly text: string;
+    readonly worksheetId: string;
+  } | null>(null);
 
   /**
    * Hands a ready config read to the worksheet session: the first one (and a
@@ -1155,6 +1174,38 @@ export function App() {
       ? activeGeneration
       : null;
 
+  /**
+   * Queues the visible preview's document as previewed, for the child it was
+   * made for. A document already queued is refused with its message; nothing
+   * is sent to the server.
+   */
+  function addPreviewToPacket(): void {
+    if (visibleActiveGeneration === null) {
+      return;
+    }
+    const { document } = visibleActiveGeneration.session;
+    const refusal = packetAddRefusal(packet, document);
+    if (refusal !== undefined) {
+      setPacketMessage({
+        text: PACKET_REFUSAL_MESSAGES[refusal],
+        worksheetId: document.worksheetId,
+      });
+      return;
+    }
+    dispatchPacket({
+      type: "add",
+      sheet: {
+        document,
+        profileId: visibleActiveGeneration.selection.profile.id,
+        selection: visibleActiveGeneration.selection.selection,
+      },
+    });
+    setPacketMessage({
+      text: `Sheet ${packet.sheets.length + 1} added to the packet.`,
+      worksheetId: document.worksheetId,
+    });
+  }
+
   function changeWorksheetSelection(action: WorksheetPanelAction): void {
     dispatchWorksheet(action);
     clearGeneration();
@@ -1397,6 +1448,33 @@ export function App() {
                     >
                       Make another
                     </button>
+                  )}
+                  {visibleActiveGeneration !== null && (
+                    <AddToPacket
+                      full={packet.sheets.length >= PACKET_SHEET_LIMIT}
+                      message={
+                        packetMessage?.worksheetId ===
+                        visibleActiveGeneration.session.document.worksheetId
+                          ? packetMessage.text
+                          : null
+                      }
+                      onAdd={addPreviewToPacket}
+                    />
+                  )}
+                  {profileState.kind === "ready" && (
+                    <PacketPanel
+                      onMoveDown={(worksheetId) =>
+                        dispatchPacket({ type: "moveDown", worksheetId })
+                      }
+                      onMoveUp={(worksheetId) =>
+                        dispatchPacket({ type: "moveUp", worksheetId })
+                      }
+                      onRemove={(worksheetId) =>
+                        dispatchPacket({ type: "remove", worksheetId })
+                      }
+                      profiles={profileState.config.profiles}
+                      sheets={packet.sheets}
+                    />
                   )}
                 </div>
                 {visibleActiveGeneration !== null && (

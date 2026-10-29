@@ -25,6 +25,7 @@ import {
 } from "../oracles/arithmetic-oracle.js";
 import { expect, test } from "./fixtures/app-server.js";
 import { readGridTable } from "./fixtures/grid-table.js";
+import { addToPacket, packetPanel, packetRows } from "./fixtures/packet-controls.js";
 import {
   chooseChild,
   chooseFactFamilies,
@@ -855,6 +856,51 @@ test("compiled Operation Grid page: create, key and print a ten by ten multiplic
   expect(key.cells.flat()).toEqual(oracleGrid("multiplication", 10, 10).flat());
 
   // Creating the page wrote nothing, and nothing left the local origin.
+  expect((await appServer.readRaw()).equals(seeded)).toBe(true);
+  await expectPrivateBrowser(page, appServer.origin);
+  expect(consoleMessages).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  for (const url of requests) expect(new URL(url).origin).toBe(appServer.origin);
+});
+
+test("compiled printable packet: two sheets for two children, no config write", async ({ appServer, page, context }) => {
+  const consoleMessages: string[] = [];
+  const pageErrors: string[] = [];
+  const requests: string[] = [];
+  const configWrites: string[] = [];
+  context.on("request", (request) => {
+    requests.push(request.url());
+    if (request.method() === "PUT" && new URL(request.url()).pathname === "/api/config") {
+      configWrites.push(request.url());
+    }
+  });
+  page.on("console", (message) => consoleMessages.push(`${message.type()}: ${message.text()}`));
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await appServer.seedConfig(acceptanceConfig);
+  const seeded = await appServer.readRaw();
+  const [firstChild, secondChild] = acceptanceConfig.profiles;
+  if (firstChild === undefined || secondChild === undefined) throw new Error("Canonical fixture missing.");
+
+  await page.goto(appServer.origin);
+  await expect(packetPanel(page).locator("[data-packet-count]")).toHaveText("0 of 10 sheets");
+  await chooseChild(page, firstChild.id);
+  await chooseWorksheet(page, "dry-math");
+  await controls(page).create().click();
+  await addToPacket(page);
+  await chooseChild(page, secondChild.id);
+  await chooseWorksheet(page, "sentence-builder");
+  await controls(page).create().click();
+  await addToPacket(page);
+
+  // Each row names the child it was made for, from the current profiles.
+  expect(await packetRows(page)).toEqual([
+    `Sheet 1 · Dry Math · Addition and subtraction within 10 · for ${firstChild.displayName ?? ""} · Standard`,
+    `Sheet 2 · Sentence Builder · Picture Labels · for ${secondChild.displayName ?? ""} · Standard`,
+  ]);
+  await expect(packetPanel(page).locator("[data-packet-count]")).toHaveText("2 of 10 sheets");
+
+  // The packet wrote nothing, and nothing left the local origin.
+  expect(configWrites).toEqual([]);
   expect((await appServer.readRaw()).equals(seeded)).toBe(true);
   await expectPrivateBrowser(page, appServer.origin);
   expect(consoleMessages).toEqual([]);
