@@ -272,3 +272,40 @@
     font-weight: 700;
   }
 }
+
+/*
+ * Clock Explorer's dials are 40 mm across, 45 mm at large scale, with every
+ * label at the instruction size (visual math specification, section 9). The
+ * hour's writing line is the response-line height, 18 mm long (22 mm at large
+ * scale), room for a two-digit hour before ":00". Hands and outline print in
+ * black. Added on its own so no existing print rule changes.
+ */
+@media print {
+  .print-surface {
+    --clock-dial: 40mm;
+    --time-blank-width: 18mm;
+  }
+  .print-surface[data-print-scale="large"] {
+    --clock-dial: 45mm;
+    --time-blank-width: 22mm;
+  }
+  .print-surface [data-clock-card] { gap: 2mm !important; }
+  .print-surface [data-clock-dial] {
+    width: var(--clock-dial) !important;
+    height: var(--clock-dial) !important;
+  }
+  .print-surface [data-clock-label] {
+    font-size: var(--instruction-size) !important;
+    line-height: 1 !important;
+  }
+  .print-surface [data-clock-outline],
+  .print-surface [data-clock-hand] { stroke: black; }
+  .print-surface [data-clock-centre] { fill: black; }
+  .print-surface [data-clock-response] { white-space: nowrap; }
+  .print-surface [data-time-blank] {
+    width: var(--time-blank-width) !important;
+    height: var(--response-line) !important;
+    border: 0 !important;
+    border-bottom: 0.4mm solid black !important;
+  }
+}

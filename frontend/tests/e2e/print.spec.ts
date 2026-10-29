@@ -11,6 +11,7 @@ import {
   type WorksheetDocumentV1,
 } from "../../src/shared/worksheet/types.ts";
 import { countOrderBound, countSeedFixture, type CountActivity } from "../fixtures/print/count-layout.ts";
+import { oracleHourFromHands, type OracleHandVector } from "../oracles/clock-oracle.ts";
 import {
   acceptanceConfig,
   boundaryNickname,
@@ -80,14 +81,17 @@ function expectSelectedPage(selectedPage: string | undefined, paper: keyof typeo
 // even when the resulting sheet fits the paper more easily.
 const responseMetrics = {
   // An Operation Grid cell holds four handwritten digits: 14.5 mm square,
-  // 17 mm at large scale.
+  // 17 mm at large scale. A Clock Explorer dial is 40 mm across, 45 mm at
+  // large scale, and its hour line is 18 mm (22 mm) long at the line height.
   standard: {
     lineHeight: 7, drawingHeight: 33, tellingHeight: 100, cellSize: 5,
     missingBoxWidth: 14, missingBoxHeight: 9, gridCell: 14.5,
+    clockDial: 40, timeBlankWidth: 18,
   },
   large: {
     lineHeight: 9, drawingHeight: 38, tellingHeight: 110, cellSize: 6,
     missingBoxWidth: 16, missingBoxHeight: 11, gridCell: 17,
+    clockDial: 45, timeBlankWidth: 22,
   },
 } as const;
 
@@ -100,6 +104,8 @@ const physicalSelectors = {
   decoration: "[data-decorative-panel]",
   missingBox: "[data-missing-box]",
   gridCell: "[data-grid-cell]",
+  clockDial: "[data-clock-dial]",
+  timeBlank: "[data-time-blank]",
 } as const;
 
 async function readPhysicalGeometry(page: Page) {
@@ -179,6 +185,14 @@ function physicalViolations(
         exact("widthMm", expected.gridCell);
         exact("heightMm", expected.gridCell);
         break;
+      case "clockDial":
+        exact("widthMm", expected.clockDial);
+        exact("heightMm", expected.clockDial);
+        break;
+      case "timeBlank":
+        exact("widthMm", expected.timeBlankWidth);
+        exact("heightMm", expected.lineHeight);
+        break;
       default:
         throw new Error(`Unspecified physical contract: ${box.kind}`);
     }
@@ -204,10 +218,10 @@ async function comparePrintScales(
       if (smaller === undefined) {
         throw new Error("Missing matching standard response box.");
       }
-      if (["line", "drawing", "guideCell", "frameCell", "missingBox", "gridCell"].includes(box.kind)) {
+      if (["line", "drawing", "guideCell", "frameCell", "missingBox", "gridCell", "clockDial", "timeBlank"].includes(box.kind)) {
         expect(box.heightMm, `${box.kind}: large increases response height`)
           .toBeGreaterThan(smaller.heightMm + 0.5);
-        if (["guideCell", "frameCell", "missingBox", "gridCell"].includes(box.kind)) {
+        if (["guideCell", "frameCell", "missingBox", "gridCell", "clockDial", "timeBlank"].includes(box.kind)) {
           expect(box.widthMm, `${box.kind}: large increases response width`)
             .toBeGreaterThan(smaller.widthMm + 0.5);
         }
@@ -296,6 +310,178 @@ async function operatorViolations(page: Page): Promise<readonly string[]> {
     });
     return operators.length === 0 ? ["no operator printed"] : narrow;
   });
+}
+
+/** The screen transform an SVG element reports, read without the DOM library's types. */
+interface ScreenMatrix {
+  readonly a: number;
+  readonly b: number;
+  readonly c: number;
+  readonly d: number;
+  readonly e: number;
+  readonly f: number;
+}
+
+/** One clock's drawn hands as the browser painted them, plus every ink violation. */
+interface ClockInkReading {
+  readonly id: string;
+  readonly violations: readonly string[];
+  readonly minute?: OracleHandVector;
+  readonly hour?: OracleHandVector;
+  readonly dial?: { readonly left: number; readonly top: number; readonly width: number; readonly height: number };
+}
+
+/**
+ * Reads every dial's outline and hands under the current media, from the
+ * rendered SVG alone: each must exist once, paint real ink (a stroke that is
+ * neither none nor transparent, positive width and opacity, every ancestor
+ * visible), start at the dial's centre, stay inside its outline and touch no
+ * label. Each hand's painted vector is returned for the independent oracle.
+ */
+async function readClockInk(page: Page): Promise<readonly ClockInkReading[]> {
+  return await page.locator(".print-surface").evaluate((surface) => {
+    const view = surface.ownerDocument.defaultView;
+    if (view === null) {
+      throw new Error("Missing browser window.");
+    }
+    type BrowserElement = Parameters<typeof view.getComputedStyle>[0];
+    const transparent = (color: string) =>
+      color === "" || color === "none" || color === "transparent" ||
+      /^(?:rgba\([^)]*,|[^)]*\/)\s*0(?:\.0+)?\s*\)$/u.test(color);
+    const shown = (element: BrowserElement) => {
+      for (let node: BrowserElement | null = element; node !== null; node = node.parentElement) {
+        const style = view.getComputedStyle(node);
+        if (style.visibility !== "visible" || style.display === "none" || Number(style.opacity) === 0) {
+          return false;
+        }
+      }
+      return true;
+    };
+    return [...surface.querySelectorAll("[data-item-id]")].map((card) => {
+      const id = card.getAttribute("data-item-id") ?? "";
+      const violations: string[] = [];
+      const dial = card.querySelector("[data-clock-dial]");
+      const svg = dial?.querySelector("svg");
+      if (dial === null || dial === undefined || svg === null || svg === undefined) {
+        return { id, violations: ["missing dial"] };
+      }
+      const dialBox = dial.getBoundingClientRect();
+      const centre = { x: dialBox.left + dialBox.width / 2, y: dialBox.top + dialBox.height / 2 };
+      const labels = [...dial.querySelectorAll("[data-clock-label]")].map((label) => label.getBoundingClientRect());
+      // Twelve labels, each inside the dial and clear of every other one.
+      if (labels.length !== 12) violations.push(`${labels.length} labels`);
+      for (const [index, box] of labels.entries()) {
+        if (box.left < dialBox.left - 1 || box.right > dialBox.right + 1 ||
+          box.top < dialBox.top - 1 || box.bottom > dialBox.bottom + 1) {
+          violations.push(`label ${index + 1} leaves the dial`);
+        }
+        for (const other of labels.slice(index + 1)) {
+          if (Math.min(box.right, other.right) - Math.max(box.left, other.left) > 0.5 &&
+            Math.min(box.bottom, other.bottom) - Math.max(box.top, other.top) > 0.5) {
+            violations.push(`label ${index + 1} overlaps another label`);
+          }
+        }
+      }
+      const ink = (selector: string) => {
+        const found = [...svg.querySelectorAll(selector)];
+        if (found.length !== 1) {
+          violations.push(`${selector}: ${found.length} drawn`);
+          return undefined;
+        }
+        const element = found[0] as BrowserElement;
+        const style = view.getComputedStyle(element);
+        const matrix = (element as unknown as { getScreenCTM(): ScreenMatrix | null }).getScreenCTM();
+        const scale = matrix === null ? 0 : Math.hypot(matrix.a, matrix.b);
+        const width = Number.parseFloat(style.strokeWidth) * scale;
+        if (transparent(style.stroke)) violations.push(`${selector}: no stroke`);
+        if (!(width > 0.5)) violations.push(`${selector}: stroke width ${width}`);
+        if (!(Number(style.strokeOpacity) > 0)) violations.push(`${selector}: stroke opacity`);
+        if (!shown(element)) violations.push(`${selector}: hidden`);
+        return { element, matrix, width };
+      };
+      // A point in an element's own coordinates, on the screen.
+      const onScreen = (matrix: ScreenMatrix, x: number, y: number) => ({
+        x: matrix.a * x + matrix.c * y + matrix.e,
+        y: matrix.b * x + matrix.d * y + matrix.f,
+      });
+      const attribute = (element: BrowserElement, name: string) => Number(element.getAttribute(name));
+      const outline = ink("[data-clock-outline]");
+      if (outline !== undefined && outline.matrix !== null) {
+        const circle = outline.element;
+        const at = onScreen(outline.matrix, attribute(circle, "cx"), attribute(circle, "cy"));
+        const radius = attribute(circle, "r") * Math.hypot(outline.matrix.a, outline.matrix.b);
+        if (Math.hypot(at.x - centre.x, at.y - centre.y) > 1) violations.push("outline off centre");
+        if (!(radius > dialBox.width * 0.4) || radius + outline.width / 2 > dialBox.width / 2 + 1) {
+          violations.push(`outline radius ${radius}`);
+        }
+      }
+      const outlineRadius = dialBox.width / 2;
+      const hand = (which: "minute" | "hour") => {
+        const drawn = ink(`[data-clock-hand="${which}"]`);
+        if (drawn === undefined || drawn.matrix === null) {
+          return undefined;
+        }
+        const line = drawn.element;
+        const start = onScreen(drawn.matrix, attribute(line, "x1"), attribute(line, "y1"));
+        const end = onScreen(drawn.matrix, attribute(line, "x2"), attribute(line, "y2"));
+        const vector = { dx: end.x - start.x, dy: end.y - start.y };
+        const length = Math.hypot(vector.dx, vector.dy);
+        if (!(length > 5)) violations.push(`${which} hand length ${length}`);
+        if (Math.hypot(start.x - centre.x, start.y - centre.y) > 1) violations.push(`${which} hand off centre`);
+        if (Math.hypot(end.x - centre.x, end.y - centre.y) + drawn.width / 2 > outlineRadius) {
+          violations.push(`${which} hand leaves the dial`);
+        }
+        // No point of the stroked hand may fall inside a label's box.
+        for (let step = 0; step <= 40; step += 1) {
+          const x = start.x + (vector.dx * step) / 40;
+          const y = start.y + (vector.dy * step) / 40;
+          const margin = drawn.width / 2;
+          if (labels.some((box) =>
+            x > box.left - margin && x < box.right + margin && y > box.top - margin && y < box.bottom + margin)) {
+            violations.push(`${which} hand meets a label`);
+            break;
+          }
+        }
+        return vector;
+      };
+      const minute = hand("minute");
+      const hour = hand("hour");
+      return {
+        id,
+        violations,
+        ...(minute === undefined ? {} : { minute }),
+        ...(hour === undefined ? {} : { hour }),
+        dial: { left: dialBox.left, top: dialBox.top, width: dialBox.width, height: dialBox.height },
+      };
+    });
+  });
+}
+
+/**
+ * The family print oracle for Clock Explorer: every ink violation, plus a
+ * violation for each clock whose painted hands do not read back, through the
+ * independent oracle, as the hour the generated document gave that clock.
+ */
+async function clockInkViolations(page: Page, document: WorksheetDocumentV1): Promise<readonly string[]> {
+  const readings = await readClockInk(page);
+  const violations = readings.flatMap(({ id, violations: found }) => found.map((violation) => `${id}: ${violation}`));
+  if (readings.length !== document.items.length) {
+    violations.push(`clocks: ${readings.length} != ${document.items.length}`);
+  }
+  for (const item of document.items) {
+    if (item.itemType !== "clock-explorer") {
+      violations.push(`${item.id}: not a clock`);
+      continue;
+    }
+    const reading = readings.find(({ id }) => id === item.id);
+    const read = reading?.minute === undefined || reading.hour === undefined
+      ? undefined
+      : oracleHourFromHands(reading.minute, reading.hour);
+    if (read !== item.hour) {
+      violations.push(`${item.id}: hands read ${String(read)}, expected ${item.hour}`);
+    }
+  }
+  return violations;
 }
 
 async function withPrintStyle(page: Page, content: string, check: () => Promise<void>) {
@@ -1002,6 +1188,59 @@ for (const fixture of printFixtures) {
             expect(physicalViolations(await readPhysicalGeometry(page), scale), "missing box restored")
               .toEqual([]);
           }
+          if (boundary.document.worksheetType === "clock-explorer") {
+            // Every dial's outline and both hands are real ink under print
+            // media, start at its centre, stay inside it, touch no label, and
+            // read back through the independent oracle as their own hour.
+            expect(await clockInkViolations(page, boundary.document), "clock ink").toEqual([]);
+            const twelve = boundary.document.items.find((item) =>
+              item.itemType === "clock-explorer" && item.hour === 12);
+            expect(twelve, "the boundary seed draws 12:00").toBeDefined();
+            const before = await readClockInk(page);
+            // Hiding either hand, or the outline, or zeroing a hand's width
+            // must fail the oracle while the dial box and its labels stay
+            // intact; each restores clean.
+            for (const target of [
+              `[data-item-id="${twelve?.id ?? ""}"] [data-clock-hand="minute"]`,
+              `[data-item-id="${twelve?.id ?? ""}"] [data-clock-hand="hour"]`,
+              '[data-item-id="item-001"] [data-clock-outline]',
+            ]) {
+              for (const broken of ["stroke: none !important;", "stroke-width: 0 !important;"]) {
+                await withPrintStyle(page, `@media print { .print-surface ${target} { ${broken} } }`, async () => {
+                  expect((await clockInkViolations(page, boundary.document)).length,
+                    `${target} ${broken} must fail`).toBeGreaterThan(0);
+                  expect((await readClockInk(page)).map(({ dial }) => dial), "the dial boxes stay intact")
+                    .toEqual(before.map(({ dial }) => dial));
+                  expect((await readRequiredContent(page, requiredPrintContent(boundary.document, "worksheet")))
+                    .violations, "labels and lines stay intact").toEqual([]);
+                });
+                expect(await clockInkViolations(page, boundary.document), `${target} restored`).toEqual([]);
+              }
+            }
+            // A hand turned to the wrong hour keeps its ink and fails the
+            // oracle's reading.
+            await page.locator(`.print-surface [data-item-id="${twelve?.id ?? ""}"] [data-clock-hand="hour"]`)
+              .evaluate((line) => {
+                line.setAttribute("data-original-x2", line.getAttribute("x2") ?? "");
+                line.setAttribute("x2", "66");
+              });
+            expect((await clockInkViolations(page, boundary.document)).some((violation) =>
+              violation.includes("hands read")), "a turned hand must fail").toBe(true);
+            await page.locator(`.print-surface [data-item-id="${twelve?.id ?? ""}"] [data-clock-hand="hour"]`)
+              .evaluate((line) => {
+                line.setAttribute("x2", line.getAttribute("data-original-x2") ?? "");
+                line.removeAttribute("data-original-x2");
+              });
+            expect(await clockInkViolations(page, boundary.document), "clock ink restored").toEqual([]);
+            // A collapsed dial fails its physical size, then restores clean.
+            await withPrintStyle(page,
+              ".print-surface [data-clock-dial] { width: 10mm !important; height: 10mm !important; }",
+              async () => {
+                expect(physicalViolations(await readPhysicalGeometry(page), scale).some((violation) =>
+                  violation.startsWith("clockDial[0]: widthMm")), "a shrunken dial must fail").toBe(true);
+              });
+            expect(physicalViolations(await readPhysicalGeometry(page), scale), "dial restored").toEqual([]);
+          }
           if (boundary.document.worksheetType === "operation-grid") {
             // The whole table prints on this one page: every cell is the
             // handwriting size, measured above, and the grid is one uncut
@@ -1329,10 +1568,10 @@ test("manual print uses the compiled app with canonical temporary profiles and c
   request,
 }) => {
   // The worksheet-choice matrix built from the committed example expands to
-  // 91 distinct worksheet cases, 23 of which also measure a key PDF.
+  // 95 distinct worksheet cases, 27 of which also measure a key PDF.
   expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
-  expect(matrixCases).toHaveLength(91);
-  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(23);
+  expect(matrixCases).toHaveLength(95);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(27);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {

@@ -613,3 +613,52 @@ describe("profile config API", () => {
     expect((await readFile(join(dirname(configPath), backups[0]!))).equals(schemaInvalidRaw)).toBe(true);
   });
 });
+
+describe("the Clock Explorer worksheet type through the config API", () => {
+  test("an explicit save keeps Clock Explorer across a reload without touching the fictional profile's identity", async () => {
+    const { app, configPath, token } = await setup();
+    const earlier = fixture("Fictional Clock Reader");
+    const created = await app.inject({
+      method: "PUT",
+      url: "/api/config",
+      headers: { ...putHeaders(token), "if-none-match": "*" },
+      payload: earlier,
+    });
+    expect(created.statusCode).toBe(200);
+    const beforeRaw = await readFile(configPath);
+    // A read never writes: the file written before the save is untouched.
+    const firstRead = await app.inject({
+      method: "GET",
+      url: "/api/config",
+      headers: { host: HOST, "x-extra-credit-token": token },
+    });
+    expect(firstRead.statusCode).toBe(200);
+    expect((await readFile(configPath)).equals(beforeRaw)).toBe(true);
+
+    const saved = structuredClone(earlier);
+    saved.defaults.worksheetType = "clock-explorer";
+    const written = await app.inject({
+      method: "PUT",
+      url: "/api/config",
+      headers: { ...putHeaders(token), "if-match": String(firstRead.headers.etag) },
+      payload: saved,
+    });
+    expect(written.statusCode).toBe(200);
+    const reload = await app.inject({
+      method: "GET",
+      url: "/api/config",
+      headers: { host: HOST, "x-extra-credit-token": token },
+    });
+    expect(reload.statusCode).toBe(200);
+    const reloaded = (reload.json() as { config: AppConfigV2; storedSchemaVersion: number });
+    expect(reloaded.storedSchemaVersion).toBe(2);
+    expect(reloaded.config.defaults.worksheetType).toBe("clock-explorer");
+    // Only the worksheet type changed; every other stored choice and the
+    // profile, earlier settings included, are exactly as saved before.
+    expect(reloaded.config).toEqual({ ...earlier, defaults: { ...earlier.defaults, worksheetType: "clock-explorer" } });
+    expect(reloaded.config.profiles).toEqual(earlier.profiles);
+    const stored = JSON.parse((await readFile(configPath)).toString("utf8")) as AppConfigV2;
+    expect(stored.schemaVersion).toBe(2);
+    expect(stored.defaults.worksheetType).toBe("clock-explorer");
+  });
+});

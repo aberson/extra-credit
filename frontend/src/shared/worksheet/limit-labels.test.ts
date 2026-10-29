@@ -47,6 +47,7 @@ import {
   findTheWowCapacityVerdict,
   measureFindTheWowStemCapacity,
 } from "../../worksheets/find-the-wow/generator.js";
+import { CLOCK_EXPLORER_LIMITING_RESOURCE_ADVICE } from "../../worksheets/clock-explorer/definition.js";
 import {
   NUMBER_BONDS_LIMITING_RESOURCE_ADVICE,
   getNumberBondsItemCount,
@@ -378,6 +379,8 @@ const IMPLIED_REPRESENTATION_NOTE: Readonly<Record<RegisteredWorksheetType, stri
     "dead from the registry: the registration always passes the shipped vocabulary, which options.test.tsx proves can starve no (variant, vocabulary, length, scale) cell",
   "number-bonds":
     "dead over the whole selection domain: the registration has no capability gate; shortfalls are capacity verdicts",
+  "clock-explorer":
+    "dead over the whole selection domain: the registration has no capability gate, and every page draws four of the fixed twelve hours",
   "operation-grid":
     "reachable: an Operation Grid that cannot print (a powers grid beyond its bases or exponents, a full grid, Diagonal first on a non-square or powers grid, a large-print grid above its size) is refused before Create",
 };
@@ -521,6 +524,11 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     id: "NA-operation-grid",
     status: "reachable",
     note: "Operation Grid reads no focus maximum: its one grid is fixed by its operation and size, so it declares none and its advice names the pre-filled cells",
+  },
+  {
+    id: "NA-clock-explorer",
+    status: "reachable",
+    note: "Clock Explorer reads no focus maximum: its four clocks come from the fixed twelve hours, so it declares none and its advice names that fixed set and no control",
   },
   {
     id: "NB-range-only",
@@ -1484,6 +1492,17 @@ describe("every declared arm of the capacity and advice surface", () => {
               expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
               expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
                 `${where}: ${OPERATION_GRID_LIMITING_RESOURCE_ADVICE}`,
+              );
+            } else if (worksheetType === "clock-explorer") {
+              // Clock Explorer's twelve hours are its whole domain: no
+              // declared maximum, and advice that recommends no control.
+              observe("NA-clock-explorer");
+              expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
+              expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
+                `${where}: ${CLOCK_EXPLORER_LIMITING_RESOURCE_ADVICE}`,
+              );
+              expect(CLOCK_EXPLORER_LIMITING_RESOURCE_ADVICE).not.toMatch(
+                /practice focus|length|range|More options/u,
               );
             } else if (worksheetType !== "sentence-builder") {
               const advice =

@@ -8,6 +8,11 @@ import {
 import { objectiveAnswerMatches } from "./answer-oracle.js";
 import { factKey, isInFactFamily, regroups } from "./arithmetic.js";
 import {
+  INACTIVE_MATH_FIELDS,
+  INACTIVE_WRITING_CAPABILITIES,
+} from "./project-request.js";
+import {
+  CLOCK_EXPLORER_ITEM_COUNT,
   FACT_DIVIDEND_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   GENERATION_INVARIANT_FAILED,
@@ -409,6 +414,28 @@ function operationGridItemHolds(
   return cellsHold && given === practice.prefilled && diagonalHolds;
 }
 
+/**
+ * Whether a Clock Explorer request is canonical (visual math specification,
+ * section 6): standard length, no decoration, no decorative topic, no
+ * interests, no practice member, and exactly the inactive writing and math
+ * capabilities every family that reads none of them carries. Its page depends
+ * on the seed alone, so nothing else may reach its request.
+ */
+function clockExplorerRequestIsCanonical(request: GenerationRequestV1): boolean {
+  const { capabilities, options } = request;
+  return (
+    options.length === "standard" &&
+    !options.includeDecorativeGraphics &&
+    !("decorativeTopicId" in options) &&
+    !("topicIds" in request) &&
+    !("practice" in request) &&
+    capabilities.presentationBand === INACTIVE_WRITING_CAPABILITIES.presentationBand &&
+    capabilities.writingMode === INACTIVE_WRITING_CAPABILITIES.writingMode &&
+    JSON.stringify(recursivelyCanonicalize(capabilities.mathSkills)) ===
+      JSON.stringify(recursivelyCanonicalize(INACTIVE_MATH_FIELDS))
+  );
+}
+
 export function validateWorksheetInvariants(
   document: WorksheetDocumentV1,
 ): GenerationFailure | undefined {
@@ -426,8 +453,8 @@ export function validateWorksheetInvariants(
     };
   }
 
-  // A decorative topic is refused on the four families that print no
-  // decoration, and anywhere as a value outside the declared topic IDs.
+  // A decorative topic is refused on the families that print no decoration,
+  // and anywhere as a value outside the declared topic IDs.
   const { options } = document.request;
   if (
     "decorativeTopicId" in options &&
@@ -435,6 +462,7 @@ export function validateWorksheetInvariants(
       document.worksheetType === "find-the-wow" ||
       document.worksheetType === "number-bonds" ||
       document.worksheetType === "operation-grid" ||
+      document.worksheetType === "clock-explorer" ||
       !(TOPIC_IDS as readonly unknown[]).includes(options.decorativeTopicId))
   ) {
     return {
@@ -475,6 +503,7 @@ export function validateWorksheetInvariants(
   const ids = new Set<string>();
   const dryMathFacts = new Set<string>();
   const numberBonds = new Set<string>();
+  const clockHours = new Set<number>();
   for (const [index, item] of document.items.entries()) {
     const expectedId = `item-${String(index + 1).padStart(3, "0")}`;
     if (item.id !== expectedId || ids.has(item.id)) {
@@ -539,6 +568,24 @@ export function validateWorksheetInvariants(
         message:
           "An Operation Grid violated its operation, header, cell value, cell ceiling, answer, pre-filled count, or diagonal invariants.",
       };
+    }
+    // A clock belongs only on a Clock Explorer page, shows an hour from 1 to
+    // 12 that no other clock on the page shows, and answers exactly that hour.
+    if (item.itemType === "clock-explorer") {
+      if (
+        document.worksheetType !== "clock-explorer" ||
+        item.answer.kind !== "number" ||
+        objectiveAnswerMatches(item) !== true ||
+        clockHours.has(item.hour)
+      ) {
+        return {
+          ok: false,
+          code: GENERATION_INVARIANT_FAILED,
+          message:
+            "A Clock Explorer item violated its family, hour, answer, or uniqueness invariants.",
+        };
+      }
+      clockHours.add(item.hour);
     }
     if (item.itemType === "dry-math") {
       const key = factKey(item.operation, item.leftOperand, item.rightOperand);
@@ -617,6 +664,21 @@ export function validateWorksheetInvariants(
       code: GENERATION_INVARIANT_FAILED,
       message:
         "Operation Grid held other than one grid, or included unsupported interest or decorative data.",
+    };
+  }
+  // Clock Explorer prints exactly four clocks, nothing but clocks, from a
+  // canonical request.
+  if (
+    document.worksheetType === "clock-explorer" &&
+    (document.items.length !== CLOCK_EXPLORER_ITEM_COUNT ||
+      document.items.some((item) => item.itemType !== "clock-explorer") ||
+      !clockExplorerRequestIsCanonical(document.request))
+  ) {
+    return {
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message:
+        "Clock Explorer held other than four clocks, or its request carried choices beyond its canonical form.",
     };
   }
   return undefined;

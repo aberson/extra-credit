@@ -20,6 +20,7 @@ export const WORKSHEET_TYPE_IDS = [
   "count-compare-make",
   "number-bonds",
   "operation-grid",
+  "clock-explorer",
 ] as const;
 
 /**
@@ -81,6 +82,15 @@ export const OPERATION_GRID_POWERS_BASE_MAXIMUM = 10;
 export const OPERATION_GRID_POWERS_EXPONENT_MAXIMUM = 3;
 export const OPERATION_GRID_POWERS_CELL_MAXIMUM =
   OPERATION_GRID_POWERS_BASE_MAXIMUM ** OPERATION_GRID_POWERS_EXPONENT_MAXIMUM;
+
+/**
+ * Clock Explorer's fixed domain: the twelve on-the-hour times, 1:00 through
+ * 12:00, and the four distinct clocks one page holds. Neither is a parent
+ * choice, so neither is a range a selection can widen or narrow.
+ */
+export const CLOCK_EXPLORER_HOUR_MINIMUM = 1;
+export const CLOCK_EXPLORER_HOUR_MAXIMUM = 12;
+export const CLOCK_EXPLORER_ITEM_COUNT = 4;
 
 /** The most pre-filled cells any grid can hold: one fewer than the largest grid. */
 export const OPERATION_GRID_PREFILLED_MAXIMUM =
@@ -507,13 +517,26 @@ export interface OperationGridItemV1 extends ObjectiveItemBaseV1 {
   readonly answer: { readonly kind: "grid"; readonly value: readonly number[] };
 }
 
+/**
+ * One Clock Explorer clock: an on-the-hour time from 1:00 to 12:00. The
+ * drawing is derived from `hour` alone (the long minute hand at twelve, the
+ * short hour hand `30 × (hour mod 12)` degrees clockwise from twelve), and the
+ * answer is the hour the child writes before the printed `:00`.
+ */
+export interface ClockExplorerItemV1 extends ObjectiveItemBaseV1 {
+  readonly itemType: "clock-explorer";
+  readonly hour: number;
+  readonly answer: { readonly kind: "number"; readonly value: number };
+}
+
 export type WorksheetItemV1 =
   | DryMathItemV1
   | WowGroupItemV1
   | SentenceItemV1
   | CountCompareItemV1
   | NumberBondItemV1
-  | OperationGridItemV1;
+  | OperationGridItemV1
+  | ClockExplorerItemV1;
 
 export interface WorksheetDocumentV1<
   TItem extends WorksheetItemV1 = WorksheetItemV1,

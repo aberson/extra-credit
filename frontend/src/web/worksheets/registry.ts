@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 
 import type { RegisteredWorksheetType } from "../../shared/worksheet/registry";
 import type { WorksheetDocumentV1 } from "../../shared/worksheet/types";
+import { ClockExplorerRenderer } from "./clock-explorer/Renderer";
 import { CountCompareMakeRenderer } from "./count-compare-make/Renderer";
 import { DryMathRenderer } from "./dry-math/Renderer";
 import { FindTheWowRenderer } from "./find-the-wow/Renderer";
@@ -20,6 +21,7 @@ export const WEB_WORKSHEET_RENDERERS = {
   "count-compare-make": CountCompareMakeRenderer,
   "number-bonds": NumberBondsRenderer,
   "operation-grid": OperationGridRenderer,
+  "clock-explorer": ClockExplorerRenderer,
 } as const satisfies Record<
   RegisteredWorksheetType,
   ComponentType<WorksheetRendererProps>

@@ -381,6 +381,20 @@ describe("touched groups", () => {
     expect(apply(chosen, groupChanged("operationGrid", { ...value, prefilled: 30 })).selection.operationGrid.prefilled).toBe(30);
   });
 
+  test("Clock Explorer is a worksheet type only: switching to it and back keeps every stored group, and the save writes it", () => {
+    const start = loaded(defaults({ length: "long", dryMathRegrouping: "required" }), [identityChild]);
+    const clock = apply(start, groupChanged("worksheetType", "clock-explorer"));
+    expect(WORKSHEET_GROUP_KEYS.filter((key) => clock.touched[key])).toEqual(["worksheetType"]);
+    expect(clock.selection).toEqual({ ...start.selection, worksheetType: "clock-explorer" });
+    // Its hidden length and every other family's choices stay stored.
+    expect(clock.selection.length).toBe("long");
+    const body = defaultsForSave(clock);
+    expect(body.worksheetType).toBe("clock-explorer");
+    expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
+    const back = apply(clock, groupChanged("worksheetType", start.selection.worksheetType));
+    expect(back.selection).toEqual(start.selection);
+  });
+
   test("the reducer never empties the fact families or operations", () => {
     const start = loaded(defaults(), [identityChild]);
     expect(

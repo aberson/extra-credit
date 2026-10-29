@@ -3,6 +3,11 @@ import type {
   WorksheetDocumentV1,
   WorksheetItemV1,
 } from "../../shared/worksheet/types";
+import {
+  clockHandsText,
+  clockItemsOf,
+  clockTimeText,
+} from "../../worksheets/clock-explorer/definition";
 import { COUNT_COMPARE_RELATION_WORDS } from "../../worksheets/count-compare-make/definition";
 import { numberBondKeyExpression } from "../../worksheets/number-bonds/definition";
 import {
@@ -48,6 +53,9 @@ function answerText(answer: ObjectiveAnswerV1): string {
 export function AnswerKeyView({ document }: AnswerKeyViewProps) {
   if (document.worksheetType === "operation-grid") {
     return <OperationGridAnswerKey document={document} />;
+  }
+  if (document.worksheetType === "clock-explorer") {
+    return <ClockExplorerAnswerKey document={document} />;
   }
   const objectiveItems = document.items.filter(
     (item) => item.answerability === "objective",
@@ -96,6 +104,45 @@ export function AnswerKeyView({ document }: AnswerKeyViewProps) {
                 </>
               )}
               <span data-answer-value={answer}>{answer}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </article>
+  );
+}
+
+/**
+ * Clock Explorer's key: each clock's time, written with its ":00", and where
+ * its two hands point, for example "3:00 — long hand at 12, short hand at 3".
+ * The time is formatted from the clock's own hour, the same field the dial
+ * is drawn from.
+ */
+function ClockExplorerAnswerKey({ document }: AnswerKeyViewProps) {
+  const items = clockItemsOf(document);
+  if (items === undefined) {
+    return <p role="alert">This answer key could not be rendered safely.</p>;
+  }
+  return (
+    <article aria-labelledby={`worksheet-${document.worksheetId}-answer-title`}>
+      <header style={{ borderBottom: "2px solid #24324a", marginBottom: "1rem" }}>
+        <h2 id={`worksheet-${document.worksheetId}-answer-title`}>
+          Parent answer key
+        </h2>
+        <p>Answers match the numbered problems on the worksheet.</p>
+      </header>
+      <ol aria-label="Objective answers" style={{ listStyle: "none", padding: 0 }}>
+        {items.map((item, index) => {
+          const time = clockTimeText(item.hour);
+          return (
+            <li
+              data-item-id={item.id}
+              id={`worksheet-${document.worksheetId}-answer-${item.id}`}
+              key={item.id}
+            >
+              <strong data-problem-number={index + 1}>{index + 1}.</strong>{" "}
+              <span data-answer-value={time}>{time}</span> —{" "}
+              <span data-clock-hands="true">{clockHandsText(item.hour)}</span>
             </li>
           );
         })}

@@ -172,6 +172,14 @@ export const printFixtures: readonly PrintFixture[] = [
     },
     printedOn: [{ paper: "letter", scale: "large" }],
   },
+  // Clock Explorer: four clocks on every paper and scale, the boundary seed
+  // holding 12:00, whose hands overlap, and 10:00 or 11:00, the widest hour
+  // hand angles beside two-digit labels.
+  {
+    id: "clock-hours-12",
+    profileIndex: 0,
+    selection: { ...shippedSelection, worksheetType: "clock-explorer" },
+  },
   {
     id: "wow-quantity",
     profileIndex: 0,
@@ -344,6 +352,17 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
             ...(item.missing === "right" ? [] : [item.rightOperand]),
             item.result,
           ].every((value) => value >= 10),
+      )
+    ) {
+      continue;
+    }
+    if (
+      selection.worksheetType === "clock-explorer" &&
+      !(
+        generated.document.items.some((item) => item.itemType === "clock-explorer" && item.hour === 12) &&
+        generated.document.items.some(
+          (item) => item.itemType === "clock-explorer" && (item.hour === 10 || item.hour === 11),
+        )
       )
     ) {
       continue;

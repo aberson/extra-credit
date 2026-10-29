@@ -1,12 +1,12 @@
 # Educational basis and scope
 
 This document records the published sources that bound the reviewed examples in
-Extra Credit's six worksheet families, and the limits of what those sources
+Extra Credit's seven worksheet families, and the limits of what those sources
 are being used for. It is the human-readable companion to
 [`plan.md` Section 12.5](plans/master_plan.md) and to the
 [math activities plan](plans/master_plan.md), and covers `dry-math`,
 `find-the-wow`, `sentence-builder` (all five writing modes),
-`count-compare-make`, `number-bonds`, and `operation-grid`.
+`count-compare-make`, `number-bonds`, `operation-grid`, and `clock-explorer`.
 
 ## What this document is, and is not
 
@@ -142,6 +142,27 @@ narrowed. Choosing it asserts no grade, placement, or readiness for it.
 Operation Grid prints numbers alone, with no decoration and no length choice:
 one grid fills one page. Whether a page can be created depends on the grid
 choices and the print scale alone, not on which child is selected.
+
+### `clock-explorer` — Clock Explorer
+
+Four clocks per page, each showing a different on-the-hour time from 1:00 to
+12:00, drawn from a seeded shuffle of the twelve hours. Every dial prints all
+twelve numbers, the long minute hand points at 12, and the shorter, heavier hour
+hand points at the hour: 30 degrees clockwise from 12 for each hour, so 3:00 has
+its long hand at 12 and its short hand at 3. At 12:00 both hands point at 12;
+the long hand still shows past the short one. Hands are told apart by length
+and weight, never by colour. Under each dial the child writes the hour on a
+line between `Time:` and `:00`; the child's page shows no time in words or
+numerals. The key gives each time with the hands, for example
+"3:00 — long hand at 12, short hand at 3".
+
+- [Common Core Grade 1 Measurement and Data](https://www.thecorestandards.org/Math/Content/1/MD/) — cited only for telling and writing time in hours on analog clocks.
+- [IES Teaching Math to Young Children](https://ies.ed.gov/ncee/wwc/practiceguide/18)
+
+Clock Explorer has no practice focus, length, decoration or interest choice: the
+twelve hours are its whole domain, and every page draws four of them. Half
+hours are not offered. Whether a page can be created never depends on which
+child is selected, and choosing it asserts no grade, placement, or readiness.
 
 ### `find-the-wow` — Two Whats and a Wow
 

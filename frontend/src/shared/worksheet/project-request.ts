@@ -176,8 +176,10 @@ export function projectWorksheetCapabilities(
       };
     case "number-bonds":
     case "operation-grid":
+    case "clock-explorer":
       // Number Bonds and Operation Grid read no `mathSkills` focus: their
-      // choices travel in the `practice` member.
+      // choices travel in the `practice` member. Clock Explorer reads no
+      // choice at all: its fixed domain depends on the seed alone.
       return {
         ...INACTIVE_WRITING_CAPABILITIES,
         mathSkills: inactiveMath(),
@@ -209,7 +211,7 @@ function worksheetUsesInterests(worksheetType: WorksheetType): boolean {
  * The decorative topic a selection's Theme resolves to, or `undefined` when
  * the request carries none.
  *
- * Nothing is carried while decorative graphics are off, nor for the four
+ * Nothing is carried while decorative graphics are off, nor for the five
  * families that print no decoration, so the Theme cannot change their
  * requests. An explicit topic or Neutral resolves to itself. "From interests"
  * means the child's first reviewed interest in profile order for Count,
@@ -228,6 +230,7 @@ function projectDecorativeTopicId(
     case "find-the-wow":
     case "number-bonds":
     case "operation-grid":
+    case "clock-explorer":
       return undefined;
     case "sentence-builder":
       return selection.theme === "from-interests" ? undefined : selection.theme;
@@ -283,14 +286,17 @@ export function projectWorksheetPractice(
 }
 
 /**
- * The canonical length: the two no-bank Sentence activities and Operation
- * Grid, whose one grid per page has no length, always print standard.
+ * The canonical length: the two no-bank Sentence activities, Operation Grid,
+ * whose one grid per page has no length, and Clock Explorer, whose page always
+ * holds four clocks, always print standard. The stored length is untouched,
+ * so switching back to another family restores it.
  */
 function projectedLength(selection: WorksheetSelectionV2): WorksheetSelectionV2["length"] {
   return (selection.worksheetType === "sentence-builder" &&
     (selection.sentenceBuilder.variant === "draw-and-tell" ||
       selection.sentenceBuilder.variant === "copy-with-model")) ||
-    selection.worksheetType === "operation-grid"
+    selection.worksheetType === "operation-grid" ||
+    selection.worksheetType === "clock-explorer"
     ? "standard"
     : selection.length;
 }
@@ -350,7 +356,8 @@ export function projectGenerationRequest(
           worksheetType === "dry-math" ||
           worksheetType === "find-the-wow" ||
           worksheetType === "number-bonds" ||
-          worksheetType === "operation-grid"
+          worksheetType === "operation-grid" ||
+          worksheetType === "clock-explorer"
             ? false
             : selection.includeDecorativeGraphics,
         includeAnswerKey:

@@ -591,6 +591,10 @@ function withOwnFields(
       return { ...target, ...shared, numberBonds: source.numberBonds };
     case "operation-grid":
       return { ...target, ...shared, operationGrid: source.operationGrid };
+    case "clock-explorer":
+      // Clock Explorer reads no length: the target's stored length stays, so
+      // the property also varies it.
+      return { ...target, ...shared, length: target.length };
   }
 }
 
@@ -744,7 +748,7 @@ describe("Number Bonds reads only its own choices", () => {
     );
   });
 
-  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "operation-grid"] as const)(
+  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "operation-grid", "clock-explorer"] as const)(
     "%s refuses a Number Bonds practice member",
     (worksheetType) => {
       const request = requestFor(selectionFor(worksheetType));
@@ -848,7 +852,7 @@ describe("Operation Grid reads only its own choices", () => {
     expect(result.ok ? "" : result.message).toContain(remedy);
   });
 
-  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "number-bonds"] as const)(
+  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "number-bonds", "clock-explorer"] as const)(
     "%s refuses an Operation Grid practice member",
     (worksheetType) => {
       const request = requestFor(selectionFor(worksheetType));
@@ -867,6 +871,147 @@ describe("Operation Grid reads only its own choices", () => {
       expect(itemsFor(carrying)).toHaveProperty("refused");
     },
   );
+});
+
+describe("Clock Explorer reads no worksheet choice (visual math specification, section 6)", () => {
+  /** Interests and earlier settings unlike the fictional child's, under the same nickname. */
+  const unlikeChild: ChildProfileV2 = profileWithLegacyChoices({
+    id: "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f",
+    displayName: "Distinctive Nickname",
+    presentationBand: "preschool",
+    reviewedOn: "2026-10-01",
+    mathSkills: {
+      countingMax: 2,
+      numeralMax: 2,
+      compareMax: 2,
+      representations: ["quantities"],
+      understandsEquality: false,
+      operations: [],
+      operandMax: 0,
+      resultMax: 0,
+      allowRegrouping: false,
+      allowNegativeResults: false,
+    },
+    writingMode: "draw-and-tell",
+    interests: ["animals", "nature", "vehicles"],
+  });
+
+  test("its request is canonical: standard length, no decoration, topics or practice, and the inactive capabilities", () => {
+    const request = requestFor(
+      selectionFor("clock-explorer", {
+        includeDecorativeGraphics: true,
+        useInterests: true,
+        theme: "space",
+        length: "long",
+        dryMathRegrouping: "required",
+      }),
+    );
+    expect(request.options.length).toBe("standard");
+    expect(request.options.includeDecorativeGraphics).toBe(false);
+    expect(request.options).not.toHaveProperty("decorativeTopicId");
+    expect(request).not.toHaveProperty("topicIds");
+    expect(request).not.toHaveProperty("practice");
+    expect(request.capabilities).toEqual({
+      ...INACTIVE_WRITING_CAPABILITIES,
+      mathSkills: INACTIVE_MATH_FIELDS,
+    });
+    // A fresh copy: the frozen pins are never handed out.
+    expect(request.capabilities.mathSkills).not.toBe(INACTIVE_MATH_FIELDS);
+    expect(request.capabilities.mathSkills.operations).not.toBe(INACTIVE_MATH_FIELDS.operations);
+    expect(request.capabilities.mathSkills.representations).not.toBe(
+      INACTIVE_MATH_FIELDS.representations,
+    );
+    // The nickname, the key, the paper and the scale still apply.
+    expect(request.displayName).toBe("Distinctive Nickname");
+    expect(request.options.includeAnswerKey).toBe(true);
+    expect(request.options.paperSize).toBe(baseSelection.paperSize);
+    expect(request.options.printScale).toBe(baseSelection.printScale);
+  });
+
+  test("property: every unrelated choice, the stored length, Theme, graphics, interests and earlier settings leave the whole request and its clocks identical", () => {
+    fc.assert(
+      fc.property(
+        selectionArbitrary,
+        selectionArbitrary,
+        fc.boolean(),
+        fc.integer({ min: 1, max: 0xffff_ffff }),
+        (source, noise, swapChild, seedNumber) => {
+          const seed = seedNumber.toString(16).padStart(8, "0");
+          const chosen = withOwnFields("clock-explorer", source, source);
+          const varied = withOwnFields("clock-explorer", source, noise);
+          const left = requestFor(chosen, child, seed);
+          const right = requestFor(varied, swapChild ? unlikeChild : child, seed);
+          expect(right).toEqual(left);
+          expect(itemsFor(right)).toEqual(itemsFor(left));
+          expect(itemsFor(left)).not.toHaveProperty("refused");
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+
+  test("mirror: the seed changes the clocks, and an applicable option changes the request but never the clocks", () => {
+    const selection = selectionFor("clock-explorer");
+    const first = requestFor(selection, child, "00000001");
+    expect(itemsFor(requestFor(selection, child, "00000002"))).not.toEqual(itemsFor(first));
+    for (const overrides of [
+      { paperSize: "a4" },
+      { printScale: "large" },
+      { includeAnswerKey: false },
+      { useDisplayName: false },
+    ] as const satisfies readonly Partial<WorksheetSelectionV2>[]) {
+      const changed = requestFor({ ...selection, ...overrides }, child, "00000001");
+      expect(changed, JSON.stringify(overrides)).not.toEqual(first);
+      expect(itemsFor(changed), JSON.stringify(overrides)).toEqual(itemsFor(first));
+    }
+  });
+
+  test("switching to Clock Explorer and back restores every stored choice the other family reads", () => {
+    const stored = selectionFor("dry-math", {
+      length: "long",
+      dryMathRegrouping: "required",
+      includeDecorativeGraphics: true,
+      theme: "space",
+    });
+    const clock: WorksheetSelectionV2 = { ...stored, worksheetType: "clock-explorer" };
+    expect(requestFor(clock).options.length).toBe("standard");
+    // The projection reads the selection; it never rewrites the stored values.
+    expect(clock.length).toBe("long");
+    const back: WorksheetSelectionV2 = { ...clock, worksheetType: "dry-math" };
+    expect(back).toEqual(stored);
+    expect(requestFor(back)).toEqual(requestFor(stored));
+    expect(requestFor(back).options.length).toBe("long");
+  });
+
+  test.each([
+    ["Dry Math add-subtract", { kind: "dry-math-add-subtract", regrouping: "required" }],
+    ["Dry Math facts", { kind: "dry-math-facts", operations: ["multiplication"], factFamilies: [2] }],
+  ] as const)("its generator refuses a %s practice member", (_label, practice) => {
+    const request = requestFor(selectionFor("clock-explorer"));
+    expect(itemsFor(request)).not.toHaveProperty("refused");
+    expect(itemsFor({ ...request, practice })).toHaveProperty("refused");
+  });
+
+  const NONCANONICAL: readonly (readonly [string, (request: GenerationRequestV1) => GenerationRequestV1])[] = [
+    ["a stored length", (request) => ({ ...request, options: { ...request.options, length: "long" } })],
+    ["decoration", (request) => ({ ...request, options: { ...request.options, includeDecorativeGraphics: true } })],
+    ["a decorative topic", (request) => ({ ...request, options: { ...request.options, decorativeTopicId: "neutral" } })],
+    ["interests", (request) => ({ ...request, topicIds: ["space"] })],
+    ["a writing capability", (request) => ({ ...request, capabilities: { ...request.capabilities, writingMode: "independent" } })],
+    ["a math capability", (request) => ({
+      ...request,
+      capabilities: {
+        ...request.capabilities,
+        mathSkills: { ...request.capabilities.mathSkills, operandMax: 20 },
+      },
+    })],
+  ];
+
+  test.each(NONCANONICAL)("its generator refuses a request carrying %s", (_label, edit) => {
+    const request = requestFor(selectionFor("clock-explorer"));
+    expect(itemsFor(request)).not.toHaveProperty("refused");
+    expect(itemsFor(edit(request))).toHaveProperty("refused");
+  });
 });
 
 describe("Dry Math reads only the strand it shows", () => {
@@ -1138,6 +1283,7 @@ describe("reviewed-topic allowlist", () => {
       "count-compare-make": [],
       "number-bonds": [],
       "operation-grid": [],
+      "clock-explorer": [],
     });
   });
 });
@@ -1196,6 +1342,11 @@ const DECORATED_TOPIC: Readonly<
     neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
   },
   "operation-grid": {
+    "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+  },
+  "clock-explorer": {
     "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
     space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
     neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },

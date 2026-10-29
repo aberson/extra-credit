@@ -1,9 +1,12 @@
-import type {
-  DryMathItemV1,
-  NumberBondItemV1,
-  ObjectiveAnswerV1,
-  OperationGridItemV1,
-  WorksheetItemV1,
+import {
+  CLOCK_EXPLORER_HOUR_MAXIMUM,
+  CLOCK_EXPLORER_HOUR_MINIMUM,
+  type ClockExplorerItemV1,
+  type DryMathItemV1,
+  type NumberBondItemV1,
+  type ObjectiveAnswerV1,
+  type OperationGridItemV1,
+  type WorksheetItemV1,
 } from "./types.js";
 
 /*
@@ -115,8 +118,23 @@ function operationGridAnswer(item: OperationGridItemV1): ObjectiveAnswerV1 | und
   return { kind: "grid", value };
 }
 
+/**
+ * A Clock Explorer clock's answer: the hour it shows, which the child writes
+ * before the printed `:00`. A clock whose hour is not an integer from 1 to 12
+ * shows no on-the-hour time and has none.
+ */
+function clockExplorerAnswer(item: ClockExplorerItemV1): ObjectiveAnswerV1 | undefined {
+  const { hour } = item;
+  return Number.isInteger(hour) &&
+    hour >= CLOCK_EXPLORER_HOUR_MINIMUM &&
+    hour <= CLOCK_EXPLORER_HOUR_MAXIMUM
+    ? { kind: "number", value: hour }
+    : undefined;
+}
+
 const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
   "dry-math": dryMathAnswer,
+  "clock-explorer": clockExplorerAnswer,
   "number-bond": numberBondAnswer,
   "operation-grid": operationGridAnswer,
   "wow-group": FAMILY_VALIDATED,
@@ -131,8 +149,9 @@ const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
  * The answer an objective item's own fields imply, `FAMILY_VALIDATED` when its
  * family's validator owns that answer, or `undefined` when its fields imply no
  * answer at all (a division with a remainder or by zero, a Number Bonds
- * sentence with no one missing number, or an Operation Grid with an unknown
- * operation or a header that is not a positive integer).
+ * sentence with no one missing number, an Operation Grid with an unknown
+ * operation or a header that is not a positive integer, or a clock whose hour
+ * is not from 1 to 12).
  */
 export function recomputeObjectiveAnswer(
   item: ObjectiveItemV1,
@@ -144,6 +163,8 @@ export function recomputeObjectiveAnswer(
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["number-bond"](item);
     case "operation-grid":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["operation-grid"](item);
+    case "clock-explorer":
+      return OBJECTIVE_ANSWER_RECOMPUTATIONS["clock-explorer"](item);
     case "wow-group":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["wow-group"];
     case "count-compare":

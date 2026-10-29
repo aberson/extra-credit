@@ -451,7 +451,7 @@ Integration: extend shared/worksheet types, registry, project-request, invariant
 Run setup/test commands in section 11; disposable `npm --prefix frontend run manual:print` after build supplies fictional profiles and exact ephemeral URL, stop with Ctrl+C. Source summary, fourteen-activity/reference-page inventory, backlog, impacts and full design rationale are in the linked specification. It is reference material, not an independent status queue.
 
 ### Step 35: Print on-the-hour clock practice
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** A parent can generate a four-clock page through the existing app.
 - **Type:** code
 - **Issue:** #43

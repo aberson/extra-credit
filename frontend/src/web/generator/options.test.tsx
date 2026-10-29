@@ -366,6 +366,7 @@ function emptyFamilyTally(): Record<RegisteredWorksheetType, number> {
     "count-compare-make": 0,
     "number-bonds": 0,
     "operation-grid": 0,
+    "clock-explorer": 0,
   };
 }
 
@@ -623,6 +624,9 @@ describe("capacity-aware availability (issue #14)", () => {
     // the bank budget, and "the shipped vocabulary can always fill it" is
     // pinned exhaustively below rather than assumed here.
     expect(refusedBy["sentence-builder"]).toBe(0);
+    // Clock Explorer draws four of its fixed twelve hours: nothing to run
+    // short of at any length or scale.
+    expect(refusedBy["clock-explorer"]).toBe(0);
 
     // The exact combinations each family is guarded at, so a later fixture or
     // limit edit that quietly removes a refusal regime fails HERE rather than
@@ -1230,6 +1234,9 @@ describe("family-aware limiting-resource copy (issue #16)", () => {
         "Number Bonds varies within the range of this practice focus. Choose a practice focus with a wider range, or create a new worksheet later.",
       "operation-grid":
         "Operation Grid varies only in which cells are pre-filled. Choose Random placement or a different number of pre-filled cells, or create a new worksheet later.",
+      // A fixed domain: no range, length or practice focus is recommended.
+      "clock-explorer":
+        "Clock Explorer draws 4 clocks from a fixed set of 12 on-the-hour times, which no other choice changes. Create a new worksheet later.",
     };
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
       expect(
@@ -1714,8 +1721,9 @@ describe("age-free generator introduction and child choice", () => {
         /difficulty|stretch|confidence/iu,
       );
       // The stored length still reaches the panel without a Difficulty step;
-      // Operation Grid, one grid per page, shows no length at all.
-      if (worksheetType === "operation-grid") {
+      // Operation Grid, one grid per page, and Clock Explorer, four clocks
+      // per page, show no length at all.
+      if (worksheetType === "operation-grid" || worksheetType === "clock-explorer") {
         expect(screen.queryByRole("combobox", { name: "Length" }), worksheetType).toBeNull();
       } else {
         expect(

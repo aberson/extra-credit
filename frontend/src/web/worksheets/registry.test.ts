@@ -496,6 +496,7 @@ describe("worksheet renderer registry", () => {
       "count-compare-make",
       "number-bonds",
       "operation-grid",
+      "clock-explorer",
     ]);
     // Every declared worksheet type is registered, in declaration order, and
     // has a renderer in that same order.
@@ -1142,7 +1143,7 @@ function compose(...edits: readonly SelectionEdit[]): SelectionEdit {
 const FAMILY_CHOICE_EDITS: Readonly<
   Record<
     RegisteredWorksheetType,
-    { readonly own: SelectionEdit; readonly foreign: SelectionEdit }
+    { readonly own: SelectionEdit | undefined; readonly foreign: SelectionEdit }
   >
 > = {
   "dry-math": {
@@ -1214,6 +1215,21 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherCountCompare,
       otherSentence,
       otherNumberBonds,
+    ),
+  },
+  // Clock Explorer reads no worksheet choice at all: its four clocks come
+  // from the seed alone, so there is no own edit to move its request.
+  "clock-explorer": {
+    own: undefined,
+    foreign: compose(
+      otherDryMath,
+      otherWowVariant,
+      otherWowQuantity,
+      otherWowEquation,
+      otherCountCompare,
+      otherSentence,
+      otherNumberBonds,
+      otherOperationGrid,
     ),
   },
 };
@@ -1413,6 +1429,7 @@ const CONTRACT_PROFILES: Readonly<
   ],
   "number-bonds": [contractProfile()],
   "operation-grid": [contractProfile()],
+  "clock-explorer": [contractProfile()],
 };
 
 function contractSelection(
@@ -1533,6 +1550,23 @@ describe("worksheet control contract matches the projection boundary", () => {
           contractRequest(worksheetType, sourceProfile, foreign),
           label,
         ).toEqual(request);
+        if (own === undefined) {
+          // A family with no own choice shows none of the choice controls.
+          const applicable = getWorksheetRegistration(worksheetType).controls
+            .getApplicableControls({ selection: base });
+          expect(
+            [
+              applicable.practiceFocus,
+              applicable.variant,
+              applicable.vocabulary,
+              applicable.regrouping,
+              applicable.factFamilies,
+              applicable.operationGrid,
+            ],
+            label,
+          ).toEqual([false, false, false, false, false, false]);
+          continue;
+        }
         // Mirror: the family's own choice does move the same request.
         expect(
           contractRequest(worksheetType, sourceProfile, own),
@@ -3212,6 +3246,8 @@ function catalogSweepCells(): readonly SweepCell[] {
         })),
       );
     }),
+    // Clock Explorer has no catalog: its one cell is the fixed twelve hours.
+    ...sweepCells("clock-explorer", "clock-explorer", (selection) => selection),
   ];
 }
 
@@ -3249,10 +3285,10 @@ describe("availability equals generation", () => {
     // Pinned: 7 Dry Math, 2 quantity and 5 equation Wow, and 2 Count, Compare
     // & Make catalog focuses, 5 writing activities x 2 vocabularies, and 9
     // Number Bonds focuses x 2 carrying and borrowing choices, and 11 Operation
-    // Grid operation and preset choices, each at 3 lengths x 2 scales. A
-    // catalog change must revisit the pinned starving set below, so it fails
-    // here first.
-    expect(cells).toHaveLength(330);
+    // Grid operation and preset choices, and the one Clock Explorer cell,
+    // each at 3 lengths x 2 scales. A catalog change must revisit the pinned
+    // starving set below, so it fails here first.
+    expect(cells).toHaveLength(336);
     expect(new Set(cells.map(({ label }) => label)).size).toBe(cells.length);
     expect(
       new Set(cells.map(({ selection }) => selection.worksheetType)),

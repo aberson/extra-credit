@@ -34,9 +34,9 @@ describe("CI and package-script contract", () => {
       env: { ...process.env, EXTRA_CREDIT_E2E_BASE_URL: "http://127.0.0.1:1" },
     });
     const listed = stdout.split("\n").filter((line) => /print\.spec\.ts:\d+:\d+/u.test(line));
-    // 91 worksheet rows, four order-bound sweeps, earliest-print probe,
+    // 95 worksheet rows, four order-bound sweeps, earliest-print probe,
     // and 13 manual lifecycle cases.
-    expect(listed).toHaveLength(109);
+    expect(listed).toHaveLength(113);
     expect(listed.filter((line) => line.includes("count ordering and frame bounds"))).toHaveLength(4);
     for (const paper of ["letter", "a4"]) {
       for (const scale of ["standard", "large"]) {
@@ -48,7 +48,8 @@ describe("CI and package-script contract", () => {
           // row, the multiplication and division facts row, the Number Bonds
           // missing number sentences row, the 10 x 10 multiplication grid and
           // the 12 x 12 addition grid; A4/standard prints the 12 x 12 addition
-          // grid and Letter/large the powers grid.
+          // grid and Letter/large the powers grid. Every paper and scale
+          // prints the one Clock Explorer row.
           const gridCells: Readonly<Record<string, number>> = {
             "letter-standard": 2,
             "a4-standard": 1,
@@ -58,7 +59,10 @@ describe("CI and package-script contract", () => {
           expect(rows).toHaveLength(
             decoration === "true"
               ? 9
-              : (paper === "letter" && scale === "standard" ? 15 : 12) + gridRows,
+              : (paper === "letter" && scale === "standard" ? 16 : 13) + gridRows,
+          );
+          expect(rows.filter((line) => line.includes("clock-"))).toHaveLength(
+            decoration === "true" ? 0 : 1,
           );
           expect(rows.filter((line) => line.includes("grid-"))).toHaveLength(
             decoration === "true" ? 0 : gridRows,

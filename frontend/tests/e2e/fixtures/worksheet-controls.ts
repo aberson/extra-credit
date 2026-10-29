@@ -279,7 +279,8 @@ export async function chooseVocabulary(page: Page, vocabulary: SentenceVocabular
  * Number Bonds sentence entry's label) and, for Dry Math, Carrying and
  * borrowing or the fact families, for Number Bonds its own Carrying and
  * borrowing, for Sentence Builder the vocabulary, or, for Operation Grid,
- * every grid choice (`chooseOperationGrid`).
+ * every grid choice (`chooseOperationGrid`). Clock Explorer has no choice
+ * beyond its card.
  * The selection's other fields are left to the functions below.
  */
 export async function chooseWorksheetChoices(
@@ -324,6 +325,10 @@ export async function chooseWorksheetChoices(
       return;
     case "operation-grid":
       await chooseOperationGrid(page, selection.operationGrid);
+      return;
+    case "clock-explorer":
+      // Four fixed on-the-hour clocks: no practice choice, and none appears.
+      await expect(controls(page).practiceFocus()).toHaveCount(0);
       return;
   }
 }

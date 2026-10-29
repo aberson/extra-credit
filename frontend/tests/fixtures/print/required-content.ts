@@ -1,4 +1,5 @@
 import type {
+  ClockExplorerItemV1,
   OperationGridItemV1,
   SentenceItemV1,
   WorksheetDocumentV1,
@@ -38,6 +39,7 @@ export function requiredPrintContent(
     "count-compare-make": "Count, Compare & Make practice",
     "number-bonds": "Number Bonds practice",
     "operation-grid": "Operation Grid practice",
+    "clock-explorer": "Clock Explorer practice",
   };
   const first = document.items[0];
   const instruction = first?.itemType === "sentence"
@@ -50,6 +52,8 @@ export function requiredPrintContent(
         ? "Practice page · solve each equation."
         : document.worksheetType === "number-bonds"
           ? "Write the missing number in each box."
+          : document.worksheetType === "clock-explorer"
+            ? "Read each clock. Write the hour on the line."
           : first?.itemType === "operation-grid"
             ? {
                 addition: "Fill in each empty box: add its row number and its column number.",
@@ -138,11 +142,38 @@ export function requiredPrintContent(
     }
   }
 
+  /**
+   * One clock. On the worksheet: its number, the dial with all twelve labels
+   * and an empty writing line between "Time:" and ":00" (the hands are SVG
+   * strokes, which `print.spec.ts` checks for ink separately). On the key:
+   * its number, the time and where the two hands point.
+   */
+  function clockContent(item: ClockExplorerItemV1, index: number, selector: string) {
+    text(`${selector} [data-problem-number]`, `${index + 1}.`);
+    if (surface === "answer") {
+      text(`${selector} [data-answer-value]`, `${item.hour}:00`);
+      text(`${selector} [data-clock-hands]`, `long hand at 12, short hand at ${item.hour}`);
+      text(selector, `${index + 1}. ${item.hour}:00 — long hand at 12, short hand at ${item.hour}`);
+      return;
+    }
+    required.push({ selector: `${selector} [data-clock-dial]`, count: 1 });
+    text(`${selector} [data-clock-label]`,
+      ...Array.from({ length: 12 }, (_, label) => String(label + 1)));
+    text(`${selector} [data-clock-response]`, "Time: :00");
+    boxes(`${selector} [data-time-blank]`, 1, "bottom-rule");
+    // The writing line is empty: no answer is filled in on the child's page.
+    text(`${selector} [data-time-blank]`, "");
+  }
+
   for (const [index, item] of document.items.entries()) {
     const selector = `[data-item-id="${item.id}"]`;
     required.push({ selector, count: 1 });
     if (item.itemType === "operation-grid") {
       gridContent(item, selector);
+      continue;
+    }
+    if (item.itemType === "clock-explorer") {
+      clockContent(item, index, selector);
       continue;
     }
     if (surface === "answer") {

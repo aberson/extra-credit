@@ -195,6 +195,8 @@ const CATALOG_CELLS: readonly { readonly name: string; readonly selection: Works
       },
     }));
   }),
+  // Clock Explorer has no catalog: its one cell is the fixed twelve hours.
+  { name: "clock-explorer", selection: { ...base, worksheetType: "clock-explorer" as const } },
 ];
 
 /** A fictional child built at runtime, carrying only the given earlier settings. */
@@ -662,6 +664,7 @@ describe("shipped example profiles", () => {
       { name: "count-compare-make", selection: { ...base, worksheetType: "count-compare-make" } },
       { name: "number-bonds", selection: { ...base, worksheetType: "number-bonds" } },
       { name: "operation-grid", selection: { ...base, worksheetType: "operation-grid" } },
+      { name: "clock-explorer", selection: { ...base, worksheetType: "clock-explorer" } },
     ];
   }
 

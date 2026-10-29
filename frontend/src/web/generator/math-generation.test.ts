@@ -26,6 +26,7 @@ import {
   oracleNumberBondKeys,
   oracleRegroups,
 } from "../../../tests/oracles/arithmetic-oracle";
+import { judgeClockDocument } from "../../../tests/oracles/clock-oracle";
 import {
   createWorksheetSessionForSeed,
   makeAnotherWorksheetSession,
@@ -354,5 +355,60 @@ describe("Operation Grid through the production caller", () => {
       message:
         "No different worksheet was found in 16 attempts. Operation Grid varies only in which cells are pre-filled. Choose Random placement or a different number of pre-filled cells, or create a new worksheet later.",
     });
+  });
+});
+
+describe("Clock Explorer through the production caller", () => {
+  const clockGeneration: GenerationSelection = {
+    profile: fictionalChild,
+    selection: {
+      ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+      worksheetType: "clock-explorer",
+      // Stored choices the family never reads: they must not reach its page.
+      length: "long",
+      includeDecorativeGraphics: true,
+      theme: "space",
+    },
+  };
+
+  test("createWorksheetSessionForSeed returns a validated four-clock page the independent oracle accepts", () => {
+    for (const seed of [1, 0x2026_0035, 0xffff_ffff]) {
+      const created = createWorksheetSessionForSeed(clockGeneration, seed, DEPENDENCIES);
+      if (!created.ok) {
+        throw new Error(created.message);
+      }
+      const { document } = created.session;
+      expect(document.worksheetType).toBe("clock-explorer");
+      expect(document.request.options.length).toBe("standard");
+      expect(document.request.options.includeDecorativeGraphics).toBe(false);
+      expect(document.request.displayName).toBe("Fictional Regrouper");
+      expect(validateWorksheetInvariants(document)).toBeUndefined();
+      expect(judgeClockDocument(document)).toEqual([]);
+    }
+  });
+
+  test("Make another finds a different page, and exhaustion names the fixed hours without recommending a control", () => {
+    const first = createWorksheetSessionForSeed(clockGeneration, 1, DEPENDENCIES);
+    if (!first.ok) {
+      throw new Error(first.message);
+    }
+    let seed = 1;
+    const another = makeAnotherWorksheetSession(first.session, clockGeneration, () => (seed += 1), DEPENDENCIES);
+    expect(another.status).toBe("changed");
+    if (another.status === "changed") {
+      expect(another.session.contentKey).not.toBe(first.session.contentKey);
+      expect(judgeClockDocument(another.session.document)).toEqual([]);
+    }
+    // A seed source that only ever offers the current seed finds nothing new
+    // in the 16 attempts, and the message says so truthfully.
+    const exhausted = makeAnotherWorksheetSession(first.session, clockGeneration, () => 1, DEPENDENCIES);
+    expect(exhausted).toEqual({
+      status: "exhausted",
+      message:
+        "No different worksheet was found in 16 attempts. Clock Explorer draws 4 clocks from a fixed set of 12 on-the-hour times, which no other choice changes. Create a new worksheet later.",
+    });
+    expect(exhausted.status === "exhausted" ? exhausted.message : "").not.toMatch(
+      /practice focus|length|range|More options/u,
+    );
   });
 });

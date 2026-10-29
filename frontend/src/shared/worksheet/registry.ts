@@ -6,6 +6,11 @@ import {
 } from "../config/practice-focus.js";
 import type { WorksheetSelectionV2 } from "../config/schema.js";
 import {
+  CLOCK_EXPLORER_DEFINITION,
+  CLOCK_EXPLORER_LIMITING_RESOURCE_ADVICE,
+} from "../../worksheets/clock-explorer/definition.js";
+import { generateClockExplorer } from "../../worksheets/clock-explorer/generator.js";
+import {
   COUNT_COMPARE_MAKE_DEFINITION,
   getCountCompareMakeCapabilitySupport,
   getCountCompareMakeItemCount,
@@ -72,10 +77,11 @@ import {
   projectWorksheetCapabilities,
   projectWorksheetPractice,
 } from "./project-request.js";
-import type {
-  GenerationRequestV1,
-  WorksheetGeneratorV1,
-  WorksheetType,
+import {
+  CLOCK_EXPLORER_ITEM_COUNT,
+  type GenerationRequestV1,
+  type WorksheetGeneratorV1,
+  type WorksheetType,
 } from "./types.js";
 
 export type {
@@ -698,6 +704,44 @@ export const WORKSHEET_REGISTRY = {
         regrouping: false,
         factFamilies: false,
         operationGrid: true,
+        length: false,
+        includeAnswerKey: true,
+        paperSize: true,
+        printScale: true,
+      }),
+    },
+  },
+  "clock-explorer": {
+    ...CLOCK_EXPLORER_DEFINITION,
+    generate: generateClockExplorer,
+    controls: {
+      // Every page draws four of the twelve hours, so every selection is
+      // available and always has the capacity.
+      getCapabilitySupport: () => ({
+        available: true,
+        capacity: SUFFICIENT_CAPACITY,
+      }),
+      // The twelve hours are fixed, so the advice names no range or length.
+      getLimitingResourceAdvice: () => CLOCK_EXPLORER_LIMITING_RESOURCE_ADVICE,
+      getRelevantMaximums: () => NO_MAXIMUMS,
+      getEffectiveUnit: () => ({
+        count: CLOCK_EXPLORER_ITEM_COUNT,
+        singularLabel: "clock",
+        pluralLabel: "clocks",
+      }),
+      // Four clocks per page have no length, and decoration would take the
+      // dials' print area: only the nickname, key, paper and scale apply.
+      getApplicableControls: () => ({
+        useDisplayName: true,
+        useInterests: false,
+        includeDecorativeGraphics: false,
+        theme: false,
+        practiceFocus: false,
+        variant: false,
+        vocabulary: false,
+        regrouping: false,
+        factFamilies: false,
+        operationGrid: false,
         length: false,
         includeAnswerKey: true,
         paperSize: true,

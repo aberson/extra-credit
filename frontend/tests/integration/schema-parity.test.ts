@@ -622,6 +622,23 @@ describe("AppConfigV2 schema and composed transport parity", () => {
     });
   });
 
+  test("a version 2 file written before Clock Explorer existed parses unchanged, and Clock Explorer reads back as stored", async () => {
+    const earlier = structuredClone(validConfig()) as unknown as {
+      defaults: Record<string, unknown>;
+    };
+    const before = JSON.stringify(earlier);
+    expect(await transportAccepts(earlier)).toBe(true);
+    expect(AppConfigV2Schema.parse(earlier)).toEqual(earlier);
+    expect(JSON.stringify(earlier)).toBe(before);
+    // Mirror: the new family is one more worksheet-type member and nothing
+    // else; no settings group comes with it.
+    earlier.defaults.worksheetType = "clock-explorer";
+    expect(await transportAccepts(earlier)).toBe(true);
+    const stored = AppConfigV2Schema.parse(earlier);
+    expect(stored.defaults.worksheetType).toBe("clock-explorer");
+    expect(Object.keys(stored.defaults).sort()).toEqual(Object.keys(validConfig().defaults).sort());
+  });
+
   test("every key path the transport schema declares has exactly one parity row", () => {
     expect(Object.keys(PARITY_ROWS).sort()).toEqual([...transportKeyPaths(APP_CONFIG_TRANSPORT_SCHEMA)]);
   });
