@@ -463,7 +463,7 @@ Run setup/test commands in section 11; disposable `npm --prefix frontend run man
 - **Depends on:** Step 34 (DONE). The MA2 dispatch gate is waived by P6 (2026-10-28); MA2 stays PENDING. No technical dependency on packets or optional Step 27.
 
 ### Step 36: Print grouped-tally practice
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** A parent can generate a four-problem tally page through the existing app.
 - **Type:** code
 - **Issue:** #44

@@ -48,6 +48,7 @@ import {
   measureFindTheWowStemCapacity,
 } from "../../worksheets/find-the-wow/generator.js";
 import { CLOCK_EXPLORER_LIMITING_RESOURCE_ADVICE } from "../../worksheets/clock-explorer/definition.js";
+import { TALLY_DETECTIVE_LIMITING_RESOURCE_ADVICE } from "../../worksheets/tally-detective/definition.js";
 import {
   NUMBER_BONDS_LIMITING_RESOURCE_ADVICE,
   getNumberBondsItemCount,
@@ -381,6 +382,8 @@ const IMPLIED_REPRESENTATION_NOTE: Readonly<Record<RegisteredWorksheetType, stri
     "dead over the whole selection domain: the registration has no capability gate; shortfalls are capacity verdicts",
   "clock-explorer":
     "dead over the whole selection domain: the registration has no capability gate, and every page draws four of the fixed twelve hours",
+  "tally-detective":
+    "dead over the whole selection domain: the registration has no capability gate, and every page draws four of the fixed twenty totals",
   "operation-grid":
     "reachable: an Operation Grid that cannot print (a powers grid beyond its bases or exponents, a full grid, Diagonal first on a non-square or powers grid, a large-print grid above its size) is refused before Create",
 };
@@ -529,6 +532,11 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     id: "NA-clock-explorer",
     status: "reachable",
     note: "Clock Explorer reads no focus maximum: its four clocks come from the fixed twelve hours, so it declares none and its advice names that fixed set and no control",
+  },
+  {
+    id: "NA-tally-detective",
+    status: "reachable",
+    note: "Tally Detective reads no focus maximum: its four tallies come from the fixed totals 1 to 20, so it declares none and its advice names that fixed set and no control",
   },
   {
     id: "NB-range-only",
@@ -1502,6 +1510,17 @@ describe("every declared arm of the capacity and advice surface", () => {
                 `${where}: ${CLOCK_EXPLORER_LIMITING_RESOURCE_ADVICE}`,
               );
               expect(CLOCK_EXPLORER_LIMITING_RESOURCE_ADVICE).not.toMatch(
+                /practice focus|length|range|More options/u,
+              );
+            } else if (worksheetType === "tally-detective") {
+              // Tally Detective's twenty totals are its whole domain: no
+              // declared maximum, and advice that recommends no control.
+              observe("NA-tally-detective");
+              expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
+              expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
+                `${where}: ${TALLY_DETECTIVE_LIMITING_RESOURCE_ADVICE}`,
+              );
+              expect(TALLY_DETECTIVE_LIMITING_RESOURCE_ADVICE).not.toMatch(
                 /practice focus|length|range|More options/u,
               );
             } else if (worksheetType !== "sentence-builder") {

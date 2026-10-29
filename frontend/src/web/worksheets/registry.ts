@@ -9,6 +9,7 @@ import { FindTheWowRenderer } from "./find-the-wow/Renderer";
 import { NumberBondsRenderer } from "./number-bonds/Renderer";
 import { OperationGridRenderer } from "./operation-grid/Renderer";
 import { SentenceBuilderRenderer } from "./sentence-builder/Renderer";
+import { TallyDetectiveRenderer } from "./tally-detective/Renderer";
 
 export interface WorksheetRendererProps {
   readonly document: WorksheetDocumentV1;
@@ -22,6 +23,7 @@ export const WEB_WORKSHEET_RENDERERS = {
   "number-bonds": NumberBondsRenderer,
   "operation-grid": OperationGridRenderer,
   "clock-explorer": ClockExplorerRenderer,
+  "tally-detective": TallyDetectiveRenderer,
 } as const satisfies Record<
   RegisteredWorksheetType,
   ComponentType<WorksheetRendererProps>

@@ -180,6 +180,14 @@ export const printFixtures: readonly PrintFixture[] = [
     profileIndex: 0,
     selection: { ...shippedSelection, worksheetType: "clock-explorer" },
   },
+  // Tally Detective: four tallies on every paper and scale, the boundary seed
+  // holding 20, four full bundles, and 19, three bundles and four loose
+  // marks: the two widest tallies.
+  {
+    id: "tally-totals-20",
+    profileIndex: 0,
+    selection: { ...shippedSelection, worksheetType: "tally-detective" },
+  },
   {
     id: "wow-quantity",
     profileIndex: 0,
@@ -363,6 +371,16 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
         generated.document.items.some(
           (item) => item.itemType === "clock-explorer" && (item.hour === 10 || item.hour === 11),
         )
+      )
+    ) {
+      continue;
+    }
+    if (
+      selection.worksheetType === "tally-detective" &&
+      ![19, 20].every((total) =>
+        generated.document.items.some(
+          (item) => item.itemType === "tally-detective" && item.answer.value === total,
+        ),
       )
     ) {
       continue;

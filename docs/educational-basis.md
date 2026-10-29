@@ -1,12 +1,13 @@
 # Educational basis and scope
 
 This document records the published sources that bound the reviewed examples in
-Extra Credit's seven worksheet families, and the limits of what those sources
+Extra Credit's eight worksheet families, and the limits of what those sources
 are being used for. It is the human-readable companion to
 [`plan.md` Section 12.5](plans/master_plan.md) and to the
 [math activities plan](plans/master_plan.md), and covers `dry-math`,
 `find-the-wow`, `sentence-builder` (all five writing modes),
-`count-compare-make`, `number-bonds`, `operation-grid`, and `clock-explorer`.
+`count-compare-make`, `number-bonds`, `operation-grid`, `clock-explorer`, and
+`tally-detective`.
 
 ## What this document is, and is not
 
@@ -163,6 +164,26 @@ Clock Explorer has no practice focus, length, decoration or interest choice: the
 twelve hours are its whole domain, and every page draws four of them. Half
 hours are not offered. Whether a page can be created never depends on which
 child is selected, and choosing it asserts no grade, placement, or readiness.
+
+### `tally-detective` — Tally Detective
+
+Four tallies per page, each showing a different total from 1 to 20, drawn from
+a seeded shuffle of the twenty totals. Every full five is four upright marks
+crossed by a fifth, and 0 to 4 loose upright marks follow, so 8 shows as one
+bundle and three more marks, and 20 as four full bundles; five parallel marks
+never stand for a bundle. The gap between groups is wider than the gap between
+marks, so a child can count by fives and then by ones. Marks print in black and
+are told apart by position and slant, never by colour. Under each tally the
+child writes how many on the line after `How many?`; the child's page shows no
+total. The key gives each total with its grouping, for example "8 = 5 + 3".
+
+- [Common Core Kindergarten Counting and Cardinality](https://www.thecorestandards.org/Math/Content/K/CC/) — cited only for counting to answer "how many?" for up to 20 things.
+- [IES Teaching Math to Young Children](https://ies.ed.gov/ncee/wwc/practiceguide/18)
+
+Tally Detective has no practice focus, length, decoration or interest choice:
+the totals 1 to 20 are its whole domain, and every page draws four of them.
+Whether a page can be created never depends on which child is selected, and
+choosing it asserts no grade, placement, or readiness.
 
 ### `find-the-wow` — Two Whats and a Wow
 

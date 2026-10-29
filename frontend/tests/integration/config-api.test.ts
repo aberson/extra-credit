@@ -614,10 +614,13 @@ describe("profile config API", () => {
   });
 });
 
-describe("the Clock Explorer worksheet type through the config API", () => {
-  test("an explicit save keeps Clock Explorer across a reload without touching the fictional profile's identity", async () => {
+describe.each([
+  ["Clock Explorer", "clock-explorer"],
+  ["Tally Detective", "tally-detective"],
+] as const)("the %s worksheet type through the config API", (familyName, family) => {
+  test(`an explicit save keeps ${familyName} across a reload without touching the fictional profile's identity`, async () => {
     const { app, configPath, token } = await setup();
-    const earlier = fixture("Fictional Clock Reader");
+    const earlier = fixture(`Fictional ${familyName} Reader`);
     const created = await app.inject({
       method: "PUT",
       url: "/api/config",
@@ -636,7 +639,7 @@ describe("the Clock Explorer worksheet type through the config API", () => {
     expect((await readFile(configPath)).equals(beforeRaw)).toBe(true);
 
     const saved = structuredClone(earlier);
-    saved.defaults.worksheetType = "clock-explorer";
+    saved.defaults.worksheetType = family;
     const written = await app.inject({
       method: "PUT",
       url: "/api/config",
@@ -652,13 +655,13 @@ describe("the Clock Explorer worksheet type through the config API", () => {
     expect(reload.statusCode).toBe(200);
     const reloaded = (reload.json() as { config: AppConfigV2; storedSchemaVersion: number });
     expect(reloaded.storedSchemaVersion).toBe(2);
-    expect(reloaded.config.defaults.worksheetType).toBe("clock-explorer");
+    expect(reloaded.config.defaults.worksheetType).toBe(family);
     // Only the worksheet type changed; every other stored choice and the
     // profile, earlier settings included, are exactly as saved before.
-    expect(reloaded.config).toEqual({ ...earlier, defaults: { ...earlier.defaults, worksheetType: "clock-explorer" } });
+    expect(reloaded.config).toEqual({ ...earlier, defaults: { ...earlier.defaults, worksheetType: family } });
     expect(reloaded.config.profiles).toEqual(earlier.profiles);
     const stored = JSON.parse((await readFile(configPath)).toString("utf8")) as AppConfigV2;
     expect(stored.schemaVersion).toBe(2);
-    expect(stored.defaults.worksheetType).toBe("clock-explorer");
+    expect(stored.defaults.worksheetType).toBe(family);
   });
 });

@@ -27,6 +27,7 @@ import {
   oracleRegroups,
 } from "../../../tests/oracles/arithmetic-oracle";
 import { judgeClockDocument } from "../../../tests/oracles/clock-oracle";
+import { judgeTallyDocument } from "../../../tests/oracles/tally-oracle";
 import {
   createWorksheetSessionForSeed,
   makeAnotherWorksheetSession,
@@ -406,6 +407,61 @@ describe("Clock Explorer through the production caller", () => {
       status: "exhausted",
       message:
         "No different worksheet was found in 16 attempts. Clock Explorer draws 4 clocks from a fixed set of 12 on-the-hour times, which no other choice changes. Create a new worksheet later.",
+    });
+    expect(exhausted.status === "exhausted" ? exhausted.message : "").not.toMatch(
+      /practice focus|length|range|More options/u,
+    );
+  });
+});
+
+describe("Tally Detective through the production caller", () => {
+  const tallyGeneration: GenerationSelection = {
+    profile: fictionalChild,
+    selection: {
+      ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+      worksheetType: "tally-detective",
+      // Stored choices the family never reads: they must not reach its page.
+      length: "long",
+      includeDecorativeGraphics: true,
+      theme: "space",
+    },
+  };
+
+  test("createWorksheetSessionForSeed returns a validated four-tally page the independent oracle accepts", () => {
+    for (const seed of [1, 0x2026_0036, 0xffff_ffff]) {
+      const created = createWorksheetSessionForSeed(tallyGeneration, seed, DEPENDENCIES);
+      if (!created.ok) {
+        throw new Error(created.message);
+      }
+      const { document } = created.session;
+      expect(document.worksheetType).toBe("tally-detective");
+      expect(document.request.options.length).toBe("standard");
+      expect(document.request.options.includeDecorativeGraphics).toBe(false);
+      expect(document.request.displayName).toBe("Fictional Regrouper");
+      expect(validateWorksheetInvariants(document)).toBeUndefined();
+      expect(judgeTallyDocument(document)).toEqual([]);
+    }
+  });
+
+  test("Make another finds a different page, and exhaustion names the fixed totals without recommending a control", () => {
+    const first = createWorksheetSessionForSeed(tallyGeneration, 1, DEPENDENCIES);
+    if (!first.ok) {
+      throw new Error(first.message);
+    }
+    let seed = 1;
+    const another = makeAnotherWorksheetSession(first.session, tallyGeneration, () => (seed += 1), DEPENDENCIES);
+    expect(another.status).toBe("changed");
+    if (another.status === "changed") {
+      expect(another.session.contentKey).not.toBe(first.session.contentKey);
+      expect(judgeTallyDocument(another.session.document)).toEqual([]);
+    }
+    // A seed source that only ever offers the current seed finds nothing new
+    // in the 16 attempts, and the message says so truthfully.
+    const exhausted = makeAnotherWorksheetSession(first.session, tallyGeneration, () => 1, DEPENDENCIES);
+    expect(exhausted).toEqual({
+      status: "exhausted",
+      message:
+        "No different worksheet was found in 16 attempts. Tally Detective draws 4 tallies from a fixed set of 20 totals, which no other choice changes. Create a new worksheet later.",
     });
     expect(exhausted.status === "exhausted" ? exhausted.message : "").not.toMatch(
       /practice focus|length|range|More options/u,

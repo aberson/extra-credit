@@ -250,11 +250,11 @@ describe("the upgrade's refusals leave every file untouched", () => {
     ["an unknown enum member in defaults", editedV2Bytes((config) => {
       config.defaults.worksheetType = "skip-counting";
     })],
-    // The next planned family, unknown to this build: a file a newer build
-    // saved with it is refused, never rewritten, as an older build refuses a
-    // saved Clock Explorer.
+    // A family unknown to this build: a file a newer build saved with it is
+    // refused, never rewritten, as an older build refuses a saved Clock
+    // Explorer or Tally Detective.
     ["a worksheet family a newer build adds", editedV2Bytes((config) => {
-      config.defaults.worksheetType = "tally-detective";
+      config.defaults.worksheetType = "fraction-finder";
     })],
   ])("a v2 file with %s is blocked on GET and on PUT, with and without the recovery header", async (_label, blockedRaw) => {
     const configPath = await temporaryConfigPath();

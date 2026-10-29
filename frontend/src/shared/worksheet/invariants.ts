@@ -22,6 +22,7 @@ import {
   OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   OPERATION_GRID_SIZE_MINIMUM,
+  TALLY_DETECTIVE_ITEM_COUNT,
   TOPIC_IDS,
   V1_NUMERIC_MAXIMUM,
   DRY_MATH_NUMERIC_MAXIMUM,
@@ -415,13 +416,14 @@ function operationGridItemHolds(
 }
 
 /**
- * Whether a Clock Explorer request is canonical (visual math specification,
- * section 6): standard length, no decoration, no decorative topic, no
- * interests, no practice member, and exactly the inactive writing and math
- * capabilities every family that reads none of them carries. Its page depends
- * on the seed alone, so nothing else may reach its request.
+ * Whether a Clock Explorer or Tally Detective request is canonical (visual
+ * math specification, section 6): standard length, no decoration, no
+ * decorative topic, no interests, no practice member, and exactly the
+ * inactive writing and math capabilities every family that reads none of them
+ * carries. Their pages depend on the seed alone, so nothing else may reach
+ * their requests.
  */
-function clockExplorerRequestIsCanonical(request: GenerationRequestV1): boolean {
+function seedOnlyRequestIsCanonical(request: GenerationRequestV1): boolean {
   const { capabilities, options } = request;
   return (
     options.length === "standard" &&
@@ -463,6 +465,7 @@ export function validateWorksheetInvariants(
       document.worksheetType === "number-bonds" ||
       document.worksheetType === "operation-grid" ||
       document.worksheetType === "clock-explorer" ||
+      document.worksheetType === "tally-detective" ||
       !(TOPIC_IDS as readonly unknown[]).includes(options.decorativeTopicId))
   ) {
     return {
@@ -504,6 +507,7 @@ export function validateWorksheetInvariants(
   const dryMathFacts = new Set<string>();
   const numberBonds = new Set<string>();
   const clockHours = new Set<number>();
+  const tallyTotals = new Set<number>();
   for (const [index, item] of document.items.entries()) {
     const expectedId = `item-${String(index + 1).padStart(3, "0")}`;
     if (item.id !== expectedId || ids.has(item.id)) {
@@ -586,6 +590,25 @@ export function validateWorksheetInvariants(
         };
       }
       clockHours.add(item.hour);
+    }
+    // A tally belongs only on a Tally Detective page; its bundles and loose
+    // marks (0 to 4) total 1 to 20, a total no other tally on the page shows,
+    // and it answers exactly that total.
+    if (item.itemType === "tally-detective") {
+      if (
+        document.worksheetType !== "tally-detective" ||
+        item.answer.kind !== "number" ||
+        objectiveAnswerMatches(item) !== true ||
+        tallyTotals.has(item.answer.value)
+      ) {
+        return {
+          ok: false,
+          code: GENERATION_INVARIANT_FAILED,
+          message:
+            "A Tally Detective item violated its family, grouping, total, answer, or uniqueness invariants.",
+        };
+      }
+      tallyTotals.add(item.answer.value);
     }
     if (item.itemType === "dry-math") {
       const key = factKey(item.operation, item.leftOperand, item.rightOperand);
@@ -672,13 +695,28 @@ export function validateWorksheetInvariants(
     document.worksheetType === "clock-explorer" &&
     (document.items.length !== CLOCK_EXPLORER_ITEM_COUNT ||
       document.items.some((item) => item.itemType !== "clock-explorer") ||
-      !clockExplorerRequestIsCanonical(document.request))
+      !seedOnlyRequestIsCanonical(document.request))
   ) {
     return {
       ok: false,
       code: GENERATION_INVARIANT_FAILED,
       message:
         "Clock Explorer held other than four clocks, or its request carried choices beyond its canonical form.",
+    };
+  }
+  // Tally Detective prints exactly four tallies, nothing but tallies, from a
+  // canonical request.
+  if (
+    document.worksheetType === "tally-detective" &&
+    (document.items.length !== TALLY_DETECTIVE_ITEM_COUNT ||
+      document.items.some((item) => item.itemType !== "tally-detective") ||
+      !seedOnlyRequestIsCanonical(document.request))
+  ) {
+    return {
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message:
+        "Tally Detective held other than four tallies, or its request carried choices beyond its canonical form.",
     };
   }
   return undefined;

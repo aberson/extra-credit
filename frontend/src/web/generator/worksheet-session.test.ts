@@ -395,6 +395,20 @@ describe("touched groups", () => {
     expect(back.selection).toEqual(start.selection);
   });
 
+  test("Tally Detective is a worksheet type only: switching to it and back keeps every stored group, and the save writes it", () => {
+    const start = loaded(defaults({ length: "long", dryMathRegrouping: "required" }), [identityChild]);
+    const tally = apply(start, groupChanged("worksheetType", "tally-detective"));
+    expect(WORKSHEET_GROUP_KEYS.filter((key) => tally.touched[key])).toEqual(["worksheetType"]);
+    expect(tally.selection).toEqual({ ...start.selection, worksheetType: "tally-detective" });
+    // Its hidden length and every other family's choices stay stored.
+    expect(tally.selection.length).toBe("long");
+    const body = defaultsForSave(tally);
+    expect(body.worksheetType).toBe("tally-detective");
+    expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
+    const back = apply(tally, groupChanged("worksheetType", start.selection.worksheetType));
+    expect(back.selection).toEqual(start.selection);
+  });
+
   test("the reducer never empties the fact families or operations", () => {
     const start = loaded(defaults(), [identityChild]);
     expect(

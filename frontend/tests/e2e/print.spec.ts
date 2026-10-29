@@ -12,6 +12,7 @@ import {
 } from "../../src/shared/worksheet/types.ts";
 import { countOrderBound, countSeedFixture, type CountActivity } from "../fixtures/print/count-layout.ts";
 import { oracleHourFromHands, type OracleHandVector } from "../oracles/clock-oracle.ts";
+import { oracleReadTally, type OracleSegment } from "../oracles/tally-oracle.ts";
 import {
   acceptanceConfig,
   boundaryNickname,
@@ -83,15 +84,19 @@ const responseMetrics = {
   // An Operation Grid cell holds four handwritten digits: 14.5 mm square,
   // 17 mm at large scale. A Clock Explorer dial is 40 mm across, 45 mm at
   // large scale, and its hour line is 18 mm (22 mm) long at the line height.
+  // A Tally Detective strip is 72 x 20 mm, 81 x 22.5 mm at large scale, and
+  // its count line is 18 mm (22 mm) long at the line height.
   standard: {
     lineHeight: 7, drawingHeight: 33, tellingHeight: 100, cellSize: 5,
     missingBoxWidth: 14, missingBoxHeight: 9, gridCell: 14.5,
     clockDial: 40, timeBlankWidth: 18,
+    tallyWidth: 72, tallyHeight: 20, countBlankWidth: 18,
   },
   large: {
     lineHeight: 9, drawingHeight: 38, tellingHeight: 110, cellSize: 6,
     missingBoxWidth: 16, missingBoxHeight: 11, gridCell: 17,
     clockDial: 45, timeBlankWidth: 22,
+    tallyWidth: 81, tallyHeight: 22.5, countBlankWidth: 22,
   },
 } as const;
 
@@ -106,6 +111,8 @@ const physicalSelectors = {
   gridCell: "[data-grid-cell]",
   clockDial: "[data-clock-dial]",
   timeBlank: "[data-time-blank]",
+  tallyMarks: "[data-tally-marks]",
+  countBlank: "[data-tally-blank]",
 } as const;
 
 async function readPhysicalGeometry(page: Page) {
@@ -193,6 +200,14 @@ function physicalViolations(
         exact("widthMm", expected.timeBlankWidth);
         exact("heightMm", expected.lineHeight);
         break;
+      case "tallyMarks":
+        exact("widthMm", expected.tallyWidth);
+        exact("heightMm", expected.tallyHeight);
+        break;
+      case "countBlank":
+        exact("widthMm", expected.countBlankWidth);
+        exact("heightMm", expected.lineHeight);
+        break;
       default:
         throw new Error(`Unspecified physical contract: ${box.kind}`);
     }
@@ -218,10 +233,10 @@ async function comparePrintScales(
       if (smaller === undefined) {
         throw new Error("Missing matching standard response box.");
       }
-      if (["line", "drawing", "guideCell", "frameCell", "missingBox", "gridCell", "clockDial", "timeBlank"].includes(box.kind)) {
+      if (["line", "drawing", "guideCell", "frameCell", "missingBox", "gridCell", "clockDial", "timeBlank", "tallyMarks", "countBlank"].includes(box.kind)) {
         expect(box.heightMm, `${box.kind}: large increases response height`)
           .toBeGreaterThan(smaller.heightMm + 0.5);
-        if (["guideCell", "frameCell", "missingBox", "gridCell", "clockDial", "timeBlank"].includes(box.kind)) {
+        if (["guideCell", "frameCell", "missingBox", "gridCell", "clockDial", "timeBlank", "tallyMarks", "countBlank"].includes(box.kind)) {
           expect(box.widthMm, `${box.kind}: large increases response width`)
             .toBeGreaterThan(smaller.widthMm + 0.5);
         }
@@ -479,6 +494,114 @@ async function clockInkViolations(page: Page, document: WorksheetDocumentV1): Pr
       : oracleHourFromHands(reading.minute, reading.hour);
     if (read !== item.hour) {
       violations.push(`${item.id}: hands read ${String(read)}, expected ${item.hour}`);
+    }
+  }
+  return violations;
+}
+
+/** One tally's inked marks as the browser painted them, plus every ink violation. */
+interface TallyInkReading {
+  readonly id: string;
+  readonly violations: readonly string[];
+  readonly segments: readonly OracleSegment[];
+  readonly strip?: { readonly left: number; readonly top: number; readonly width: number; readonly height: number };
+}
+
+/**
+ * Reads every tally's marks under the current media, from the rendered SVG
+ * alone: every `line` it draws must paint real ink (a stroke that is neither
+ * none nor transparent, positive width and opacity, every ancestor visible)
+ * and stay inside the printed strip. Only inked marks are returned, as screen
+ * segments, so a hidden or zero-width mark is both a violation and a mark the
+ * independent oracle never sees.
+ */
+async function readTallyInk(page: Page): Promise<readonly TallyInkReading[]> {
+  return await page.locator(".print-surface").evaluate((surface) => {
+    const view = surface.ownerDocument.defaultView;
+    if (view === null) {
+      throw new Error("Missing browser window.");
+    }
+    type BrowserElement = Parameters<typeof view.getComputedStyle>[0];
+    const transparent = (color: string) =>
+      color === "" || color === "none" || color === "transparent" ||
+      /^(?:rgba\([^)]*,|[^)]*\/)\s*0(?:\.0+)?\s*\)$/u.test(color);
+    const shown = (element: BrowserElement) => {
+      for (let node: BrowserElement | null = element; node !== null; node = node.parentElement) {
+        const style = view.getComputedStyle(node);
+        if (style.visibility !== "visible" || style.display === "none" || Number(style.opacity) === 0) {
+          return false;
+        }
+      }
+      return true;
+    };
+    return [...surface.querySelectorAll("[data-item-id]")].map((card) => {
+      const id = card.getAttribute("data-item-id") ?? "";
+      const violations: string[] = [];
+      const strip = card.querySelector("[data-tally-marks]");
+      const svg = strip?.querySelector("svg");
+      if (strip === null || strip === undefined || svg === null || svg === undefined) {
+        return { id, violations: ["missing tally"], segments: [] };
+      }
+      const box = strip.getBoundingClientRect();
+      const segments: { x1: number; y1: number; x2: number; y2: number }[] = [];
+      for (const [index, element] of [...svg.querySelectorAll("line")].entries()) {
+        const line = element as BrowserElement;
+        const style = view.getComputedStyle(line);
+        const matrix = (line as unknown as { getScreenCTM(): ScreenMatrix | null }).getScreenCTM();
+        const scale = matrix === null ? 0 : Math.hypot(matrix.a, matrix.b);
+        const width = Number.parseFloat(style.strokeWidth) * scale;
+        const inked = !transparent(style.stroke) && width > 0.5 &&
+          Number(style.strokeOpacity) > 0 && shown(line) && matrix !== null;
+        if (!inked || matrix === null) {
+          violations.push(`mark ${index + 1}: no ink (stroke ${style.stroke}, width ${width})`);
+          continue;
+        }
+        const point = (x: string, y: string) => {
+          const [px, py] = [Number(line.getAttribute(x)), Number(line.getAttribute(y))];
+          return { x: matrix.a * px + matrix.c * py + matrix.e, y: matrix.b * px + matrix.d * py + matrix.f };
+        };
+        const start = point("x1", "y1");
+        const end = point("x2", "y2");
+        for (const { x, y } of [start, end]) {
+          if (x - width / 2 < box.left - 0.5 || x + width / 2 > box.right + 0.5 ||
+            y - width / 2 < box.top - 0.5 || y + width / 2 > box.bottom + 0.5) {
+            violations.push(`mark ${index + 1} leaves the strip`);
+            break;
+          }
+        }
+        segments.push({ x1: start.x, y1: start.y, x2: end.x, y2: end.y });
+      }
+      return {
+        id,
+        violations,
+        segments,
+        strip: { left: box.left, top: box.top, width: box.width, height: box.height },
+      };
+    });
+  });
+}
+
+/**
+ * The family print oracle for Tally Detective: every ink violation, plus a
+ * violation for each tally whose painted marks do not read back, through the
+ * independent oracle, as the bundles, loose marks and total the generated
+ * document gave that tally.
+ */
+async function tallyInkViolations(page: Page, document: WorksheetDocumentV1): Promise<readonly string[]> {
+  const readings = await readTallyInk(page);
+  const violations = readings.flatMap(({ id, violations: found }) => found.map((violation) => `${id}: ${violation}`));
+  if (readings.length !== document.items.length) {
+    violations.push(`tallies: ${readings.length} != ${document.items.length}`);
+  }
+  for (const item of document.items) {
+    if (item.itemType !== "tally-detective") {
+      violations.push(`${item.id}: not a tally`);
+      continue;
+    }
+    const read = oracleReadTally(readings.find(({ id }) => id === item.id)?.segments ?? []);
+    const expected = { ok: true, total: 5 * item.bundles + item.remainder, bundles: item.bundles, loose: item.remainder };
+    if (JSON.stringify(read) !== JSON.stringify(expected)) {
+      violations.push(`${item.id}: marks read ${JSON.stringify(read)}, expected ${expected.total}`);
     }
   }
   return violations;
@@ -1241,6 +1364,63 @@ for (const fixture of printFixtures) {
               });
             expect(physicalViolations(await readPhysicalGeometry(page), scale), "dial restored").toEqual([]);
           }
+          if (boundary.document.worksheetType === "tally-detective") {
+            // Every mark is real ink under print media, stays inside its
+            // strip, and the painted marks read back through the independent
+            // oracle as their own bundles, loose marks and total.
+            expect(await tallyInkViolations(page, boundary.document), "tally ink").toEqual([]);
+            const twenty = boundary.document.items.find((item) =>
+              item.itemType === "tally-detective" && item.bundles === 4 && item.remainder === 0);
+            const nineteen = boundary.document.items.find((item) =>
+              item.itemType === "tally-detective" && item.bundles === 3 && item.remainder === 4);
+            expect(twenty, "the boundary seed draws 20").toBeDefined();
+            expect(nineteen, "the boundary seed draws 19").toBeDefined();
+            const before = await readTallyInk(page);
+            // Hiding a crossing fifth or an upright, or zeroing its width, must
+            // fail the oracle while every strip box and the lines stay intact;
+            // each restores clean.
+            for (const target of [
+              `[data-item-id="${twenty?.id ?? ""}"] [data-tally-group="bundle"]:last-child [data-tally-stroke="crossing"]`,
+              `[data-item-id="${nineteen?.id ?? ""}"] [data-tally-group="bundle"]:first-child [data-tally-stroke="crossing"]`,
+              `[data-item-id="${nineteen?.id ?? ""}"] [data-tally-group="loose"] [data-tally-stroke="upright"]:last-child`,
+            ]) {
+              await expect(page.locator(`.print-surface ${target}`), target).toHaveCount(1);
+              for (const broken of ["stroke: none !important;", "stroke-width: 0 !important;"]) {
+                await withPrintStyle(page, `@media print { .print-surface ${target} { ${broken} } }`, async () => {
+                  expect((await tallyInkViolations(page, boundary.document)).length,
+                    `${target} ${broken} must fail`).toBeGreaterThan(0);
+                  expect((await readTallyInk(page)).map(({ strip }) => strip), "the strip boxes stay intact")
+                    .toEqual(before.map(({ strip }) => strip));
+                  expect((await readRequiredContent(page, requiredPrintContent(boundary.document, "worksheet")))
+                    .violations, "numbers and lines stay intact").toEqual([]);
+                });
+                expect(await tallyInkViolations(page, boundary.document), `${target} restored`).toEqual([]);
+              }
+            }
+            // A crossing shortened to cross only three uprights keeps its ink
+            // and fails the oracle's reading, then restores clean.
+            const crossing = page.locator(
+              `.print-surface [data-item-id="${twenty?.id ?? ""}"] [data-tally-stroke="crossing"]`).first();
+            await crossing.evaluate((line) => {
+              line.setAttribute("data-original-x2", line.getAttribute("x2") ?? "");
+              line.setAttribute("x2", String(Number(line.getAttribute("x1")) + 26));
+            });
+            expect((await tallyInkViolations(page, boundary.document)).some((violation) =>
+              violation.includes("marks read")), "a short crossing must fail").toBe(true);
+            await crossing.evaluate((line) => {
+              line.setAttribute("x2", line.getAttribute("data-original-x2") ?? "");
+              line.removeAttribute("data-original-x2");
+            });
+            expect(await tallyInkViolations(page, boundary.document), "tally ink restored").toEqual([]);
+            // A collapsed strip fails its physical size, then restores clean.
+            await withPrintStyle(page,
+              ".print-surface [data-tally-marks] { width: 10mm !important; height: 10mm !important; }",
+              async () => {
+                expect(physicalViolations(await readPhysicalGeometry(page), scale).some((violation) =>
+                  violation.startsWith("tallyMarks[0]: widthMm")), "a shrunken strip must fail").toBe(true);
+              });
+            expect(physicalViolations(await readPhysicalGeometry(page), scale), "strip restored").toEqual([]);
+          }
           if (boundary.document.worksheetType === "operation-grid") {
             // The whole table prints on this one page: every cell is the
             // handwriting size, measured above, and the grid is one uncut
@@ -1568,10 +1748,10 @@ test("manual print uses the compiled app with canonical temporary profiles and c
   request,
 }) => {
   // The worksheet-choice matrix built from the committed example expands to
-  // 95 distinct worksheet cases, 27 of which also measure a key PDF.
+  // 99 distinct worksheet cases, 31 of which also measure a key PDF.
   expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
-  expect(matrixCases).toHaveLength(95);
-  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(27);
+  expect(matrixCases).toHaveLength(99);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(31);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {

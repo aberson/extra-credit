@@ -21,6 +21,7 @@ export const WORKSHEET_TYPE_IDS = [
   "number-bonds",
   "operation-grid",
   "clock-explorer",
+  "tally-detective",
 ] as const;
 
 /**
@@ -91,6 +92,18 @@ export const OPERATION_GRID_POWERS_CELL_MAXIMUM =
 export const CLOCK_EXPLORER_HOUR_MINIMUM = 1;
 export const CLOCK_EXPLORER_HOUR_MAXIMUM = 12;
 export const CLOCK_EXPLORER_ITEM_COUNT = 4;
+
+/**
+ * Tally Detective's fixed domain: the totals 1 through the Version 1 numeric
+ * envelope (20), drawn as bundles of five (four uprights crossed by a fifth)
+ * and up to four loose marks, and the four distinct tallies one page holds.
+ * None is a parent choice, so none is a range a selection can widen or
+ * narrow.
+ */
+export const TALLY_DETECTIVE_TOTAL_MINIMUM = 1;
+export const TALLY_DETECTIVE_TOTAL_MAXIMUM = V1_NUMERIC_MAXIMUM;
+export const TALLY_DETECTIVE_BUNDLE_SIZE = 5;
+export const TALLY_DETECTIVE_ITEM_COUNT = 4;
 
 /** The most pre-filled cells any grid can hold: one fewer than the largest grid. */
 export const OPERATION_GRID_PREFILLED_MAXIMUM =
@@ -529,6 +542,19 @@ export interface ClockExplorerItemV1 extends ObjectiveItemBaseV1 {
   readonly answer: { readonly kind: "number"; readonly value: number };
 }
 
+/**
+ * One Tally Detective tally: `bundles` bundles of five, each four upright
+ * marks crossed by a fifth, then `remainder` loose upright marks (0 to 4).
+ * The drawing is derived from these two fields alone, and the answer is the
+ * total the child writes, `5 × bundles + remainder`, from 1 to 20.
+ */
+export interface TallyDetectiveItemV1 extends ObjectiveItemBaseV1 {
+  readonly itemType: "tally-detective";
+  readonly bundles: number;
+  readonly remainder: number;
+  readonly answer: { readonly kind: "number"; readonly value: number };
+}
+
 export type WorksheetItemV1 =
   | DryMathItemV1
   | WowGroupItemV1
@@ -536,7 +562,8 @@ export type WorksheetItemV1 =
   | CountCompareItemV1
   | NumberBondItemV1
   | OperationGridItemV1
-  | ClockExplorerItemV1;
+  | ClockExplorerItemV1
+  | TallyDetectiveItemV1;
 
 export interface WorksheetDocumentV1<
   TItem extends WorksheetItemV1 = WorksheetItemV1,

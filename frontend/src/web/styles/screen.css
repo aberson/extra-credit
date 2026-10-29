@@ -12,7 +12,7 @@
 
   /*
    * The worksheet-first panel. The worksheet-type cards span the panel: one
-   * column below 36rem, two across from 36rem, three from 60rem and all seven
+   * column below 36rem, two across from 36rem, three from 60rem and all eight
    * across from 72rem. Below the cards the rest of the primary block and More
    * options sit side by side from 60rem, and in DOM order in one column below
    * it.
@@ -81,6 +81,6 @@
     .worksheet-panel__columns { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   }
   @media (min-width: 72rem) {
-    .worksheet-type-cards { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .worksheet-type-cards { grid-template-columns: repeat(8, minmax(0, 1fr)); }
   }
 }

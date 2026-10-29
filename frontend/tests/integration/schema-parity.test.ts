@@ -622,7 +622,10 @@ describe("AppConfigV2 schema and composed transport parity", () => {
     });
   });
 
-  test("a version 2 file written before Clock Explorer existed parses unchanged, and Clock Explorer reads back as stored", async () => {
+  test.each([
+    ["Clock Explorer", "clock-explorer"],
+    ["Tally Detective", "tally-detective"],
+  ] as const)("a version 2 file written before %s existed parses unchanged, and the family reads back as stored", async (_familyName, family) => {
     const earlier = structuredClone(validConfig()) as unknown as {
       defaults: Record<string, unknown>;
     };
@@ -632,10 +635,10 @@ describe("AppConfigV2 schema and composed transport parity", () => {
     expect(JSON.stringify(earlier)).toBe(before);
     // Mirror: the new family is one more worksheet-type member and nothing
     // else; no settings group comes with it.
-    earlier.defaults.worksheetType = "clock-explorer";
+    earlier.defaults.worksheetType = family;
     expect(await transportAccepts(earlier)).toBe(true);
     const stored = AppConfigV2Schema.parse(earlier);
-    expect(stored.defaults.worksheetType).toBe("clock-explorer");
+    expect(stored.defaults.worksheetType).toBe(family);
     expect(Object.keys(stored.defaults).sort()).toEqual(Object.keys(validConfig().defaults).sort());
   });
 

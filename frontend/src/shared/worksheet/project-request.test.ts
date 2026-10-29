@@ -592,8 +592,9 @@ function withOwnFields(
     case "operation-grid":
       return { ...target, ...shared, operationGrid: source.operationGrid };
     case "clock-explorer":
-      // Clock Explorer reads no length: the target's stored length stays, so
-      // the property also varies it.
+    case "tally-detective":
+      // Clock Explorer and Tally Detective read no length: the target's
+      // stored length stays, so the property also varies it.
       return { ...target, ...shared, length: target.length };
   }
 }
@@ -748,7 +749,7 @@ describe("Number Bonds reads only its own choices", () => {
     );
   });
 
-  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "operation-grid", "clock-explorer"] as const)(
+  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "operation-grid", "clock-explorer", "tally-detective"] as const)(
     "%s refuses a Number Bonds practice member",
     (worksheetType) => {
       const request = requestFor(selectionFor(worksheetType));
@@ -852,7 +853,7 @@ describe("Operation Grid reads only its own choices", () => {
     expect(result.ok ? "" : result.message).toContain(remedy);
   });
 
-  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "number-bonds", "clock-explorer"] as const)(
+  test.each(["dry-math", "find-the-wow", "sentence-builder", "count-compare-make", "number-bonds", "clock-explorer", "tally-detective"] as const)(
     "%s refuses an Operation Grid practice member",
     (worksheetType) => {
       const request = requestFor(selectionFor(worksheetType));
@@ -873,7 +874,12 @@ describe("Operation Grid reads only its own choices", () => {
   );
 });
 
-describe("Clock Explorer reads no worksheet choice (visual math specification, section 6)", () => {
+// Clock Explorer and Tally Detective each draw four items from a fixed
+// domain by the seed alone, so they share one canonical-request contract.
+describe.each([
+  ["Clock Explorer", "clock-explorer"],
+  ["Tally Detective", "tally-detective"],
+] as const)("%s reads no worksheet choice (visual math specification, section 6)", (familyName, family) => {
   /** Interests and earlier settings unlike the fictional child's, under the same nickname. */
   const unlikeChild: ChildProfileV2 = profileWithLegacyChoices({
     id: "2c3d4e5f-6a7b-4c8d-9e0f-1a2b3c4d5e6f",
@@ -898,7 +904,7 @@ describe("Clock Explorer reads no worksheet choice (visual math specification, s
 
   test("its request is canonical: standard length, no decoration, topics or practice, and the inactive capabilities", () => {
     const request = requestFor(
-      selectionFor("clock-explorer", {
+      selectionFor(family, {
         includeDecorativeGraphics: true,
         useInterests: true,
         theme: "space",
@@ -928,7 +934,7 @@ describe("Clock Explorer reads no worksheet choice (visual math specification, s
     expect(request.options.printScale).toBe(baseSelection.printScale);
   });
 
-  test("property: every unrelated choice, the stored length, Theme, graphics, interests and earlier settings leave the whole request and its clocks identical", () => {
+  test("property: every unrelated choice, the stored length, Theme, graphics, interests and earlier settings leave the whole request and its items identical", () => {
     fc.assert(
       fc.property(
         selectionArbitrary,
@@ -937,8 +943,8 @@ describe("Clock Explorer reads no worksheet choice (visual math specification, s
         fc.integer({ min: 1, max: 0xffff_ffff }),
         (source, noise, swapChild, seedNumber) => {
           const seed = seedNumber.toString(16).padStart(8, "0");
-          const chosen = withOwnFields("clock-explorer", source, source);
-          const varied = withOwnFields("clock-explorer", source, noise);
+          const chosen = withOwnFields(family, source, source);
+          const varied = withOwnFields(family, source, noise);
           const left = requestFor(chosen, child, seed);
           const right = requestFor(varied, swapChild ? unlikeChild : child, seed);
           expect(right).toEqual(left);
@@ -950,8 +956,8 @@ describe("Clock Explorer reads no worksheet choice (visual math specification, s
     );
   });
 
-  test("mirror: the seed changes the clocks, and an applicable option changes the request but never the clocks", () => {
-    const selection = selectionFor("clock-explorer");
+  test("mirror: the seed changes the items, and an applicable option changes the request but never the items", () => {
+    const selection = selectionFor(family);
     const first = requestFor(selection, child, "00000001");
     expect(itemsFor(requestFor(selection, child, "00000002"))).not.toEqual(itemsFor(first));
     for (const overrides of [
@@ -966,18 +972,18 @@ describe("Clock Explorer reads no worksheet choice (visual math specification, s
     }
   });
 
-  test("switching to Clock Explorer and back restores every stored choice the other family reads", () => {
+  test(`switching to ${familyName} and back restores every stored choice the other family reads`, () => {
     const stored = selectionFor("dry-math", {
       length: "long",
       dryMathRegrouping: "required",
       includeDecorativeGraphics: true,
       theme: "space",
     });
-    const clock: WorksheetSelectionV2 = { ...stored, worksheetType: "clock-explorer" };
-    expect(requestFor(clock).options.length).toBe("standard");
+    const fixed: WorksheetSelectionV2 = { ...stored, worksheetType: family };
+    expect(requestFor(fixed).options.length).toBe("standard");
     // The projection reads the selection; it never rewrites the stored values.
-    expect(clock.length).toBe("long");
-    const back: WorksheetSelectionV2 = { ...clock, worksheetType: "dry-math" };
+    expect(fixed.length).toBe("long");
+    const back: WorksheetSelectionV2 = { ...fixed, worksheetType: "dry-math" };
     expect(back).toEqual(stored);
     expect(requestFor(back)).toEqual(requestFor(stored));
     expect(requestFor(back).options.length).toBe("long");
@@ -987,7 +993,7 @@ describe("Clock Explorer reads no worksheet choice (visual math specification, s
     ["Dry Math add-subtract", { kind: "dry-math-add-subtract", regrouping: "required" }],
     ["Dry Math facts", { kind: "dry-math-facts", operations: ["multiplication"], factFamilies: [2] }],
   ] as const)("its generator refuses a %s practice member", (_label, practice) => {
-    const request = requestFor(selectionFor("clock-explorer"));
+    const request = requestFor(selectionFor(family));
     expect(itemsFor(request)).not.toHaveProperty("refused");
     expect(itemsFor({ ...request, practice })).toHaveProperty("refused");
   });
@@ -1008,7 +1014,7 @@ describe("Clock Explorer reads no worksheet choice (visual math specification, s
   ];
 
   test.each(NONCANONICAL)("its generator refuses a request carrying %s", (_label, edit) => {
-    const request = requestFor(selectionFor("clock-explorer"));
+    const request = requestFor(selectionFor(family));
     expect(itemsFor(request)).not.toHaveProperty("refused");
     expect(itemsFor(edit(request))).toHaveProperty("refused");
   });
@@ -1284,6 +1290,7 @@ describe("reviewed-topic allowlist", () => {
       "number-bonds": [],
       "operation-grid": [],
       "clock-explorer": [],
+      "tally-detective": [],
     });
   });
 });
@@ -1347,6 +1354,11 @@ const DECORATED_TOPIC: Readonly<
     neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
   },
   "clock-explorer": {
+    "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+    neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
+  },
+  "tally-detective": {
     "from-interests": { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
     space: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },
     neutral: { firstMatching: undefined, onlyUnmatched: undefined, none: undefined },

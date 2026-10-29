@@ -2,6 +2,7 @@ import type {
   ClockExplorerItemV1,
   OperationGridItemV1,
   SentenceItemV1,
+  TallyDetectiveItemV1,
   WorksheetDocumentV1,
 } from "../../../src/shared/worksheet/types.ts";
 
@@ -40,6 +41,7 @@ export function requiredPrintContent(
     "number-bonds": "Number Bonds practice",
     "operation-grid": "Operation Grid practice",
     "clock-explorer": "Clock Explorer practice",
+    "tally-detective": "Tally Detective practice",
   };
   const first = document.items[0];
   const instruction = first?.itemType === "sentence"
@@ -54,6 +56,8 @@ export function requiredPrintContent(
           ? "Write the missing number in each box."
           : document.worksheetType === "clock-explorer"
             ? "Read each clock. Write the hour on the line."
+          : document.worksheetType === "tally-detective"
+            ? "How many tally marks? Count each set and write the number on its line."
           : first?.itemType === "operation-grid"
             ? {
                 addition: "Fill in each empty box: add its row number and its column number.",
@@ -165,6 +169,32 @@ export function requiredPrintContent(
     text(`${selector} [data-time-blank]`, "");
   }
 
+  /**
+   * One tally. On the worksheet: its number, the drawn marks and an empty
+   * writing line after "How many?" (the marks are SVG strokes, which
+   * `print.spec.ts` counts for ink separately). On the key: its number, the
+   * total, and the total written as a 5 for each bundle plus the loose marks.
+   */
+  function tallyContent(item: TallyDetectiveItemV1, index: number, selector: string) {
+    text(`${selector} [data-problem-number]`, `${index + 1}.`);
+    if (surface === "answer") {
+      const total = 5 * item.bundles + item.remainder;
+      const addends = [
+        ...Array.from({ length: item.bundles }, () => "5"),
+        ...(item.remainder === 0 ? [] : [String(item.remainder)]),
+      ].join(" + ");
+      text(`${selector} [data-answer-value]`, String(total));
+      text(`${selector} [data-tally-decomposition]`, addends);
+      text(selector, `${index + 1}. ${total} = ${addends}`);
+      return;
+    }
+    required.push({ selector: `${selector} [data-tally-marks]`, count: 1 });
+    text(`${selector} [data-tally-response]`, "How many?");
+    boxes(`${selector} [data-tally-blank]`, 1, "bottom-rule");
+    // The writing line is empty: no answer is filled in on the child's page.
+    text(`${selector} [data-tally-blank]`, "");
+  }
+
   for (const [index, item] of document.items.entries()) {
     const selector = `[data-item-id="${item.id}"]`;
     required.push({ selector, count: 1 });
@@ -174,6 +204,10 @@ export function requiredPrintContent(
     }
     if (item.itemType === "clock-explorer") {
       clockContent(item, index, selector);
+      continue;
+    }
+    if (item.itemType === "tally-detective") {
+      tallyContent(item, index, selector);
       continue;
     }
     if (surface === "answer") {

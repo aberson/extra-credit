@@ -309,3 +309,38 @@
     border-bottom: 0.4mm solid black !important;
   }
 }
+
+/*
+ * Tally Detective's marks print in a 72 mm × 20 mm strip, 81 mm × 22.5 mm at
+ * large scale: the fixed 180 × 50 view box at 0.4 (0.45) mm per unit, so an
+ * upright mark is 15.2 (17.1) mm tall and marks stand 3.2 (3.6) mm apart. The
+ * count's writing line is the response-line height, 18 mm long (22 mm at large
+ * scale), room for a two-digit total. Marks print in black. Added on its own
+ * so no existing print rule changes.
+ */
+@media print {
+  .print-surface {
+    --tally-width: 72mm;
+    --tally-height: 20mm;
+    --count-blank-width: 18mm;
+  }
+  .print-surface[data-print-scale="large"] {
+    --tally-width: 81mm;
+    --tally-height: 22.5mm;
+    --count-blank-width: 22mm;
+  }
+  .print-surface [data-tally-card] { gap: 2mm !important; }
+  .print-surface [data-tally-marks] {
+    width: var(--tally-width) !important;
+    height: var(--tally-height) !important;
+    max-width: none !important;
+  }
+  .print-surface [data-tally-stroke] { stroke: black; }
+  .print-surface [data-tally-response] { white-space: nowrap; }
+  .print-surface [data-tally-blank] {
+    width: var(--count-blank-width) !important;
+    height: var(--response-line) !important;
+    border: 0 !important;
+    border-bottom: 0.4mm solid black !important;
+  }
+}

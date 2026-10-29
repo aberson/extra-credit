@@ -11,6 +11,11 @@ import {
 import { COUNT_COMPARE_RELATION_WORDS } from "../../worksheets/count-compare-make/definition";
 import { numberBondKeyExpression } from "../../worksheets/number-bonds/definition";
 import {
+  tallyDecompositionText,
+  tallyItemsOf,
+  tallyTotalOf,
+} from "../../worksheets/tally-detective/definition";
+import {
   OPERATION_GRID_KEY_NOTE,
   operationGridItemOf,
 } from "../../worksheets/operation-grid/definition";
@@ -56,6 +61,9 @@ export function AnswerKeyView({ document }: AnswerKeyViewProps) {
   }
   if (document.worksheetType === "clock-explorer") {
     return <ClockExplorerAnswerKey document={document} />;
+  }
+  if (document.worksheetType === "tally-detective") {
+    return <TallyDetectiveAnswerKey document={document} />;
   }
   const objectiveItems = document.items.filter(
     (item) => item.answerability === "objective",
@@ -143,6 +151,45 @@ function ClockExplorerAnswerKey({ document }: AnswerKeyViewProps) {
               <strong data-problem-number={index + 1}>{index + 1}.</strong>{" "}
               <span data-answer-value={time}>{time}</span> —{" "}
               <span data-clock-hands="true">{clockHandsText(item.hour)}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </article>
+  );
+}
+
+/**
+ * Tally Detective's key: each tally's total and how its marks group, one
+ * addend per drawn group, for example "8 = 5 + 3" or "20 = 5 + 5 + 5 + 5".
+ * Both are formatted from the tally's own bundles and remainder, the same
+ * fields its marks are drawn from.
+ */
+function TallyDetectiveAnswerKey({ document }: AnswerKeyViewProps) {
+  const items = tallyItemsOf(document);
+  if (items === undefined) {
+    return <p role="alert">This answer key could not be rendered safely.</p>;
+  }
+  return (
+    <article aria-labelledby={`worksheet-${document.worksheetId}-answer-title`}>
+      <header style={{ borderBottom: "2px solid #24324a", marginBottom: "1rem" }}>
+        <h2 id={`worksheet-${document.worksheetId}-answer-title`}>
+          Parent answer key
+        </h2>
+        <p>Answers match the numbered problems on the worksheet.</p>
+      </header>
+      <ol aria-label="Objective answers" style={{ listStyle: "none", padding: 0 }}>
+        {items.map((item, index) => {
+          const total = String(tallyTotalOf(item));
+          return (
+            <li
+              data-item-id={item.id}
+              id={`worksheet-${document.worksheetId}-answer-${item.id}`}
+              key={item.id}
+            >
+              <strong data-problem-number={index + 1}>{index + 1}.</strong>{" "}
+              <span data-answer-value={total}>{total}</span> ={" "}
+              <span data-tally-decomposition="true">{tallyDecompositionText(item)}</span>
             </li>
           );
         })}

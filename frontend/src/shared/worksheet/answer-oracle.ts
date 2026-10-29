@@ -1,11 +1,15 @@
 import {
   CLOCK_EXPLORER_HOUR_MAXIMUM,
   CLOCK_EXPLORER_HOUR_MINIMUM,
+  TALLY_DETECTIVE_BUNDLE_SIZE,
+  TALLY_DETECTIVE_TOTAL_MAXIMUM,
+  TALLY_DETECTIVE_TOTAL_MINIMUM,
   type ClockExplorerItemV1,
   type DryMathItemV1,
   type NumberBondItemV1,
   type ObjectiveAnswerV1,
   type OperationGridItemV1,
+  type TallyDetectiveItemV1,
   type WorksheetItemV1,
 } from "./types.js";
 
@@ -132,9 +136,33 @@ function clockExplorerAnswer(item: ClockExplorerItemV1): ObjectiveAnswerV1 | und
     : undefined;
 }
 
+/**
+ * A Tally Detective tally's answer: five for every bundle plus the loose
+ * marks. A tally whose bundle count is not a whole number of bundles, whose
+ * loose marks are not 0 to 4 (a fifth loose mark would make another bundle),
+ * or whose total is not from 1 to 20 is malformed and has none.
+ */
+function tallyDetectiveAnswer(item: TallyDetectiveItemV1): ObjectiveAnswerV1 | undefined {
+  const { bundles, remainder } = item;
+  if (
+    !Number.isInteger(bundles) ||
+    !Number.isInteger(remainder) ||
+    bundles < 0 ||
+    remainder < 0 ||
+    remainder >= TALLY_DETECTIVE_BUNDLE_SIZE
+  ) {
+    return undefined;
+  }
+  const total = TALLY_DETECTIVE_BUNDLE_SIZE * bundles + remainder;
+  return total >= TALLY_DETECTIVE_TOTAL_MINIMUM && total <= TALLY_DETECTIVE_TOTAL_MAXIMUM
+    ? { kind: "number", value: total }
+    : undefined;
+}
+
 const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
   "dry-math": dryMathAnswer,
   "clock-explorer": clockExplorerAnswer,
+  "tally-detective": tallyDetectiveAnswer,
   "number-bond": numberBondAnswer,
   "operation-grid": operationGridAnswer,
   "wow-group": FAMILY_VALIDATED,
@@ -150,8 +178,9 @@ const OBJECTIVE_ANSWER_RECOMPUTATIONS = {
  * family's validator owns that answer, or `undefined` when its fields imply no
  * answer at all (a division with a remainder or by zero, a Number Bonds
  * sentence with no one missing number, an Operation Grid with an unknown
- * operation or a header that is not a positive integer, or a clock whose hour
- * is not from 1 to 12).
+ * operation or a header that is not a positive integer, a clock whose hour
+ * is not from 1 to 12, or a tally whose grouping is malformed or totals
+ * outside 1 to 20).
  */
 export function recomputeObjectiveAnswer(
   item: ObjectiveItemV1,
@@ -165,6 +194,8 @@ export function recomputeObjectiveAnswer(
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["operation-grid"](item);
     case "clock-explorer":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["clock-explorer"](item);
+    case "tally-detective":
+      return OBJECTIVE_ANSWER_RECOMPUTATIONS["tally-detective"](item);
     case "wow-group":
       return OBJECTIVE_ANSWER_RECOMPUTATIONS["wow-group"];
     case "count-compare":

@@ -367,6 +367,7 @@ function emptyFamilyTally(): Record<RegisteredWorksheetType, number> {
     "number-bonds": 0,
     "operation-grid": 0,
     "clock-explorer": 0,
+    "tally-detective": 0,
   };
 }
 
@@ -627,6 +628,8 @@ describe("capacity-aware availability (issue #14)", () => {
     // Clock Explorer draws four of its fixed twelve hours: nothing to run
     // short of at any length or scale.
     expect(refusedBy["clock-explorer"]).toBe(0);
+    // Tally Detective draws four of its fixed twenty totals: likewise.
+    expect(refusedBy["tally-detective"]).toBe(0);
 
     // The exact combinations each family is guarded at, so a later fixture or
     // limit edit that quietly removes a refusal regime fails HERE rather than
@@ -1237,6 +1240,8 @@ describe("family-aware limiting-resource copy (issue #16)", () => {
       // A fixed domain: no range, length or practice focus is recommended.
       "clock-explorer":
         "Clock Explorer draws 4 clocks from a fixed set of 12 on-the-hour times, which no other choice changes. Create a new worksheet later.",
+      "tally-detective":
+        "Tally Detective draws 4 tallies from a fixed set of 20 totals, which no other choice changes. Create a new worksheet later.",
     };
     for (const worksheetType of REGISTERED_WORKSHEET_IDS) {
       expect(
@@ -1721,9 +1726,13 @@ describe("age-free generator introduction and child choice", () => {
         /difficulty|stretch|confidence/iu,
       );
       // The stored length still reaches the panel without a Difficulty step;
-      // Operation Grid, one grid per page, and Clock Explorer, four clocks
-      // per page, show no length at all.
-      if (worksheetType === "operation-grid" || worksheetType === "clock-explorer") {
+      // Operation Grid, one grid per page, and Clock Explorer and Tally
+      // Detective, four clocks or tallies per page, show no length at all.
+      if (
+        worksheetType === "operation-grid" ||
+        worksheetType === "clock-explorer" ||
+        worksheetType === "tally-detective"
+      ) {
         expect(screen.queryByRole("combobox", { name: "Length" }), worksheetType).toBeNull();
       } else {
         expect(

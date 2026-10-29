@@ -58,6 +58,7 @@ import {
 } from "../../worksheets/dry-math/definition";
 import { FIND_THE_WOW_VARIANT_LABELS } from "../../worksheets/find-the-wow/definition";
 import { CLOCK_EXPLORER_CARD_DESCRIPTION } from "../../worksheets/clock-explorer/definition";
+import { TALLY_DETECTIVE_CARD_DESCRIPTION } from "../../worksheets/tally-detective/definition";
 import {
   NUMBER_BONDS_CARD_DESCRIPTION,
   NUMBER_BONDS_FOCUS_HELP,
@@ -127,6 +128,7 @@ const WORKSHEET_DESCRIPTIONS = {
   "number-bonds": NUMBER_BONDS_CARD_DESCRIPTION,
   "operation-grid": OPERATION_GRID_CARD_DESCRIPTION,
   "clock-explorer": CLOCK_EXPLORER_CARD_DESCRIPTION,
+  "tally-detective": TALLY_DETECTIVE_CARD_DESCRIPTION,
 } as const satisfies Record<RegisteredWorksheetType, string>;
 
 const WORKSHEET_CARDS = REGISTERED_WORKSHEET_IDS.map((worksheetId) => ({
@@ -234,6 +236,7 @@ function focusControlFor(selection: WorksheetSelectionV2): FocusControl | undefi
     case "number-bonds":
     case "operation-grid":
     case "clock-explorer":
+    case "tally-detective":
       return undefined;
   }
 }
@@ -294,8 +297,9 @@ function groupsShownFor(
     case "number-bonds":
     case "operation-grid":
     case "clock-explorer":
-      // No earlier setting describes Number Bonds, Operation Grid or Clock
-      // Explorer.
+    case "tally-detective":
+      // No earlier setting describes Number Bonds, Operation Grid, Clock
+      // Explorer or Tally Detective.
       return [];
   }
 }

@@ -11,6 +11,11 @@ import {
 } from "../../worksheets/clock-explorer/definition.js";
 import { generateClockExplorer } from "../../worksheets/clock-explorer/generator.js";
 import {
+  TALLY_DETECTIVE_DEFINITION,
+  TALLY_DETECTIVE_LIMITING_RESOURCE_ADVICE,
+} from "../../worksheets/tally-detective/definition.js";
+import { generateTallyDetective } from "../../worksheets/tally-detective/generator.js";
+import {
   COUNT_COMPARE_MAKE_DEFINITION,
   getCountCompareMakeCapabilitySupport,
   getCountCompareMakeItemCount,
@@ -79,6 +84,7 @@ import {
 } from "./project-request.js";
 import {
   CLOCK_EXPLORER_ITEM_COUNT,
+  TALLY_DETECTIVE_ITEM_COUNT,
   type GenerationRequestV1,
   type WorksheetGeneratorV1,
   type WorksheetType,
@@ -731,6 +737,44 @@ export const WORKSHEET_REGISTRY = {
       }),
       // Four clocks per page have no length, and decoration would take the
       // dials' print area: only the nickname, key, paper and scale apply.
+      getApplicableControls: () => ({
+        useDisplayName: true,
+        useInterests: false,
+        includeDecorativeGraphics: false,
+        theme: false,
+        practiceFocus: false,
+        variant: false,
+        vocabulary: false,
+        regrouping: false,
+        factFamilies: false,
+        operationGrid: false,
+        length: false,
+        includeAnswerKey: true,
+        paperSize: true,
+        printScale: true,
+      }),
+    },
+  },
+  "tally-detective": {
+    ...TALLY_DETECTIVE_DEFINITION,
+    generate: generateTallyDetective,
+    controls: {
+      // Every page draws four of the twenty totals, so every selection is
+      // available and always has the capacity.
+      getCapabilitySupport: () => ({
+        available: true,
+        capacity: SUFFICIENT_CAPACITY,
+      }),
+      // The twenty totals are fixed, so the advice names no range or length.
+      getLimitingResourceAdvice: () => TALLY_DETECTIVE_LIMITING_RESOURCE_ADVICE,
+      getRelevantMaximums: () => NO_MAXIMUMS,
+      getEffectiveUnit: () => ({
+        count: TALLY_DETECTIVE_ITEM_COUNT,
+        singularLabel: "tally",
+        pluralLabel: "tallies",
+      }),
+      // Four tallies per page have no length, and decoration would take the
+      // marks' print area: only the nickname, key, paper and scale apply.
       getApplicableControls: () => ({
         useDisplayName: true,
         useInterests: false,

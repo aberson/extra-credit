@@ -497,6 +497,7 @@ describe("worksheet renderer registry", () => {
       "number-bonds",
       "operation-grid",
       "clock-explorer",
+      "tally-detective",
     ]);
     // Every declared worksheet type is registered, in declaration order, and
     // has a renderer in that same order.
@@ -1232,6 +1233,21 @@ const FAMILY_CHOICE_EDITS: Readonly<
       otherOperationGrid,
     ),
   },
+  // Tally Detective likewise reads no worksheet choice: its four tallies come
+  // from the seed alone.
+  "tally-detective": {
+    own: undefined,
+    foreign: compose(
+      otherDryMath,
+      otherWowVariant,
+      otherWowQuantity,
+      otherWowEquation,
+      otherCountCompare,
+      otherSentence,
+      otherNumberBonds,
+      otherOperationGrid,
+    ),
+  },
 };
 
 /** Every practice focus group set to its catalog's first entry. */
@@ -1430,6 +1446,7 @@ const CONTRACT_PROFILES: Readonly<
   "number-bonds": [contractProfile()],
   "operation-grid": [contractProfile()],
   "clock-explorer": [contractProfile()],
+  "tally-detective": [contractProfile()],
 };
 
 function contractSelection(
@@ -3248,6 +3265,8 @@ function catalogSweepCells(): readonly SweepCell[] {
     }),
     // Clock Explorer has no catalog: its one cell is the fixed twelve hours.
     ...sweepCells("clock-explorer", "clock-explorer", (selection) => selection),
+    // Nor has Tally Detective: its one cell is the fixed totals 1 to 20.
+    ...sweepCells("tally-detective", "tally-detective", (selection) => selection),
   ];
 }
 
@@ -3285,10 +3304,10 @@ describe("availability equals generation", () => {
     // Pinned: 7 Dry Math, 2 quantity and 5 equation Wow, and 2 Count, Compare
     // & Make catalog focuses, 5 writing activities x 2 vocabularies, and 9
     // Number Bonds focuses x 2 carrying and borrowing choices, and 11 Operation
-    // Grid operation and preset choices, and the one Clock Explorer cell,
-    // each at 3 lengths x 2 scales. A catalog change must revisit the pinned
-    // starving set below, so it fails here first.
-    expect(cells).toHaveLength(336);
+    // Grid operation and preset choices, and the one Clock Explorer and one
+    // Tally Detective cell, each at 3 lengths x 2 scales. A catalog change
+    // must revisit the pinned starving set below, so it fails here first.
+    expect(cells).toHaveLength(342);
     expect(new Set(cells.map(({ label }) => label)).size).toBe(cells.length);
     expect(
       new Set(cells.map(({ selection }) => selection.worksheetType)),
