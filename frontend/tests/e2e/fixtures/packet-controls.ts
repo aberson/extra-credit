@@ -160,3 +160,30 @@ export function packetSurfaces(page: Page): Locator {
 export function printPacketButton(page: Page): Locator {
   return page.getByRole("button", { name: /^Print packet \(\d+ pages?\)$/u });
 }
+
+/** The "Random packet" form beside the packet panel. */
+export function randomPacketForm(page: Page): Locator {
+  return page.getByRole("region", { name: "Random packet", exact: true });
+}
+
+/** One Make random packet: exactly these families ticked, the pages and the difficulty. */
+export interface RandomPacketPlan {
+  readonly families: readonly string[];
+  readonly pages: number;
+  readonly level: "easier" | "medium" | "harder";
+}
+
+/**
+ * Ticks exactly the planned families (by worksheet id), chooses the pages and
+ * difficulty, and presses Make random packet; the packet preview opens.
+ */
+export async function makeRandomPacket(page: Page, plan: RandomPacketPlan): Promise<void> {
+  const form = randomPacketForm(page);
+  for (const box of await form.locator('input[type="checkbox"]').all()) {
+    await box.setChecked(plan.families.includes((await box.getAttribute("value")) ?? ""));
+  }
+  await form.getByRole("combobox", { name: "Pages", exact: true }).selectOption(String(plan.pages));
+  await form.locator(`input[type="radio"][value="${plan.level}"]`).check();
+  await form.getByRole("button", { name: "Make random packet", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Packet preview", exact: true })).toBeFocused();
+}

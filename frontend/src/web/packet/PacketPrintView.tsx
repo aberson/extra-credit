@@ -10,11 +10,15 @@ import "../print/print-packet.css";
 import "../styles/tokens.css";
 import { onPacketPaper, packetKeyLabel, type QueuedSheet } from "./packet-session";
 
+const PACKET_PREVIEW_NOTICE_ID = "packet-preview-notice";
+
 interface PacketPrintViewProps {
   readonly sheets: readonly QueuedSheet[];
   readonly paperSize: PaperSize;
   readonly keyPlacement: PacketKeyPlacement;
   readonly onBack: () => void;
+  /** What a random packet just added: shown under the heading, screen only, and describes it. */
+  readonly notice?: string | null;
 }
 
 /**
@@ -24,15 +28,28 @@ interface PacketPrintViewProps {
  * and every key heading naming its sheet. Print packet prints them all with
  * one `window.print()`; neither printing nor Back changes the queue.
  */
-export function PacketPrintView({ keyPlacement, onBack, paperSize, sheets }: PacketPrintViewProps) {
+export function PacketPrintView({ keyPlacement, notice, onBack, paperSize, sheets }: PacketPrintViewProps) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { headingRef.current?.focus(); }, []);
   const pages = composePacketPages(sheets, keyPlacement);
+  const hasNotice = notice !== undefined && notice !== null;
 
   return (
     <section aria-labelledby="packet-preview-title" className="print-workspace packet-print" data-packet-print="true">
       <div className="print-controls">
-        <h2 id="packet-preview-title" ref={headingRef} tabIndex={-1}>Packet preview</h2>
+        <h2
+          aria-describedby={hasNotice ? PACKET_PREVIEW_NOTICE_ID : undefined}
+          id="packet-preview-title"
+          ref={headingRef}
+          tabIndex={-1}
+        >
+          Packet preview
+        </h2>
+        {hasNotice && (
+          <p data-packet-preview-notice="true" id={PACKET_PREVIEW_NOTICE_ID}>
+            {notice}
+          </p>
+        )}
         <p>
           Every page of the packet in print order, each on its own page. Print on
           the packet paper at 100% scale, with browser headers and footers turned off.

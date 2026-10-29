@@ -7,12 +7,15 @@ import {
   addButton,
   addMessage,
   addToPacket,
+  makeRandomPacket,
   moveSheet,
   openPacketPreview,
   packetPanel,
   packetRows,
+  packetSurfaces,
   packetWorksheetIds,
   previewPacketButton,
+  randomPacketForm,
   removeSheet,
 } from "./fixtures/packet-controls.js";
 import {
@@ -403,5 +406,77 @@ test("packet preview: removing every sheet closes it, focus stays on the page, a
   await expect(packetPreview).toHaveCount(0);
   await expect(singlePreview).toBeVisible();
   expect(writes()).toBe(0);
+  await expectEmptyBrowserStores(page);
+});
+
+test("random packet: ticked families, pages and difficulty fill the packet for the chosen child, up to ten", async ({ appServer, page }) => {
+  test.setTimeout(90_000);
+  await appServer.seedConfig(acceptanceConfig);
+  const seeded = await appServer.readRaw();
+  const writes = trackConfigWrites(page);
+  await page.goto(appServer.origin);
+  await chooseChild(page, first.id);
+
+  await withoutConfigWrite(writes, () =>
+    makeRandomPacket(page, { families: ["dry-math", "number-bonds", "tally-detective"], pages: 6, level: "harder" }),
+  );
+  await expect(page.locator("[data-packet-preview-notice]")).toHaveText("Added 6 random sheets to the packet.");
+  await expectCount(page, 6);
+  const rows = await packetRows(page);
+  const harderDryMath = [
+    "Addition and subtraction within 50",
+    "Addition and subtraction within 100",
+    "Multiplication facts for 2, 5 and 10",
+  ];
+  const harderBonds = [
+    "Missing number sentences, Addition and subtraction within 20, including problems that carry or borrow",
+    "Missing number sentences, Subtraction within 20, including problems that carry or borrow",
+  ];
+  const families = rows.map((row, index) => {
+    const [sheet, family, ...rest] = row.split(" · ");
+    expect(sheet).toBe(`Sheet ${index + 1}`);
+    expect(row).toContain(`for ${first.displayName}`);
+    if (family === "Dry Math") {
+      expect(harderDryMath).toContain(rest[0]);
+    } else if (family === "Number Bonds") {
+      expect(harderBonds).toContain(rest[0]);
+    } else {
+      expect(family).toBe("Tally Detective");
+    }
+    return family;
+  });
+  // Every ticked family is dealt once before any repeats.
+  expect(new Set(families.slice(0, 3))).toEqual(new Set(["Dry Math", "Number Bonds", "Tally Detective"]));
+  // The preview shows every queued worksheet page.
+  await expect(packetSurfaces(page).and(page.locator('[data-surface="worksheet"]'))).toHaveCount(6);
+
+  // Pages offers only the room left; filling it stops the form with its reason.
+  const pages = randomPacketForm(page).getByRole("combobox", { name: "Pages", exact: true });
+  await expect(pages.locator("option")).toHaveText(["1", "2", "3", "4"]);
+  await withoutConfigWrite(writes, () =>
+    makeRandomPacket(page, { families: ["clock-explorer", "sentence-builder"], pages: 4, level: "easier" }),
+  );
+  await expectCount(page, 10);
+  await expect(page.locator("[data-packet-preview-notice]")).toHaveText("Added 4 random sheets to the packet.");
+  // The second batch has only its own families and Easier focus.
+  const easierWriting = ["Draw & Tell", "Picture Labels"];
+  for (const row of (await packetRows(page)).slice(6)) {
+    const [, family, detail] = row.split(" · ");
+    expect(["Clock Explorer", "Sentence Builder"]).toContain(family);
+    if (family === "Sentence Builder") {
+      expect(easierWriting).toContain(detail);
+    }
+  }
+  // Removing a sheet clears the notice; the rows above stay as they were.
+  await removeSheet(page, 10);
+  await expect(page.locator("[data-packet-preview-notice]")).toHaveCount(0);
+  await makeRandomPacket(page, { families: ["tally-detective"], pages: 1, level: "medium" });
+  await expectCount(page, 10);
+  const make = randomPacketForm(page).getByRole("button", { name: "Make random packet", exact: true });
+  await expect(make).toBeDisabled();
+  await expect(make).toHaveAccessibleDescription("The packet already holds 10 sheets. Remove a sheet to add more.");
+
+  expect(writes()).toBe(0);
+  expect((await appServer.readRaw()).equals(seeded)).toBe(true);
   await expectEmptyBrowserStores(page);
 });

@@ -91,8 +91,14 @@
   }
   .packet-panel__actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
   .packet-panel__print { display: grid; gap: 0.6rem; }
-  .packet-panel__choice { border: 1px solid #d3dae3; border-radius: 0.6rem; display: grid; gap: 0.3rem; margin: 0; padding: 0.5rem 0.8rem; }
+  .packet-panel__choice, .random-packet__choice { border: 1px solid #d3dae3; border-radius: 0.6rem; display: grid; gap: 0.3rem; margin: 0; padding: 0.5rem 0.8rem; }
   .packet-panel > button { justify-self: start; }
+
+  /* Random packet: the family checkboxes, Pages and Difficulty, then its button. */
+  .random-packet { border-top: 1px solid #dbe1e8; display: grid; gap: 0.6rem; margin-top: 1.25rem; padding-top: 0.8rem; }
+  .random-packet > h2, .random-packet > p { margin: 0; }
+  .random-packet__hint { color: #566278; }
+  .random-packet > button { justify-self: start; }
 
   /*
    * The packet preview: its controls, then every page as a card in print

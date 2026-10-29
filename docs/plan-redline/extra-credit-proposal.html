@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Extra Credit — proposal</title>
+<style>
+/* Layout: one reading column on worksheet graph paper; red pen marks what still awaits your tweaks. */
+:root {
+  --paper: #fbfcfe;
+  --ink: #1b2a44;
+  --pencil: #56637a;
+  --rule: #e3e9f3;
+  --rule-strong: #c9d4e6;
+  --pen: #c42a3a;
+  --pen-soft: #fbe9eb;
+  --mark: #2f5ea8;
+  --mark-soft: #e8eef9;
+  --card: #ffffff;
+  --code-bg: #eef2f8;
+  --display: Rockwell, "Roboto Slab", "Zilla Slab", Cambria, Georgia, serif;
+  --body: system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #121a28; --ink: #e4eaf4; --pencil: #a5b1c6; --rule: #1c273a; --rule-strong: #2b3a54;
+    --pen: #ff7b86; --pen-soft: #3a1c24; --mark: #8db4f2; --mark-soft: #1c2a44; --card: #182235; --code-bg: #1f2b40;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #121a28; --ink: #e4eaf4; --pencil: #a5b1c6; --rule: #1c273a; --rule-strong: #2b3a54;
+  --pen: #ff7b86; --pen-soft: #3a1c24; --mark: #8db4f2; --mark-soft: #1c2a44; --card: #182235; --code-bg: #1f2b40;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--rule) 1px, transparent 1px),
+    linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font: 16px/1.6 var(--body);
+}
+.page {
+  max-width: 54rem;
+  margin: 0 auto;
+  padding-block: 2.5rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 2.75rem;
+}
+header { display: grid; gap: 0.8rem; }
+.eyebrow {
+  font: 600 0.78rem/1.3 var(--body);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--pencil);
+}
+.eyebrow strong { color: var(--pen); font-weight: 700; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -0.01em; }
+h2 { font-size: clamp(1.4rem, 3vw, 1.85rem); }
+h3 { font-size: 1.1rem; }
+p { margin: 0; max-width: 65ch; }
+.lede { font-size: 1.12rem; color: var(--pencil); }
+section { display: grid; gap: 1rem; }
+section > .kicker { font: 600 0.75rem/1 var(--body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--mark); }
+code, .id { font-family: var(--mono); font-size: 0.88em; }
+code { background: var(--code-bg); padding: 0.05em 0.35em; border-radius: 4px; }
+.id {
+  display: inline-block; min-width: 3.4em; text-align: center;
+  padding: 0.1em 0.4em; border-radius: 4px;
+  background: var(--mark-soft); color: var(--mark); font-weight: 700;
+}
+.id.d { background: var(--pen-soft); color: var(--pen); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule-strong); border-radius: 8px; background: var(--card); }
+table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+th, td { text-align: left; vertical-align: top; padding: 0.6rem 0.75rem; border-bottom: 1px solid var(--rule-strong); }
+th { font: 600 0.78rem/1.3 var(--body); letter-spacing: 0.06em; text-transform: uppercase; color: var(--pencil); background: var(--code-bg); }
+tr:last-child td { border-bottom: 0; }
+td.n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+ol.tracks { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+ol.tracks > li {
+  background: var(--card); border: 1px solid var(--rule-strong); border-radius: 8px;
+  padding: 1rem 1.1rem; display: grid; gap: 0.5rem; min-width: 0;
+}
+.track-head { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: baseline; justify-content: space-between; }
+.steps { font: 600 0.85rem/1.3 var(--mono); color: var(--mark); font-variant-numeric: tabular-nums; }
+.after { font-size: 0.9rem; color: var(--pencil); }
+.after code { white-space: normal; overflow-wrap: anywhere; }
+ul.plain { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; max-width: 70ch; }
+.defaults { display: grid; gap: 0.85rem; }
+.default {
+  background: var(--card); border: 1px solid var(--rule-strong); border-left: 3px solid var(--pen);
+  border-radius: 6px; padding: 0.85rem 1rem; display: grid; gap: 0.35rem; min-width: 0;
+}
+.default h3 { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; font-size: 1.02rem; }
+.default dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.2rem 0.8rem; }
+.default dt { font: 600 0.75rem/1.6 var(--body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--pencil); }
+.default dd { margin: 0; min-width: 0; }
+details { background: var(--card); border: 1px solid var(--rule-strong); border-radius: 8px; padding: 0.75rem 1rem; }
+details > summary { cursor: pointer; font-weight: 600; }
+details[open] > summary { margin-bottom: 0.75rem; }
+summary:focus-visible, a:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+.grammar {
+  background: var(--card); border: 2px dashed var(--pen); border-radius: 8px; padding: 1rem 1.1rem; display: grid; gap: 0.6rem;
+}
+.grammar pre { margin: 0; font: 0.9rem/1.55 var(--mono); background: var(--code-bg); padding: 0.75rem; border-radius: 6px; overflow-x: auto; }
+footer { color: var(--pencil); font-size: 0.88rem; display: grid; gap: 0.3rem; }
+@media (max-width: 34rem) {
+  .default dl { grid-template-columns: 1fr; }
+  .default dt { margin-top: 0.3rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+</head>
+<body>
+<main class="page">
+
+<header>
+  <p class="eyebrow">Extra Credit · master plan Phase H · publication 2 · <strong>awaiting your tweaks</strong></p>
+  <h1>Harder practice, one step at a time</h1>
+  <p class="lede">You said the children find many worksheets too easy. This proposal shows how Phase H makes arithmetic, counting and clocks harder through new choices on the same Create, preview and print screen, then lets the Random packet's difficulty levels reach them. The plan is the source of truth; this page is a view of it.</p>
+</header>
+
+<section aria-labelledby="heard">
+  <p class="kicker">What I heard</p>
+  <h2 id="heard">Five asks, each mapped to steps.</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">You asked</th><th scope="col">Where it lands</th></tr></thead>
+      <tbody>
+        <tr><td>A way to make a random packet: tick worksheets, choose pages and a difficulty</td><td>Step 38, built and gated on the <code>random-packet</code> branch (1403 unit / 233 browser tests)</td></tr>
+        <tr><td>"Version 0.1.0" cannot be right</td><td>Version 1.4.0 now, then one minor bump per step that changes what you see (1.5.0 at Step 39 through 1.20.0 at Step 55)</td></tr>
+        <tr><td>More difficulty levels</td><td>Step 39 adds Challenge and Expert from today's hardest settings; Step 55 points them at the new practice</td></tr>
+        <tr><td>Harder arithmetic</td><td>Steps 40-45: three-digit + and − to 1,000, two-digit × one-digit, three-digit ÷ one-digit, remainders, grids with mixed-up headers and headers that start above 1</td></tr>
+        <tr><td>Counting and numbers past 20, and harder clocks</td><td>Steps 46-49 (Number Bonds, Wow equations and numeral comparison to 100), Steps 50-51 (half, quarter, five-minute and any-minute clocks), Steps 52-54 (tens-and-ones pictures, Wow dots to 50, tallies to 50)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="why">
+  <p class="kicker">Why this shape</p>
+  <h2 id="why">Two findings from reading the source drove the design.</h2>
+  <ul class="plain">
+    <li><strong>The saved settings file pins every limit.</strong> Raising an existing cap (20 for counting, 100 for Dry Math) would need a version 3 file and an upgrade of your real profiles file. Every harder choice is therefore a new setting with a default, and today's settings, pages and answers stay exactly as they are.</li>
+    <li><strong>Pictures past 20 do not fit a page.</strong> Loose dots and ten-frames above 20 overflow one printed page, so counting goes higher through new pictures: tens rods and ones, dots in rows of ten, tallies in stacked rows. Numerals alone (comparison, equations, Number Bonds) simply go to 100.</li>
+  </ul>
+</section>
+
+<section aria-labelledby="timeline">
+  <p class="kicker">Phase timeline</p>
+  <h2 id="timeline">Five tracks, built one step at a time in order.</h2>
+  <p>Each code step gets an independent code review and one full check after it merges. Steps share the same core files, so they run in ID order.</p>
+  <ol class="tracks">
+    <li>
+      <div class="track-head"><h3>Levels and arithmetic</h3><span class="steps">Steps 39-45</span></div>
+      <p>Challenge and Expert levels from today's settings; three-digit sums, bigger × and ÷, remainders; mixed-up and offset grid headers.</p>
+      <p class="after">Afterwards: <code>npm --prefix frontend run build</code> then <code>npm --prefix frontend run manual:print</code> and try Dry Math, Operation Grid and an Expert packet with the fictional profiles.</p>
+    </li>
+    <li>
+      <div class="track-head"><h3>Numbers to 100</h3><span class="steps">Steps 46-49</span></div>
+      <p>Number Bonds within 50 and 100 (plus "every problem carries or borrows" from 10 up), Wow equations to 100 with near-miss wrong answers and optional carrying, comparing numerals to 100.</p>
+      <p class="after">Afterwards: <code>npm --prefix frontend run manual:print</code> and Create each new range with its answer key.</p>
+    </li>
+    <li>
+      <div class="track-head"><h3>Clocks</h3><span class="steps">Steps 50-51</span></div>
+      <p>Clock Explorer's first setting: half and quarter hours, then five-minute and any-minute times on a larger minute dial with minute marks.</p>
+      <p class="after">Afterwards: <code>npm --prefix frontend run manual:print</code> and print one page of each clock time step.</p>
+    </li>
+    <li>
+      <div class="track-head"><h3>Pictures past 20</h3><span class="steps">Steps 52-54</span></div>
+      <p>Tens-and-ones pictures to 50 and 100, Wow dots to 50 in rows of ten, tallies to 50 in three rows. Last, because they carry the most print risk.</p>
+      <p class="after">Afterwards: <code>npm --prefix frontend run manual:print</code> and print each new picture page on Letter and A4.</p>
+    </li>
+    <li>
+      <div class="track-head"><h3>Levels reach the new practice, then your review</h3><span class="steps">Step 55 · HR1</span></div>
+      <p>Harder, Challenge and Expert draw on everything above (table under HD6); then one screen review of every new choice and of the five packet levels.</p>
+      <p class="after">Afterwards: <code>npm --prefix frontend run manual:print</code>, set Pages to 8 with all families ticked, and make one packet per level.</p>
+    </li>
+  </ol>
+</section>
+
+<section aria-labelledby="choices">
+  <p class="kicker">Operator choices</p>
+  <h2 id="choices">Locked in from our planning questions.</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">ID</th><th scope="col">Your choice</th></tr></thead>
+      <tbody>
+        <tr><td><span class="id">HP1</span></td><td>Every harder option for arithmetic, counting and numbers, and clocks; Sentence Builder stays as it is.</td></tr>
+        <tr><td><span class="id">HP2</span></td><td>New settings only: no version 3 file, no upgrade, your profiles file is never rewritten.</td></tr>
+        <tr><td><span class="id">HP3</span></td><td>Choosing clock modes waives the Phase V hold on half hours until the Step 37 trial; Step 37 itself stays pending.</td></tr>
+        <tr><td><span class="id">HP4</span></td><td>Version 1.4.0 now; bump the minor version whenever a feature merges.</td></tr>
+        <tr><td><span class="id">HP5</span></td><td>Level hints count arithmetic and counting only, with tallies and clocks named separately (A1); Challenge and Expert replace their earlier choices, keeping a large-print-safe choice per family (A2); the numerals-to-100 page keeps the art panel (A3); the private reconciliation folder lives outside the checkout (A4).</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>Earlier choices P1-P7 stand unchanged.</p>
+</section>
+
+<section aria-labelledby="defaults">
+  <p class="kicker">Agent defaults</p>
+  <h2 id="defaults">Defaults worth your eyes. Reference by ID to tweak.</h2>
+  <div class="defaults">
+    <article class="default">
+      <h3><span class="id d">HD1</span> Five levels: Easier, Medium, Harder, Challenge, Expert</h3>
+      <dl><dt>What</dt><dd>Medium stays the default; Challenge and Expert are new.</dd>
+      <dt>Why</dt><dd>Two more rungs give room above today's Harder without renaming what you already use.</dd>
+      <dt>Tweak</dt><dd>Number or names of levels, or the default level.</dd></dl>
+    </article>
+    <article class="default">
+      <h3><span class="id d">HD6</span> Which practice each level uses (Step 55)</h3>
+      <dl><dt>What</dt><dd>Harder adds mixed-up 10 × 10 grids, Number Bonds and Wow equations within 50, numeral comparison to 100, half and quarter hours. Challenge: three-digit sums without carrying, two-digit × one-digit, 12 × 12 mixed grids, Number Bonds and Wow equations within 100, Wow dots to 50, tens and ones to 50, five-minute times, tallies to 50. Expert: three-digit carrying, three-digit ÷ one-digit, remainders, offset headers (6-15), within 100 with every problem carrying, tens and ones to 100, any-minute times, powers.</dd>
+      <dt>Why</dt><dd>Each level rises by kind as well as by size, and every family keeps a choice that fits large print.</dd>
+      <dt>Tweak</dt><dd>Move any cell up or down a level, or change the hint wording (Harder "Numbers to 100, plus times tables, half and quarter hours, and longer words"; Challenge "Numbers to 1,000, plus two-digit × one-digit, five-minute times, tallies to 50 and independent writing"; Expert "Numbers to 1,000, plus powers, three-digit carrying, remainders, any-minute times, tallies to 50 and independent writing"). HR1 keeps or adjusts it.</dd></dl>
+    </article>
+    <article class="default">
+      <h3><span class="id d">HD5</span> One screen review after Step 55</h3>
+      <dl><dt>What</dt><dd>No review between tracks; HR1 checks every new choice and the five levels on screen. Physical printing goes to M1, the children's own reactions to M2.</dd>
+      <dt>Why</dt><dd>Seventeen code steps with a review after each track would stall the phase; the waiver mirrors P6.</dd>
+      <dt>Tweak</dt><dd>Ask for a review after a specific track, for example after arithmetic.</dd></dl>
+    </article>
+    <article class="default">
+      <h3><span class="id d">HD7</span> "Every problem carries or borrows" in Number Bonds only from 10 up</h3>
+      <dl><dt>What</dt><dd>Within 5 offers only Without and Include, because no page can be filled where every problem carries.</dd>
+      <dt>Why</dt><dd>The app never offers a choice that cannot make a page; the same rule hides Wow carrying below 50.</dd>
+      <dt>Tweak</dt><dd>Offer it everywhere and refuse within 5 before Create instead.</dd></dl>
+    </article>
+    <article class="default">
+      <h3><span class="id d">HD2</span> <span class="id d">HD3</span> <span class="id d">HD4</span> How the build stays safe</h3>
+      <dl><dt>What</dt><dd>Each family gets its own new limit beside the existing ones, which never change (HD2); today's choices produce identical pages and answers (HD3); steps run in ID order with picture modes near the end (HD4).</dd>
+      <dt>Why</dt><dd>Raising the shared limits would silently widen tallies, ten-frames and earlier settings; identical output keeps every saved packet seed and test fingerprint valid.</dd>
+      <dt>Tweak</dt><dd>Reorder tracks (for example clocks first).</dd></dl>
+    </article>
+    <article class="default">
+      <h3><span class="id d">R1(a)</span> <span class="id d">R1(b)</span> <span class="id d">R1(c)</span> <span class="id d">R2</span> <span class="id d">R3</span> <span class="id d">R4</span> Working rules for every step</h3>
+      <dl><dt>What</dt><dd>Packet code only spreads defaults (R1a), names new choices in packet rows (R1b) and keeps your saved harder choices out of Random packets until Step 55 (R1c); one wording owner per choice list (R2); no saved value above its limit (R3); an oversized step is split (R4).</dd>
+      <dt>Why</dt><dd>They keep labels truthful, packets predictable and each step reviewable in one sitting.</dd>
+      <dt>Tweak</dt><dd>Usually none; say which rule you want relaxed and why.</dd></dl>
+    </article>
+  </div>
+  <details>
+    <summary>Design defaults inside the steps (tweak by section and number)</summary>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Default</th><th scope="col">What the plan does</th><th scope="col">Tweak axis</th></tr></thead>
+        <tbody>
+          <tr><td class="n">Dry Math 1</td><td>Three-digit problems use numbers 100-999 with answers to 1,000</td><td>Also allow two-digit operands</td></tr>
+          <tr><td class="n">Dry Math 2</td><td>Today's pages keep their 4-underscore blank until physical print review</td><td>Widen blanks everywhere now</td></tr>
+          <tr><td class="n">Dry Math 3-4</td><td>Remainder problems are 10-99 ÷ 2-9 with a remainder of at least 1; × and ÷ by 1 left out</td><td>Allow zero remainders or ×1</td></tr>
+          <tr><td class="n">Grid 1-2</td><td>Grid cells stay at three digits (999); Diagonal first refused with mixed or offset headers</td><td>Allow four-digit cells after a print check</td></tr>
+          <tr><td class="n">Numbers 1-5</td><td>Comparison in words; Wow above 20 mixes + and −; carrying offered at 50 and 100; numeral pages keep 6/8/10 cards; one Count, Compare &amp; Make mode switch</td><td>Use &lt; = &gt; symbols; other mixes</td></tr>
+          <tr><td class="n">Clocks 1-5</td><td>Half and quarter pages mix in :00 times; 3:00 and 3:30 may share a page; minute marks only for five-minute and any-minute on a 50/56 mm dial</td><td>No :00 mixing; marks on every dial</td></tr>
+          <tr><td class="n">Pictures 1-7</td><td>New ranges start at 21; tens-and-ones pages hold 8 (6 large); 100 drawn as ten rods; no art on those pages; tally key "47 = 5 × 9 + 2"; both 21-50 and 21-100 tens-and-ones; Wow dot pages keep 4/6/8 groups or the step stops for your call</td><td>Start ranges at 1; draw 100 as a flat</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+  <details>
+    <summary>Earlier agent defaults D1-D12 (standing; D12 changed 2026-10-28)</summary>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">ID</th><th scope="col">What</th><th scope="col">Why</th><th scope="col">Tweak</th></tr></thead>
+        <tbody>
+          <tr><td><span class="id d">D1</span></td><td>The initial plan is the substrate; source step IDs kept</td><td>Stable history and issue links</td><td>None recommended: renumbering breaks issue links</td></tr>
+          <tr><td><span class="id d">D2</span></td><td>Manual acceptance units stay separate from code</td><td>Code done is not release done</td><td>Fold a manual unit into a code step</td></tr>
+          <tr><td><span class="id d">D3</span></td><td>Line citations stay tied to exact archive bytes</td><td>The citation guard depends on them</td><td>None recommended: the guard would fail</td></tr>
+          <tr><td><span class="id d">D4</span></td><td>Hour ranges modelled; optional work off until chosen</td><td>Forecasts stay honest</td><td>Select an optional step</td></tr>
+          <tr><td><span class="id d">D5-D7</span></td><td>Grid defaults, refusals over clamping, one grid per page</td><td>Predictable pages</td><td>Different grid defaults</td></tr>
+          <tr><td><span class="id d">D8</span></td><td>Step 34 built with code reviewers</td><td>Lean rigor ruling</td><td>Deeper review lanes</td></tr>
+          <tr><td><span class="id d">D9-D11</span></td><td>Clocks and tallies first; four problems per page; hours 1-12 and totals 1-20 by default</td><td>Small first visual batch</td><td>Phase H extends the ranges as new settings</td></tr>
+          <tr><td><span class="id d">D12</span></td><td>Steps 35 and 36 ran sequentially; changed by P6 so MA2 no longer gates dispatch</td><td>Shared interfaces</td><td>None</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+</section>
+
+<section aria-labelledby="cut">
+  <p class="kicker">Not in this phase</p>
+  <h2 id="cut">Cut on purpose.</h2>
+  <ul class="plain">
+    <li>Sentence Builder changes (writing was already right).</li>
+    <li>A version 3 settings file or any upgrade of your profiles file.</li>
+    <li>Subtraction grids, mixed-operation grids and stacked column arithmetic.</li>
+    <li>Tallies or dot pictures to 100 (they do not fit four to a page).</li>
+    <li>Saving packets between visits; the packet stays session-only.</li>
+  </ul>
+</section>
+
+<section aria-labelledby="risks">
+  <p class="kicker">Risks</p>
+  <h2 id="risks">What could bite, and the built-in answer.</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th scope="col">Risk</th><th scope="col">Answer in the plan</th></tr></thead>
+      <tbody>
+        <tr><td>Bigger numbers overflow answer boxes, grid cells or the page</td><td>Every print change gets a print row and a check that must fail on a deliberately broken layout first</td></tr>
+        <tr><td>Clock hands collide with the 10 and 11 on minute dials</td><td>A larger minute dial and a 60-position print sweep (Step 51)</td></tr>
+        <tr><td>Three-digit and Wow-to-100 problem pools are too large to list</td><td>Seeded sampling with exact counts; near-miss wrong answers built per problem</td></tr>
+        <tr><td>An existing page or answer changes by accident</td><td>Golden fingerprints and known pages must stay byte-identical; no generator version bump</td></tr>
+        <tr><td>Private files swept into a public commit</td><td>The reconciliation folder now lives outside the checkout; every gate starts with a clean <code>git status</code></td></tr>
+        <tr><td>Seventeen steps take many build windows</td><td>Each track can run as its own build; you can stop after any track</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section aria-labelledby="reply">
+  <p class="kicker">Your reply</p>
+  <h2 id="reply">Scan, then reply in chat. IDs make it cheap.</h2>
+  <div class="grammar">
+    <p>Reply with <code>ID -&gt; change</code>, one per line. Anything you do not mention lands as written.</p>
+    <pre>HD1 -&gt; four levels, drop Expert
+HD6 -&gt; Harder keeps on-the-hour clocks; half hours move to Challenge
+HD5 -&gt; review after the arithmetic track too
+Clocks 3 -&gt; minute marks on every dial</pre>
+  </div>
+</section>
+
+<footer>
+  <p>Source: <code>docs/plans/master_plan.md</code> (Phase H, Decision Inventory) and <code>docs/plans/harder-practice-spec.md</code>.</p>
+  <p>Publication 2, 2026-10-29. Replaces the earlier proposal location, which now lives privately outside the checkout.</p>
+</footer>
+
+</main>
+</body>
+</html>

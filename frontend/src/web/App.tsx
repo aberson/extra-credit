@@ -53,6 +53,12 @@ import {
   packetAddRefusal,
   packetReducer,
 } from "./packet/packet-session";
+import { RandomPacketForm } from "./packet/RandomPacketForm";
+import {
+  makeRandomPacket,
+  randomPacketMessage,
+  type RandomPacketChoice,
+} from "./packet/random-packet";
 import { PrintView } from "./print/PrintView";
 
 const DOCUMENT_TITLE = "Extra Credit Worksheet";
@@ -598,6 +604,12 @@ export function App() {
    */
   const [packetPreviewOpen, setPacketPreviewOpen] = useState(false);
   const packetPreviewReturnRef = useRef(false);
+  /** Why the last Make random packet added nothing, shown beside the form. */
+  const [randomPacketNotice, setRandomPacketNotice] = useState<string | null>(null);
+  /** What the last random packet added, shown in the packet preview it opened. */
+  const [packetPreviewNotice, setPacketPreviewNotice] = useState<string | null>(null);
+  /** Rises with each random packet, so an open packet preview remounts and takes focus again. */
+  const [randomPacketCount, setRandomPacketCount] = useState(0);
 
   /**
    * Hands a ready config read to the worksheet session: the first one (and a
@@ -1231,11 +1243,59 @@ export function App() {
     }
   }, [showPacketPreview, singlePreviewShown]);
 
+  /**
+   * Queues a random packet for the child chosen in the worksheet panel, with
+   * that panel's other choices, then shows the packet preview. Like Add to
+   * packet, nothing is sent to the server.
+   */
+  function addRandomPacket(choice: RandomPacketChoice): void {
+    if (
+      generationActionRef.current ||
+      profileState.kind !== "ready" ||
+      operationRef.current !== null ||
+      worksheetSession === null
+    ) {
+      return;
+    }
+    const profile = profileState.config.profiles.find(
+      ({ id }) => id === worksheetSession.selectedChildId,
+    );
+    if (profile === undefined) {
+      setRandomPacketNotice("Add a child profile first.");
+      return;
+    }
+    generationActionRef.current = true;
+    setGenerationBusy(true);
+    try {
+      const result = makeRandomPacket({
+        ...choice,
+        pages: Math.min(choice.pages, PACKET_SHEET_LIMIT - packet.sheets.length),
+        profile,
+        selection: worksheetSession.selection,
+      });
+      if (!result.ok) {
+        setRandomPacketNotice(result.message);
+        return;
+      }
+      for (const sheet of result.sheets) {
+        dispatchPacket({ type: "add", sheet });
+      }
+      setRandomPacketNotice(null);
+      setPacketPreviewNotice(randomPacketMessage(result));
+      setRandomPacketCount((count) => count + 1);
+      setPacketPreviewOpen(true);
+    } finally {
+      generationActionRef.current = false;
+      setGenerationBusy(false);
+    }
+  }
+
   /** Removes one queued sheet; removing the last one also closes the packet preview. */
   function removeFromPacket(worksheetId: string): void {
     if (packet.sheets.every((sheet) => sheet.document.worksheetId === worksheetId)) {
       setPacketPreviewOpen(false);
     }
+    setPacketPreviewNotice(null);
     dispatchPacket({ type: "remove", worksheetId });
   }
 
@@ -1247,6 +1307,8 @@ export function App() {
   function changeWorksheetSelection(action: WorksheetPanelAction): void {
     dispatchWorksheet(action);
     clearGeneration();
+    // A random packet's failure described the choices it was made with.
+    setRandomPacketNotice(null);
   }
 
   return (
@@ -1500,6 +1562,15 @@ export function App() {
                       onAdd={addPreviewToPacket}
                     />
                   )}
+                  {profileState.kind === "ready" && worksheetSession !== null && (
+                    <RandomPacketForm
+                      childChosen={worksheetSession.selectedChildId !== null}
+                      disabled={operationPending || generationBusy}
+                      message={randomPacketNotice}
+                      onMake={addRandomPacket}
+                      room={PACKET_SHEET_LIMIT - packet.sheets.length}
+                    />
+                  )}
                   {profileState.kind === "ready" && (
                     <PacketPanel
                       keyPlacement={packet.keyPlacement}
@@ -1511,6 +1582,7 @@ export function App() {
                       }
                       onPreview={() => {
                         if (packet.sheets.length > 0) {
+                          setPacketPreviewNotice(null);
                           setPacketPreviewOpen(true);
                         }
                       }}
@@ -1529,7 +1601,9 @@ export function App() {
                 </div>
                 {showPacketPreview ? (
                   <PacketPrintView
+                    key={randomPacketCount}
                     keyPlacement={packet.keyPlacement}
+                    notice={packetPreviewNotice}
                     onBack={() => {
                       packetPreviewReturnRef.current = true;
                       setPacketPreviewOpen(false);

@@ -208,6 +208,28 @@ describe("PacketPrintView", () => {
     ).toEqual([]);
   });
 
+  test("a random packet's notice shows under the heading on screen only, and no notice shows nothing", () => {
+    const sheets = mixedSheets();
+    const { container, rerender } = render(view(sheets, "letter"));
+    expect(container.querySelector("[data-packet-preview-notice]")).toBeNull();
+    expect(screen.getByRole("heading", { name: "Packet preview" })).not.toHaveAttribute("aria-describedby");
+    rerender(
+      <PacketPrintView
+        keyPlacement="grouped-end"
+        notice="Added 6 random sheets to the packet."
+        onBack={vi.fn()}
+        paperSize="letter"
+        sheets={sheets}
+      />,
+    );
+    const notice = container.querySelector("[data-packet-preview-notice]");
+    expect(notice).toHaveTextContent("Added 6 random sheets to the packet.");
+    expect(notice?.closest(".print-controls")).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Packet preview" })).toHaveAccessibleDescription(
+      "Added 6 random sheets to the packet.",
+    );
+  });
+
   test("changing the packet paper re-renders every page and leaves every stored document deep-equal", async () => {
     const user = userEvent.setup();
     const sheets = mixedSheets();
