@@ -8,6 +8,8 @@ import {
 } from "../../shared/worksheet/seeded-random.js";
 import {
   FACT_FACTOR_MAXIMUM,
+  DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM,
+  DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
   GENERATION_CONSTRAINT_CONFLICT,
   GENERATION_INVARIANT_FAILED,
   DRY_MATH_NUMERIC_MAXIMUM,
@@ -21,6 +23,9 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   DRY_MATH_DEFINITION,
+  DRY_MATH_FIXED_POOL_ADVICE,
+  DRY_MATH_SAMPLE_ATTEMPTS,
+  DRY_MATH_THREE_DIGIT_CAPACITY,
   dryMathCapacityShortfall,
   dryMathFactsShortfall,
   getDryMathItemCount,
@@ -36,6 +41,21 @@ interface ArithmeticCandidate {
 }
 
 type FactsPractice = Extract<PracticeRequestV1, { readonly kind: "dry-math-facts" }>;
+type ThreeDigitPractice = Extract<PracticeRequestV1, { readonly kind: "dry-math-three-digit" }>;
+
+function threeDigitPracticeIsWellFormed(practice: ThreeDigitPractice): boolean {
+  const operations = practice.operations as readonly string[];
+  return (
+    (practice.regrouping === "without" || practice.regrouping === "required") &&
+    operations.length > 0 &&
+    operations.length <= 2 &&
+    operations.every(
+      (operation, index) =>
+        (operation === "addition" || operation === "subtraction") &&
+        (index === 0 || (operations[index - 1] === "addition" && operation === "subtraction")),
+    )
+  );
+}
 
 /** The facts this request asks for, or `undefined` for an addition and subtraction page. */
 function factsPractice(request: GenerationRequestV1): FactsPractice | undefined {
@@ -43,6 +63,7 @@ function factsPractice(request: GenerationRequestV1): FactsPractice | undefined 
   switch (practice?.kind) {
     case "dry-math-facts":
       return practice;
+    case "dry-math-three-digit":
     case undefined:
     case "dry-math-add-subtract":
     case "number-bonds":
@@ -65,6 +86,8 @@ function regroupingRequired(request: GenerationRequestV1): boolean {
   const practice = request.practice;
   switch (practice?.kind) {
     case "dry-math-add-subtract":
+      return practice.regrouping === "required";
+    case "dry-math-three-digit":
       return practice.regrouping === "required";
     case undefined:
     case "dry-math-facts":
@@ -90,6 +113,8 @@ export function enumerateDryMathCandidates(
 ): readonly ArithmeticCandidate[] {
   const practice = request.practice;
   switch (practice?.kind) {
+    case "dry-math-three-digit":
+      throw new Error("The three-digit pool is never enumerated.");
     case "dry-math-facts":
       return enumerateFactCandidates(factsPractice(request) ?? practice);
     case undefined:
@@ -105,6 +130,62 @@ export function enumerateDryMathCandidates(
       return unreachable;
     }
   }
+}
+
+/**
+ * Draw one operation per item, retrying only operands until a unique fact in
+ * the requested regrouping partition is found. A failed page is never
+ * returned partially.
+ */
+export function sampleThreeDigitItems(
+  practice: ThreeDigitPractice,
+  count: number,
+  random: Pick<ReturnType<typeof createSeededRandom>, "nextBounded">,
+): readonly ArithmeticCandidate[] | undefined {
+  if (!threeDigitPracticeIsWellFormed(practice)) {
+    return undefined;
+  }
+  const items: ArithmeticCandidate[] = [];
+  const facts = new Set<string>();
+  for (let index = 0; index < count; index += 1) {
+    const operation = practice.operations[random.nextBounded(practice.operations.length)];
+    if (operation === undefined) {
+      return undefined;
+    }
+    let accepted: ArithmeticCandidate | undefined;
+    for (let attempt = 0; attempt < DRY_MATH_SAMPLE_ATTEMPTS; attempt += 1) {
+      const leftOperand =
+        DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM +
+        random.nextBounded(operation === "addition" ? 900 : 901);
+      const rightOperand =
+        DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM + random.nextBounded(900);
+      const answer =
+        operation === "addition" ? leftOperand + rightOperand : leftOperand - rightOperand;
+      const key = `${operation}:${leftOperand}:${rightOperand}`;
+      if (
+        answer < 0 ||
+        answer > DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM ||
+        regroups(operation, leftOperand, rightOperand) !== (practice.regrouping === "required") ||
+        facts.has(key)
+      ) {
+        continue;
+      }
+      accepted = {
+        operation,
+        leftOperand,
+        rightOperand,
+        renderedSymbol: operation === "addition" ? "+" : "−",
+        answer,
+      };
+      facts.add(key);
+      break;
+    }
+    if (accepted === undefined) {
+      return undefined;
+    }
+    items.push(accepted);
+  }
+  return items;
 }
 
 /**
@@ -215,6 +296,10 @@ function dryMathShortfallFor(
         request.options.length,
         request.options.printScale,
       );
+    case "dry-math-three-digit":
+      return capacity >= getDryMathItemCount(request.options.length, request.options.printScale)
+        ? undefined
+        : DRY_MATH_FIXED_POOL_ADVICE;
     case undefined:
     case "dry-math-add-subtract":
     case "number-bonds":
@@ -262,6 +347,17 @@ export function generateDryMath(
     };
   }
 
+  if (
+    request.practice?.kind === "dry-math-three-digit" &&
+    !threeDigitPracticeIsWellFormed(request.practice)
+  ) {
+    return {
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message: "The three-digit practice choice is malformed.",
+    };
+  }
+
   const support = getDryMathCapabilitySupport(
     request.capabilities.mathSkills,
     request.practice,
@@ -275,8 +371,8 @@ export function generateDryMath(
   }
 
   const itemCount = effectiveDryMathItemCount(request);
-  const candidates = enumerateDryMathCandidates(request);
-  const shortfall = dryMathShortfallFor(request, candidates.length);
+  const capacity = measureDryMathCapacity(request);
+  const shortfall = dryMathShortfallFor(request, capacity);
   if (shortfall !== undefined) {
     return {
       ok: false,
@@ -286,7 +382,18 @@ export function generateDryMath(
   }
 
   const random = createSeededRandom(request.seed);
-  const items: DryMathItemV1[] = seededShuffle(candidates, random)
+  const candidates =
+    request.practice?.kind === "dry-math-three-digit"
+      ? sampleThreeDigitItems(request.practice, itemCount, random)
+      : seededShuffle(enumerateDryMathCandidates(request), random).slice(0, itemCount);
+  if (candidates === undefined) {
+    return {
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message: "Dry Math could not sample a complete valid three-digit page.",
+    };
+  }
+  const items: DryMathItemV1[] = candidates
     .slice(0, itemCount)
     .map((candidate, index) => ({
       id: `item-${String(index + 1).padStart(3, "0")}`,
@@ -324,12 +431,23 @@ export function generateDryMath(
 }
 
 /**
- * The distinct facts these confirmed limits provide, counted by enumerating
- * the very collection `generateDryMath` shuffles. Sharing one enumeration is
- * what keeps the control's pre-click capacity verdict from drifting away from
- * the generator's own fail-closed branch (issue #14).
+ * The distinct facts these confirmed limits provide. Existing finite-pool
+ * kinds count the exact collection `generateDryMath` shuffles; the
+ * three-digit kind returns the exact table sum and is never enumerated.
+ * This remains the shared owner for the pre-click verdict and generator gate.
  */
 export function measureDryMathCapacity(request: GenerationRequestV1): number {
+  if (request.practice?.kind === "dry-math-three-digit") {
+    const practice = request.practice;
+    if (!threeDigitPracticeIsWellFormed(practice)) {
+      return 0;
+    }
+    return practice.operations.reduce(
+      (total, operation) =>
+        total + DRY_MATH_THREE_DIGIT_CAPACITY[operation][practice.regrouping],
+      0,
+    );
+  }
   return enumerateDryMathCandidates(request).length;
 }
 

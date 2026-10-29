@@ -298,6 +298,11 @@ const PARITY_ROWS: Readonly<Record<string, ParityRow>> = {
       probe("[a numeric string]", ["2"], false),
     ],
   },
+  "$.defaults.dryMathThreeDigit": objectRow([probe("absent", undefined, true)]),
+  "$.defaults.dryMathThreeDigit.operations": {
+    probes: [...OPERATION_ARRAY_PROBES, probe("empty", [], false)],
+  },
+  "$.defaults.dryMathThreeDigit.operations[]": enumItemsRow(MATH_OPERATIONS),
   // Additive at version 2 like the Dry Math choices.
   "$.defaults.numberBonds": objectRow([probe("absent", undefined, true)]),
   "$.defaults.numberBonds.operations": { probes: [...OPERATION_ARRAY_PROBES, probe("empty", [], false)] },

@@ -5,6 +5,7 @@ import type {
   TallyDetectiveItemV1,
   WorksheetDocumentV1,
 } from "../../../src/shared/worksheet/types.ts";
+import { dryMathBlank } from "../../../src/shared/worksheet/dry-math-blank.ts";
 
 export interface RequiredPrintContent {
   readonly selector: string;
@@ -236,12 +237,14 @@ export function requiredPrintContent(
       continue;
     }
     switch (item.itemType) {
-      case "dry-math":
+      case "dry-math": {
+        const blank = "_".repeat(dryMathBlank(document.request.practice).underscores);
         text(`${selector} > span`,
-          `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ____`);
+          `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ${blank}`);
         // The sign prints in its own element, so its own visibility is checked.
         text(`${selector} [data-operator]`, item.renderedSymbol);
         break;
+      }
       case "number-bond": {
         // The blank is one drawn, empty, closed box; the other numbers print.
         const left = item.missing === "left" ? "" : String(item.leftOperand);

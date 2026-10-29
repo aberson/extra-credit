@@ -11,7 +11,12 @@
  * nor the placement changes a stored document; only the label's child segment
  * reads the current profiles.
  */
-import { describeFactsFocus, describeNumberBonds, describePracticeFocus } from "../../shared/config/practice-focus";
+import {
+  describeFactsFocus,
+  describeNumberBonds,
+  describePracticeFocus,
+  describeThreeDigitFocus,
+} from "../../shared/config/practice-focus";
 import type { ChildProfileV2, WorksheetSelectionV2 } from "../../shared/config/schema";
 import {
   DEFAULT_PACKET_KEY_PLACEMENT,
@@ -199,9 +204,18 @@ export interface QueuedSheetDescription {
 function detailOf(selection: WorksheetSelectionV2): string | undefined {
   switch (selection.worksheetType) {
     case "dry-math":
-      return selection.dryMathStrand === "multiply-divide"
-        ? describeFactsFocus(selection.dryMathFacts)
-        : describePracticeFocus("dry-math", selection.dryMath, selection.dryMathRegrouping);
+      switch (selection.dryMathStrand) {
+        case "add-subtract":
+          return describePracticeFocus("dry-math", selection.dryMath, selection.dryMathRegrouping);
+        case "multiply-divide":
+          return describeFactsFocus(selection.dryMathFacts);
+        case "three-digit":
+          return describeThreeDigitFocus(selection.dryMathThreeDigit, selection.dryMathRegrouping);
+        default: {
+          const unreachable: never = selection.dryMathStrand;
+          return unreachable;
+        }
+      }
     case "find-the-wow":
       return selection.findTheWow.variant === "equation"
         ? describePracticeFocus("find-the-wow-equation", selection.findTheWow.equation)

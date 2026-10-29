@@ -402,6 +402,9 @@ describe("the persisted config shape fingerprint", () => {
       "worksheet.dry-math-facts.operations.canonical-order": (config) => {
         config.defaults.dryMathFacts.operations = ["division", "multiplication"];
       },
+      "worksheet.dry-math-three-digit.operations.canonical-order": (config) => {
+        config.defaults.dryMathThreeDigit.operations = ["subtraction", "addition"];
+      },
       "worksheet.number-bonds.operations.canonical-order": (config) => {
         config.defaults.numberBonds.operations = ["subtraction", "addition"];
       },

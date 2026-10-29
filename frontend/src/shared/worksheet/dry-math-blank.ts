@@ -1,4 +1,4 @@
-import type { PracticeRequestV1 } from "./types.js";
+import { DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM, type PracticeRequestV1 } from "./types.js";
 
 /** The four underscore glyphs every shipped Dry Math practice kind uses. */
 export const LEGACY_DRY_MATH_BLANK_UNDERSCORES = 4;
@@ -19,6 +19,11 @@ export function dryMathBlank(
   practice: PracticeRequestV1 | undefined,
 ): SingleDryMathBlank {
   switch (practice?.kind) {
+    case "dry-math-three-digit":
+      return {
+        kind: "single",
+        underscores: String(DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM).length * 2,
+      };
     case undefined:
     case "dry-math-add-subtract":
     case "dry-math-facts":

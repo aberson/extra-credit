@@ -1026,9 +1026,36 @@ for (const fixture of printFixtures) {
             decorationApplicable ? decoration ? "art" : "doodle" : "absent");
           if (fixture.selection.worksheetType === "dry-math") {
             const perDigitFloorMm = scale === "standard" ? 4.5 : 5;
+            const expectedDigits = fixture.id === "dry-math-three-digit-1000"
+              ? String(1000).length
+              : 2;
             expect(
-              await answerBlankViolations(page, 2, perDigitFloorMm),
+              await answerBlankViolations(page, expectedDigits, perDigitFloorMm),
               "Dry Math answer blanks",
+            ).toEqual([]);
+          }
+          if (fixture.id === "dry-math-three-digit-1000") {
+            const widest = boundary.document.items.find((item) =>
+              item.itemType === "dry-math" && item.operation === "subtraction" &&
+              item.leftOperand === 1000);
+            expect(widest, "a subtraction from 1000").toBeDefined();
+            await expect(page.locator(`.print-surface [data-item-id="${widest?.id ?? ""}"]`))
+              .toHaveText(/^1000 − \d{3} = _{8}$/u);
+            const perDigitFloorMm = scale === "standard" ? 4.5 : 5;
+            const expectedDigits = String(1000).length;
+            await withPrintStyle(
+              page,
+              '[data-answer-blank="answer"] { font-size: 1px !important; }',
+              async () => {
+                expect(
+                  (await answerBlankViolations(page, expectedDigits, perDigitFloorMm)).length,
+                  "a 1 px answer blank must fail",
+                ).toBeGreaterThan(0);
+              },
+            );
+            expect(
+              await answerBlankViolations(page, expectedDigits, perDigitFloorMm),
+              "answer blank size restored",
             ).toEqual([]);
           }
           if (decorationApplicable && decoration) {

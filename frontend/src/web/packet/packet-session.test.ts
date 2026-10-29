@@ -201,6 +201,18 @@ describe("describeQueuedSheet", () => {
     expect(describeQueuedSheet(sheet, PROFILES).detail).toBe("Multiplication facts for 2 and 5");
   });
 
+  test("a three-digit sheet names its selected operation focus", () => {
+    const sheet = sheetFor(FIRST_CHILD, {
+      worksheetType: "dry-math",
+      dryMathStrand: "three-digit",
+      dryMathThreeDigit: { operations: ["subtraction"] },
+      dryMathRegrouping: "without",
+    });
+    expect(describeQueuedSheet(sheet, PROFILES).detail).toBe(
+      "Three-digit subtraction within 1,000",
+    );
+  });
+
   test("a child without a nickname is Profile N by list position, and a deleted one is a removed profile", () => {
     const sheet = sheetFor(SECOND_CHILD, { worksheetType: "find-the-wow" });
     expect(describeQueuedSheet(sheet, PROFILES).child).toBe("Profile 2");

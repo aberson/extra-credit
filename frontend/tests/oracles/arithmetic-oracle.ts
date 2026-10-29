@@ -24,6 +24,9 @@ import type {
 
 /** The Dry Math operand and result ceiling Appendix B.1 states. */
 export const ORACLE_DRY_MATH_CEILING = 100;
+export const ORACLE_THREE_DIGIT_OPERAND_MINIMUM = 100;
+export const ORACLE_THREE_DIGIT_OPERAND_MAXIMUM = 999;
+export const ORACLE_THREE_DIGIT_RESULT_MAXIMUM = 1000;
 
 /** Appendix B.2: the largest factor, divisor and quotient, and the largest dividend. */
 export const ORACLE_FACT_FACTOR_MAXIMUM = 12;
@@ -74,7 +77,42 @@ export interface OracleFactsFocus {
   readonly families: readonly number[];
 }
 
-export type OracleFocus = OracleAddSubtractFocus | OracleFactsFocus;
+export interface OracleThreeDigitFocus {
+  readonly kind: "three-digit";
+  readonly operations: readonly string[];
+  readonly regrouping: OracleRegrouping;
+}
+
+export type OracleFocus = OracleAddSubtractFocus | OracleFactsFocus | OracleThreeDigitFocus;
+
+/** Independently count one fixed three-digit operation/regrouping partition. */
+export function oracleThreeDigitCapacity(
+  operation: OracleOperation,
+  regrouping: OracleRegrouping,
+): number {
+  const leftMaximum =
+    operation === "addition"
+      ? ORACLE_THREE_DIGIT_OPERAND_MAXIMUM
+      : ORACLE_THREE_DIGIT_RESULT_MAXIMUM;
+  let count = 0;
+  for (let left = ORACLE_THREE_DIGIT_OPERAND_MINIMUM; left <= leftMaximum; left += 1) {
+    for (
+      let right = ORACLE_THREE_DIGIT_OPERAND_MINIMUM;
+      right <= ORACLE_THREE_DIGIT_OPERAND_MAXIMUM;
+      right += 1
+    ) {
+      const value = oracleValue(operation, left, right);
+      if (
+        value >= 0 &&
+        value <= ORACLE_THREE_DIGIT_RESULT_MAXIMUM &&
+        oracleRegroups(operation, left, right) === (regrouping === "required")
+      ) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
 
 /** One problem as the judge reads it, from a document item or a rendered row. */
 export interface OracleFact {
@@ -265,6 +303,33 @@ export function oracleCandidateKeys(focus: OracleFocus): ReadonlySet<string> {
   if (focus.kind === "facts") {
     return oracleFactKeys(focus.operations, focus.families);
   }
+  if (focus.kind === "three-digit") {
+    const keys = new Set<string>();
+    for (const operation of focus.operations) {
+      if (!isOracleOperation(operation)) continue;
+      const leftMaximum =
+        operation === "addition"
+          ? ORACLE_THREE_DIGIT_OPERAND_MAXIMUM
+          : ORACLE_THREE_DIGIT_RESULT_MAXIMUM;
+      for (let left = ORACLE_THREE_DIGIT_OPERAND_MINIMUM; left <= leftMaximum; left += 1) {
+        for (
+          let right = ORACLE_THREE_DIGIT_OPERAND_MINIMUM;
+          right <= ORACLE_THREE_DIGIT_OPERAND_MAXIMUM;
+          right += 1
+        ) {
+          const value = oracleValue(operation, left, right);
+          if (
+            value >= 0 &&
+            value <= ORACLE_THREE_DIGIT_RESULT_MAXIMUM &&
+            oracleRegroups(operation, left, right) === (focus.regrouping === "required")
+          ) {
+            keys.add(`${operation}:${left}:${right}`);
+          }
+        }
+      }
+    }
+    return keys;
+  }
   const keys = new Set<string>();
   const operandLimit = Math.min(focus.operandMax, ORACLE_DRY_MATH_CEILING);
   const resultLimit = Math.min(focus.resultMax, ORACLE_DRY_MATH_CEILING);
@@ -311,6 +376,12 @@ export function oracleFocusOf(request: GenerationRequestV1): OracleFocus {
         kind: "facts",
         operations: [...practice.operations],
         families: [...practice.factFamilies],
+      };
+    case "dry-math-three-digit":
+      return {
+        kind: "three-digit",
+        operations: [...practice.operations],
+        regrouping: practice.regrouping,
       };
     case "number-bonds":
     case "operation-grid":
@@ -386,6 +457,34 @@ function judgeFactsFact(fact: OracleFact, focus: OracleFactsFocus): OracleCode |
 function judgeFact(fact: OracleFact, focus: OracleFocus): OracleCode | undefined {
   if (focus.kind === "facts") {
     return judgeFactsFact(fact, focus);
+  }
+  if (focus.kind === "three-digit") {
+    if (!isOracleOperation(fact.operation) || !focus.operations.includes(fact.operation)) {
+      return "OUT_OF_SET";
+    }
+    if (fact.symbol !== SYMBOLS[fact.operation]) return "SYMBOL_MISMATCH";
+    const value = oracleValue(fact.operation, fact.left, fact.right);
+    const leftMaximum =
+      fact.operation === "addition"
+        ? ORACLE_THREE_DIGIT_OPERAND_MAXIMUM
+        : ORACLE_THREE_DIGIT_RESULT_MAXIMUM;
+    if (
+      !Number.isInteger(fact.left) ||
+      !Number.isInteger(fact.right) ||
+      fact.left < ORACLE_THREE_DIGIT_OPERAND_MINIMUM ||
+      fact.left > leftMaximum ||
+      fact.right < ORACLE_THREE_DIGIT_OPERAND_MINIMUM ||
+      fact.right > ORACLE_THREE_DIGIT_OPERAND_MAXIMUM ||
+      value < 0 ||
+      value > ORACLE_THREE_DIGIT_RESULT_MAXIMUM
+    ) {
+      return value < 0 ? "NEGATIVE" : "OVER_CEILING";
+    }
+    if (fact.answer !== value) return "WRONG_ANSWER";
+    return oracleRegroups(fact.operation, fact.left, fact.right) ===
+      (focus.regrouping === "required")
+      ? undefined
+      : "REGROUPING_MISMATCH";
   }
   if (!isOracleOperation(fact.operation)) {
     return "OUT_OF_SET";

@@ -511,6 +511,9 @@ const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
   dryMathRegrouping: fc.constantFrom(...REGROUPING_MODES),
   dryMathStrand: fc.constantFrom(...DRY_MATH_STRANDS),
   dryMathFacts: factsArbitrary,
+  dryMathThreeDigit: fc.record({
+    operations: fc.constantFrom(["addition"] as const, ["subtraction"] as const, [...MATH_OPERATIONS]),
+  }),
   numberBonds: numberBondsArbitrary,
   operationGrid: operationGridArbitrary,
   findTheWow: fc.record({
@@ -564,6 +567,7 @@ function withOwnFields(
         dryMathRegrouping: source.dryMathRegrouping,
         dryMathStrand: source.dryMathStrand,
         dryMathFacts: source.dryMathFacts,
+        dryMathThreeDigit: source.dryMathThreeDigit,
       };
     case "find-the-wow":
       return {

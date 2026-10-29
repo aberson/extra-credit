@@ -614,6 +614,46 @@ describe("profile config API", () => {
   });
 });
 
+describe("three-digit Dry Math defaults through the config API", () => {
+  test("defaults an older v2 file on read without rewriting it, then persists an explicit save", async () => {
+    const { app, configPath, token } = await setup();
+    const earlier = fixture("Fictional Three Digit Reader");
+    delete (earlier.defaults as Partial<AppConfigV2["defaults"]>).dryMathThreeDigit;
+    const created = await app.inject({
+      method: "PUT",
+      url: "/api/config",
+      headers: { ...putHeaders(token), "if-none-match": "*" },
+      payload: earlier,
+    });
+    expect(created.statusCode).toBe(200);
+    const before = await readFile(configPath);
+    const read = await app.inject({
+      method: "GET",
+      url: "/api/config",
+      headers: { host: HOST, "x-extra-credit-token": token },
+    });
+    expect(read.statusCode).toBe(200);
+    const config = (read.json() as { config: AppConfigV2 }).config;
+    expect(config.defaults.dryMathThreeDigit).toEqual({ operations: ["addition", "subtraction"] });
+    expect((await readFile(configPath)).equals(before)).toBe(true);
+
+    config.defaults.dryMathStrand = "three-digit";
+    config.defaults.dryMathThreeDigit = { operations: ["subtraction"] };
+    config.defaults.dryMathRegrouping = "required";
+    const saved = await app.inject({
+      method: "PUT",
+      url: "/api/config",
+      headers: { ...putHeaders(token), "if-match": String(read.headers.etag) },
+      payload: config,
+    });
+    expect(saved.statusCode).toBe(200);
+    const stored = JSON.parse((await readFile(configPath)).toString("utf8")) as AppConfigV2;
+    expect(stored.defaults.dryMathStrand).toBe("three-digit");
+    expect(stored.defaults.dryMathThreeDigit).toEqual({ operations: ["subtraction"] });
+    expect(stored.defaults.dryMathRegrouping).toBe("required");
+  });
+});
+
 describe.each([
   ["Clock Explorer", "clock-explorer"],
   ["Tally Detective", "tally-detective"],

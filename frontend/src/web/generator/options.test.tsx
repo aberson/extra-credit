@@ -26,6 +26,7 @@ import {
 } from "../../shared/config/earlier-settings";
 import {
   FACT_PRACTICE_ENTRIES,
+  THREE_DIGIT_PRACTICE_ENTRIES,
   NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   SENTENCE_VOCABULARY_LABELS,
@@ -1946,6 +1947,26 @@ describe("worksheet-first panel", () => {
     }
   });
 
+  test("three-digit entries choose their own operations and keep Carrying and borrowing", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
+    const focus = screen.getByRole("combobox", { name: "Practice focus" });
+    for (const entry of THREE_DIGIT_PRACTICE_ENTRIES) {
+      onChange.mockClear();
+      fireEvent.change(focus, { target: { value: entry.id } });
+      expect(onChange.mock.calls).toEqual([[
+        {
+          type: "dryMathPracticeChosen",
+          strand: "three-digit",
+          dryMathThreeDigit: { operations: [...entry.operations] },
+        },
+      ]]);
+      expect(focus).toHaveValue(entry.id);
+    }
+    expect(screen.getByRole("group", { name: "Carrying and borrowing" })).toBeVisible();
+    expect(screen.queryByRole("group", { name: "Fact families" })).toBeNull();
+  });
+
   test("Number Bonds is the fifth card, with nine sentence entries and its own Carrying and borrowing group after the focus, each choice one action", () => {
     const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
     renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
@@ -2300,7 +2321,13 @@ describe("worksheet-first panel", () => {
     // Dry Math's three fact entries follow its addition and subtraction foci.
     const factLabels = ["Multiplication facts", "Division facts", "Multiplication and division facts"];
     renderPanel({ defaults: storedDefaults({}, false), profiles: [nicknamed] });
-    expect(optionLabels()).toEqual([...catalogLabels("dry-math"), ...factLabels]);
+    expect(optionLabels()).toEqual([
+      ...catalogLabels("dry-math"),
+      ...factLabels,
+      "Three-digit addition within 1,000",
+      "Three-digit subtraction within 1,000",
+      "Three-digit addition and subtraction within 1,000",
+    ]);
     chooseWorksheet("count-compare-make");
     expect(optionLabels()).toEqual(catalogLabels("count-compare-make"));
     chooseWorksheet("find-the-wow");
@@ -2317,6 +2344,9 @@ describe("worksheet-first panel", () => {
       `Earlier setting: ${describePracticeFocus("dry-math", seededDryMath)}`,
       ...catalogLabels("dry-math"),
       ...factLabels,
+      "Three-digit addition within 1,000",
+      "Three-digit subtraction within 1,000",
+      "Three-digit addition and subtraction within 1,000",
     ]);
     expect(screen.getByRole("combobox", { name: "Practice focus" })).toHaveValue(
       "earlier-setting",

@@ -9,6 +9,7 @@ import {
   oracleFactClosedForm,
   oracleFactKeys,
   oracleRegroups,
+  oracleThreeDigitCapacity,
 } from "../../../tests/oracles/arithmetic-oracle.js";
 
 import {
@@ -44,8 +45,15 @@ import {
   effectiveDryMathItemCount,
   enumerateDryMathCandidates,
   generateDryMath,
+  measureDryMathCapacity,
+  sampleThreeDigitItems,
 } from "./generator.js";
-import { getDryMathCapabilitySupport, getDryMathItemCount } from "./definition.js";
+import {
+  DRY_MATH_SAMPLE_ATTEMPTS,
+  DRY_MATH_THREE_DIGIT_CAPACITY,
+  getDryMathCapabilitySupport,
+  getDryMathItemCount,
+} from "./definition.js";
 
 /** The layout and personalization choices a selection carries beside its practice focus. */
 type Layout = Pick<
@@ -128,6 +136,27 @@ function request(
   if (!projected.ok) {
     throw new Error(projected.message);
   }
+  return projected.request;
+}
+
+function threeDigitRequest(
+  operations: readonly ("addition" | "subtraction")[],
+  regrouping: "without" | "required",
+  length: WorksheetSelectionV2["length"] = "standard",
+  printScale: WorksheetSelectionV2["printScale"] = "standard",
+  seed = "00000001",
+): GenerationRequestV1 {
+  const selection: WorksheetSelectionV2 = {
+    ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+    worksheetType: "dry-math",
+    dryMathStrand: "three-digit",
+    dryMathThreeDigit: { operations: [...operations] },
+    dryMathRegrouping: regrouping,
+    length,
+    printScale,
+  };
+  const projected = projectGenerationRequest({ selection, generatorVersion: 1, seed });
+  if (!projected.ok) throw new Error(projected.message);
   return projected.request;
 }
 
@@ -260,6 +289,173 @@ describe("xorshift32", () => {
     expect(permutations.size).toBe(6);
     expect(new Set(observedBounds)).toEqual(new Set([2, 3]));
     expect(input).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("three-digit addition and subtraction", () => {
+  test.each([
+    [["addition"] as const, "without" as const],
+    [["addition"] as const, "required" as const],
+    [["subtraction"] as const, "without" as const],
+    [["subtraction"] as const, "required" as const],
+    [["addition", "subtraction"] as const, "without" as const],
+    [["addition", "subtraction"] as const, "required" as const],
+  ])("generates an oracle-valid unique page for %j / %s", (operations, regrouping) => {
+    for (const length of ["short", "standard", "long"] as const) {
+      for (const printScale of ["standard", "large"] as const) {
+        const generated = generateDryMath(
+          threeDigitRequest(operations, regrouping, length, printScale),
+          { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+        );
+        expect(generated.ok).toBe(true);
+        if (!generated.ok) continue;
+        expect(validateWorksheetInvariants(generated.document)).toBeUndefined();
+        expect(judgeDocument(generated.document)).toEqual([]);
+        expect(new Set(generated.document.items.map((item) => `${item.operation}:${item.leftOperand}:${item.rightOperand}`)).size)
+          .toBe(generated.document.items.length);
+      }
+    }
+  });
+
+  test.each([
+    [["addition"] as const, "without" as const, DRY_MATH_THREE_DIGIT_CAPACITY.addition.without],
+    [["addition"] as const, "required" as const, DRY_MATH_THREE_DIGIT_CAPACITY.addition.required],
+    [["subtraction"] as const, "without" as const, DRY_MATH_THREE_DIGIT_CAPACITY.subtraction.without],
+    [["subtraction"] as const, "required" as const, DRY_MATH_THREE_DIGIT_CAPACITY.subtraction.required],
+  ])("reports the exact fixed capacity for %j / %s", (operations, regrouping, expected) => {
+    const request = threeDigitRequest(operations, regrouping);
+    expect(measureDryMathCapacity(request)).toBe(expected);
+    expect(() => enumerateDryMathCandidates(request)).toThrow("three-digit pool is never enumerated");
+  });
+
+  test.each([
+    ["addition" as const, "without" as const, DRY_MATH_THREE_DIGIT_CAPACITY.addition.without],
+    ["addition" as const, "required" as const, DRY_MATH_THREE_DIGIT_CAPACITY.addition.required],
+    ["subtraction" as const, "without" as const, DRY_MATH_THREE_DIGIT_CAPACITY.subtraction.without],
+    ["subtraction" as const, "required" as const, DRY_MATH_THREE_DIGIT_CAPACITY.subtraction.required],
+  ])("the independent oracle counts %s / %s as %i", (operation, regrouping, expected) => {
+    expect(oracleThreeDigitCapacity(operation, regrouping)).toBe(expected);
+  });
+
+  test("fails closed at the sampling seam and counts every draw", () => {
+    let draws = 0;
+    const random = { nextBounded: () => (draws += 1, 0) };
+    expect(sampleThreeDigitItems(
+      { kind: "dry-math-three-digit", operations: ["addition"], regrouping: "required" },
+      1,
+      random,
+    )).toBeUndefined();
+    expect(draws).toBe(1 + 2 * DRY_MATH_SAMPLE_ATTEMPTS);
+
+    draws = 0;
+    expect(sampleThreeDigitItems(
+      { kind: "dry-math-three-digit", operations: ["addition"], regrouping: "without" },
+      2,
+      random,
+    )).toBeUndefined();
+    expect(draws).toBe(2 + 2 + 2 * DRY_MATH_SAMPLE_ATTEMPTS);
+  });
+
+  test("a malformed operation member fails with the invariant code instead of throwing", () => {
+    const malformed = {
+      ...threeDigitRequest(["addition"], "without"),
+      practice: {
+        kind: "dry-math-three-digit",
+        operations: ["multiplication"],
+        regrouping: "without",
+      },
+    } as unknown as GenerationRequestV1;
+    expect(generateDryMath(malformed, {
+      worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    })).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+  });
+
+  test("the three-digit invariant rejects every out-of-domain shape and duplicates", () => {
+    const generated = generateDryMath(
+      threeDigitRequest(["addition", "subtraction"], "required"),
+      { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+    );
+    if (!generated.ok) throw new Error(generated.message);
+    const [first, second, ...rest] = generated.document.items;
+    if (first === undefined || second === undefined) throw new Error("The page was too short.");
+    const withFirstItem = (item: DryMathItemV1) => ({
+      ...generated.document,
+      items: [item, second, ...rest],
+    });
+    const failures: readonly DryMathItemV1[] = [
+      { ...first, operation: "addition", renderedSymbol: "+", leftOperand: 99, rightOperand: 901, answer: { kind: "number", value: 1000 } },
+      { ...first, operation: "addition", renderedSymbol: "+", leftOperand: 999, rightOperand: 999, answer: { kind: "number", value: 1998 } },
+      { ...first, operation: "subtraction", renderedSymbol: "−", leftOperand: 100, rightOperand: 200, answer: { kind: "number", value: -100 } },
+      { ...first, operation: "addition", renderedSymbol: "+", leftOperand: 100, rightOperand: 100, answer: { kind: "number", value: 200 } },
+      { ...first, operation: "multiplication", renderedSymbol: "×", leftOperand: 100, rightOperand: 100, answer: { kind: "number", value: 10000 } },
+    ];
+    for (const item of failures) {
+      expect(validateWorksheetInvariants(withFirstItem(item))).toMatchObject({
+        ok: false,
+        code: "GENERATION_INVARIANT_FAILED",
+      });
+    }
+    expect(validateWorksheetInvariants({
+      ...generated.document,
+      items: [first, { ...first, id: second.id }, ...rest],
+    })).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+  });
+
+  test.each(["00000001", "0000abcd"])("pins seeded output for %s", (seed) => {
+    const generated = generateDryMath(
+      threeDigitRequest(["addition", "subtraction"], "required", "short", "standard", seed),
+      { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+    );
+    expect(generated.ok).toBe(true);
+    if (!generated.ok) return;
+    const vectors = {
+      "00000001": [
+        ["subtraction", 819, 799, 20],
+        ["subtraction", 982, 185, 797],
+        ["subtraction", 922, 903, 19],
+        ["addition", 599, 199, 798],
+        ["subtraction", 542, 205, 337],
+        ["subtraction", 982, 977, 5],
+        ["addition", 383, 220, 603],
+        ["addition", 729, 204, 933],
+      ],
+      "0000abcd": [
+        ["subtraction", 801, 782, 19],
+        ["addition", 129, 256, 385],
+        ["subtraction", 833, 377, 456],
+        ["subtraction", 806, 484, 322],
+        ["subtraction", 962, 947, 15],
+        ["addition", 249, 252, 501],
+        ["subtraction", 480, 205, 275],
+        ["subtraction", 934, 106, 828],
+      ],
+    } as const;
+    expect(generated.document.items.map(({ operation, leftOperand, rightOperand, answer }) =>
+      [operation, leftOperand, rightOperand, answer.value])).toEqual(vectors[seed as keyof typeof vectors]);
+  });
+
+  test("property: both regrouping partitions validate and differ for the same seed", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 1, max: 0xffff_ffff }), (seed) => {
+        const seedHex = formatSeedHex(seed);
+        const pages = (["without", "required"] as const).map((regrouping) =>
+          generateDryMath(
+            threeDigitRequest(["addition", "subtraction"], regrouping, "standard", "standard", seedHex),
+            { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
+          ),
+        );
+        expect(pages.every((page) => page.ok)).toBe(true);
+        if (!pages[0]?.ok || !pages[1]?.ok) return;
+        expect(validateWorksheetInvariants(pages[0].document)).toBeUndefined();
+        expect(validateWorksheetInvariants(pages[1].document)).toBeUndefined();
+        const keys = (items: readonly DryMathItemV1[]) =>
+          items.map(({ operation, leftOperand, rightOperand }) =>
+            `${operation}:${leftOperand}:${rightOperand}`,
+          );
+        expect(keys(pages[0].document.items)).not.toEqual(keys(pages[1].document.items));
+      }),
+      { numRuns: 200 },
+    );
   });
 });
 

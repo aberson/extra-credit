@@ -4,7 +4,7 @@ import {
   DEFAULT_WORKSHEET_DEFAULTS_V2,
   worksheetSelectionOf,
 } from "../../shared/config/defaults";
-import { WORKSHEET_LENGTHS, PRINT_SCALES } from "../../shared/config/enums";
+import { DRY_MATH_STRANDS, WORKSHEET_LENGTHS, PRINT_SCALES } from "../../shared/config/enums";
 import type {
   ChildProfileV2,
   DryMathStrand,
@@ -12,6 +12,7 @@ import type {
 } from "../../shared/config/schema";
 import {
   FACT_FACTOR_MAXIMUM,
+  DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
   WORKSHEET_TYPE_IDS,
   type WorksheetType,
 } from "../../shared/worksheet/types";
@@ -78,6 +79,8 @@ function largestNumber(selection: WorksheetSelectionV2): FocusScore {
             kind: "facts",
             value: Math.max(...selection.dryMathFacts.factFamilies) * FACT_FACTOR_MAXIMUM,
           };
+        case "three-digit":
+          return { kind: "number", value: DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM };
         default: {
           const unreachable: never = strand;
           return unreachable;
@@ -418,6 +421,34 @@ describe("defaults-first packet focus", () => {
       }
     }
     expect(PARENT).toEqual(before);
+  });
+
+  test("every saved Dry Math strand is ignored until a level recipe explicitly deals it", () => {
+    for (const strand of DRY_MATH_STRANDS) {
+      const parent: WorksheetSelectionV2 = { ...PARENT, dryMathStrand: strand };
+      const before = structuredClone(parent);
+      for (const level of RANDOM_PACKET_LEVELS) {
+        const extreme = make(["dry-math"], PACKET_SHEET_LIMIT, level, 0x4152, parent);
+        const baseline = make(
+          ["dry-math"],
+          PACKET_SHEET_LIMIT,
+          level,
+          0x4152,
+          { ...parent, dryMathStrand: DEFAULT_WORKSHEET_DEFAULTS_V2.dryMathStrand },
+        );
+        expect(extreme.ok, `${strand}/${level}`).toBe(true);
+        expect(baseline.ok, `baseline/${level}`).toBe(true);
+        if (!extreme.ok || !baseline.ok) continue;
+        expect(extreme.sheets.map(({ selection }) => selection.dryMathStrand)).toEqual(
+          baseline.sheets.map(({ selection }) => selection.dryMathStrand),
+        );
+        expect(extreme.sheets.every(({ selection }) =>
+          selection.dryMathStrand === "add-subtract" ||
+          selection.dryMathStrand === "multiply-divide",
+        )).toBe(true);
+      }
+      expect(parent).toEqual(before);
+    }
   });
 });
 

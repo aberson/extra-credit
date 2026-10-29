@@ -11,6 +11,7 @@ import { MATH_PRESETS } from "./math-presets.js";
 import {
   APP_CONFIG_SCHEMA_VERSION,
   DEFAULT_DRY_MATH_FACTS_OPERATIONS,
+  DEFAULT_DRY_MATH_THREE_DIGIT_OPERATIONS,
   DEFAULT_FACT_FAMILIES,
   DEFAULT_NUMBER_BONDS_OPERATIONS,
   DEFAULT_NUMBER_BONDS_REGROUPING,
@@ -57,6 +58,9 @@ export const DEFAULT_WORKSHEET_DEFAULTS_V2: Readonly<WorksheetDefaultsV2> =
     dryMathFacts: {
       operations: [...DEFAULT_DRY_MATH_FACTS_OPERATIONS],
       factFamilies: [...DEFAULT_FACT_FAMILIES],
+    },
+    dryMathThreeDigit: {
+      operations: [...DEFAULT_DRY_MATH_THREE_DIGIT_OPERATIONS],
     },
     numberBonds: {
       operations: [...DEFAULT_NUMBER_BONDS_OPERATIONS],
@@ -116,6 +120,9 @@ export function cloneWorksheetDefaults(
       operations: [...defaults.dryMathFacts.operations],
       factFamilies: [...defaults.dryMathFacts.factFamilies],
     },
+    dryMathThreeDigit: {
+      operations: [...defaults.dryMathThreeDigit.operations],
+    },
     numberBonds: {
       ...defaults.numberBonds,
       operations: [...defaults.numberBonds.operations],
@@ -151,6 +158,7 @@ export function worksheetSelectionOf(
     dryMathRegrouping: copy.dryMathRegrouping,
     dryMathStrand: copy.dryMathStrand,
     dryMathFacts: copy.dryMathFacts,
+    dryMathThreeDigit: copy.dryMathThreeDigit,
     numberBonds: copy.numberBonds,
     operationGrid: copy.operationGrid,
     findTheWow: copy.findTheWow,

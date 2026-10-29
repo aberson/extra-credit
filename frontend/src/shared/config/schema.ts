@@ -89,6 +89,7 @@ export const PERSISTED_REFINEMENTS = [
   "worksheet.arithmetic-focus.operations.canonical-order",
   "worksheet.dry-math-facts.fact-families.ascending",
   "worksheet.dry-math-facts.operations.canonical-order",
+  "worksheet.dry-math-three-digit.operations.canonical-order",
   "worksheet.number-bonds.operations.canonical-order",
 ] as const;
 
@@ -141,6 +142,20 @@ export const DryMathFactsV2Schema = z.strictObject({
 /** The facts a file written before the multiply-divide strand existed reads as (D20). */
 export const DEFAULT_DRY_MATH_FACTS_OPERATIONS = ["multiplication"] as const;
 export const DEFAULT_FACT_FAMILIES = [2, 5, 10] as const;
+
+/** What a file written before the three-digit strand existed reads as. */
+export const DEFAULT_DRY_MATH_THREE_DIGIT_OPERATIONS = ["addition", "subtraction"] as const;
+
+export const DryMathThreeDigitV2Schema = z.strictObject({
+  operations: z
+    .array(z.enum(MATH_OPERATIONS))
+    .min(1)
+    .max(MATH_OPERATIONS.length)
+    .refine(
+      (values) => isCanonicalOrderedSubset(values, MATH_OPERATIONS),
+      "Three-digit operations must be unique and use canonical order.",
+    ),
+});
 
 /**
  * Number Bonds' missing number sentences (math-activities plan, Appendix A.2):
@@ -228,6 +243,9 @@ const worksheetSelectionShape = {
   dryMathFacts: DryMathFactsV2Schema.default(() => ({
     operations: [...DEFAULT_DRY_MATH_FACTS_OPERATIONS],
     factFamilies: [...DEFAULT_FACT_FAMILIES],
+  })),
+  dryMathThreeDigit: DryMathThreeDigitV2Schema.default(() => ({
+    operations: [...DEFAULT_DRY_MATH_THREE_DIGIT_OPERATIONS],
   })),
   // Additive at version 2 like the Dry Math choices: a file without it reads
   // as addition within 10 without carrying or borrowing.
@@ -327,6 +345,7 @@ export const ConfigResponseV2Schema = z.strictObject({
 
 export type ArithmeticFocusV2 = z.infer<typeof DryMathFocusV2Schema>;
 export type DryMathFactsV2 = z.infer<typeof DryMathFactsV2Schema>;
+export type DryMathThreeDigitV2 = z.infer<typeof DryMathThreeDigitV2Schema>;
 export type NumberBondsV2 = z.infer<typeof NumberBondsV2Schema>;
 export type OperationGridV2 = z.infer<typeof OperationGridV2Schema>;
 export type QuantityFocusV2 = z.infer<typeof QuantityFocusV2Schema>;

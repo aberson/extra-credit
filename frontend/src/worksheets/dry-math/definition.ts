@@ -78,6 +78,16 @@ export function factFamilyLabel(family: number): string {
 export const FACTS_LIMITING_RESOURCE_ADVICE =
   "Dry Math varies within the chosen fact families. Choose more fact families, or create a new worksheet later.";
 
+export const DRY_MATH_THREE_DIGIT_CAPACITY = {
+  addition: { without: 108900, required: 212301 },
+  subtraction: { without: 136125, required: 270225 },
+} as const;
+
+export const DRY_MATH_SAMPLE_ATTEMPTS = 1000;
+
+export const DRY_MATH_FIXED_POOL_ADVICE =
+  "Dry Math has no further variation to offer for this practice focus. Create a new worksheet later.";
+
 export type DryMathCapabilitySupport =
   | { readonly available: true }
   | { readonly available: false; readonly reason: string };
@@ -120,6 +130,7 @@ export function getDryMathCapabilitySupport(
   const practiceKind = practice?.kind;
   switch (practiceKind) {
     case "dry-math-facts":
+    case "dry-math-three-digit":
       return { available: true };
     case undefined:
     case "dry-math-add-subtract":

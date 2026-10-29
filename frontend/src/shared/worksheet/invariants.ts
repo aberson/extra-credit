@@ -14,6 +14,9 @@ import {
 import {
   CLOCK_EXPLORER_ITEM_COUNT,
   FACT_DIVIDEND_MAXIMUM,
+  DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM,
+  DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM,
+  DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   GENERATION_INVARIANT_FAILED,
   NUMBER_BONDS_WHOLE_MINIMUM,
@@ -88,6 +91,11 @@ type DryMathBranch =
       readonly kind: "facts";
       readonly operations: readonly FactOperation[];
       readonly factFamilies: readonly number[];
+    }
+  | {
+      readonly kind: "three-digit";
+      readonly operations: readonly ("addition" | "subtraction")[];
+      readonly regroupingRequired: boolean;
     };
 
 /** Whether a facts member names canonical operations and ascending families in range. */
@@ -114,6 +122,22 @@ function factsMemberIsWellFormed(
   );
 }
 
+function threeDigitMemberIsWellFormed(
+  practice: Extract<PracticeRequestV1, { readonly kind: "dry-math-three-digit" }>,
+): boolean {
+  const indexes = practice.operations.map((operation) =>
+    (["addition", "subtraction"] as readonly string[]).indexOf(operation),
+  );
+  return (
+    indexes.length > 0 &&
+    indexes.every(
+      (index, position) =>
+        index >= 0 && (position === 0 || index > (indexes[position - 1] ?? index)),
+    ) &&
+    (practice.regrouping === "without" || practice.regrouping === "required")
+  );
+}
+
 /**
  * The Dry Math branch a request's `practice` member selects: absent means
  * today's regrouping-free page. `undefined` marks a member Dry Math does not
@@ -135,6 +159,14 @@ function dryMathBranchOf(request: GenerationRequestV1): DryMathBranch | undefine
             kind: "facts",
             operations: practice.operations,
             factFamilies: practice.factFamilies,
+          }
+        : undefined;
+    case "dry-math-three-digit":
+      return threeDigitMemberIsWellFormed(practice)
+        ? {
+            kind: "three-digit",
+            operations: practice.operations,
+            regroupingRequired: practice.regrouping === "required",
           }
         : undefined;
     default:
@@ -228,6 +260,34 @@ function factItemHolds(
   return (
     inBounds &&
     branch.factFamilies.some((family) => isInFactFamily(operation, left, right, family))
+  );
+}
+
+function threeDigitItemHolds(
+  item: DryMathItemV1,
+  branch: Extract<DryMathBranch, { readonly kind: "three-digit" }>,
+): boolean {
+  const { operation, leftOperand: left, rightOperand: right } = item;
+  if (operation !== "addition" && operation !== "subtraction") {
+    return false;
+  }
+  const answer = operation === "addition" ? left + right : left - right;
+  return (
+    branch.operations.includes(operation) &&
+    item.renderedSymbol === (operation === "addition" ? "+" : "−") &&
+    Number.isInteger(left) &&
+    Number.isInteger(right) &&
+    left >= DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM &&
+    left <=
+      (operation === "addition"
+        ? DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM
+        : DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM) &&
+    right >= DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM &&
+    right <= DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM &&
+    answer >= 0 &&
+    answer <= DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM &&
+    item.answer.value === answer &&
+    regroups(operation, left, right) === branch.regroupingRequired
   );
 }
 
@@ -625,6 +685,9 @@ export function validateWorksheetInvariants(
             break;
           case "facts":
             holds = factItemHolds(item, dryMathBranch);
+            break;
+          case "three-digit":
+            holds = threeDigitItemHolds(item, dryMathBranch);
             break;
           default: {
             const unreachable: never = dryMathBranch;

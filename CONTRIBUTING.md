@@ -102,8 +102,9 @@ byte-identical `.v1-…bak` backup of the earlier file.
   listed there, and the fingerprint fails when a parent's `required` list
   changes. A new required key is not additive.
 - **What makes a new enum member additive.** Only a member of a value list
-  that no array bound is derived from. The `operations` arrays (Dry Math, Number
-  Bonds, the Two Whats and a Wow equation focus, and the earlier `mathSkills`)
+  that no array bound is derived from. The `operations` arrays (Dry Math,
+  `dryMathThreeDigit`, Number Bonds, the Two Whats and a Wow equation focus,
+  and the earlier `mathSkills`)
   are capped at `MATH_OPERATIONS.length`, the Dry Math facts `operations` at
   `FACT_OPERATIONS.length`, and `representations` at
   `REPRESENTATIONS.length`, in both `schema.ts`/`legacy-v1.ts` and

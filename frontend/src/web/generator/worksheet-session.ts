@@ -42,6 +42,7 @@ export const WORKSHEET_GROUP_KEYS = [
   "dryMathRegrouping",
   "dryMathStrand",
   "dryMathFacts",
+  "dryMathThreeDigit",
   "numberBonds",
   "operationGrid",
   "findTheWow.variant",
@@ -112,6 +113,9 @@ type DryMathPracticePayloadByStrand = {
   };
   readonly "multiply-divide": {
     readonly dryMathFacts: WorksheetGroupValue["dryMathFacts"];
+  };
+  readonly "three-digit": {
+    readonly dryMathThreeDigit: WorksheetGroupValue["dryMathThreeDigit"];
   };
 };
 
@@ -313,6 +317,7 @@ export function worksheetSessionReducer(
       if (
         (action.group === "dryMathFacts" &&
           (action.value.operations.length === 0 || action.value.factFamilies.length === 0)) ||
+        (action.group === "dryMathThreeDigit" && action.value.operations.length === 0) ||
         (action.group === "numberBonds" && action.value.operations.length === 0) ||
         (action.group === "operationGrid" && !OperationGridV2Schema.safeParse(action.value).success)
       ) {
@@ -327,7 +332,7 @@ export function worksheetSessionReducer(
     case "dryMathPracticeChosen": {
       // One choice, two groups, one preview invalidation.
       let chosen: WorksheetSelectionV2 | undefined;
-      let touchedPractice: "dryMath" | "dryMathFacts";
+      let touchedPractice: "dryMath" | "dryMathFacts" | "dryMathThreeDigit";
       switch (action.strand) {
         case "add-subtract":
           chosen = withGroup(state.selection, "dryMath", action.dryMath);
@@ -340,6 +345,13 @@ export function worksheetSessionReducer(
               ? withGroup(state.selection, "dryMathFacts", action.dryMathFacts)
               : undefined;
           touchedPractice = "dryMathFacts";
+          break;
+        case "three-digit":
+          chosen =
+            action.dryMathThreeDigit.operations.length > 0
+              ? withGroup(state.selection, "dryMathThreeDigit", action.dryMathThreeDigit)
+              : undefined;
+          touchedPractice = "dryMathThreeDigit";
           break;
         default: {
           const unreachable: never = action;

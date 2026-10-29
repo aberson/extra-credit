@@ -59,6 +59,11 @@ export const FACT_FACTOR_MAXIMUM = 12;
 /** The largest dividend of a Dry Math division fact: the largest product of two factors. */
 export const FACT_DIVIDEND_MAXIMUM = FACT_FACTOR_MAXIMUM * FACT_FACTOR_MAXIMUM;
 
+/** Fixed bounds for the three-digit Dry Math strand. */
+export const DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM = 100;
+export const DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM = 999;
+export const DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM = 1000;
+
 /**
  * The smallest whole a Number Bonds problem may have: two parts of at least 1
  * each (math-activities plan, DD10). The largest is `V1_NUMERIC_MAXIMUM`.
@@ -231,6 +236,11 @@ export type PracticeRequestV1 =
       readonly kind: "dry-math-facts";
       readonly operations: readonly FactOperation[];
       readonly factFamilies: readonly number[];
+    }
+  | {
+      readonly kind: "dry-math-three-digit";
+      readonly operations: readonly MathOperation[];
+      readonly regrouping: "without" | "required";
     }
   | {
       readonly kind: "number-bonds";

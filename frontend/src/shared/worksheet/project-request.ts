@@ -129,6 +129,8 @@ function dryMathCapabilities(
       // A facts page reads no addition and subtraction focus: its facts
       // travel in the `practice` member, so every focus field stays inactive.
       return { ...inactiveMath(), representations: ["equations"] };
+    case "three-digit":
+      return { ...inactiveMath(), representations: ["equations"] };
     default: {
       const unreachable: never = selection.dryMathStrand;
       return unreachable;
@@ -298,6 +300,12 @@ export function projectWorksheetPractice(
         kind: "dry-math-facts",
         operations: [...selection.dryMathFacts.operations],
         factFamilies: [...selection.dryMathFacts.factFamilies],
+      };
+    case "three-digit":
+      return {
+        kind: "dry-math-three-digit",
+        operations: [...selection.dryMathThreeDigit.operations],
+        regrouping: selection.dryMathRegrouping,
       };
     default: {
       const unreachable: never = selection.dryMathStrand;

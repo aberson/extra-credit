@@ -10,7 +10,10 @@ import {
   selectionFromEarlierSettings,
   type CapabilityProfileV1,
 } from "../config/earlier-settings.js";
-import { PRACTICE_FOCUS_CATALOG } from "../config/practice-focus.js";
+import {
+  PRACTICE_FOCUS_CATALOG,
+  THREE_DIGIT_PRACTICE_ENTRIES,
+} from "../config/practice-focus.js";
 import {
   NUMBER_BONDS_REGROUPING_MODES,
   PRINT_SCALES,
@@ -32,6 +35,7 @@ import {
 import { countCompareCapacityFormula } from "../../worksheets/count-compare-make/generator.js";
 import {
   FACTS_LIMITING_RESOURCE_ADVICE,
+  DRY_MATH_FIXED_POOL_ADVICE,
   WITHOUT_REGROUPING_FILLS_SENTENCE,
   getDryMathCapabilitySupport,
   getDryMathItemCount,
@@ -519,6 +523,11 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     note: "a Dry Math facts page reads no focus maximum: it declares none, and its advice names the chosen fact families",
   },
   {
+    id: "NA-dry-math-fixed-pool",
+    status: "reachable",
+    note: "a three-digit page declares no focus maximum and names its fixed pool without recommending a range control",
+  },
+  {
     id: "NA-number-bonds",
     status: "reachable",
     note: "Number Bonds reads no focus maximum: its range is the largest whole in its own practice member, so it declares none and its advice names that range",
@@ -647,6 +656,11 @@ const DECLARED_ARMS: readonly DeclaredArm[] = [
     id: "DSF-both",
     status: "reachable",
     note: "fact shortage both maxima independently bound",
+  },
+  {
+    id: "DSF-fixed-pool",
+    status: "dead",
+    note: "every three-digit pool is at least DRY_MATH_ITEM_BUDGETS.long (18), so the fixed pool cannot produce a shortage",
   },
   {
     id: "DCS-no-equations",
@@ -1163,6 +1177,15 @@ const FACTS_SOURCES: readonly SweepSource[] = (
   ),
 );
 
+const THREE_DIGIT_SOURCES: readonly SweepSource[] = THREE_DIGIT_PRACTICE_ENTRIES.map((entry) => ({
+  name: `three-digit ${entry.id}`,
+  selection: {
+    ...SWEEP_BASE,
+    dryMathStrand: "three-digit" as const,
+    dryMathThreeDigit: { operations: [...entry.operations] },
+  },
+}));
+
 /**
  * Number Bonds sentences: every schema-valid largest whole with each operation
  * choice and each carrying and borrowing choice.
@@ -1240,6 +1263,7 @@ const SWEEP_SOURCES: readonly SweepSource[] = [
   { name: "earlier D36", selection: earlierSelection(D36_PROFILE) },
   ...REGROUPING_SOURCES,
   ...FACTS_SOURCES,
+  ...THREE_DIGIT_SOURCES,
   ...NUMBER_BONDS_SOURCES,
   ...OPERATION_GRID_SOURCES,
 ];
@@ -1430,6 +1454,7 @@ describe("every declared arm of the capacity and advice surface", () => {
               let needsNumericOperations: boolean;
               switch (practice?.kind) {
                 case "dry-math-facts":
+                case "dry-math-three-digit":
                   needsNumericOperations = false;
                   break;
                 case undefined:
@@ -1491,12 +1516,16 @@ describe("every declared arm of the capacity and advice surface", () => {
             // The declared-maximum list and the advice derived from it.
             const maximums = registration.controls.getRelevantMaximums(context);
             let factsPage = false;
+            let threeDigitPage = false;
             if (worksheetType === "dry-math") {
               switch (selection.dryMathStrand) {
                 case "add-subtract":
                   break;
                 case "multiply-divide":
                   factsPage = true;
+                  break;
+                case "three-digit":
+                  threeDigitPage = true;
                   break;
                 default: {
                   const unreachable: never = selection.dryMathStrand;
@@ -1512,6 +1541,13 @@ describe("every declared arm of the capacity and advice surface", () => {
               expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
                 `${where}: ${FACTS_LIMITING_RESOURCE_ADVICE}`,
               );
+            } else if (threeDigitPage) {
+              observe("NA-dry-math-fixed-pool");
+              expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
+              expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
+                `${where}: ${DRY_MATH_FIXED_POOL_ADVICE}`,
+              );
+              expect(DRY_MATH_FIXED_POOL_ADVICE).not.toMatch(/operand|wider range/u);
             } else if (worksheetType === "number-bonds") {
               // Number Bonds' range is its own largest whole, never a
               // declared focus maximum, and its advice names that range.
@@ -1677,7 +1713,7 @@ describe("every declared arm of the capacity and advice surface", () => {
               observe(`SL-${length}-${offersShorterLength(message)}`);
             }
 
-            if (worksheetType === "dry-math" && !factsPage) {
+            if (worksheetType === "dry-math" && !factsPage && !threeDigitPage) {
               observe(
                 support.capacity.sufficient
                   ? "DSF-suff"

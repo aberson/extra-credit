@@ -105,6 +105,21 @@ export const printFixtures: readonly PrintFixture[] = [
     letterStandardOnly: true,
   },
   {
+    id: "dry-math-three-digit-1000",
+    profileIndex: 2,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "dry-math",
+      dryMathStrand: "three-digit",
+      dryMathThreeDigit: { operations: ["addition", "subtraction"] },
+      dryMathRegrouping: "required",
+    },
+    printedOn: [
+      { paper: "letter", scale: "standard" },
+      { paper: "a4", scale: "large" },
+    ],
+  },
+  {
     id: "bonds-missing-20",
     profileIndex: 1,
     selection: {
@@ -311,19 +326,39 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
     const first = generated.document.items[0];
     let addSubtractRegroupingBoundary: boolean;
     let factsBoundary: boolean;
+    let threeDigitBoundary: boolean;
     switch (selection.dryMathStrand) {
       case "add-subtract":
         addSubtractRegroupingBoundary = selection.dryMathRegrouping === "required";
         factsBoundary = false;
+        threeDigitBoundary = false;
         break;
       case "multiply-divide":
         addSubtractRegroupingBoundary = false;
         factsBoundary = true;
+        threeDigitBoundary = false;
+        break;
+      case "three-digit":
+        addSubtractRegroupingBoundary = false;
+        factsBoundary = false;
+        threeDigitBoundary = true;
         break;
       default: {
         const unreachable: never = selection.dryMathStrand;
         throw new Error(`Unsupported Dry Math strand: ${String(unreachable)}`);
       }
+    }
+    if (
+      selection.worksheetType === "dry-math" &&
+      threeDigitBoundary &&
+      !generated.document.items.some(
+        (item) =>
+          item.itemType === "dry-math" &&
+          item.operation === "subtraction" &&
+          item.leftOperand === 1000,
+      )
+    ) {
+      continue;
     }
     // Every problem carries or borrows: search for the widest row, a
     // subtraction from the Dry Math ceiling.

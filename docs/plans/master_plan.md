@@ -733,7 +733,7 @@ A step too large for one developer context is split before build (R4). Kill crit
 - **Depends on:** Step 39
 
 ### Step 41: Three-digit addition and subtraction to 1,000
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** A parent picks a "within 1,000" Dry Math practice focus (addition, subtraction, or both) and keeps or turns on "Every problem carries or borrows". Create, preview, key and print then give three-digit problems such as 638 + 287 = ________ or 1000 − 463 = ________, with a blank wide enough for a four-digit answer. The status line beside Create, the selected option and a queued packet row all name the three-digit focus, and the choice survives "Save these as worksheet defaults" and a reload.
 - **Type:** code
 - **Issue:** #52

@@ -43,9 +43,9 @@ const PACKET_PRINT_SPEC_ROW = /(?<![\w-])packet-print\.spec\.ts:\d+:\d+/u;
 describe("CI and package-script contract", () => {
   it("discovers the mandatory print matrix through the same unfiltered browser entry point", async () => {
     const listed = (await listedBrowserTests()).filter((line) => PRINT_SPEC_ROW.test(line));
-    // 99 worksheet rows, four order-bound sweeps, earliest-print probe,
+    // 101 worksheet rows, four order-bound sweeps, earliest-print probe,
     // and 13 manual lifecycle cases.
-    expect(listed).toHaveLength(117);
+    expect(listed).toHaveLength(119);
     expect(listed.filter((line) => line.includes("count ordering and frame bounds"))).toHaveLength(4);
     for (const paper of ["letter", "a4"]) {
       for (const scale of ["standard", "large"]) {
@@ -65,10 +65,15 @@ describe("CI and package-script contract", () => {
             "letter-large": 1,
           };
           const gridRows = gridCells[`${paper}-${scale}`] ?? 0;
+          const dryMathCells: Readonly<Record<string, number>> = {
+            "letter-standard": 1,
+            "a4-large": 1,
+          };
+          const dryMathRows = dryMathCells[`${paper}-${scale}`] ?? 0;
           expect(rows).toHaveLength(
             decoration === "true"
               ? 9
-              : (paper === "letter" && scale === "standard" ? 17 : 14) + gridRows,
+              : (paper === "letter" && scale === "standard" ? 17 : 14) + gridRows + dryMathRows,
           );
           expect(rows.filter((line) => line.includes("clock-"))).toHaveLength(
             decoration === "true" ? 0 : 1,
@@ -78,6 +83,9 @@ describe("CI and package-script contract", () => {
           );
           expect(rows.filter((line) => line.includes("grid-"))).toHaveLength(
             decoration === "true" ? 0 : gridRows,
+          );
+          expect(rows.filter((line) => line.includes("dry-math-three-digit"))).toHaveLength(
+            decoration === "true" ? 0 : dryMathRows,
           );
           if (decoration === "true") {
             expect(rows.every((line) => /(?:sentence-|count-all-four-subtypes-)/u.test(line)))

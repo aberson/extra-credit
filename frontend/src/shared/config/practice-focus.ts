@@ -11,6 +11,7 @@
  */
 import {
   DRY_MATH_NUMERIC_MAXIMUM,
+  DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
 } from "../worksheet/types.js";
@@ -19,6 +20,7 @@ import type {
   ArithmeticFocusV2,
   CountCompareFocusV2,
   DryMathFactsV2,
+  DryMathThreeDigitV2,
   MathSkillsV1,
   NumberBondsV2,
   PresentationBand,
@@ -213,6 +215,56 @@ function familyList(families: readonly number[]): string {
  */
 export function describeFactsFocus(facts: DryMathFactsV2): string {
   return `${matchFactPracticeEntry(facts.operations).label} for ${familyList(facts.factFamilies)}`;
+}
+
+export interface ThreeDigitPracticeEntry {
+  readonly id: string;
+  readonly label: string;
+  readonly operations: readonly DryMathThreeDigitV2["operations"][number][];
+}
+
+const THREE_DIGIT_MAXIMUM_LABEL =
+  DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM.toLocaleString("en-US");
+
+export const THREE_DIGIT_PRACTICE_ENTRIES: readonly ThreeDigitPracticeEntry[] = Object.freeze([
+  Object.freeze({
+    id: "three-digit-addition",
+    label: `Three-digit addition within ${THREE_DIGIT_MAXIMUM_LABEL}`,
+    operations: Object.freeze(["addition"] as const),
+  }),
+  Object.freeze({
+    id: "three-digit-subtraction",
+    label: `Three-digit subtraction within ${THREE_DIGIT_MAXIMUM_LABEL}`,
+    operations: Object.freeze(["subtraction"] as const),
+  }),
+  Object.freeze({
+    id: "three-digit-addition-and-subtraction",
+    label: `Three-digit addition and subtraction within ${THREE_DIGIT_MAXIMUM_LABEL}`,
+    operations: Object.freeze(["addition", "subtraction"] as const),
+  }),
+]);
+
+export function matchThreeDigitPracticeEntry(
+  operations: readonly DryMathThreeDigitV2["operations"][number][],
+): ThreeDigitPracticeEntry {
+  const entry = THREE_DIGIT_PRACTICE_ENTRIES.find(
+    (candidate) =>
+      candidate.operations.length === operations.length &&
+      candidate.operations.every((operation, index) => operations[index] === operation),
+  );
+  if (entry === undefined) {
+    throw new Error("Three-digit operations must be a nonempty canonical subset.");
+  }
+  return entry;
+}
+
+export function describeThreeDigitFocus(
+  group: DryMathThreeDigitV2,
+  regrouping: RegroupingMode,
+): string {
+  return `${matchThreeDigitPracticeEntry(group.operations).label}${
+    regrouping === "required" ? REGROUPING_SUMMARY_PHRASE : ""
+  }`;
 }
 
 /** A Number Bonds sentence focus: its operations and its largest whole. */

@@ -714,3 +714,31 @@ test("fact families three and twelve print with exact division", async ({ appSer
   // Creating and varying pages never writes the file.
   expect((await appServer.readRaw()).equals(seeded)).toBe(true);
 });
+
+test("three-digit focus entries create oracle-valid pages with four-digit blanks", async ({ appServer, page }) => {
+  test.setTimeout(60_000);
+  await appServer.seedConfig(acceptanceConfig);
+  await page.goto(appServer.origin);
+  for (const [label, operations] of [
+    ["Three-digit addition within 1,000", ["addition"]],
+    ["Three-digit subtraction within 1,000", ["subtraction"]],
+    ["Three-digit addition and subtraction within 1,000", ["addition", "subtraction"]],
+  ] as const) {
+    await choosePracticeFocus(page, label);
+    await chooseRegrouping(page, "required");
+    await expect(page.locator("[data-selection-summary]")).toContainText(
+      `Practice focus for Dry Math: ${label}, every problem carries or borrows.`,
+    );
+    await page.getByRole("button", { name: "Create worksheet", exact: true }).click();
+    const { rows, keyLines } = await renderedPage(page);
+    expect(judgeRenderedPage(rows, keyLines, {
+      kind: "three-digit",
+      operations,
+      regrouping: "required",
+    })).toEqual([]);
+    await page.getByRole("button", { name: "Worksheet", exact: true }).click();
+    const blanks = page.getByLabel("Worksheet preview").locator("[data-answer-blank]");
+    await expect(blanks.first()).toHaveText("________");
+    await expect(page.getByLabel("Worksheet preview").locator("[data-answer-value]")).toHaveCount(0);
+  }
+});

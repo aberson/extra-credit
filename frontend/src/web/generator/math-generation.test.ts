@@ -150,6 +150,31 @@ describe("Dry Math carrying and borrowing through the production caller", () => 
   });
 });
 
+describe("Dry Math three-digit practice through the production caller", () => {
+  test("returns a validated, oracle-equal page with the explicit fixed focus", () => {
+    const selected: GenerationSelection = {
+      profile: fictionalChild,
+      selection: {
+        ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+        worksheetType: "dry-math",
+        dryMathStrand: "three-digit",
+        dryMathThreeDigit: { operations: ["addition", "subtraction"] },
+        dryMathRegrouping: "required",
+        length: "long",
+      },
+    };
+    const created = createWorksheetSessionForSeed(selected, 0x0000_abcd, DEPENDENCIES);
+    if (!created.ok) throw new Error(created.message);
+    expect(created.session.document.request.practice).toEqual({
+      kind: "dry-math-three-digit",
+      operations: ["addition", "subtraction"],
+      regrouping: "required",
+    });
+    expect(validateWorksheetInvariants(created.session.document)).toBeUndefined();
+    expect(judgeDocument(created.session.document)).toEqual([]);
+  });
+});
+
 describe("Dry Math multiplication and division facts through the production caller", () => {
   function factsGeneration(
     operations: WorksheetSelectionV2["dryMathFacts"]["operations"],
