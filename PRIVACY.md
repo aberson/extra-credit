@@ -30,7 +30,7 @@ The setup screen lets a parent download only their current unsaved, valid form s
 
 ## Deletion and manual cleanup
 
-Deleting a profile changes only `config/children.local.json`. It does not remove invalid-file or upgrade `.bak` siblings, manually downloaded profile backups, saved PDFs, screenshots, named worksheet copies created outside the app, or printed pages. Automatic discovery or deletion of those copies is outside v1.
+Deleting a profile changes only `config/children.local.json`. It does not remove invalid-file or upgrade `.bak` siblings, manually downloaded profile backups, saved PDFs, screenshots, named worksheet copies created outside the app, or printed pages. Sheets already queued in the open page's printable packet for that profile also stay: they keep the printed nickname, labeled for a removed profile, until they are removed from the packet or the page is closed or reloaded. Automatic discovery or deletion of those copies is outside v1.
 
 To remove residual data, inspect the repository's `config/` directory and manually delete obsolete `.bak` files you recognize. Separately inspect the download folder, PDF destination, screenshot folder, backups, and physical storage you selected. The app uses generic worksheet and backup names; save exports outside the repository and protect or destroy them as you would any other child-related document.
 

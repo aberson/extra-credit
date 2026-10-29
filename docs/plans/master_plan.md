@@ -19,7 +19,7 @@ Original bytes preserved with [hashes and initial Git state](../plan-reconciliat
 
 Binding [operator decisions](../feature-seeds/operator-decisions.md): P9 supersedes P4 durable drafts; P10 supersedes P7 unattended multi-plan chain. Lean kept step fields supersede old appendix/decision rows.
 
-Current build scope (2026-10-28, P6/P7): Steps 35, 36, 31 and 33, in that order; Step 37 and the operator steps follow. Earlier track statuses and acceptance gates remain authoritative.
+Current build scope (2026-10-28, master Decision Inventory P6/P7, distinct from operator-decisions.md P6/P7): Steps 35, 36, 31 and 33, built in that order and DONE on 2026-10-29; Step 37 and the operator steps follow. Earlier track statuses and acceptance gates remain authoritative.
 
 ## 2. Vision
 
@@ -43,15 +43,16 @@ P10: one track/window at a time with its operator screen review before the next.
 
 ## 7. Track structure
 
-Shipped substrate 1-19, math 24-26 and Operation Grid 34; retained acceptance WF1/WF2,MA2,M1/M2/M3. Optional math27; packets31 then33 only afterMA2 screen gate, and packetPK1 afterward. Future scoped content remains deferred. Plan03 code depends on shipped19, not optional27; current orchestration still honors inter-plan screen review.
+Shipped substrate 1-19, math 24-26 and Operation Grid 34; retained acceptance WF1/WF2,MA2,M1/M2/M3. Optional math27; packets31 then33 built after Phase V 35/36 (P6 waived the MA2 dispatch gate; MA2 still PENDING), and packetPK1 afterward. Future scoped content remains deferred. Plan03 code depends on shipped19, not optional27; current orchestration still honors inter-plan screen review.
 
 Track **goal/scope** is its leaves; **prerequisites** are explicit; **tests/validation** are Done-when and existing full check; **effort** is sidecar ranges; **gate** distinguishes code from actual acceptance; **kill criterion** is changed private state, weakened invariant, unresolved architecture or failed required evidence; **rollback** retains previous store bytes/outputs and isolated candidates, never resets profiles or replays superseded migration.
 
 ## 8. Decision graph
 
 ```text
-DONE1-13 ->DONE14-19 ->DONE24-26 ->DONE34 ->MA2 ->31 ->33 ->PK1
+DONE1-13 ->DONE14-19 ->DONE24-26 ->DONE34 ->DONE35 ->DONE36 ->DONE31 ->DONE33 ->PK1
                                   \ optional27 ->MA2 re-review
+DONE34/35/36 ->MA2 screen review (P6: not a dispatch gate); DONE36 ->37 operator trial
 Shipped surfaces ->M1 physical ->M2 family
 Each authorized release: release:verify ->push ->M3 exact Ubuntu run
 WF1/WF2 acceptance evidence remains explicit, not inferred from later code
@@ -59,7 +60,7 @@ WF1/WF2 acceptance evidence remains explicit, not inferred from later code
 
 ## 9. Baseline
 
-As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff7331`. Initial untracked operator screenshot preserved byte-for-byte; it is a pre-existing release-audit blocker, not a privacy exemption. Steps1-13 and14-19 DONE;20 folded into18;21 folded into24;22/23 removed;24/25/26 DONE, latest source gate1047 Vitest/195 Playwright. Optional27 not built. Packets31/33 not built, issues not assigned;28-30 removed; 32 and the archived packet plan's Step 34 (packet smoke/docs) folded into 31/33. The master's Step 34 is a different, later unit: Operation Grid (#42), DONE at `8b2546a`. Age/Difficulty/profile capability gates replaced by worksheet choices; no schema3. Additive v2 keys use defaults; removals/renames require explicit version/read path; blocked unknown-key/enum state preserves bytes. Existing quantity/Wow<=20; symbolic add/sub<=100; factors0-12/exact dividends<=144. Regrouping explicit, no negative answers. No automated history establishes physical/family/hosted CI acceptance. Since then: Step 34 (Operation Grid, #42) merged at `8b2546a`; the operator screenshot now lives outside the checkout at `C:/Users/abero/extra-credit-private/examples/`, so it is no longer a release-audit blocker; the latest accepted full gate is Step 34's 1118 Vitest (40 files)/206 Playwright, the floor for every later step's full gate.
+As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff7331`. Initial untracked operator screenshot preserved byte-for-byte; it is a pre-existing release-audit blocker, not a privacy exemption. Steps1-13 and14-19 DONE;20 folded into18;21 folded into24;22/23 removed;24/25/26 DONE, latest source gate1047 Vitest/195 Playwright. Optional27 not built. Packets31/33 not built, issues not assigned;28-30 removed; 32 and the archived packet plan's Step 34 (packet smoke/docs) folded into 31/33. The master's Step 34 is a different, later unit: Operation Grid (#42), DONE at `8b2546a`. Age/Difficulty/profile capability gates replaced by worksheet choices; no schema3. Additive v2 keys use defaults; removals/renames require explicit version/read path; blocked unknown-key/enum state preserves bytes. Existing quantity/Wow<=20; symbolic add/sub<=100; factors0-12/exact dividends<=144. Regrouping explicit, no negative answers. No automated history establishes physical/family/hosted CI acceptance. Since then: Step 34 (Operation Grid, #42) merged at `8b2546a`; the operator screenshot now lives outside the checkout at `C:/Users/abero/extra-credit-private/examples/`, so it is no longer a release-audit blocker; Step 34's full gate was 1118 Vitest (40 files)/206 Playwright. Since then (2026-10-29): Steps 35 (Clock Explorer, #43, `ec33261`), 36 (Tally Detective, #44, `ed1a03c`), 31 (session packet queue, #47, `4bc6607`) and 33 (packet preview and print, #48, `4ec5733`) merged; the latest accepted full gate is 1356 Vitest (49 files)/232 Playwright, the floor for every later step's full gate.
 
 ## 10. Phases
 
@@ -167,10 +168,10 @@ As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff733
   - Docs: `docs/testing-print.md` (one short paragraph on packet printing).
 - **Produces:**
   - **Composition (Appendix C, D-packet):** `composePacketPages(sheets, placement)` returns the ordered pages, each a sheet and a surface (worksheet or key). A sheet has a key page exactly when its registration has `hasAnswerKey` and its request includes the answer key. Placements: `grouped-end` (default), `after-each-sheet`, `none`.
-  - **Session additions:** the packet reducer gains the packet paper (Letter or A4; an empty packet adopts its first sheet's paper) and the key placement; neither changes a stored document. The panel shows a Paper choice and an "Answer keys" radio group with the three labels.
+  - **Session additions:** the packet reducer gains the packet paper (Letter or A4; an empty packet adopts its first sheet's paper) and the key placement; neither changes a stored document. Once the packet holds a sheet, the panel shows a Paper radio group (US Letter, A4) and an "Answer keys" radio group with the three labels.
   - **Paper only (D21's tweak):** each page renders its stored document with the packet paper in place of its stored paper, for display only; items and answers are unchanged because no generator reads `options.paperSize` (generators read only `printScale`), and each sheet keeps its stored scale.
-  - **Preview and print:** "Preview packet" (disabled while the packet is empty) replaces the single preview with `PacketPrintView`, which focuses its heading; exactly one `.print-workspace` is mounted. Its controls hold "Print packet (N pages)", which calls `window.print()` once, and "Back to worksheets". Each page is one `.print-surface` with `data-packet-page`, `data-sheet-id` (the document's `worksheetId`), `data-surface`, `data-paper-size` and `data-print-scale`. Printing and cancelling never change or clear the queue.
-  - **Key label:** `AnswerKeyView`'s optional `sheetLabel` renders one `span[data-packet-sheet-label]` inside the key's `h2` in both branches (the list key and `OperationGridAnswerKey`), naming the sheet number, family and, when that worksheet prints one, the nickname; without the prop its markup is unchanged.
+  - **Preview and print:** "Preview packet" (disabled while the packet is empty) replaces the single preview with `PacketPrintView`, which focuses its heading; exactly one `.print-workspace` is mounted. Its controls hold "Print packet (N pages)", which calls `window.print()` once, and "Back to worksheets". Each page is one `.print-surface` with `data-packet-page`, `data-sheet-id` (the document's `worksheetId`), `data-surface`, `data-paper-size` and `data-print-scale`. Printing and cancelling never change or clear the queue. The packet preview closes on Back to worksheets, on a new single preview and when the last sheet is removed, and Add to packet is hidden while it is shown (`packet-queue.spec.ts` gains one test for this).
+  - **Key label:** `AnswerKeyView`'s optional `sheetLabel` renders one `span[data-packet-sheet-label]` inside the key's `h2` in every branch (the list key, `OperationGridAnswerKey`, `ClockExplorerAnswerKey` and `TallyDetectiveAnswerKey`), after " — ", naming the sheet number, family and, when that worksheet prints one, the nickname; without the prop its markup is unchanged.
   - **Print CSS:** `print-packet.css`, imported statically by `PacketPrintView.tsx`, adds `break-before: page` to every packet surface after the first and uses the packet paper's existing named page; no other print file, token or renderer changes.
   - **Deletion disclosure:** `ProfileList` takes an optional `queuedSheetCount(profileId)`; when it is above 0 the delete dialog says how many queued sheets belong to that profile and that they stay in the packet. Deleting leaves them queued, labeled "for a removed profile".
 - **Done when:**
@@ -365,13 +366,13 @@ Inline contract summary (verified in shared/config/schema.ts, shared/worksheet/t
 | GenerationRequestV1 | worksheet family, resolved capabilities/options and practice selection; each family validates/project-request narrows unsupported fields before generation. |
 | GenerationOptionsV1 | length, includeDecorativeGraphics, includeAnswerKey, paperSize:letter/a4, printScale:standard/large, optional decorativeTopicId; carried as request.options. |
 | OperationGridItemV1 | itemType:operation-grid, operation:addition/multiplication/powers, rowHeaders/columnHeaders from 1, cells row-major {value, given}, answer {kind:grid, value: every cell}. One item per document. |
-| NumberBondItemV1 addition | form:bond, whole:number, leftPart:number, rightPart:number, missing:left/right. Whole2..20, positive parts sum to whole; exactly one part blank. |
-| Queued sheet | profile id plus immutable generated document; its worksheetId detects duplicate documents. Max10; order only in React reducer state. |
+| NumberBondItemV1 | shipped: form:sentence only (NumberBondSentenceItemV1). Step 27 (not built) adds form:bond, whole, leftPart, rightPart, missing:left/right; whole 2..20, positive parts sum to whole; exactly one part blank. |
+| Queued sheet | QueuedSheet {profileId, selection: WorksheetSelectionV2, document: WorksheetDocumentV1}; document.worksheetId detects duplicates. PacketState {sheets, paperSize, keyPlacement}; PACKET_SHEET_LIMIT 10 (shared/packet/compose.ts); order only in React reducer state. |
 | ChildProfileV2 | lowercase UUIDv4 id, optional bounded displayName, reviewedOn ISO date, unique bounded interests, optional read-only legacyChoices. No age/current ability gates. |
 | AppConfigV2 | schemaVersion:2, profiles:ChildProfileV2[], defaults:WorksheetDefaultsV2 (selection and useEarlierChildSettings). Strict unknown-key refusal. |
 | ConfigResponseV2 | config:AppConfigV2 and storedSchemaVersion:1 or2, so reading v1 does not write it. |
 
-Profile id and worksheetId are UUIDv4 strings generated with browser crypto.randomUUID by ProfileEditor and create-session respectively; packet rows retain existing IDs rather than minting replacements. Worksheet family slug is one of dry-math, find-the-wow, sentence-builder, count-compare-make, number-bonds, operation-grid. Item identity and problem deduplication remain family-specific typed/oracle contracts.
+Profile id and worksheetId are UUIDv4 strings generated with browser crypto.randomUUID by ProfileEditor and create-session respectively; packet rows retain existing IDs rather than minting replacements. Worksheet family slug is one of dry-math, find-the-wow, sentence-builder, count-compare-make, number-bonds, operation-grid, clock-explorer, tally-detective (`WORKSHEET_TYPE_IDS` in shared/worksheet/types.ts). Item identity and problem deduplication remain family-specific typed/oracle contracts.
 
 No packet API is introduced. Existing GET /api/config returns ConfigResponseV2 and ETag; PUT /api/config accepts validated AppConfigV2 under the session/precondition guards and returns ConfigResponseV2 with new ETag. Config conflict/error codes stay in server/routes/config.ts; no packet action calls PUT. Recovery and session-bootstrap routes remain unchanged; the existing README describes the private-file recovery boundary. GET /api/session returns the in-memory `SessionResponse` token and GET /api/health returns `HealthResponse` (`status`, `version`); no step 27/31/33 adds or changes a route.
 
@@ -385,7 +386,7 @@ No packet persistence/store/API/recovery, schema3, undo or per-sheet regeneratio
 
 ## 14. Tracking
 
-Existing issue27=#38; operation grid34=#42 (not the archived packet-plan Step 34, which was folded); packet31/33 unassigned. SourceM1=#10,M2/M3=#13; preserve open review findings#15/#18/#19 pending verified closeout rather than assuming source absorption closed issues. See merge map for every source disposition. No GitHub mutation by reconciliation. Root plan.md only redirects here.
+Existing issue27=#38; operation grid34=#42 (not the archived packet-plan Step 34, which was folded); packet31=#47, packet33=#48; Phase V clock35=#43, tally36=#44, try37=#45. SourceM1=#10,M2/M3=#13; preserve open review findings#15/#18/#19 pending verified closeout rather than assuming source absorption closed issues. See merge map for every source disposition. No GitHub mutation by reconciliation. Root plan.md only redirects here.
 
 ## 15. Plan history
 
@@ -425,6 +426,40 @@ Fresh context notes:
 | Load-sensitive tests | Under heavy machine load (a game running) `foundation.spec.ts`'s supervisor-close and fixed-dev-stack tests and `print.spec.ts`'s manual-print startup test time out; each passes in isolation and on a quiet machine. |
 | Untracked files | Any untracked personal file in the checkout (screenshot, reference PDF) fails `check` as `PERSONALIZED_ARTIFACT`; the operator's references live in `C:/Users/abero/extra-credit-private/examples/`. |
 
+### Steps 35, 36, 31 and 33 wrap — visual math and printable packets (2026-10-29)
+
+**Issues #43, #44, #47 and #48 closed. 1356/1356 Vitest tests (49 files) and 232/232 Playwright specs passing; lint, all three typecheck projects and log-privacy calibration clean.**
+
+Built in the P7 order 35, 36, 31, 33, with MA2 waived as a dispatch gate by P6 (MA2 stays PENDING).
+
+What was built:
+- `clock-explorer` ("Clock Explorer", Step 35), the seventh family: four distinct on-the-hour clocks per page drawn as inline SVG from each hour alone; the child writes the hour, and the key names the time and both hands.
+- `tally-detective` ("Tally Detective", Step 36), the eighth family: four distinct totals from 1 to 20 drawn as bundles of five plus loose marks; the key prints each total with its grouping (`8 = 5 + 3`). Both families share one canonical-request check (`seedOnlyRequestIsCanonical`) and add no settings group and no schema change.
+- Session packet queue (Step 31): "Add to packet" beside Make another, a "Printable packet" panel of up to `PACKET_SHEET_LIMIT` (10) immutable sheet snapshots for one or several children, with Move up, Move down and Remove; nothing reaches the server or browser storage.
+- Packet preview and print (Step 33): `composePacketPages` orders worksheet and key pages with keys grouped at the end (default), after each sheet or left out; one packet paper (Letter or A4) re-renders each sheet at its stored scale without regeneration; "Print packet (N pages)" calls `window.print()` once and never clears the queue; every key heading carries its sheet label; the profile delete dialog counts the profile's queued sheets, which stay labeled "for a removed profile".
+- Proof: clock and tally ink oracles in `print.spec.ts` (`tests/oracles/{clock,tally}-oracle.ts`) with hide/zero calibrations, `visual-math.spec.ts`, `packet-queue.spec.ts`, `packet-print.spec.ts` (two ten-sheet PDF cells plus a page-break calibration), a fast-check composition property, and two compiled release-smoke packet cases.
+
+Files changed (`ec33261`..`4ec5733`, 63 files across 4 checkpoints):
+
+| Area | Files |
+|---|---|
+| New families | `frontend/src/worksheets/{clock-explorer,tally-detective}/{definition,generator,generator.test}.ts`; `frontend/src/web/worksheets/{clock-explorer,tally-detective}/{Renderer,Renderer.test}.tsx` |
+| Shared domain | `frontend/src/shared/worksheet/{types,registry,project-request,invariants,answer-oracle}.ts` and tests; new `frontend/src/shared/packet/{compose,compose.test}.ts` |
+| Web | `App.tsx`, `GeneratorControls.tsx`, new `generator/control-labels.ts`, new `packet/{packet-session,PacketPanel,PacketPrintView}` and tests, `print/AnswerKeyView.tsx`, new `print/print-packet.css`, `profiles/ProfileList.tsx` and new test, `worksheets/registry.ts`, `styles/{tokens,screen}.css` |
+| Tests and fixtures | new `tests/oracles/{clock,tally}-oracle.ts`; new e2e `visual-math`, `packet-queue`, `packet-print`, `fixtures/{packet-controls,print-checks}.ts`; e2e `print`, `accessibility`, `release-smoke`, `fixtures/worksheet-controls.ts`; `tests/fixtures/print/{matrix,required-content}.ts`; integration `ci-contract`, `config-api`, `config-upgrade`, `practice-golden`, `schema-parity`, `shipped-profile-options` |
+| Docs | `README.md`, `CLAUDE.md`, `docs/educational-basis.md`, `docs/testing-print.md`, this plan (statuses, P6/P7, `## Manual UAT`) |
+
+Fresh context notes:
+
+| Topic | Detail |
+|---|---|
+| Single owners | `PACKET_SHEET_LIMIT` lives in `shared/packet/compose.ts` and `packet-session.ts` re-exports it; Length, Paper and `profileLabel` labels live in `generator/control-labels.ts` because exporting them from `GeneratorControls.tsx` trips the react-refresh lint rule. |
+| Key surface name | Packet key pages use `data-surface="answer"`, the name `PrintView` and `requiredPrintContent` already use, not "key". |
+| Packet preview state | The packet preview closes on Back, on a new single preview, and when the last sheet is removed; Add to packet is hidden while it is shown (Step 33 review round 1). |
+| CI filter | `ci-contract.test.ts`'s `print.spec.ts` row filter was tightened so it no longer matches `packet-print.spec.ts` rows; a disjointness assertion guards both filters. |
+| Load and memory | Under Windows Defender load, `foundation.spec.ts`'s supervisor-close test times out (wait for three CPU samples under 50% and rerun); once a release-audit test failed on a host `VirtualAlloc` out-of-memory error and passed on rerun. |
+| Manual UAT naming | The `## Manual UAT` items M1-M2 at the end of this plan are build-phase review deferrals (both already met by the final 1356/232 check), distinct from the Step M1-M3 operator steps. |
+
 
 ## Phase V: Visual math first batch
 
@@ -440,13 +475,13 @@ Validation: tiny-domain unit tests, production-caller generation, compiled brows
 
 New family IDs are `clock-explorer` and `tally-detective`, generatorVersion1 each. Sample four distinct hours1..12 or totals1..20 using the existing seeded RNG. Clock item: id, itemType, answerability objective, hour, numeric answer(hour). Tally item: id, itemType, answerability objective, bundles=floor(total/5), remainder=total%5, numeric answer(5*bundles+remainder). IDs use existing `item-001` sequence; document/profile IDs remain browser-generated UUIDv4, seeds nonzero eight-lowercase-hex strings. No new answer kind or persisted settings group.
 
-Clock: all12 labels; minute hand at twelve, shorter distinct hour hand at30*(hour%12) degrees clockwise from twelve. At12:00 longer minute hand remains visible past overlapping hour hand. Blank child response is `Time: ____ :00`; key formats e.g. `3:00 - long hand at12, short hand at3`. Tally: each full five is four upright strokes plus a crossing fifth; 0..4 loose strokes follow. Reference8=5+3;20=four full bundles. Independent oracle recomputes numeric answers; validate exactly four same-family sequential items, unique problems, domain bounds and canonical request.
+Clock: all12 labels; minute hand at twelve, shorter distinct hour hand at30*(hour%12) degrees clockwise from twelve. At12:00 longer minute hand remains visible past overlapping hour hand. Blank child response is `Time: ____ :00`; key formats e.g. `3:00 — long hand at 12, short hand at 3`. Tally: each full five is four upright strokes plus a crossing fifth; 0..4 loose strokes follow. Reference8=5+3;20=four full bundles. Independent oracle recomputes numeric answers; validate exactly four same-family sequential items, unique problems, domain bounds and canonical request.
 
 Projection: force length standard, decoration false, absent topicIds/decorativeTopicId/practice, inactive writing/math fields copied from existing shared constants. Hidden stored values stay intact for switching back. Changing unrelated options/profile legacy values with same seed and applicable options must leave entire request/content identical. Controls: name opt-in, key inclusion, paper and scale only; fixed count4, NO_MAXIMUMS, sufficient capacity and truthful fixed-domain exhaustion message. Existing Make another uses16 attempts; no hidden range advice. Save only explicit defaults; older versions block unknown family IDs without rewriting data. No profile migration/reset.
 
 Use local family renderers with inline SVG; no external URLs or assets. Standard/large print retains16/18pt instructions,7/9mm response lines; start dials around40/45mm and verify rather than shrink below legibility. Check every SVG hand, outline, tally upright/crossing under print media for actual ink, effective visibility/opacity, positive stroke width, correct endpoints/orientation and containment. Hiding a stroke or zeroing width must fail while box stays intact, then restoration passes. Four cards and separate parent key each fit one Letter/A4 page.
 
-Integration: extend shared/worksheet types, registry, project-request, invariants, answer-oracle; web worksheet registry, GeneratorControls, AnswerKeyView and tokens; schema/default/transport consumers only as required by new enum members. Extend requiredPrintContent titles/prompts/blanks/formatted keys; explicit no-extra-choice branches in chooseWorksheetChoices; golden coveringGroup entries undefined (no legacy group), unchanged golden JSON/hash. One fixture/family expands to4 child cases+4 key surfaces. Current baseline91 child/23 key/109 discovered print tests; update exact deltas against source, retaining all old rows. The print helper already guards hidden Length. Unit-check all12 hours/all20 totals, several deterministic seeds, malformed inputs and request noninterference; then compiled Create/key/print flow and complete check.
+Integration: extend shared/worksheet types, registry, project-request, invariants, answer-oracle; web worksheet registry, GeneratorControls, AnswerKeyView and tokens; schema/default/transport consumers only as required by new enum members. Extend requiredPrintContent titles/prompts/blanks/formatted keys; explicit no-extra-choice branches in chooseWorksheetChoices; golden coveringGroup entries undefined (no legacy group), unchanged golden JSON/hash. One fixture/family expands to4 child cases+4 key surfaces. Pre-Phase V baseline (8b2546a): 91 child/23 key/109 discovered print tests; Steps 35 and 36 each added 4 child cases, 4 key surfaces and 4 discovered tests (now 99/31/117), retaining all old rows. The print helper already guards hidden Length. Unit-check all12 hours/all20 totals, several deterministic seeds, malformed inputs and request noninterference; then compiled Create/key/print flow and complete check.
 
 Run setup/test commands in section 11; disposable `npm --prefix frontend run manual:print` after build supplies fictional profiles and exact ephemeral URL, stop with Ctrl+C. Source summary, fourteen-activity/reference-page inventory, backlog, impacts and full design rationale are in the linked specification. It is reference material, not an independent status queue.
 
@@ -484,3 +519,25 @@ Run setup/test commands in section 11; disposable `npm --prefix frontend run man
 - **Produces:** Parent judgment on clarity, spacing, interest, and the next batch.
 - **Done when:** Parent prints one page from each family at100%, reads each prompt aloud once, and records which visual cues or response spaces need adjustment. Confirm clock hands remain distinct and crossed tally bundles remain legible in grayscale; observe whether four problems feel comfortable. Record confusion as design feedback, not a skill assessment. Choose retry/revise or the next activity; automated tests cannot substitute for this decision.
 - **Depends on:** Step 36 and a running accepted build under parent control.
+
+## Manual UAT
+
+*Generated by /build-phase on 2026-10-29. Append-only; re-running the phase adds new items below, never modifies existing ones.*
+
+### M1: Print grouped-tally practice
+- **Source step:** Step 36 — review deferral
+- **Issue:** #44
+- **What you're looking for:**
+
+  | Check | Expected outcome |
+  |---|---|
+  | verify: Full check passes. (reason: no reviewer arm could observe the post-merge gate; check: npm --prefix frontend run check — build-step DONE gate already ran it after landing: 1303 Vitest / 223 Playwright, exit 0) | `npm --prefix frontend run check` exits 0 on `main` with counts not below 1303 Vitest / 223 Playwright |
+
+### M2: Add to packet, reorder and remove (session queue)
+- **Source step:** Step 31 — review deferral
+- **Issue:** #47
+- **What you're looking for:**
+
+  | Check | Expected outcome |
+  |---|---|
+  | verify: Full gate: after merge, npm --prefix frontend run check passes with counts not below the previous step. (reason: no reviewer arm could observe the post-merge gate; check: npm --prefix frontend run check - build-step DONE gate ran it after landing: first run 1 load-sensitive foundation.spec.ts:959 timeout at 84-94% CPU (Defender scan), rerun on a quiet machine 1324 Vitest / 227 Playwright, exit 0) | `npm --prefix frontend run check` exits 0 on `main` with counts not below 1324 Vitest / 227 Playwright |

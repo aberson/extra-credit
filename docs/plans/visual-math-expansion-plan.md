@@ -1,6 +1,6 @@
 # Visual math expansion specification
 
-State: integrated into canonical master Phase V, Steps 35-37. Preparation is authorized; implementation remains behind the existing MA2 operator gate and build invocation.
+State: integrated into canonical master Phase V, Steps 35-37. Steps 35 and 36 are built; the MA2 dispatch gate was waived by P6 (2026-10-28). Statuses live in the master.
 
 Independent adversarial findings have been incorporated. Historical reports are [adversarial review](visual-math-expansion-review.md) and [initial plan-review](visual-math-expansion-plan-review.md); their open-state descriptions are historical and superseded by this refresh.
 
@@ -145,7 +145,7 @@ Compatibility: files using only old families parse unchanged; reading never writ
 
 ## 7. Canonical build steps
 
-The [master Phase V](master_plan.md#phase-v-visual-math-first-batch) defines Step35 (clocks), Step36 (tallies), and Step37 (operator trial). Only that master carries execution fields, statuses and issues. Step35 follows completed34 and the existing MA2 operator screen review; Step36 follows35; Step37 follows36. No code dispatch until MA2 has an actual recorded observation. Optional27 and packet31/33 are not part of this batch.
+The [master Phase V](master_plan.md#phase-v-visual-math-first-batch) defines Step35 (clocks), Step36 (tallies), and Step37 (operator trial). Only that master carries execution fields, statuses and issues. Step35 follows completed34; Step36 follows35; Step37 follows36. MA2 was waived as a code-dispatch gate by P6 (2026-10-28); it stays PENDING and also reviews Clock Explorer and Tally Detective. Optional27 and packet31/33 are not part of this batch.
 
 For disposable fictional preview after implementation, run `npm --prefix frontend run build` then `npm --prefix frontend run manual:print`, open its exact ephemeral URL, and stop with Ctrl+C. Choose Clock Explorer or Tally Detective, Create worksheet, Parent answer key, Print current page. Those new labels are not available before the feature ships. Use the existing operator-controlled setup for the actual family trial; never read or reseed retained private data.
 
@@ -184,7 +184,7 @@ npm --prefix frontend run check
 
 ### Handoff
 
-Run prep gates against `docs/plans/master_plan.md`, Phase V: plan-review, plan-redline, plan-wrap, then repo-sync limited to Phase V steps. After MA2 observation is recorded, build only `--steps 35,36`; hand Step37 to the operator afterward. Never run all pending master steps as this expansion. The original proposal path is now this technical specification, not an independent parser input.
+Run prep gates against `docs/plans/master_plan.md`, Phase V: plan-review, plan-redline, plan-wrap, then repo-sync limited to Phase V steps. Steps 35 and 36 are built (P6 waived the MA2 dispatch gate on 2026-10-28; MA2 stays pending); hand Step37 to the operator. Never run all pending master steps as this expansion. The original proposal path is now this technical specification, not an independent parser input.
 
 ## Appendix: shared-consumer search inventory
 

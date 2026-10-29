@@ -1,6 +1,6 @@
 # Print verification
 
-The app prints the selected worksheet or its separate parent answer key. Select
+The app prints the selected worksheet or its separate parent answer key, or every sheet queued in the packet with one **Print packet** action. Select
 **More options** to choose Letter/A4 and standard/large print before creating a
 worksheet. Select **Worksheet** or **Parent answer key**, then **Print current
 page**. Sentence Builder has no answer key.
