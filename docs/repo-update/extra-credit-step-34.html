@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Operation Grid Tour</title>
+<style>
+/* Layout: one reading column on grid-paper ground; the sample worksheet grid is the hero, then capabilities, map, timeline, landing. */
+:root {
+  --paper: #f7f9fb;
+  --ink: #1d2a33;
+  --muted: #5a6b76;
+  --rule: #d5dee5;
+  --grid-line: #e3eaf0;
+  --accent: #2f6f8f;
+  --given-bg: #dce9f1;
+  --surface: #ffffff;
+  --ok: #2e7d4f;
+  --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-body: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12191e; --ink: #e3ebf0; --muted: #9db0bc; --rule: #2c3a44; --grid-line: #1b252c;
+    --accent: #7cc0e0; --given-bg: #24404f; --surface: #182229; --ok: #6fcf97; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12191e; --ink: #e3ebf0; --muted: #9db0bc; --rule: #2c3a44; --grid-line: #1b252c;
+  --accent: #7cc0e0; --given-bg: #24404f; --surface: #182229; --ok: #6fcf97; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body {
+  margin: 0;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--ink);
+  font: 16px/1.6 var(--font-body);
+}
+main {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding-block: 2.5rem 4rem;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid;
+  gap: 2.75rem;
+}
+h1, h2 { font-family: var(--font-display); text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 2.25rem; font-weight: 600; }
+h2 { font-size: 1.4rem; font-weight: 600; }
+p { margin: 0; max-width: 65ch; }
+section { display: grid; gap: 1rem; }
+.eyebrow { font: 600 0.75rem/1 var(--font-body); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.lede { color: var(--muted); font-size: 1.05rem; }
+code { font-family: var(--font-mono); font-size: 0.88em; }
+a { color: var(--accent); }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sheet {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 1.25rem;
+  display: grid;
+  gap: 0.75rem;
+}
+.sheet-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; font-size: 0.85rem; color: var(--muted); }
+.sheet-head strong { color: var(--ink); font-family: var(--font-display); font-size: 1.05rem; }
+.scroll { overflow-x: auto; }
+table.grid { border-collapse: collapse; margin: 0 auto; font-variant-numeric: tabular-nums; }
+table.grid th, table.grid td {
+  width: 2.4rem; height: 2.4rem; min-width: 2.4rem;
+  border: 1px solid var(--muted);
+  text-align: center; font-size: 0.9rem;
+}
+table.grid th { font-weight: 700; background: var(--paper); }
+table.grid th.corner { font-family: var(--font-display); font-size: 1.15rem; color: var(--accent); }
+table.grid td.given { background: var(--given-bg); font-weight: 700; }
+.legend { display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.85rem; color: var(--muted); }
+.swatch { display: inline-block; width: 0.9rem; height: 0.9rem; border: 1px solid var(--muted); vertical-align: -0.1rem; margin-right: 0.35rem; }
+.swatch.given { background: var(--given-bg); }
+
+ul.can { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.5rem; max-width: 65ch; }
+
+.flow { overflow-x: auto; }
+.flow svg { display: block; min-width: 640px; width: 100%; height: auto; }
+.flow text { fill: var(--ink); font: 13px var(--font-body); }
+.flow .box { fill: var(--surface); stroke: var(--accent); stroke-width: 1.5; }
+.flow .new { fill: var(--given-bg); }
+.flow .arrow { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.flow .head { fill: var(--muted); }
+.flow .small { fill: var(--muted); font-size: 11px; }
+
+ol.timeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border-left: 2px solid var(--rule); }
+ol.timeline li { position: relative; padding: 0 0 1.25rem 1.25rem; display: grid; gap: 0.2rem; }
+ol.timeline li::before {
+  content: ""; position: absolute; left: -7px; top: 0.45rem; width: 12px; height: 12px;
+  border-radius: 50%; background: var(--paper); border: 2px solid var(--accent);
+}
+ol.timeline li.pass::before { background: var(--ok); border-color: var(--ok); }
+.tl-label { font-weight: 600; }
+.tl-meta { font-size: 0.85rem; color: var(--muted); }
+
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 0.4rem 1.25rem; margin: 0; }
+.facts dt { font-weight: 600; }
+.facts dd { margin: 0; min-width: 0; color: var(--muted); }
+.next { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.25rem; display: grid; gap: 0.5rem; }
+@media (max-width: 30rem) {
+  h1 { font-size: 1.8rem; }
+  .facts { grid-template-columns: 1fr; }
+  .facts dd { margin-bottom: 0.5rem; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header style="display:grid;gap:0.75rem">
+    <span class="eyebrow">Extra Credit · master plan Step 34 · issue #42</span>
+    <h1>Operation Grid</h1>
+    <p class="lede">The sixth worksheet: one fill-in table per page, the shape of the reference grid the parent asked for, with a completed grid as its answer key.</p>
+  </header>
+
+  <section aria-labelledby="sample">
+    <div class="sheet">
+      <div class="sheet-head"><strong id="sample">Multiplication · 10 × 10 · Diagonal first</strong><span>10 cells pre-filled · 90 to complete</span></div>
+      <div class="scroll">
+        <table class="grid" aria-label="Sample 10 by 10 multiplication grid with the diagonal pre-filled">
+<tr><th scope="col" class="corner">×</th><th scope="col">1</th><th scope="col">2</th><th scope="col">3</th><th scope="col">4</th><th scope="col">5</th><th scope="col">6</th><th scope="col">7</th><th scope="col">8</th><th scope="col">9</th><th scope="col">10</th></tr>
+<tr><th scope="row">1</th><td class="given">1</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>
+<tr><th scope="row">2</th><td class="blank"></td><td class="given">4</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>
+<tr><th scope="row">3</th><td class="blank"></td><td class="blank"></td><td class="given">9</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>
+<tr><th scope="row">4</th><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="given">16</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>
+<tr><th scope="row">5</th><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="given">25</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>
+<tr><th scope="row">6</th><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="given">36</td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>
+<tr><th scope="row">7</th><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="given">49</td><td class="blank"></td><td class="blank"></td><td class="blank"></td></tr>
+<tr><th scope="row">8</th><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="given">64</td><td class="blank"></td><td class="blank"></td></tr>
+<tr><th scope="row">9</th><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="given">81</td><td class="blank"></td></tr>
+<tr><th scope="row">10</th><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="blank"></td><td class="given">100</td></tr>
+        </table>
+      </div>
+      <div class="legend"><span><span class="swatch given"></span>Pre-filled anchor (bold, shaded so it survives black-and-white print)</span><span><span class="swatch"></span>Empty box sized for four handwritten digits</span></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="can">
+    <span class="eyebrow">What a parent can do now</span>
+    <h2 id="can">Choose a table, print it, check it</h2>
+    <ul class="can">
+      <li>Pick <strong>Operation Grid</strong> as the sixth worksheet card, then the operation: Addition <code>x + y</code>, Multiplication <code>x × y</code>, or Powers <code>x^y</code>.</li>
+      <li>Set rows and columns from 2 to 12 each (10 × 10 to start) and choose how anchors are placed: Random, or Diagonal first on a square addition or multiplication grid.</li>
+      <li>Type a pre-filled count, or tap a preset: Nearly blank (10%), Half (50%), Mostly filled (75%), or Diagonal. Presets round down and always leave at least one box to fill.</li>
+      <li>Ask for something the page cannot hold and get a refusal that names the one limit in the way: powers stop at bases 1–10 and exponents 1–3 (no cell above 1,000), and large print stops at 10 × 10.</li>
+      <li>Print a 12 × 12 grid on one Letter or A4 page at standard scale, plus a key page with every cell filled in.</li>
+      <li>Save the choices as worksheet defaults; nothing else writes them, and older saved files load unchanged.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="map">
+    <span class="eyebrow">How a grid is made</span>
+    <h2 id="map">From the parent's choices to the printed key</h2>
+    <p>The new family plugs into the same path every worksheet uses. The shaded boxes are new for Step 34; the rest were extended.</p>
+    <div class="flow" role="img" aria-label="Flow: generator controls, then the operationGrid schema group, then the shared request projection, then the operation-grid generator, then validation and the independent oracle, then the renderer and the answer key, then print">
+      <svg viewBox="0 0 720 210" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="head" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+        <rect class="box" x="10" y="20" width="150" height="56" rx="5"/><text x="85" y="44" text-anchor="middle">Generator controls</text><text class="small" x="85" y="62" text-anchor="middle">operation · size · presets</text>
+        <rect class="box" x="10" y="120" width="150" height="56" rx="5"/><text x="85" y="144" text-anchor="middle">operationGrid group</text><text class="small" x="85" y="162" text-anchor="middle">schema v2 · Zod defaults</text>
+        <rect class="box" x="200" y="70" width="150" height="56" rx="5"/><text x="275" y="94" text-anchor="middle">Request projection</text><text class="small" x="275" y="112" text-anchor="middle">refusals name the limit</text>
+        <rect class="box new" x="390" y="20" width="150" height="56" rx="5"/><text x="465" y="44" text-anchor="middle">Grid generator</text><text class="small" x="465" y="62" text-anchor="middle">seeded anchor cells</text>
+        <rect class="box" x="390" y="120" width="150" height="56" rx="5"/><text x="465" y="144" text-anchor="middle">Invariants + oracle</text><text class="small" x="465" y="162" text-anchor="middle">every cell recomputed</text>
+        <rect class="box new" x="580" y="70" width="130" height="56" rx="5"/><text x="645" y="94" text-anchor="middle">Renderer + key</text><text class="small" x="645" y="112" text-anchor="middle">table · Letter / A4</text>
+        <path class="arrow" d="M160,48 C180,48 180,98 200,98" marker-end="url(#ah)"/>
+        <path class="arrow" d="M160,148 C180,148 180,98 200,98" marker-end="url(#ah)"/>
+        <path class="arrow" d="M350,98 C370,98 370,48 390,48" marker-end="url(#ah)"/>
+        <path class="arrow" d="M465,76 L465,120" marker-end="url(#ah)"/>
+        <path class="arrow" d="M540,148 C560,148 560,98 580,98" marker-end="url(#ah)"/>
+      </svg>
+    </div>
+  </section>
+
+  <section aria-labelledby="steps">
+    <span class="eyebrow">How it shipped</span>
+    <h2 id="steps">Three review rounds, five reviewers each</h2>
+    <ol class="timeline">
+      <li><span class="tl-label">Prep: clear the release audit</span><span class="tl-meta">The reference screenshot, and later a reference PDF from a parallel session, moved outside the checkout; the docs reconciliation committed as <code>9f9757b</code>.</span></li>
+      <li><span class="tl-label">Round 1: the whole family</span><span class="tl-meta">50 files. Test quality found two negative tests that stayed green with their rule deleted.</span></li>
+      <li><span class="tl-label">Round 2: tests fail for the right reason</span><span class="tl-meta">Ceiling check tested directly, zero-blank ownership moved to the request guard, a measured Letter 12 × 12 print row. Style found one stale "five families" sentence.</span></li>
+      <li class="pass"><span class="tl-label">Round 3: pass</span><span class="tl-meta">All five arms passed; all six completion items confirmed. Landed and gated as <code>8b2546a</code>.</span></li>
+      <li class="pass"><span class="tl-label">Wrap</span><span class="tl-meta">README, CLAUDE.md and plan record, with verified drift fixes for Steps 31 and 33 and M1/M2, pushed as <code>32ca19b</code>.</span></li>
+    </ol>
+  </section>
+
+  <section aria-labelledby="landed">
+    <span class="eyebrow">Where it landed</span>
+    <h2 id="landed">On main, gated</h2>
+    <dl class="facts">
+      <dt>Commits</dt><dd><code>9f9757b</code> docs reconciliation · <code>8b2546a</code> Step 34 · <code>32ca19b</code> wrap, all on <code>origin/main</code></dd>
+      <dt>Issues</dt><dd>#42 closed by the build; #46 is the closed posterity record</dd>
+      <dt>Gate</dt><dd>1118 Vitest tests (40 files), 206 Playwright specs, lint, three typecheck projects, log-privacy calibration 1/1/0 on a quiet machine</dd>
+      <dt>Known flake</dt><dd>Three process-timing specs time out when another heavy program is running; rerun when the machine is quiet</dd>
+    </dl>
+    <div class="next">
+      <span class="eyebrow">Next</span>
+      <p>The MA-2 math screen review now covers Operation Grid. Then physical print acceptance (M1, issue #10) on Edge or Chrome, the family pilot (M2) and the pushed-commit Ubuntu CI check (M3, issue #13).</p>
+    </div>
+  </section>
+</main>
+</body>
+</html>
