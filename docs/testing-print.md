@@ -182,6 +182,20 @@ actual unfiltered test entry point and guards against OS skips and pixel baselin
 The Step 1 Ubuntu 24.04 workflow runs that same `check` command. Local Windows
 success is not a claim that the first post-push Ubuntu run has happened.
 
+Packet printing (master plan Step 33) has its own spec,
+`tests/e2e/packet-print.spec.ts` (`npm --prefix frontend run test:e2e --
+packet-print.spec.ts`). Two cells queue ten boundary sheets from the matrix
+above (Long where the family has a length choice), under the 40-character
+boundary nickname, with keys grouped at the end:
+Letter at standard scale, and A4 at large scale with sheets made on Letter and
+re-rendered on the packet paper. Each requires the PDF page count to equal
+`composePacketPages(...)`'s, the packet pages to follow the queued order, every
+surface to pass the shared required-content and containment readers in
+`tests/e2e/fixtures/print-checks.ts`, and every key heading to name its sheet. A
+calibration sets `break-before: auto !important` on the packet surfaces and
+requires the page count to fall. Evidence goes to the ignored
+`.build-step/print-evidence/packet/`.
+
 ## Fictional manual harness
 
 ```powershell

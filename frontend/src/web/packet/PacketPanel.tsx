@@ -1,7 +1,12 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 import type { ChildProfileV2 } from "../../shared/config/schema";
+import { PAPER_SIZES } from "../../shared/config/enums";
+import { PACKET_KEY_PLACEMENTS, type PacketKeyPlacement } from "../../shared/packet/compose";
+import type { PaperSize } from "../../shared/worksheet/types";
+import { PAPER_SIZE_LABELS } from "../generator/control-labels";
 import {
+  PACKET_KEY_PLACEMENT_LABELS,
   PACKET_REFUSAL_MESSAGES,
   describeQueuedSheet,
   packetCountText,
@@ -14,6 +19,9 @@ export const PACKET_SESSION_ONLY_TEXT =
   "This packet is kept only until you close or reload this page.";
 
 const PACKET_FULL_REASON_ID = "packet-full-reason";
+
+/** Preview packet's id, where focus returns from the packet preview when no single preview is open. */
+export const PACKET_PREVIEW_BUTTON_ID = "packet-preview-button";
 
 interface AddToPacketProps {
   /** Whether the packet already holds `PACKET_SHEET_LIMIT` sheets. */
@@ -56,9 +64,16 @@ interface PacketPanelProps {
   readonly sheets: readonly QueuedSheet[];
   /** The current saved profiles, which name each sheet's child. */
   readonly profiles: readonly ChildProfileV2[];
+  /** The packet's one paper size and where it prints its keys. */
+  readonly paperSize: PaperSize;
+  readonly keyPlacement: PacketKeyPlacement;
   readonly onMoveUp: (worksheetId: string) => void;
   readonly onMoveDown: (worksheetId: string) => void;
   readonly onRemove: (worksheetId: string) => void;
+  readonly onPaperChange: (paperSize: PaperSize) => void;
+  readonly onKeyPlacementChange: (keyPlacement: PacketKeyPlacement) => void;
+  /** Shows every packet page in print order in place of the single preview. */
+  readonly onPreview: () => void;
 }
 
 /** Where keyboard focus goes once the panel re-renders after a row action. */
@@ -69,11 +84,24 @@ type PendingFocus =
 /**
  * The printable packet: its count against the limit, the session-only
  * sentence and one row per queued sheet in packet order, each with Move up,
- * Move down and Remove. Focus stays with the sheet a parent moves, moving to
- * its other button when the one pressed reaches an end, and after a removal
- * lands on the next row's Remove, the previous row's, or the panel heading.
+ * Move down and Remove, then the packet's Paper and Answer keys choices and
+ * Preview packet, which is disabled while the packet is empty. Focus stays
+ * with the sheet a parent moves, moving to its other button when the one
+ * pressed reaches an end, and after a removal lands on the next row's Remove,
+ * the previous row's, or the panel heading.
  */
-export function PacketPanel({ onMoveDown, onMoveUp, onRemove, profiles, sheets }: PacketPanelProps) {
+export function PacketPanel({
+  keyPlacement,
+  onKeyPlacementChange,
+  onMoveDown,
+  onMoveUp,
+  onPaperChange,
+  onPreview,
+  onRemove,
+  paperSize,
+  profiles,
+  sheets,
+}: PacketPanelProps) {
   const panelRef = useRef<HTMLElement>(null);
   const pendingFocus = useRef<PendingFocus | null>(null);
   const [announcement, setAnnouncement] = useState("");
@@ -171,6 +199,49 @@ export function PacketPanel({ onMoveDown, onMoveUp, onRemove, profiles, sheets }
           })}
         </ol>
       )}
+      {sheets.length > 0 && (
+        <div className="packet-panel__print">
+          <fieldset className="packet-panel__choice" data-packet-paper="true">
+            <legend>Paper</legend>
+            {PAPER_SIZES.map((paper) => (
+              <label key={paper}>
+                <input
+                  checked={paperSize === paper}
+                  name="packet-paper"
+                  onChange={() => onPaperChange(paper)}
+                  type="radio"
+                  value={paper}
+                />{" "}
+                {PAPER_SIZE_LABELS[paper]}
+              </label>
+            ))}
+          </fieldset>
+          <fieldset className="packet-panel__choice" data-packet-key-placement="true">
+            <legend>Answer keys</legend>
+            {PACKET_KEY_PLACEMENTS.map((placement) => (
+              <label key={placement}>
+                <input
+                  checked={keyPlacement === placement}
+                  name="packet-key-placement"
+                  onChange={() => onKeyPlacementChange(placement)}
+                  type="radio"
+                  value={placement}
+                />{" "}
+                {PACKET_KEY_PLACEMENT_LABELS[placement]}
+              </label>
+            ))}
+          </fieldset>
+        </div>
+      )}
+      <button
+        data-packet-preview="true"
+        disabled={sheets.length === 0}
+        id={PACKET_PREVIEW_BUTTON_ID}
+        onClick={onPreview}
+        type="button"
+      >
+        Preview packet
+      </button>
       <p aria-live="polite" data-packet-announcement="true">
         {announcement}
       </p>

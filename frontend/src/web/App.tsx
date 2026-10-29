@@ -44,7 +44,8 @@ import {
   worksheetSessionReducer,
   type WorksheetPanelAction,
 } from "./generator/worksheet-session";
-import { AddToPacket, PacketPanel } from "./packet/PacketPanel";
+import { AddToPacket, PACKET_PREVIEW_BUTTON_ID, PacketPanel } from "./packet/PacketPanel";
+import { PacketPrintView } from "./packet/PacketPrintView";
 import {
   EMPTY_PACKET,
   PACKET_REFUSAL_MESSAGES,
@@ -587,6 +588,16 @@ export function App() {
     readonly text: string;
     readonly worksheetId: string;
   } | null>(null);
+  /**
+   * Whether the packet preview replaces the single preview. A new single
+   * preview, or removing the packet's last sheet, closes it; Back to
+   * worksheets returns focus to the single preview or, when there is none, to
+   * Preview packet. After the last removal the single preview, when there is
+   * one, takes focus on remount, and otherwise the panel moves focus to its
+   * heading.
+   */
+  const [packetPreviewOpen, setPacketPreviewOpen] = useState(false);
+  const packetPreviewReturnRef = useRef(false);
 
   /**
    * Hands a ready config read to the worksheet session: the first one (and a
@@ -1072,6 +1083,7 @@ export function App() {
         return;
       }
       setGenerationFailed(false);
+      setPacketPreviewOpen(false);
       setActiveGeneration({
         authority: renderedAuthority,
         previewEpoch: renderedPreviewEpoch,
@@ -1130,6 +1142,7 @@ export function App() {
       );
       setGenerationFailed(alternative.status === "failed");
       if (alternative.status === "changed") {
+        setPacketPreviewOpen(false);
         setActiveGeneration({
           authority: activeGeneration.authority,
           previewEpoch: activeGeneration.previewEpoch,
@@ -1204,6 +1217,31 @@ export function App() {
       text: `Sheet ${packet.sheets.length + 1} added to the packet.`,
       worksheetId: document.worksheetId,
     });
+  }
+
+  const showPacketPreview = packetPreviewOpen;
+  const singlePreviewShown = visibleActiveGeneration !== null;
+  useEffect(() => {
+    if (!showPacketPreview && packetPreviewReturnRef.current) {
+      packetPreviewReturnRef.current = false;
+      // A remounted single preview focuses its own heading.
+      if (!singlePreviewShown) {
+        document.getElementById(PACKET_PREVIEW_BUTTON_ID)?.focus();
+      }
+    }
+  }, [showPacketPreview, singlePreviewShown]);
+
+  /** Removes one queued sheet; removing the last one also closes the packet preview. */
+  function removeFromPacket(worksheetId: string): void {
+    if (packet.sheets.every((sheet) => sheet.document.worksheetId === worksheetId)) {
+      setPacketPreviewOpen(false);
+    }
+    dispatchPacket({ type: "remove", worksheetId });
+  }
+
+  /** The number of queued sheets made for one profile, for its delete dialog. */
+  function queuedSheetCount(profileId: string): number {
+    return packet.sheets.filter((sheet) => sheet.profileId === profileId).length;
   }
 
   function changeWorksheetSelection(action: WorksheetPanelAction): void {
@@ -1391,6 +1429,7 @@ export function App() {
                       });
                     }}
                     profiles={profileConfig.profiles}
+                    queuedSheetCount={queuedSheetCount}
                   />
                   <div style={{ borderTop: "1px solid #dbe1e8", marginTop: "1rem", paddingTop: "0.8rem" }}>
                     <button
@@ -1449,7 +1488,7 @@ export function App() {
                       Make another
                     </button>
                   )}
-                  {visibleActiveGeneration !== null && (
+                  {visibleActiveGeneration !== null && !showPacketPreview && (
                     <AddToPacket
                       full={packet.sheets.length >= PACKET_SHEET_LIMIT}
                       message={
@@ -1463,25 +1502,48 @@ export function App() {
                   )}
                   {profileState.kind === "ready" && (
                     <PacketPanel
+                      keyPlacement={packet.keyPlacement}
+                      onKeyPlacementChange={(keyPlacement) =>
+                        dispatchPacket({ type: "setKeyPlacement", keyPlacement })
+                      }
+                      onPaperChange={(paperSize) =>
+                        dispatchPacket({ type: "setPaper", paperSize })
+                      }
+                      onPreview={() => {
+                        if (packet.sheets.length > 0) {
+                          setPacketPreviewOpen(true);
+                        }
+                      }}
+                      paperSize={packet.paperSize}
                       onMoveDown={(worksheetId) =>
                         dispatchPacket({ type: "moveDown", worksheetId })
                       }
                       onMoveUp={(worksheetId) =>
                         dispatchPacket({ type: "moveUp", worksheetId })
                       }
-                      onRemove={(worksheetId) =>
-                        dispatchPacket({ type: "remove", worksheetId })
-                      }
+                      onRemove={removeFromPacket}
                       profiles={profileState.config.profiles}
                       sheets={packet.sheets}
                     />
                   )}
                 </div>
-                {visibleActiveGeneration !== null && (
-                  <PrintView
-                    key={visibleActiveGeneration.session.document.worksheetId}
-                    document={visibleActiveGeneration.session.document}
+                {showPacketPreview ? (
+                  <PacketPrintView
+                    keyPlacement={packet.keyPlacement}
+                    onBack={() => {
+                      packetPreviewReturnRef.current = true;
+                      setPacketPreviewOpen(false);
+                    }}
+                    paperSize={packet.paperSize}
+                    sheets={packet.sheets}
                   />
+                ) : (
+                  visibleActiveGeneration !== null && (
+                    <PrintView
+                      key={visibleActiveGeneration.session.document.worksheetId}
+                      document={visibleActiveGeneration.session.document}
+                    />
+                  )
                 )}
               </>
             )}

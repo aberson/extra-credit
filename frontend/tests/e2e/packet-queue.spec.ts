@@ -8,9 +8,11 @@ import {
   addMessage,
   addToPacket,
   moveSheet,
+  openPacketPreview,
   packetPanel,
   packetRows,
   packetWorksheetIds,
+  previewPacketButton,
   removeSheet,
 } from "./fixtures/packet-controls.js";
 import {
@@ -349,6 +351,57 @@ test("packet panel: axe, keyboard-only Add, Move up, Move down and Remove, and 3
   expect(geometry.width).toBe(320);
   expect(geometry.clipped).toEqual([]);
   expect(geometry.scroll).toBeLessThanOrEqual(geometry.width);
+  expect(writes()).toBe(0);
+  await expectEmptyBrowserStores(page);
+});
+
+test("packet preview: removing every sheet closes it, focus stays on the page, and the next Add keeps the single preview", async ({ appServer, page }) => {
+  test.setTimeout(90_000);
+  await appServer.seedConfig(acceptanceConfig);
+  const writes = trackConfigWrites(page);
+  await page.goto(appServer.origin);
+  const packetPreview = page.locator("[data-packet-print]");
+  const singlePreview = page.getByRole("heading", { name: "Preview and print", exact: true });
+  const activeElement = async () => await page.evaluate(`(() => {
+    const active = document.activeElement;
+    return active === null || active === document.body ? "body" : active.tagName;
+  })()`) as string;
+
+  // With a single preview to return to.
+  await chooseChild(page, first.id);
+  await chooseWorksheet(page, "dry-math");
+  await create(page);
+  await addToPacket(page);
+  await openPacketPreview(page);
+  await expect(page.locator(".print-workspace")).toHaveCount(1);
+  // While the packet preview replaces the single preview, Add to packet is not offered.
+  await expect(addButton(page)).toHaveCount(0);
+  await removeSheet(page, 1);
+  await expect(packetPreview).toHaveCount(0);
+  await expect(singlePreview).toBeFocused();
+  expect(await activeElement()).not.toBe("body");
+  await expect(previewPacketButton(page)).toBeDisabled();
+  // The next Add queues the visible preview and does not reopen the packet preview.
+  await addToPacket(page);
+  await expect(packetPreview).toHaveCount(0);
+  await expect(singlePreview).toBeVisible();
+  await expect(page.locator(".print-workspace")).toHaveCount(1);
+  await expect(addButton(page)).toBeVisible();
+
+  // Without one: a changed control takes the single preview down first.
+  await openPacketPreview(page);
+  await chooseWorksheet(page, "clock-explorer");
+  await expect(addButton(page)).toHaveCount(0);
+  await expect(packetPreview).toHaveCount(1);
+  await removeSheet(page, 1);
+  await expect(packetPreview).toHaveCount(0);
+  await expect(page.locator(".print-workspace")).toHaveCount(0);
+  await expect(packetPanel(page).getByRole("heading", { name: "Printable packet", exact: true })).toBeFocused();
+  expect(await activeElement()).not.toBe("body");
+  await create(page);
+  await addToPacket(page);
+  await expect(packetPreview).toHaveCount(0);
+  await expect(singlePreview).toBeVisible();
   expect(writes()).toBe(0);
   await expectEmptyBrowserStores(page);
 });

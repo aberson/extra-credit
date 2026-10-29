@@ -1,0 +1,8 @@
+/*
+ * The printed packet (master plan Step 33): every page after the first starts
+ * a new printed page. Each surface keeps the packet paper's existing named
+ * page from print-letter.css or print-a4.css through its data-paper-size.
+ */
+.print-surface[data-packet-page] + .print-surface[data-packet-page] {
+  break-before: page;
+}

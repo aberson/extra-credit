@@ -16,14 +16,18 @@ import { describeOperationGrid } from "../../worksheets/operation-grid/definitio
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
 import { WORKSHEET_LENGTH_LABELS } from "../generator/control-labels";
 import { createWorksheetSessionForSeed } from "../generator/create-session";
+import { PACKET_SHEET_LIMIT as SHARED_PACKET_SHEET_LIMIT, composePacketPages } from "../../shared/packet/compose";
 import {
   EMPTY_PACKET,
+  PACKET_KEY_PLACEMENT_LABELS,
   PACKET_REFUSAL_MESSAGES,
   PACKET_SHEET_LIMIT,
   REMOVED_PROFILE_LABEL,
   describeQueuedSheet,
+  onPacketPaper,
   packetAddRefusal,
   packetCountText,
+  packetKeyLabel,
   packetReducer,
   queuedSheetLabel,
   type PacketState,
@@ -289,5 +293,95 @@ describe("describeQueuedSheet", () => {
   test("the count copy reads the limit", () => {
     expect(packetCountText(0)).toBe(`0 of ${PACKET_SHEET_LIMIT} sheets`);
     expect(packetCountText(3)).toBe("3 of 10 sheets");
+  });
+});
+
+describe("packet paper and key placement", () => {
+  test("the limit has one owner, re-exported here", () => {
+    expect(PACKET_SHEET_LIMIT).toBe(SHARED_PACKET_SHEET_LIMIT);
+  });
+
+  test("an empty packet adopts its first sheet's paper; later sheets and removals keep the packet's", () => {
+    expect(EMPTY_PACKET.paperSize).toBe("letter");
+    expect(EMPTY_PACKET.keyPlacement).toBe("grouped-end");
+    const a4 = sheetFor(FIRST_CHILD, { worksheetType: "dry-math", paperSize: "a4" });
+    const letter = sheetFor(SECOND_CHILD, { worksheetType: "tally-detective", paperSize: "letter" });
+    const first = packetReducer(EMPTY_PACKET, { type: "add", sheet: a4 });
+    expect(first.paperSize).toBe("a4");
+    const second = packetReducer(first, { type: "add", sheet: letter });
+    expect(second.paperSize).toBe("a4");
+    const emptied = [a4, letter].reduce(
+      (state, sheet) => packetReducer(state, { type: "remove", worksheetId: sheet.document.worksheetId }),
+      second,
+    );
+    expect(emptied.sheets).toEqual([]);
+    // Emptied, the packet adopts the next first sheet's paper again.
+    expect(packetReducer(emptied, { type: "add", sheet: letter }).paperSize).toBe("letter");
+  });
+
+  test("changing the paper or the placement leaves every stored document deep-equal and the same object", () => {
+    const sheets = [
+      sheetFor(FIRST_CHILD, { worksheetType: "dry-math", printScale: "large" }),
+      sheetFor(SECOND_CHILD, { worksheetType: "operation-grid" }),
+      sheetFor(FIRST_CHILD, { worksheetType: "clock-explorer", paperSize: "a4" }),
+    ];
+    const start = packetOf(sheets);
+    const snapshots = start.sheets.map((sheet) => structuredClone(sheet));
+    const a4 = packetReducer(start, { type: "setPaper", paperSize: "a4" });
+    expect(a4.paperSize).toBe("a4");
+    const placed = packetReducer(a4, { type: "setKeyPlacement", keyPlacement: "after-each-sheet" });
+    expect(placed.keyPlacement).toBe("after-each-sheet");
+    const back = packetReducer(placed, { type: "setPaper", paperSize: "letter" });
+    for (const state of [a4, placed, back]) {
+      expect(state.sheets).toEqual(snapshots);
+      state.sheets.forEach((sheet, index) => expect(sheet.document).toBe(sheets[index]?.document));
+    }
+    // The stored papers are still each sheet's own.
+    expect(back.sheets.map((sheet) => sheet.document.request.options.paperSize)).toEqual([
+      "letter",
+      "letter",
+      "a4",
+    ]);
+    // An unchanged choice returns the state itself.
+    expect(packetReducer(a4, { type: "setPaper", paperSize: "a4" })).toBe(a4);
+    expect(packetReducer(placed, { type: "setKeyPlacement", keyPlacement: "after-each-sheet" })).toBe(placed);
+  });
+
+  test("a page renders on the packet paper with the stored items, answers and scale, for display only", () => {
+    const sheet = sheetFor(FIRST_CHILD, { worksheetType: "number-bonds", printScale: "large" });
+    const stored = structuredClone(sheet.document);
+    const shown = onPacketPaper(sheet.document, "a4");
+    expect(shown.request.options.paperSize).toBe("a4");
+    expect(shown.request.options.printScale).toBe("large");
+    expect(shown.items).toBe(sheet.document.items);
+    expect({ ...shown, request: { ...shown.request, options: { ...shown.request.options, paperSize: "letter" } } })
+      .toEqual(stored);
+    expect(sheet.document).toEqual(stored);
+    // The stored paper needs no copy.
+    expect(onPacketPaper(sheet.document, "letter")).toBe(sheet.document);
+  });
+
+  test("a key label names the sheet number, family and printed nickname when there is one", () => {
+    const named = sheetFor(FIRST_CHILD, { worksheetType: "dry-math" });
+    const unnamed = sheetFor(SECOND_CHILD, { worksheetType: "operation-grid" });
+    const hidden = sheetFor(FIRST_CHILD, { worksheetType: "tally-detective", useDisplayName: false });
+    const pages = composePacketPages([named, unnamed, hidden], "grouped-end");
+    const labels = pages.filter((page) => page.surface === "answer").map(packetKeyLabel);
+    expect(labels).toEqual([
+      "Sheet 1 · Dry Math · for Fictional Wren",
+      "Sheet 2 · Operation Grid",
+      "Sheet 3 · Tally Detective",
+    ]);
+    // The printed nickname, not the profile's current one.
+    expect(named.document.request.displayName).toBe("Fictional Wren");
+    expect(hidden.document.request.displayName).toBeUndefined();
+  });
+
+  test("the Answer keys labels come from the packet contract", () => {
+    expect(PACKET_KEY_PLACEMENT_LABELS).toEqual({
+      "grouped-end": "All answer keys at the end",
+      "after-each-sheet": "Each key after its worksheet",
+      none: "Leave out answer keys",
+    });
   });
 });

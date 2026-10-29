@@ -9,6 +9,18 @@ export interface ProfileListProps {
   readonly onDelete: (profileId: string) => Promise<void>;
   readonly onEdit: (profile: ChildProfileV2) => void;
   readonly profiles: readonly ChildProfileV2[];
+  /** How many printable-packet sheets were made for this profile (master plan Step 33). */
+  readonly queuedSheetCount?: (profileId: string) => number;
+}
+
+/**
+ * The delete dialog's packet sentence: how many queued sheets belong to the
+ * profile, and that deleting it leaves them in the packet.
+ */
+function queuedSheetsSentence(count: number): string {
+  return count === 1
+    ? "1 sheet in the printable packet was made for this profile. It stays in the packet, labeled for a removed profile."
+    : `${count} sheets in the printable packet were made for this profile. They stay in the packet, labeled for a removed profile.`;
 }
 
 const buttonStyle: CSSProperties = {
@@ -25,10 +37,13 @@ export function ProfileList({
   onDelete,
   onEdit,
   profiles,
+  queuedSheetCount,
 }: ProfileListProps) {
   const [deleteCandidate, setDeleteCandidate] = useState<ChildProfileV2 | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const queuedForCandidate =
+    deleteCandidate === null ? 0 : (queuedSheetCount?.(deleteCandidate.id) ?? 0);
 
   async function confirmDelete(): Promise<void> {
     if (deleteCandidate === null || disabled) {
@@ -137,6 +152,9 @@ export function ProfileList({
             separately from the configuration folder, your chosen download or PDF
             location, and your physical files if needed.
           </p>
+          {queuedForCandidate > 0 && (
+            <p data-delete-queued-sheets="true">{queuedSheetsSentence(queuedForCandidate)}</p>
+          )}
           {deleteError !== null && <p role="alert">{deleteError}</p>}
           <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem" }}>
             <button

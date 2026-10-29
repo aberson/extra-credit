@@ -26,14 +26,23 @@ function asArray(value: unknown, label: string): unknown[] {
   return value as unknown[];
 }
 
+/** Every row the unfiltered Playwright entry point lists. */
+async function listedBrowserTests(): Promise<readonly string[]> {
+  const require = createRequire(import.meta.url);
+  const { stdout } = await promisify(execFile)(process.execPath, [require.resolve("@playwright/test/cli"), "test", "--list"], {
+    cwd: frontendRoot,
+    env: { ...process.env, EXTRA_CREDIT_E2E_BASE_URL: "http://127.0.0.1:1" },
+  });
+  return stdout.split("\n");
+}
+
+/** `print.spec.ts` rows only: the name must not end another file's, such as `packet-print.spec.ts`. */
+const PRINT_SPEC_ROW = /(?<![\w-])print\.spec\.ts:\d+:\d+/u;
+const PACKET_PRINT_SPEC_ROW = /(?<![\w-])packet-print\.spec\.ts:\d+:\d+/u;
+
 describe("CI and package-script contract", () => {
   it("discovers the mandatory print matrix through the same unfiltered browser entry point", async () => {
-    const require = createRequire(import.meta.url);
-    const { stdout } = await promisify(execFile)(process.execPath, [require.resolve("@playwright/test/cli"), "test", "--list"], {
-      cwd: frontendRoot,
-      env: { ...process.env, EXTRA_CREDIT_E2E_BASE_URL: "http://127.0.0.1:1" },
-    });
-    const listed = stdout.split("\n").filter((line) => /print\.spec\.ts:\d+:\d+/u.test(line));
+    const listed = (await listedBrowserTests()).filter((line) => PRINT_SPEC_ROW.test(line));
     // 99 worksheet rows, four order-bound sweeps, earliest-print probe,
     // and 13 manual lifecycle cases.
     expect(listed).toHaveLength(117);
@@ -81,6 +90,20 @@ describe("CI and package-script contract", () => {
     expect(source).not.toMatch(/\b(?:skip|fixme|only)\s*\(|process\.platform|node:os|toHaveScreenshot|toMatchSnapshot/u);
     const harness = await readFile(resolve(frontendRoot, "tests/e2e/server-harness.mjs"), "utf8");
     expect(harness).toContain('[playwrightCli, "test", ...process.argv.slice(2)]');
+  });
+
+  it("discovers exactly the three packet print tests through the same entry point", async () => {
+    const rows = await listedBrowserTests();
+    const listed = rows.filter((line) => PACKET_PRINT_SPEC_ROW.test(line));
+    // The Letter and A4 maximum-length cells and the page-break calibration.
+    expect(listed).toHaveLength(3);
+    expect(listed.filter((line) => line.includes("ten maximum-length sheets"))).toHaveLength(2);
+    expect(listed.filter((line) => line.includes("packet calibration"))).toHaveLength(1);
+    // The filters are disjoint: no print.spec.ts row is a packet row.
+    expect(rows.filter((line) => PRINT_SPEC_ROW.test(line)).length).toBeGreaterThan(0);
+    expect(rows.filter((line) => PRINT_SPEC_ROW.test(line) && PACKET_PRINT_SPEC_ROW.test(line))).toEqual([]);
+    const source = await readFile(resolve(frontendRoot, "tests/e2e/packet-print.spec.ts"), "utf8");
+    expect(source).not.toMatch(/\b(?:skip|fixme|only)\s*\(/u);
   });
 
   it("pins the development supervisor and complete browser-gate graph", async () => {

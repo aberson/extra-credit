@@ -154,7 +154,7 @@ As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff733
 - **Completed prerequisite:** Step 19 is shipped. Plan 02 code is not a technical dependency; P10's screen review before packets is waived as a dispatch gate by P6 (2026-10-28).
 
 ### Step 33: Preview and print the whole packet once
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 
 - **Problem:** Implement master Step 33, using this leaf and the [packet contract](../plan-reference/packet-contracts.md) as the specification; touch further files when a gate requires it and record them in the checkpoint. Let a parent preview every page of the session packet in print order and print the whole packet with one print action, each worksheet and each applicable answer key on its own page, keys grouped at the end by default with a per-packet choice of at the end, after each sheet or left out, and every key heading labeled with its sheet; one packet paper size, Letter or A4, chosen in the packet panel re-renders every sheet at its own stored scale without changing any problem (paper only: no length search, no regeneration); printing never clears the queue, and the profile delete dialog says how many queued sheets belong to that profile and leaves them in the queue.
 - **Type:** code

@@ -87,7 +87,7 @@ import {
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
 import { ConfigApiError, ConfigAuthorityChangedError } from "../api/client";
 import { EARLY_PRIMARY_HELP_TEXT } from "../profiles/ProfileEditor";
-import { WORKSHEET_LENGTH_LABELS, profileLabel } from "./control-labels";
+import { PAPER_SIZE_LABELS, WORKSHEET_LENGTH_LABELS, profileLabel } from "./control-labels";
 import type { GenerationSelection } from "./create-session";
 import {
   earlierSettingsInUse,
@@ -1204,8 +1204,8 @@ export function GeneratorControls({
                           }
                           value={selection.paperSize}
                         >
-                          <option value="letter">US Letter</option>
-                          <option value="a4">A4</option>
+                          <option value="letter">{PAPER_SIZE_LABELS.letter}</option>
+                          <option value="a4">{PAPER_SIZE_LABELS.a4}</option>
                         </select>
                       </label>
                     )}

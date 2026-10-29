@@ -1,24 +1,31 @@
 /**
- * The printable packet as App session state (master plan Step 31, P9).
+ * The printable packet as App session state (master plan Steps 31 and 33, P9).
  *
  * A packet is an ordered list of queued sheets, each the generated document
  * exactly as it was previewed (its items and answers) plus the profile id and
- * worksheet selection it was made from. The reducer is pure and App holds it
- * in `useReducer` beside the worksheet session: nothing here reaches the
- * server or browser storage, so the packet is lost on close or reload by
- * design. Later control, child or profile changes never touch a queued sheet;
- * only the label's child segment reads the current profiles.
+ * worksheet selection it was made from, and the packet's one paper size and
+ * answer-key placement. The reducer is pure and App holds it in `useReducer`
+ * beside the worksheet session: nothing here reaches the server or browser
+ * storage, so the packet is lost on close or reload by design. Later control,
+ * child or profile changes never touch a queued sheet, and neither the paper
+ * nor the placement changes a stored document; only the label's child segment
+ * reads the current profiles.
  */
 import { describeFactsFocus, describeNumberBonds, describePracticeFocus } from "../../shared/config/practice-focus";
 import type { ChildProfileV2, WorksheetSelectionV2 } from "../../shared/config/schema";
+import {
+  DEFAULT_PACKET_KEY_PLACEMENT,
+  PACKET_SHEET_LIMIT,
+  type PacketKeyPlacement,
+  type PacketPage,
+} from "../../shared/packet/compose";
 import { getWorksheetRegistration } from "../../shared/worksheet/registry";
-import type { WorksheetDocumentV1 } from "../../shared/worksheet/types";
+import type { PaperSize, WorksheetDocumentV1 } from "../../shared/worksheet/types";
 import { describeOperationGrid } from "../../worksheets/operation-grid/definition";
 import { SENTENCE_BUILDER_VARIANT_LABELS } from "../../worksheets/sentence-builder/definition";
 import { WORKSHEET_LENGTH_LABELS, profileLabel } from "../generator/control-labels";
 
-/** The most sheets one packet holds. */
-export const PACKET_SHEET_LIMIT = 10;
+export { PACKET_SHEET_LIMIT };
 
 export interface QueuedSheet {
   /** The child the sheet was made for; the profile may later be edited or removed. */
@@ -32,15 +39,32 @@ export interface QueuedSheet {
 export interface PacketState {
   /** In packet order: the first entry is sheet 1. */
   readonly sheets: readonly QueuedSheet[];
+  /** The one paper every page prints on; an empty packet adopts its first sheet's. */
+  readonly paperSize: PaperSize;
+  /** Where the packet prints its answer keys. */
+  readonly keyPlacement: PacketKeyPlacement;
 }
 
-export const EMPTY_PACKET: PacketState = Object.freeze({ sheets: Object.freeze([]) });
+export const EMPTY_PACKET: PacketState = Object.freeze({
+  sheets: Object.freeze([]),
+  paperSize: "letter",
+  keyPlacement: DEFAULT_PACKET_KEY_PLACEMENT,
+});
 
 export type PacketAction =
   | { readonly type: "add"; readonly sheet: QueuedSheet }
   | { readonly type: "moveUp"; readonly worksheetId: string }
   | { readonly type: "moveDown"; readonly worksheetId: string }
-  | { readonly type: "remove"; readonly worksheetId: string };
+  | { readonly type: "remove"; readonly worksheetId: string }
+  | { readonly type: "setPaper"; readonly paperSize: PaperSize }
+  | { readonly type: "setKeyPlacement"; readonly keyPlacement: PacketKeyPlacement };
+
+/** The "Answer keys" choice's labels (packet contract Appendix C). */
+export const PACKET_KEY_PLACEMENT_LABELS = {
+  "grouped-end": "All answer keys at the end",
+  "after-each-sheet": "Each key after its worksheet",
+  none: "Leave out answer keys",
+} as const satisfies Record<PacketKeyPlacement, string>;
 
 /** "N of 10 sheets", from `PACKET_SHEET_LIMIT`. */
 export function packetCountText(count: number): string {
@@ -94,9 +118,17 @@ function swapped(
 export function packetReducer(state: PacketState, action: PacketAction): PacketState {
   switch (action.type) {
     case "add":
-      return packetAddRefusal(state, action.sheet.document) === undefined
-        ? { ...state, sheets: [...state.sheets, action.sheet] }
-        : state;
+      if (packetAddRefusal(state, action.sheet.document) !== undefined) {
+        return state;
+      }
+      return {
+        ...state,
+        sheets: [...state.sheets, action.sheet],
+        paperSize:
+          state.sheets.length === 0
+            ? action.sheet.document.request.options.paperSize
+            : state.paperSize,
+      };
     case "moveUp":
     case "moveDown": {
       const from = state.sheets.findIndex(
@@ -111,7 +143,43 @@ export function packetReducer(state: PacketState, action: PacketAction): PacketS
       );
       return next.length === state.sheets.length ? state : { ...state, sheets: next };
     }
+    case "setPaper":
+      return action.paperSize === state.paperSize ? state : { ...state, paperSize: action.paperSize };
+    case "setKeyPlacement":
+      return action.keyPlacement === state.keyPlacement
+        ? state
+        : { ...state, keyPlacement: action.keyPlacement };
   }
+}
+
+/**
+ * The document a packet page renders: the stored document with the packet
+ * paper in place of its own, for display only (D21's paper-only tweak). No
+ * generator reads `paperSize`, so the items and answers, and the stored scale,
+ * are the stored document's own; the stored document itself is never changed.
+ */
+export function onPacketPaper(document: WorksheetDocumentV1, paperSize: PaperSize): WorksheetDocumentV1 {
+  return document.request.options.paperSize === paperSize
+    ? document
+    : {
+        ...document,
+        request: { ...document.request, options: { ...document.request.options, paperSize } },
+      };
+}
+
+/**
+ * A key page's sheet label: "Sheet N · family", then "for nickname" when the
+ * worksheet prints one. The nickname is the one the immutable document
+ * printed, not the profile's current one.
+ */
+export function packetKeyLabel(page: PacketPage<QueuedSheet>): string {
+  const { document } = page.sheet;
+  const nickname = document.request.displayName;
+  return [
+    `Sheet ${page.position}`,
+    getWorksheetRegistration(document.worksheetType).displayName,
+    ...(nickname === undefined ? [] : [`for ${nickname}`]),
+  ].join(" · ");
 }
 
 /** The child segment when the profile a sheet was made for no longer exists. */

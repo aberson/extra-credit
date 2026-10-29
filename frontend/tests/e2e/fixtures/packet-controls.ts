@@ -1,8 +1,15 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
+import type { WorksheetSelectionV2 } from "../../../src/shared/config/schema.ts";
+import type { PacketKeyPlacement } from "../../../src/shared/packet/compose.ts";
+import type { PaperSize } from "../../../src/shared/worksheet/types.ts";
+import { setPrintSeed } from "./print-checks.ts";
+import { chooseChild, chooseWorksheetChoices, controls } from "./worksheet-controls.ts";
+
 /**
- * The one Playwright helper for the printable packet (master plan Step 31).
- * Specs add, read, move and remove packet sheets through these functions, so a
+ * The one Playwright helper for the printable packet (master plan Steps 31
+ * and 33). Specs add, read, move and remove packet sheets, choose its paper
+ * and key placement, and preview and print it through these functions, so a
  * change to where a packet control lives edits this file rather than every
  * spec.
  */
@@ -79,4 +86,77 @@ export async function removeSheet(page: Page, position: number): Promise<void> {
     .click();
   await expect(rows(page)).toHaveCount(before - 1);
   await expect(packetPanel(page).locator(`[data-worksheet-id="${id}"]`)).toHaveCount(0);
+}
+
+/** One sheet `queueSheets` creates and adds. */
+export interface PacketSheetPlan {
+  readonly profileId: string;
+  /** The worksheet choices made through the worksheet controls. */
+  readonly selection: WorksheetSelectionV2;
+  /** With the print seed stub installed, the seed the sheet is created with. */
+  readonly seed?: number;
+}
+
+/**
+ * Creates each planned sheet through the worksheet controls and adds it to
+ * the packet, in order. A sheet with a seed is created with it and its
+ * preview must show it. Length, print scale and the other More options
+ * choices are the session's own, for example from seeded defaults.
+ */
+export async function queueSheets(page: Page, sheets: readonly PacketSheetPlan[]): Promise<void> {
+  for (const sheet of sheets) {
+    if (sheet.seed !== undefined) {
+      await setPrintSeed(page, sheet.seed);
+    }
+    await chooseChild(page, sheet.profileId);
+    await chooseWorksheetChoices(page, sheet.selection);
+    await controls(page).create().click();
+    await expect(page.getByRole("heading", { name: "Preview and print", exact: true })).toBeFocused();
+    if (sheet.seed !== undefined) {
+      await expect(page.locator(".print-surface [data-seed]")).toHaveAttribute(
+        "data-seed",
+        sheet.seed.toString(16).padStart(8, "0"),
+      );
+    }
+    await addToPacket(page);
+  }
+}
+
+/** The packet's Paper choice: one radio per paper size. */
+export async function choosePacketPaper(page: Page, paperSize: PaperSize): Promise<void> {
+  const radio = packetPanel(page)
+    .getByRole("group", { name: "Paper", exact: true })
+    .locator(`input[type="radio"][value="${paperSize}"]`);
+  await radio.check();
+  await expect(radio).toBeChecked();
+}
+
+/** The packet's "Answer keys" choice. */
+export async function chooseKeyPlacement(page: Page, placement: PacketKeyPlacement): Promise<void> {
+  const radio = packetPanel(page)
+    .getByRole("group", { name: "Answer keys", exact: true })
+    .locator(`input[type="radio"][value="${placement}"]`);
+  await radio.check();
+  await expect(radio).toBeChecked();
+}
+
+/** "Preview packet" in the panel. */
+export function previewPacketButton(page: Page): Locator {
+  return packetPanel(page).getByRole("button", { name: "Preview packet", exact: true });
+}
+
+/** Opens the packet preview; its heading takes focus. */
+export async function openPacketPreview(page: Page): Promise<void> {
+  await previewPacketButton(page).click();
+  await expect(page.getByRole("heading", { name: "Packet preview", exact: true })).toBeFocused();
+}
+
+/** Every packet page's surface, in DOM order. */
+export function packetSurfaces(page: Page): Locator {
+  return page.locator(".print-surface[data-packet-page]");
+}
+
+/** "Print packet (N pages)" in the packet preview. */
+export function printPacketButton(page: Page): Locator {
+  return page.getByRole("button", { name: /^Print packet \(\d+ pages?\)$/u });
 }

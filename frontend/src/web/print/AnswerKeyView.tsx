@@ -23,6 +23,30 @@ import { OperationGridTable } from "../worksheets/operation-grid/Renderer";
 
 interface AnswerKeyViewProps {
   readonly document: WorksheetDocumentV1;
+  /**
+   * The packet's name for this key's sheet (master plan Step 33). Without it
+   * the key's markup is exactly the single-sheet key's.
+   */
+  readonly sheetLabel?: string | undefined;
+}
+
+/**
+ * Every key's heading. With a sheet label it carries one
+ * `span[data-packet-sheet-label]` after its text, so a printed packet's keys
+ * each name their sheet.
+ */
+function AnswerKeyHeading({ document, sheetLabel }: AnswerKeyViewProps) {
+  return (
+    <h2 id={`worksheet-${document.worksheetId}-answer-title`}>
+      Parent answer key
+      {sheetLabel === undefined ? null : (
+        <>
+          {" — "}
+          <span data-packet-sheet-label="true">{sheetLabel}</span>
+        </>
+      )}
+    </h2>
+  );
 }
 
 function sourceExpression(item: WorksheetItemV1): string | undefined {
@@ -55,15 +79,15 @@ function answerText(answer: ObjectiveAnswerV1): string {
   }
 }
 
-export function AnswerKeyView({ document }: AnswerKeyViewProps) {
+export function AnswerKeyView({ document, sheetLabel }: AnswerKeyViewProps) {
   if (document.worksheetType === "operation-grid") {
-    return <OperationGridAnswerKey document={document} />;
+    return <OperationGridAnswerKey document={document} sheetLabel={sheetLabel} />;
   }
   if (document.worksheetType === "clock-explorer") {
-    return <ClockExplorerAnswerKey document={document} />;
+    return <ClockExplorerAnswerKey document={document} sheetLabel={sheetLabel} />;
   }
   if (document.worksheetType === "tally-detective") {
-    return <TallyDetectiveAnswerKey document={document} />;
+    return <TallyDetectiveAnswerKey document={document} sheetLabel={sheetLabel} />;
   }
   const objectiveItems = document.items.filter(
     (item) => item.answerability === "objective",
@@ -71,9 +95,7 @@ export function AnswerKeyView({ document }: AnswerKeyViewProps) {
   return (
     <article aria-labelledby={`worksheet-${document.worksheetId}-answer-title`}>
       <header style={{ borderBottom: "2px solid #24324a", marginBottom: "1rem" }}>
-        <h2 id={`worksheet-${document.worksheetId}-answer-title`}>
-          Parent answer key
-        </h2>
+        <AnswerKeyHeading document={document} sheetLabel={sheetLabel} />
         <p>Answers match the numbered problems on the worksheet.</p>
       </header>
       <ol aria-label="Objective answers" style={{ listStyle: "none", padding: 0 }}>
@@ -126,7 +148,7 @@ export function AnswerKeyView({ document }: AnswerKeyViewProps) {
  * The time is formatted from the clock's own hour, the same field the dial
  * is drawn from.
  */
-function ClockExplorerAnswerKey({ document }: AnswerKeyViewProps) {
+function ClockExplorerAnswerKey({ document, sheetLabel }: AnswerKeyViewProps) {
   const items = clockItemsOf(document);
   if (items === undefined) {
     return <p role="alert">This answer key could not be rendered safely.</p>;
@@ -134,9 +156,7 @@ function ClockExplorerAnswerKey({ document }: AnswerKeyViewProps) {
   return (
     <article aria-labelledby={`worksheet-${document.worksheetId}-answer-title`}>
       <header style={{ borderBottom: "2px solid #24324a", marginBottom: "1rem" }}>
-        <h2 id={`worksheet-${document.worksheetId}-answer-title`}>
-          Parent answer key
-        </h2>
+        <AnswerKeyHeading document={document} sheetLabel={sheetLabel} />
         <p>Answers match the numbered problems on the worksheet.</p>
       </header>
       <ol aria-label="Objective answers" style={{ listStyle: "none", padding: 0 }}>
@@ -165,7 +185,7 @@ function ClockExplorerAnswerKey({ document }: AnswerKeyViewProps) {
  * Both are formatted from the tally's own bundles and remainder, the same
  * fields its marks are drawn from.
  */
-function TallyDetectiveAnswerKey({ document }: AnswerKeyViewProps) {
+function TallyDetectiveAnswerKey({ document, sheetLabel }: AnswerKeyViewProps) {
   const items = tallyItemsOf(document);
   if (items === undefined) {
     return <p role="alert">This answer key could not be rendered safely.</p>;
@@ -173,9 +193,7 @@ function TallyDetectiveAnswerKey({ document }: AnswerKeyViewProps) {
   return (
     <article aria-labelledby={`worksheet-${document.worksheetId}-answer-title`}>
       <header style={{ borderBottom: "2px solid #24324a", marginBottom: "1rem" }}>
-        <h2 id={`worksheet-${document.worksheetId}-answer-title`}>
-          Parent answer key
-        </h2>
+        <AnswerKeyHeading document={document} sheetLabel={sheetLabel} />
         <p>Answers match the numbered problems on the worksheet.</p>
       </header>
       <ol aria-label="Objective answers" style={{ listStyle: "none", padding: 0 }}>
@@ -202,7 +220,7 @@ function TallyDetectiveAnswerKey({ document }: AnswerKeyViewProps) {
  * Operation Grid's key: the same table as the worksheet, every cell completed
  * and the given cells still in their heavy border.
  */
-function OperationGridAnswerKey({ document }: AnswerKeyViewProps) {
+function OperationGridAnswerKey({ document, sheetLabel }: AnswerKeyViewProps) {
   const item = operationGridItemOf(document);
   if (item === undefined) {
     return <p role="alert">This answer key could not be rendered safely.</p>;
@@ -210,9 +228,7 @@ function OperationGridAnswerKey({ document }: AnswerKeyViewProps) {
   return (
     <article aria-labelledby={`worksheet-${document.worksheetId}-answer-title`}>
       <header style={{ borderBottom: "2px solid #24324a", marginBottom: "1rem" }}>
-        <h2 id={`worksheet-${document.worksheetId}-answer-title`}>
-          Parent answer key
-        </h2>
+        <AnswerKeyHeading document={document} sheetLabel={sheetLabel} />
         <p>{OPERATION_GRID_KEY_NOTE}</p>
       </header>
       <OperationGridTable

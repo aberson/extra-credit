@@ -19,6 +19,7 @@ import {
   EMPTY_PACKET,
   PACKET_REFUSAL_MESSAGES,
   PACKET_SHEET_LIMIT,
+  REMOVED_PROFILE_LABEL,
   packetReducer,
   type QueuedSheet,
 } from "./packet-session";
@@ -74,17 +75,47 @@ function rowLabels(): readonly string[] {
     .map((row) => row.querySelector("[data-packet-label]")?.textContent ?? "");
 }
 
+/** The panel's packet print props, with fresh handlers, for tests about its rows. */
+function printProps() {
+  return {
+    keyPlacement: "grouped-end",
+    onKeyPlacementChange: vi.fn(),
+    onPaperChange: vi.fn(),
+    onPreview: vi.fn(),
+    paperSize: "letter",
+  } as const;
+}
+
 /** The App's wiring in miniature: the real reducer behind the real panel. */
-function Harness({ initial }: { readonly initial: readonly QueuedSheet[] }) {
-  const [packet, dispatch] = useReducer(packetReducer, { sheets: initial });
+function Harness({
+  initial,
+  onPreview = () => undefined,
+  profiles = PROFILES,
+}: {
+  readonly initial: readonly QueuedSheet[];
+  readonly onPreview?: () => void;
+  readonly profiles?: readonly ChildProfileV2[];
+}) {
+  const [packet, dispatch] = useReducer(
+    packetReducer,
+    initial.reduce((state, sheet) => packetReducer(state, { type: "add", sheet }), EMPTY_PACKET),
+  );
   return (
-    <PacketPanel
-      onMoveDown={(worksheetId) => dispatch({ type: "moveDown", worksheetId })}
-      onMoveUp={(worksheetId) => dispatch({ type: "moveUp", worksheetId })}
-      onRemove={(worksheetId) => dispatch({ type: "remove", worksheetId })}
-      profiles={PROFILES}
-      sheets={packet.sheets}
-    />
+    <>
+      <PacketPanel
+        keyPlacement={packet.keyPlacement}
+        onKeyPlacementChange={(keyPlacement) => dispatch({ type: "setKeyPlacement", keyPlacement })}
+        onMoveDown={(worksheetId) => dispatch({ type: "moveDown", worksheetId })}
+        onMoveUp={(worksheetId) => dispatch({ type: "moveUp", worksheetId })}
+        onPaperChange={(paperSize) => dispatch({ type: "setPaper", paperSize })}
+        onPreview={onPreview}
+        onRemove={(worksheetId) => dispatch({ type: "remove", worksheetId })}
+        paperSize={packet.paperSize}
+        profiles={profiles}
+        sheets={packet.sheets}
+      />
+      <output data-state-paper={packet.paperSize} data-state-placement={packet.keyPlacement} />
+    </>
   );
 }
 
@@ -98,6 +129,7 @@ describe("PacketPanel", () => {
         onRemove={vi.fn()}
         profiles={PROFILES}
         sheets={sheets}
+        {...printProps()}
       />,
     );
     const panel = screen.getByRole("region", { name: "Printable packet" });
@@ -120,7 +152,14 @@ describe("PacketPanel", () => {
 
   test("the count and the session-only sentence come from their owners", () => {
     const { rerender } = render(
-      <PacketPanel onMoveDown={vi.fn()} onMoveUp={vi.fn()} onRemove={vi.fn()} profiles={PROFILES} sheets={[]} />,
+      <PacketPanel
+        onMoveDown={vi.fn()}
+        onMoveUp={vi.fn()}
+        onRemove={vi.fn()}
+        profiles={PROFILES}
+        sheets={[]}
+        {...printProps()}
+      />,
     );
     expect(screen.getByText(`0 of ${PACKET_SHEET_LIMIT} sheets`)).toBeInTheDocument();
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
@@ -135,6 +174,7 @@ describe("PacketPanel", () => {
         onRemove={vi.fn()}
         profiles={PROFILES}
         sheets={threeSheets()}
+        {...printProps()}
       />,
     );
     expect(screen.getByText(`3 of ${PACKET_SHEET_LIMIT} sheets`)).toBeInTheDocument();
@@ -173,6 +213,65 @@ describe("PacketPanel", () => {
     await user.click(screen.getByRole("button", { name: "Remove sheet 1" }));
     expect(screen.queryAllByRole("listitem")).toHaveLength(0);
     expect(screen.getByRole("heading", { name: "Printable packet" })).toHaveFocus();
+  });
+
+  test("Paper and Answer keys choices drive the packet, and Preview packet is disabled while it is empty", async () => {
+    const user = userEvent.setup();
+    const onPreview = vi.fn();
+    const empty = render(<Harness initial={[]} onPreview={onPreview} />);
+    const preview = screen.getByRole("button", { name: "Preview packet" });
+    expect(preview).toBeDisabled();
+    // An empty packet offers no paper or key choice: its first sheet's paper is adopted.
+    expect(screen.queryByRole("group", { name: "Paper" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Answer keys" })).toBeNull();
+
+    empty.unmount();
+    const { container } = render(<Harness initial={threeSheets()} onPreview={onPreview} />);
+    const state = () => container.querySelector("output");
+    const paper = screen.getByRole("group", { name: "Paper" });
+    expect(within(paper).getAllByRole("radio").map((radio) => radio.getAttribute("value"))).toEqual([
+      "letter",
+      "a4",
+    ]);
+    expect(within(paper).getByRole("radio", { name: "US Letter" })).toBeChecked();
+    const keys = screen.getByRole("group", { name: "Answer keys" });
+    expect(within(keys).getAllByRole("radio").map((radio) => radio.parentElement?.textContent)).toEqual([
+      " All answer keys at the end",
+      " Each key after its worksheet",
+      " Leave out answer keys",
+    ]);
+    expect(within(keys).getByRole("radio", { name: "All answer keys at the end" })).toBeChecked();
+
+    await user.click(within(paper).getByRole("radio", { name: "A4" }));
+    expect(state()).toHaveAttribute("data-state-paper", "a4");
+    expect(within(paper).getByRole("radio", { name: "A4" })).toBeChecked();
+    await user.click(within(keys).getByRole("radio", { name: "Each key after its worksheet" }));
+    expect(state()).toHaveAttribute("data-state-placement", "after-each-sheet");
+    await user.click(within(keys).getByRole("radio", { name: "Leave out answer keys" }));
+    expect(state()).toHaveAttribute("data-state-placement", "none");
+    // Neither choice changes the rows.
+    expect(rowLabels()).toEqual(THREE_LABELS);
+
+    await user.click(screen.getByRole("button", { name: "Preview packet" }));
+    expect(onPreview).toHaveBeenCalledTimes(1);
+  });
+
+  test("after a profile is removed its queued sheets stay, labeled for a removed profile", () => {
+    const sheets = threeSheets();
+    const { rerender } = render(<Harness initial={sheets} />);
+    expect(rowLabels()).toEqual(THREE_LABELS);
+    const remaining = PROFILES.filter((profile) => profile.id !== PROFILES[0]?.id);
+    rerender(<Harness initial={sheets} profiles={remaining} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(rowLabels()).toEqual([
+      `Sheet 1 · Dry Math · Addition and subtraction within 10 · for ${REMOVED_PROFILE_LABEL} · Standard`,
+      // The other child is now first in the list.
+      "Sheet 2 · Number Bonds · Missing number sentences, Addition within 10 · for Profile 1 · Standard",
+      `Sheet 3 · Clock Explorer · for ${REMOVED_PROFILE_LABEL}`,
+    ]);
+    expect(
+      screen.getAllByRole("listitem").map((row) => row.getAttribute("data-worksheet-id")),
+    ).toEqual(sheets.map((sheet) => sheet.document.worksheetId));
   });
 
   test("the panel adds no role=status element", () => {

@@ -25,7 +25,15 @@ import {
 } from "../oracles/arithmetic-oracle.js";
 import { expect, test } from "./fixtures/app-server.js";
 import { readGridTable } from "./fixtures/grid-table.js";
-import { addToPacket, packetPanel, packetRows } from "./fixtures/packet-controls.js";
+import {
+  addToPacket,
+  openPacketPreview,
+  packetPanel,
+  packetRows,
+  packetSurfaces,
+  packetWorksheetIds,
+  printPacketButton,
+} from "./fixtures/packet-controls.js";
 import {
   chooseChild,
   chooseFactFamilies,
@@ -900,6 +908,80 @@ test("compiled printable packet: two sheets for two children, no config write", 
   await expect(packetPanel(page).locator("[data-packet-count]")).toHaveText("2 of 10 sheets");
 
   // The packet wrote nothing, and nothing left the local origin.
+  expect(configWrites).toEqual([]);
+  expect((await appServer.readRaw()).equals(seeded)).toBe(true);
+  await expectPrivateBrowser(page, appServer.origin);
+  expect(consoleMessages).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  for (const url of requests) expect(new URL(url).origin).toBe(appServer.origin);
+});
+
+test("compiled packet print: two keyed sheets, every key at the end, one print action", async ({ appServer, page, context }) => {
+  const consoleMessages: string[] = [];
+  const pageErrors: string[] = [];
+  const requests: string[] = [];
+  const configWrites: string[] = [];
+  context.on("request", (request) => {
+    requests.push(request.url());
+    if (request.method() === "PUT" && new URL(request.url()).pathname === "/api/config") {
+      configWrites.push(request.url());
+    }
+  });
+  page.on("console", (message) => consoleMessages.push(`${message.type()}: ${message.text()}`));
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await appServer.seedConfig(acceptanceConfig);
+  const seeded = await appServer.readRaw();
+  const [firstChild, secondChild] = acceptanceConfig.profiles;
+  if (firstChild === undefined || secondChild === undefined) throw new Error("Canonical fixture missing.");
+
+  await page.goto(appServer.origin);
+  await expect(packetPanel(page).getByRole("button", { name: "Preview packet", exact: true })).toBeDisabled();
+  await chooseChild(page, firstChild.id);
+  await chooseWorksheet(page, "dry-math");
+  await controls(page).create().click();
+  await addToPacket(page);
+  await chooseChild(page, secondChild.id);
+  await chooseWorksheet(page, "clock-explorer");
+  await controls(page).create().click();
+  await addToPacket(page);
+  const rows = await packetRows(page);
+  const queued = await packetWorksheetIds(page);
+  expect(queued).toHaveLength(2);
+  await expect(
+    packetPanel(page).getByRole("group", { name: "Answer keys", exact: true })
+      .getByRole("radio", { name: "All answer keys at the end", exact: true }),
+  ).toBeChecked();
+
+  await openPacketPreview(page);
+  await expect(page.locator(".print-workspace")).toHaveCount(1);
+  await expect(packetSurfaces(page)).toHaveCount(4);
+  expect(await packetSurfaces(page).evaluateAll((nodes) =>
+    nodes.map((node) => `${node.getAttribute("data-surface")}:${node.getAttribute("data-sheet-id")}`),
+  )).toEqual([`worksheet:${queued[0]}`, `worksheet:${queued[1]}`, `answer:${queued[0]}`, `answer:${queued[1]}`]);
+  expect(await packetSurfaces(page).locator("h2 > span[data-packet-sheet-label]").allInnerTexts()).toEqual([
+    `Sheet 1 · Dry Math · for ${firstChild.displayName ?? ""}`,
+    `Sheet 2 · Clock Explorer · for ${secondChild.displayName ?? ""}`,
+  ]);
+
+  // One print action for the whole packet.
+  await page.evaluate(() => {
+    const scope = globalThis as unknown as { __packetPrints: number; print: () => void };
+    scope.__packetPrints = 0;
+    scope.print = () => {
+      scope.__packetPrints += 1;
+    };
+  });
+  await expect(printPacketButton(page)).toHaveText("Print packet (4 pages)");
+  await printPacketButton(page).click();
+  expect(await page.evaluate(() => (globalThis as unknown as { __packetPrints: number }).__packetPrints)).toBe(1);
+  await page.emulateMedia({ media: "print" });
+  const pdf = await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }));
+  expect(pdf.getPageCount()).toBe(4);
+  await page.emulateMedia({ media: "screen" });
+
+  // Printing kept the queue, and the packet wrote nothing and stayed local.
+  expect(await packetWorksheetIds(page)).toEqual(queued);
+  expect(await packetRows(page)).toEqual(rows);
   expect(configWrites).toEqual([]);
   expect((await appServer.readRaw()).equals(seeded)).toBe(true);
   await expectPrivateBrowser(page, appServer.origin);
