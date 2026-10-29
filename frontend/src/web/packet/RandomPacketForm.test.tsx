@@ -22,6 +22,22 @@ function renderForm(room: number = PACKET_SHEET_LIMIT, disabled = false, childCh
 
 const makeButton = () => screen.getByRole("button", { name: "Make random packet" });
 
+const EXPECTED_LEVELS = [
+  { value: "easier", label: "Easier", hint: "Numbers to 10, drawing and labeling" },
+  { value: "medium", label: "Medium", hint: "Numbers to 20, copying and sentence frames" },
+  { value: "harder", label: "Harder", hint: "Numbers to 100, plus times tables and longer words" },
+  {
+    value: "challenge",
+    label: "Challenge",
+    hint: "Numbers to 144, plus carrying and borrowing, times tables to 10 and independent writing",
+  },
+  {
+    value: "expert",
+    label: "Expert",
+    hint: "Numbers to 1,000, plus powers, carrying and borrowing, times tables to 12 and independent writing",
+  },
+] as const;
+
 describe("RandomPacketForm", () => {
   test("starts with every family ticked, five pages and Medium, and makes that packet", async () => {
     const { onMake, region } = renderForm();
@@ -44,12 +60,23 @@ describe("RandomPacketForm", () => {
       await userEvent.click(screen.getByRole("checkbox", { name }));
     }
     await userEvent.selectOptions(screen.getByRole("combobox", { name: "Pages" }), "8");
-    await userEvent.click(screen.getByRole("radio", { name: /^Harder/u }));
+    await userEvent.click(screen.getByRole("radio", { name: /^Expert/u }));
     await userEvent.click(makeButton());
     expect(onMake).toHaveBeenCalledWith({
       families: ["find-the-wow", "count-compare-make", "number-bonds"],
       pages: 8,
-      level: "harder",
+      level: "expert",
+    });
+  });
+
+  test("offers all five owned difficulty labels and hints in order", () => {
+    const { region } = renderForm();
+    const radios = within(region).getAllByRole("radio");
+    expect(radios).toHaveLength(EXPECTED_LEVELS.length);
+    EXPECTED_LEVELS.forEach(({ value, label, hint }, index) => {
+      const radio = radios[index]!;
+      expect(radio).toHaveAttribute("value", value);
+      expect(radio).toHaveAccessibleName(`${label}— ${hint}`);
     });
   });
 

@@ -35,6 +35,7 @@ import {
   setAnswerKey,
   setPersonalization,
 } from "./fixtures/worksheet-controls.js";
+import { installPrintSeedStub, setPrintSeed } from "./fixtures/print-checks.js";
 
 /*
  * The printable packet through the compiled app, with the canonical fictional
@@ -476,6 +477,50 @@ test("random packet: ticked families, pages and difficulty fill the packet for t
   await expect(make).toBeDisabled();
   await expect(make).toHaveAccessibleDescription("The packet already holds 10 sheets. Remove a sheet to add more.");
 
+  expect(writes()).toBe(0);
+  expect((await appServer.readRaw()).equals(seeded)).toBe(true);
+  await expectEmptyBrowserStores(page);
+});
+
+test("compiled Expert random packet deterministically uses every Expert Dry Math and Operation Grid candidate", async ({
+  appServer,
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await appServer.seedConfig(acceptanceConfig);
+  const seeded = await appServer.readRaw();
+  const writes = trackConfigWrites(page);
+  await installPrintSeedStub(page);
+  await page.goto(appServer.origin);
+  await chooseChild(page, first.id);
+
+  const expectedFirstCandidates = [
+    "Addition and subtraction within 100, every problem carries or borrows",
+    "Powers x^y, 10 rows by 3 columns, 10 cells pre-filled, Random",
+  ];
+  const expectedSiblingCandidates = [
+    "Multiplication and division facts for 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 and 12",
+    "Multiplication x × y, 10 rows by 10 columns, 0 cells pre-filled, Random",
+  ];
+
+  await withoutConfigWrite(writes, () =>
+    makeRandomPacket(page, { families: ["dry-math", "operation-grid"], pages: 2, level: "expert" }),
+  );
+  await expectCount(page, 2);
+  expect((await packetRows(page)).map((row) => row.split(" · ")[2]).sort()).toEqual(
+    [...expectedFirstCandidates].sort(),
+  );
+
+  // An even stub value swaps each two-candidate list, selecting both siblings.
+  await setPrintSeed(page, 4);
+  await withoutConfigWrite(writes, () =>
+    makeRandomPacket(page, { families: ["dry-math", "operation-grid"], pages: 2, level: "expert" }),
+  );
+  await expectCount(page, 4);
+  expect((await packetRows(page)).slice(2).map((row) => row.split(" · ")[2]).sort()).toEqual(
+    [...expectedSiblingCandidates].sort(),
+  );
+  expect((await packetRows(page)).every((row) => !row.includes("Multiplication facts for 2, 5 and 10"))).toBe(true);
   expect(writes()).toBe(0);
   expect((await appServer.readRaw()).equals(seeded)).toBe(true);
   await expectEmptyBrowserStores(page);

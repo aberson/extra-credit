@@ -12,6 +12,10 @@
  * is left out and named, never widened.
  */
 import {
+  DEFAULT_WORKSHEET_DEFAULTS_V2,
+  worksheetSelectionOf,
+} from "../../shared/config/defaults";
+import {
   NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   type PracticeFocusKind,
@@ -19,14 +23,22 @@ import {
 } from "../../shared/config/practice-focus";
 import {
   DEFAULT_FACT_FAMILIES,
-  DEFAULT_OPERATION_GRID_PLACEMENT,
+  DEFAULT_OPERATION_GRID_PREFILLED,
   type ChildProfileV2,
   type NumberBondsV2,
   type OperationGridV2,
   type WorksheetSelectionV2,
 } from "../../shared/config/schema";
 import { getWorksheetRegistration } from "../../shared/worksheet/registry";
-import { WORKSHEET_TYPE_IDS, type WorksheetType } from "../../shared/worksheet/types";
+import {
+  FACT_FACTOR_MAXIMUM,
+  OPERATION_GRID_POWERS_BASE_MAXIMUM,
+  OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_SIZE_MAXIMUM,
+  V1_NUMERIC_MAXIMUM,
+  WORKSHEET_TYPE_IDS,
+  type WorksheetType,
+} from "../../shared/worksheet/types";
 import {
   MAX_ALTERNATIVE_SEED_ATTEMPTS,
   createInitialWorksheetSession,
@@ -35,20 +47,66 @@ import {
 } from "../generator/create-session";
 import type { QueuedSheet } from "./packet-session";
 
-export const RANDOM_PACKET_LEVELS = ["easier", "medium", "harder"] as const;
+export const RANDOM_PACKET_LEVELS = ["easier", "medium", "harder", "challenge", "expert"] as const;
 
 export type RandomPacketLevel = (typeof RANDOM_PACKET_LEVELS)[number];
 
 export const DEFAULT_RANDOM_PACKET_LEVEL: RandomPacketLevel = "medium";
 
 /** Each level's label and what it practices, in words a parent can check against the table below. */
+function levelLabel(label: string, ceiling: number, rest: string) {
+  return { label, ceiling, hint: `Numbers to ${ceiling.toLocaleString("en-US")}, ${rest}` } as const;
+}
+
 export const RANDOM_PACKET_LEVEL_LABELS = {
-  easier: { label: "Easier", hint: "Numbers to 10, drawing and labeling" },
-  medium: { label: "Medium", hint: "Numbers to 20, copying and sentence frames" },
-  harder: { label: "Harder", hint: "Numbers to 100, plus times tables and longer words" },
-} as const satisfies Record<RandomPacketLevel, { readonly label: string; readonly hint: string }>;
+  easier: levelLabel("Easier", 10, "drawing and labeling"),
+  medium: levelLabel("Medium", V1_NUMERIC_MAXIMUM, "copying and sentence frames"),
+  harder: levelLabel("Harder", 100, "plus times tables and longer words"),
+  challenge: levelLabel(
+    "Challenge",
+    144,
+    "plus carrying and borrowing, times tables to 10 and independent writing",
+  ),
+  expert: levelLabel(
+    "Expert",
+    1_000,
+    "plus powers, carrying and borrowing, times tables to 12 and independent writing",
+  ),
+} as const satisfies Record<
+  RandomPacketLevel,
+  { readonly label: string; readonly ceiling: number; readonly hint: string }
+>;
 
 type FocusChoice = (selection: WorksheetSelectionV2) => WorksheetSelectionV2;
+
+/** The presentation choices a Random packet deliberately inherits from its parent selection. */
+function keptChoices(selection: WorksheetSelectionV2) {
+  const {
+    theme,
+    useDisplayName,
+    useInterests,
+    includeDecorativeGraphics,
+    includeAnswerKey,
+    length,
+    paperSize,
+    printScale,
+  } = selection;
+  return {
+    theme,
+    useDisplayName,
+    useInterests,
+    includeDecorativeGraphics,
+    includeAnswerKey,
+    length,
+    paperSize,
+    printScale,
+  };
+}
+
+/** Every candidate starts from shipped defaults so no saved family choice can leak into a packet. */
+function defaultsFirst(selection: WorksheetSelectionV2): WorksheetSelectionV2 {
+  return { ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2), ...keptChoices(selection) };
+}
 
 function catalogFocus<TKind extends PracticeFocusKind>(
   kind: TKind,
@@ -63,37 +121,48 @@ function catalogFocus<TKind extends PracticeFocusKind>(
   return structuredClone(option.focus);
 }
 
-function dryMath(id: string): FocusChoice {
+function dryMath(id: string, regrouping: WorksheetSelectionV2["dryMathRegrouping"] = "without"): FocusChoice {
   const focus = catalogFocus("dry-math", id);
   return (selection) => ({
-    ...selection,
+    ...defaultsFirst(selection),
     dryMathStrand: "add-subtract",
     dryMath: structuredClone(focus),
-    dryMathRegrouping: "without",
+    dryMathRegrouping: regrouping,
   });
 }
 
-function multiplicationFacts(): FocusChoice {
+function facts(
+  operations: readonly WorksheetSelectionV2["dryMathFacts"]["operations"][number][],
+  families: readonly number[],
+): FocusChoice {
   return (selection) => ({
-    ...selection,
+    ...defaultsFirst(selection),
     dryMathStrand: "multiply-divide",
-    dryMathFacts: { operations: ["multiplication"], factFamilies: [...DEFAULT_FACT_FAMILIES] },
+    dryMathFacts: { operations: [...operations], factFamilies: [...families] },
   });
 }
 
 function wowQuantity(id: string): FocusChoice {
   const quantity = catalogFocus("find-the-wow-quantity", id);
   return (selection) => ({
-    ...selection,
-    findTheWow: { ...selection.findTheWow, variant: "quantity", quantity: structuredClone(quantity) },
+    ...defaultsFirst(selection),
+    findTheWow: {
+      ...DEFAULT_WORKSHEET_DEFAULTS_V2.findTheWow,
+      variant: "quantity",
+      quantity: structuredClone(quantity),
+    },
   });
 }
 
 function wowEquation(id: string): FocusChoice {
   const equation = catalogFocus("find-the-wow-equation", id);
   return (selection) => ({
-    ...selection,
-    findTheWow: { ...selection.findTheWow, variant: "equation", equation: structuredClone(equation) },
+    ...defaultsFirst(selection),
+    findTheWow: {
+      ...DEFAULT_WORKSHEET_DEFAULTS_V2.findTheWow,
+      variant: "equation",
+      equation: structuredClone(equation),
+    },
   });
 }
 
@@ -101,12 +170,12 @@ function sentence(
   variant: WorksheetSelectionV2["sentenceBuilder"]["variant"],
   vocabulary: WorksheetSelectionV2["sentenceBuilder"]["vocabulary"],
 ): FocusChoice {
-  return (selection) => ({ ...selection, sentenceBuilder: { variant, vocabulary } });
+  return (selection) => ({ ...defaultsFirst(selection), sentenceBuilder: { variant, vocabulary } });
 }
 
 function countCompare(id: string): FocusChoice {
   const focus = catalogFocus("count-compare-make", id);
-  return (selection) => ({ ...selection, countCompareMake: structuredClone(focus) });
+  return (selection) => ({ ...defaultsFirst(selection), countCompareMake: structuredClone(focus) });
 }
 
 function bonds(id: string, regrouping: NumberBondsV2["regrouping"] = "without"): FocusChoice {
@@ -116,30 +185,41 @@ function bonds(id: string, regrouping: NumberBondsV2["regrouping"] = "without"):
   }
   const { operations, wholeMax } = option.focus;
   return (selection) => ({
-    ...selection,
+    ...defaultsFirst(selection),
     numberBonds: { operations: [...operations], wholeMax, regrouping },
   });
 }
 
-function grid(operation: OperationGridV2["operation"], size: number, prefilled: number): FocusChoice {
+function grid(fields: Pick<OperationGridV2, "operation" | "rows" | "columns" | "prefilled">): FocusChoice {
   return (selection) => ({
-    ...selection,
+    ...defaultsFirst(selection),
     operationGrid: {
-      operation,
-      rows: size,
-      columns: size,
-      prefilled,
-      placement: DEFAULT_OPERATION_GRID_PLACEMENT,
+      ...DEFAULT_WORKSHEET_DEFAULTS_V2.operationGrid,
+      ...fields,
     },
   });
 }
 
-const UNCHANGED: FocusChoice = (selection) => selection;
+const seedOnly: FocusChoice = (selection) => defaultsFirst(selection);
+
+const HARDER_WOW = [
+  wowEquation("addition-and-subtraction-within-20"),
+  wowEquation("addition-within-20"),
+  wowEquation("subtraction-within-20"),
+] as const;
+const HARDER_COUNT_COMPARE = [countCompare("quantities-to-20")] as const;
+const HARDER_BONDS = [
+  bonds("addition-and-subtraction-within-20", "included"),
+  bonds("subtraction-within-20", "included"),
+] as const;
+const CHALLENGE_SENTENCE = [sentence("independent", "all-words")] as const;
 
 /**
  * Every family's candidate focuses at each level; each sheet picks one at
- * random. Clock Explorer and Tally Detective have no practice choice, so
- * every level prints them the same way.
+ * random. Every candidate starts from the shipped defaults and then keeps
+ * only the parent's presentation choices. Clock Explorer and Tally Detective
+ * are therefore seed-only at every level. Challenge's ceiling comes from its
+ * 12 x 12 grid; its large-print sibling reaches only 100.
  */
 export const RANDOM_PACKET_FOCUS: {
   readonly [TType in WorksheetType]: { readonly [TLevel in RandomPacketLevel]: readonly FocusChoice[] };
@@ -154,43 +234,88 @@ export const RANDOM_PACKET_FOCUS: {
     harder: [
       dryMath("addition-and-subtraction-within-50"),
       dryMath("addition-and-subtraction-within-100"),
-      multiplicationFacts(),
+      facts(["multiplication"], DEFAULT_FACT_FAMILIES),
+    ],
+    challenge: [
+      dryMath("addition-and-subtraction-within-100", "required"),
+      facts(["multiplication", "division"], [2, 3, 4, 5, 6, 7, 8, 9, 10]),
+    ],
+    expert: [
+      dryMath("addition-and-subtraction-within-100", "required"),
+      facts(
+        ["multiplication", "division"],
+        Array.from({ length: FACT_FACTOR_MAXIMUM + 1 }, (_, family) => family),
+      ),
     ],
   },
   "find-the-wow": {
     easier: [wowQuantity("quantities-to-10"), wowEquation("addition-within-5")],
     medium: [wowQuantity("quantities-to-20"), wowEquation("addition-and-subtraction-within-10")],
-    harder: [
-      wowEquation("addition-and-subtraction-within-20"),
-      wowEquation("addition-within-20"),
-      wowEquation("subtraction-within-20"),
-    ],
+    harder: HARDER_WOW,
+    challenge: HARDER_WOW,
+    expert: HARDER_WOW,
   },
   "sentence-builder": {
     easier: [sentence("draw-and-tell", "simpler-words"), sentence("label", "simpler-words")],
     medium: [sentence("copy-with-model", "simpler-words"), sentence("sentence-frame", "simpler-words")],
     harder: [sentence("sentence-frame", "all-words"), sentence("independent", "all-words")],
+    challenge: CHALLENGE_SENTENCE,
+    expert: CHALLENGE_SENTENCE,
   },
   "count-compare-make": {
     easier: [countCompare("quantities-to-10")],
     medium: [countCompare("quantities-to-20")],
-    harder: [countCompare("quantities-to-20")],
+    harder: HARDER_COUNT_COMPARE,
+    challenge: HARDER_COUNT_COMPARE,
+    expert: HARDER_COUNT_COMPARE,
   },
   "number-bonds": {
     easier: [bonds("addition-within-5"), bonds("addition-within-10")],
     medium: [bonds("addition-and-subtraction-within-10"), bonds("addition-within-20")],
-    harder: [
-      bonds("addition-and-subtraction-within-20", "included"),
-      bonds("subtraction-within-20", "included"),
-    ],
+    harder: HARDER_BONDS,
+    challenge: HARDER_BONDS,
+    expert: HARDER_BONDS,
   },
   "operation-grid": {
-    easier: [grid("addition", 5, 5)],
-    medium: [grid("addition", 10, 10)],
-    harder: [grid("multiplication", 10, 10), grid("addition", 12, 12)],
+    easier: [grid({ operation: "addition", rows: 5, columns: 5, prefilled: 5 })],
+    medium: [grid({ operation: "addition", rows: 10, columns: 10, prefilled: 10 })],
+    harder: [
+      grid({ operation: "multiplication", rows: 10, columns: 10, prefilled: 10 }),
+      grid({ operation: "addition", rows: OPERATION_GRID_SIZE_MAXIMUM, columns: OPERATION_GRID_SIZE_MAXIMUM, prefilled: 10 }),
+    ],
+    challenge: [
+      grid({
+        operation: "multiplication",
+        rows: OPERATION_GRID_SIZE_MAXIMUM,
+        columns: OPERATION_GRID_SIZE_MAXIMUM,
+        prefilled: 14,
+      }),
+      grid({ operation: "multiplication", rows: 10, columns: 10, prefilled: 0 }),
+    ],
+    expert: [
+      grid({
+        operation: "powers",
+        rows: OPERATION_GRID_POWERS_BASE_MAXIMUM,
+        columns: OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+        prefilled: DEFAULT_OPERATION_GRID_PREFILLED,
+      }),
+      grid({ operation: "multiplication", rows: 10, columns: 10, prefilled: 0 }),
+    ],
   },
-  "clock-explorer": { easier: [UNCHANGED], medium: [UNCHANGED], harder: [UNCHANGED] },
-  "tally-detective": { easier: [UNCHANGED], medium: [UNCHANGED], harder: [UNCHANGED] },
+  "clock-explorer": {
+    easier: [seedOnly],
+    medium: [seedOnly],
+    harder: [seedOnly],
+    challenge: [seedOnly],
+    expert: [seedOnly],
+  },
+  "tally-detective": {
+    easier: [seedOnly],
+    medium: [seedOnly],
+    harder: [seedOnly],
+    challenge: [seedOnly],
+    expert: [seedOnly],
+  },
 };
 
 export interface RandomPacketChoice {

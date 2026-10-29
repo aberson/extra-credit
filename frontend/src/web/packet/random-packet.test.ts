@@ -5,8 +5,16 @@ import {
   worksheetSelectionOf,
 } from "../../shared/config/defaults";
 import { WORKSHEET_LENGTHS, PRINT_SCALES } from "../../shared/config/enums";
-import type { ChildProfileV2, WorksheetSelectionV2 } from "../../shared/config/schema";
-import { WORKSHEET_TYPE_IDS, type WorksheetType } from "../../shared/worksheet/types";
+import type {
+  ChildProfileV2,
+  DryMathStrand,
+  WorksheetSelectionV2,
+} from "../../shared/config/schema";
+import {
+  FACT_FACTOR_MAXIMUM,
+  WORKSHEET_TYPE_IDS,
+  type WorksheetType,
+} from "../../shared/worksheet/types";
 import { createInitialWorksheetSession, type SeedSource } from "../generator/create-session";
 import { EMPTY_PACKET, PACKET_SHEET_LIMIT, packetReducer } from "./packet-session";
 import {
@@ -51,46 +59,245 @@ function make(
   return makeRandomPacket({ families, pages, level, profile: PROFILE, selection }, source(seed));
 }
 
-/** The largest number each level's focus may reach, as its label says. */
-const LEVEL_CEILING = { easier: 10, medium: 20, harder: 100 } as const;
+type FocusScore =
+  | { readonly kind: "number"; readonly value: number }
+  | { readonly kind: "facts"; readonly value: number }
+  | { readonly kind: "writing" }
+  | { readonly kind: "not-scored" };
 
-/** The largest number a selection's own family practices, apart from times-table facts. */
-function largestNumber(selection: WorksheetSelectionV2): number | undefined {
+/** Exhaustively scores the claim each candidate contributes to its level label. */
+function largestNumber(selection: WorksheetSelectionV2): FocusScore {
   switch (selection.worksheetType) {
-    case "dry-math":
-      return selection.dryMathStrand === "add-subtract" ? selection.dryMath.resultMax : undefined;
+    case "dry-math": {
+      const strand: DryMathStrand = selection.dryMathStrand;
+      switch (strand) {
+        case "add-subtract":
+          return { kind: "number", value: selection.dryMath.resultMax };
+        case "multiply-divide":
+          return {
+            kind: "facts",
+            value: Math.max(...selection.dryMathFacts.factFamilies) * FACT_FACTOR_MAXIMUM,
+          };
+        default: {
+          const unreachable: never = strand;
+          return unreachable;
+        }
+      }
+    }
     case "find-the-wow":
-      return selection.findTheWow.variant === "equation"
-        ? selection.findTheWow.equation.resultMax
-        : selection.findTheWow.quantity.countingMax;
+      return {
+        kind: "number",
+        value:
+          selection.findTheWow.variant === "equation"
+            ? selection.findTheWow.equation.resultMax
+            : selection.findTheWow.quantity.countingMax,
+      };
+    case "sentence-builder":
+      return { kind: "writing" };
     case "count-compare-make":
-      return selection.countCompareMake.compareMax;
+      return { kind: "number", value: selection.countCompareMake.compareMax };
     case "number-bonds":
-      return selection.numberBonds.wholeMax;
+      return { kind: "number", value: selection.numberBonds.wholeMax };
     case "operation-grid": {
       const { columns, operation, rows } = selection.operationGrid;
-      return operation === "addition" ? rows + columns : rows * columns;
+      switch (operation) {
+        case "addition":
+          return { kind: "number", value: rows + columns };
+        case "multiplication":
+          return { kind: "number", value: rows * columns };
+        case "powers":
+          return { kind: "number", value: rows ** columns };
+        default: {
+          const unreachable: never = operation;
+          return unreachable;
+        }
+      }
     }
-    default:
-      return undefined;
+    case "clock-explorer":
+    case "tally-detective":
+      return { kind: "not-scored" };
+    default: {
+      const unreachable: never = selection.worksheetType;
+      return unreachable;
+    }
   }
 }
 
+function candidateSelections(family: WorksheetType, level: RandomPacketLevel, selection = BASE) {
+  return RANDOM_PACKET_FOCUS[family][level].map((choose) => ({
+    ...choose(selection),
+    worksheetType: family,
+  }));
+}
+
+const challengeSelections = {
+  "dry-math": [
+    {
+      ...BASE,
+      worksheetType: "dry-math",
+      dryMathStrand: "add-subtract",
+      dryMath: { operations: ["addition", "subtraction"], operandMax: 100, resultMax: 100 },
+      dryMathRegrouping: "required",
+    },
+    {
+      ...BASE,
+      worksheetType: "dry-math",
+      dryMathStrand: "multiply-divide",
+      dryMathFacts: {
+        operations: ["multiplication", "division"],
+        factFamilies: [2, 3, 4, 5, 6, 7, 8, 9, 10],
+      },
+    },
+  ],
+  "find-the-wow": [
+    {
+      ...BASE,
+      worksheetType: "find-the-wow",
+      findTheWow: {
+        ...BASE.findTheWow,
+        variant: "equation",
+        equation: { operations: ["addition", "subtraction"], operandMax: 20, resultMax: 20 },
+      },
+    },
+    {
+      ...BASE,
+      worksheetType: "find-the-wow",
+      findTheWow: {
+        ...BASE.findTheWow,
+        variant: "equation",
+        equation: { operations: ["addition"], operandMax: 20, resultMax: 20 },
+      },
+    },
+    {
+      ...BASE,
+      worksheetType: "find-the-wow",
+      findTheWow: {
+        ...BASE.findTheWow,
+        variant: "equation",
+        equation: { operations: ["subtraction"], operandMax: 20, resultMax: 20 },
+      },
+    },
+  ],
+  "sentence-builder": [
+    { ...BASE, worksheetType: "sentence-builder", sentenceBuilder: { variant: "independent", vocabulary: "all-words" } },
+  ],
+  "count-compare-make": [
+    {
+      ...BASE,
+      worksheetType: "count-compare-make",
+      countCompareMake: { countingMax: 20, numeralMax: 20, compareMax: 20 },
+    },
+  ],
+  "number-bonds": [
+    {
+      ...BASE,
+      worksheetType: "number-bonds",
+      numberBonds: { operations: ["addition", "subtraction"], wholeMax: 20, regrouping: "included" },
+    },
+    {
+      ...BASE,
+      worksheetType: "number-bonds",
+      numberBonds: { operations: ["subtraction"], wholeMax: 20, regrouping: "included" },
+    },
+  ],
+  "operation-grid": [
+    {
+      ...BASE,
+      worksheetType: "operation-grid",
+      operationGrid: {
+        operation: "multiplication",
+        rows: 12,
+        columns: 12,
+        prefilled: 14,
+        placement: "random",
+      },
+    },
+    {
+      ...BASE,
+      worksheetType: "operation-grid",
+      operationGrid: {
+        operation: "multiplication",
+        rows: 10,
+        columns: 10,
+        prefilled: 0,
+        placement: "random",
+      },
+    },
+  ],
+  "clock-explorer": [{ ...BASE, worksheetType: "clock-explorer" }],
+  "tally-detective": [{ ...BASE, worksheetType: "tally-detective" }],
+} as const satisfies Record<WorksheetType, readonly WorksheetSelectionV2[]>;
+
+const expertSelections = {
+  ...challengeSelections,
+  "dry-math": [
+    challengeSelections["dry-math"][0],
+    {
+      ...BASE,
+      worksheetType: "dry-math",
+      dryMathStrand: "multiply-divide",
+      dryMathFacts: {
+        operations: ["multiplication", "division"],
+        factFamilies: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      },
+    },
+  ],
+  "operation-grid": [
+    {
+      ...BASE,
+      worksheetType: "operation-grid",
+      operationGrid: {
+        operation: "powers",
+        rows: 10,
+        columns: 3,
+        prefilled: 10,
+        placement: "random",
+      },
+    },
+    challengeSelections["operation-grid"][1],
+  ],
+} as const satisfies Record<WorksheetType, readonly WorksheetSelectionV2[]>;
+
 describe("the difficulty table", () => {
   test.each(WORKSHEET_TYPE_IDS.flatMap((family) => RANDOM_PACKET_LEVELS.map((level) => [family, level] as const)))(
-    "every %s candidate at %s makes a sheet with the default choices and stays within the level",
+    "every %s candidate at %s makes a sheet at every length in standard print",
     (family, level) => {
-      for (const choose of RANDOM_PACKET_FOCUS[family][level]) {
-        const selection = { ...choose(BASE), worksheetType: family };
-        const created = createInitialWorksheetSession({ profile: PROFILE, selection }, source(3));
-        expect(created.ok, JSON.stringify(created)).toBe(true);
-        const largest = largestNumber(selection);
-        if (largest !== undefined) {
-          expect(largest).toBeLessThanOrEqual(LEVEL_CEILING[level]);
+      for (const length of WORKSHEET_LENGTHS) {
+        for (const selection of candidateSelections(family, level, { ...BASE, length })) {
+          const created = createInitialWorksheetSession({ profile: PROFILE, selection }, source(3));
+          expect(created.ok, JSON.stringify(created)).toBe(true);
         }
       }
     },
   );
+
+  test("large print refuses exactly the two named 12 by 12 grids and every family keeps a candidate", () => {
+    const refused: string[] = [];
+    for (const family of WORKSHEET_TYPE_IDS) {
+      for (const level of RANDOM_PACKET_LEVELS) {
+        for (const length of WORKSHEET_LENGTHS) {
+          const outcomes = candidateSelections(family, level, { ...BASE, length, printScale: "large" }).map(
+            (selection) => ({
+              selection,
+              created: createInitialWorksheetSession({ profile: PROFILE, selection }, source(3)),
+            }),
+          );
+          expect(outcomes.some(({ created }) => created.ok), `${family}/${level}/${length}`).toBe(true);
+          for (const { selection, created } of outcomes) {
+            if (!created.ok) {
+              refused.push(
+                `${level} ${selection.operationGrid.operation} ${selection.operationGrid.rows}x${selection.operationGrid.columns}`,
+              );
+              expect(created.message).toContain("Large print fits at most 10 rows");
+            }
+          }
+        }
+      }
+    }
+    expect(new Set(refused)).toEqual(
+      new Set(["harder addition 12x12", "challenge multiplication 12x12"]),
+    );
+  });
 
   test.each(
     WORKSHEET_LENGTHS.flatMap((length) => PRINT_SCALES.map((printScale) => [length, printScale] as const)),
@@ -106,27 +313,111 @@ describe("the difficulty table", () => {
     }
   });
 
-  test("only Harder practices times tables, and its hint says so", () => {
+  test("the level ceilings are exact, strictly rising, and hints name facts exactly when present", () => {
+    const maxima: number[] = [];
     for (const level of RANDOM_PACKET_LEVELS) {
-      const facts = RANDOM_PACKET_FOCUS["dry-math"][level].some(
-        (choose) => choose(BASE).dryMathStrand === "multiply-divide",
+      const scores = WORKSHEET_TYPE_IDS.flatMap((family) =>
+        candidateSelections(family, level).map(largestNumber),
       );
-      expect(facts).toBe(level === "harder");
-      expect(RANDOM_PACKET_LEVEL_LABELS[level].hint.includes("times tables")).toBe(level === "harder");
+      const maximum = Math.max(
+        ...scores.filter((score) => score.kind === "number").map((score) => score.value),
+      );
+      maxima.push(maximum);
+      expect(maximum).toBe(RANDOM_PACKET_LEVEL_LABELS[level].ceiling);
+      expect(RANDOM_PACKET_LEVEL_LABELS[level].hint.includes("times tables")).toBe(
+        scores.some((score) => score.kind === "facts"),
+      );
     }
+    expect(maxima.every((value, index) => index === 0 || value > (maxima[index - 1] ?? value))).toBe(true);
   });
 
-  test("harder levels practice larger numbers than easier ones somewhere in every numeric family", () => {
-    for (const family of ["dry-math", "find-the-wow", "count-compare-make", "number-bonds", "operation-grid"] as const) {
-      const largestAt = (level: RandomPacketLevel) =>
-        Math.max(
-          ...RANDOM_PACKET_FOCUS[family][level].map(
-            (choose) => largestNumber({ ...choose(BASE), worksheetType: family }) ?? 0,
-          ),
-        );
-      expect(largestAt("easier")).toBeLessThan(largestAt("medium"));
-      expect(largestAt("medium")).toBeLessThanOrEqual(largestAt("harder"));
+  test("only Clock Explorer and Tally Detective are not scored", () => {
+    const families = WORKSHEET_TYPE_IDS.filter((family) =>
+      RANDOM_PACKET_LEVELS.some((level) =>
+        candidateSelections(family, level).some((selection) => largestNumber(selection).kind === "not-scored"),
+      ),
+    );
+    expect(families).toEqual(["clock-explorer", "tally-detective"]);
+  });
+
+  test("Challenge and Expert apply every recipe exactly and in order", () => {
+    const choices = (family: WorksheetType, level: RandomPacketLevel) => candidateSelections(family, level);
+    for (const family of WORKSHEET_TYPE_IDS) {
+      expect(choices(family, "challenge"), `${family}/challenge`).toEqual(challengeSelections[family]);
+      expect(choices(family, "expert"), `${family}/expert`).toEqual(expertSelections[family]);
     }
+
+    // These equality pins are intentional product rules, not consequences of
+    // the literal recipe assertions above.
+    for (const family of ["dry-math", "operation-grid", "sentence-builder"] as const) {
+      expect(choices(family, "challenge")).not.toEqual(choices(family, "harder"));
+    }
+    for (const family of ["find-the-wow", "count-compare-make", "number-bonds"] as const) {
+      expect(choices(family, "challenge")).toEqual(choices(family, "harder"));
+      expect(choices(family, "expert")).toEqual(choices(family, "harder"));
+    }
+    expect(choices("dry-math", "expert")).not.toEqual(choices("dry-math", "challenge"));
+    expect(choices("operation-grid", "expert")).not.toEqual(choices("operation-grid", "challenge"));
+    expect(choices("sentence-builder", "expert")).toEqual(choices("sentence-builder", "challenge"));
+  });
+});
+
+describe("defaults-first packet focus", () => {
+  const PARENT: WorksheetSelectionV2 = {
+    ...BASE,
+    worksheetType: "operation-grid",
+    dryMath: { operations: ["subtraction"], operandMax: 73, resultMax: 91 },
+    dryMathRegrouping: "required",
+    dryMathStrand: "multiply-divide",
+    dryMathFacts: { operations: ["division"], factFamilies: [0, 1, 11, 12] },
+    numberBonds: { operations: ["subtraction"], wholeMax: 19, regrouping: "included" },
+    operationGrid: {
+      operation: "powers",
+      rows: 9,
+      columns: 3,
+      prefilled: 3,
+      placement: "diagonal-first",
+    },
+    findTheWow: {
+      variant: "equation",
+      quantity: { countingMax: 19, numeralMax: 18 },
+      equation: { operations: ["subtraction"], operandMax: 17, resultMax: 16 },
+    },
+    sentenceBuilder: { variant: "copy-with-model", vocabulary: "all-words" },
+    countCompareMake: { countingMax: 19, numeralMax: 18, compareMax: 17 },
+    theme: "neutral",
+    useDisplayName: false,
+    useInterests: false,
+    includeDecorativeGraphics: false,
+    includeAnswerKey: false,
+    length: "long",
+    paperSize: "a4",
+    printScale: "large",
+  };
+
+  const kept = (selection: WorksheetSelectionV2) => ({
+    theme: selection.theme,
+    useDisplayName: selection.useDisplayName,
+    useInterests: selection.useInterests,
+    includeDecorativeGraphics: selection.includeDecorativeGraphics,
+    includeAnswerKey: selection.includeAnswerKey,
+    length: selection.length,
+    paperSize: selection.paperSize,
+    printScale: selection.printScale,
+  });
+
+  test("no saved family choice leaks and every kept choice does", () => {
+    const before = structuredClone(PARENT);
+    for (const family of WORKSHEET_TYPE_IDS) {
+      for (const level of RANDOM_PACKET_LEVELS) {
+        for (const choose of RANDOM_PACKET_FOCUS[family][level]) {
+          const chosen = choose(PARENT);
+          expect({ ...chosen, ...kept(BASE) }).toEqual(choose(BASE));
+          expect(kept(chosen)).toEqual(kept(PARENT));
+        }
+      }
+    }
+    expect(PARENT).toEqual(before);
   });
 });
 

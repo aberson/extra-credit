@@ -170,7 +170,7 @@ export function randomPacketForm(page: Page): Locator {
 export interface RandomPacketPlan {
   readonly families: readonly string[];
   readonly pages: number;
-  readonly level: "easier" | "medium" | "harder";
+  readonly level: "easier" | "medium" | "harder" | "challenge" | "expert";
 }
 
 /**

@@ -641,7 +641,7 @@ A step too large for one developer context is split before build (R4). Kill crit
 - **Depends on:** Step 33
 
 ### Step 39: Challenge and Expert packet levels from today's settings
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** The Random packet's Difficulty offers five levels, Easier, Medium, Harder, Challenge and Expert. Challenge and Expert use the hardest practice the worksheets already support for Dry Math, Operation Grid and Sentence Builder; the other families repeat Harder until Step 55. Every candidate starts from the built-in defaults, so a parent's saved family choice (today's or a later step's) never reaches a packet sheet.
 - **Type:** code
 - **Issue:** #50
