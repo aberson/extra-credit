@@ -3,6 +3,7 @@ import type {
   DryMathOperation,
   WorksheetDocumentV1,
 } from "../../../shared/worksheet/types";
+import { dryMathBlank } from "../../../shared/worksheet/dry-math-blank";
 import type { WorksheetRendererProps } from "../registry";
 
 /**
@@ -29,6 +30,8 @@ export function DryMathRenderer({ document }: WorksheetRendererProps) {
   if (!isDryMathDocument(document)) {
     return <p role="alert">This worksheet could not be rendered safely.</p>;
   }
+  const blank = dryMathBlank(document.request.practice);
+  const blankText = "_".repeat(blank.underscores);
 
   return (
     <article aria-labelledby={`worksheet-${document.worksheetId}-title`}>
@@ -67,7 +70,7 @@ export function DryMathRenderer({ document }: WorksheetRendererProps) {
             >
               {item.leftOperand}{" "}
               <span data-operator={item.operation}>{item.renderedSymbol}</span>{" "}
-              {item.rightOperand} = ____
+              {item.rightOperand} = <span data-answer-blank="answer">{blankText}</span>
             </span>
           </li>
         ))}

@@ -1427,9 +1427,25 @@ describe("every declared arm of the capacity and advice surface", () => {
             if (worksheetType === "dry-math") {
               const hasEquations = projectedSkills.representations.includes("equations");
               const practice = projectWorksheetPractice(selection, worksheetType);
+              let needsNumericOperations: boolean;
+              switch (practice?.kind) {
+                case "dry-math-facts":
+                  needsNumericOperations = false;
+                  break;
+                case undefined:
+                case "dry-math-add-subtract":
+                case "number-bonds":
+                case "operation-grid":
+                  needsNumericOperations = true;
+                  break;
+                default: {
+                  const unreachable: never = practice;
+                  throw new Error(`Unsupported practice: ${String(unreachable)}`);
+                }
+              }
               const dryArm = !hasEquations
                 ? "DCS-no-equations"
-                : practice?.kind !== "dry-math-facts" &&
+                : needsNumericOperations &&
                     (projectedSkills.operations.length === 0 ||
                       projectedSkills.operandMax < 1 ||
                       projectedSkills.resultMax < 1)
@@ -1474,8 +1490,20 @@ describe("every declared arm of the capacity and advice surface", () => {
 
             // The declared-maximum list and the advice derived from it.
             const maximums = registration.controls.getRelevantMaximums(context);
-            const factsPage =
-              worksheetType === "dry-math" && selection.dryMathStrand === "multiply-divide";
+            let factsPage = false;
+            if (worksheetType === "dry-math") {
+              switch (selection.dryMathStrand) {
+                case "add-subtract":
+                  break;
+                case "multiply-divide":
+                  factsPage = true;
+                  break;
+                default: {
+                  const unreachable: never = selection.dryMathStrand;
+                  throw new Error(`Unsupported Dry Math strand: ${String(unreachable)}`);
+                }
+              }
+            }
             if (factsPage) {
               // A facts page reads no focus maximum, so its advice names the
               // fact families and never a numeric range.

@@ -83,9 +83,11 @@ export type DryMathCapabilitySupport =
   | { readonly available: false; readonly reason: string };
 
 /**
- * Whether Dry Math can print this request at all. A facts page reads its
- * operations from the `practice` member, never from `mathSkills`, so it needs
- * no addition or subtraction operation.
+ * Whether Dry Math can print this request at all. A facts page is available
+ * whenever equations are present because it reads its operations from the
+ * `practice` member. An absent or add-subtract member uses the numeric
+ * operation checks below. A non-Dry-Math member is malformed here, but keeps
+ * that same legacy numeric check.
  */
 export function getDryMathCapabilitySupport(
   mathSkills: Pick<
@@ -101,21 +103,34 @@ export function getDryMathCapabilitySupport(
         "Dry Math needs equations and an enabled operation. Choose a practice focus with addition or subtraction. Count, Compare & Make offers quantity practice.",
     };
   }
-  if (practice?.kind === "dry-math-facts") {
+  const numericSupport = (): DryMathCapabilitySupport => {
+    if (
+      mathSkills.operations.length === 0 ||
+      mathSkills.operandMax < 1 ||
+      mathSkills.resultMax < 1
+    ) {
+      return {
+        available: false,
+        reason:
+          "Dry Math needs at least one symbolic operation. Choose a practice focus with addition or subtraction. Count, Compare & Make offers quantity practice.",
+      };
+    }
     return { available: true };
+  };
+  const practiceKind = practice?.kind;
+  switch (practiceKind) {
+    case "dry-math-facts":
+      return { available: true };
+    case undefined:
+    case "dry-math-add-subtract":
+    case "number-bonds":
+    case "operation-grid":
+      return numericSupport();
+    default: {
+      const unreachable: never = practiceKind;
+      return unreachable;
+    }
   }
-  if (
-    mathSkills.operations.length === 0 ||
-    mathSkills.operandMax < 1 ||
-    mathSkills.resultMax < 1
-  ) {
-    return {
-      available: false,
-      reason:
-        "Dry Math needs at least one symbolic operation. Choose a practice focus with addition or subtraction. Count, Compare & Make offers quantity practice.",
-    };
-  }
-  return { available: true };
 }
 
 /**

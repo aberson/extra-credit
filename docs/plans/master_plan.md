@@ -688,7 +688,7 @@ A step too large for one developer context is split before build (R4). Kill crit
 - **Depends on:** Step 38 and the Phase H preconditions
 
 ### Step 40: Exhaustive Dry Math strand dispatch and a measured answer blank
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** Before Dry Math can gain a third practice strand, two things must change. First, about fifteen sites test `dryMathStrand` or `practice.kind` as a binary (`multiply-divide`, otherwise add-subtract), so a new strand would silently be treated as add-subtract. Second, the printed answer blank is a bare literal `____` (`frontend/src/web/worksheets/dry-math/Renderer.tsx:70`, `frontend/tests/fixtures/print/required-content.ts:240`), and nothing measures it. After this step, every site handles each strand by name and fails to compile when a strand is added. The blank comes from one owner, and print measures it with a calibration that fails when the blank is collapsed. A parent sees no change: every page, key and print output keeps its current text.
 - **Type:** code
 - **Issue:** #51

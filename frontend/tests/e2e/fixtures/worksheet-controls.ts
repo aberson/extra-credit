@@ -290,14 +290,20 @@ export async function chooseWorksheetChoices(
   await chooseWorksheet(page, selection.worksheetType);
   switch (selection.worksheetType) {
     case "dry-math":
-      if (selection.dryMathStrand === "multiply-divide") {
-        await choosePracticeFocus(page, matchFactPracticeEntry(selection.dryMathFacts.operations).label);
-        await chooseFactFamilies(page, selection.dryMathFacts.factFamilies);
-        return;
+      switch (selection.dryMathStrand) {
+        case "add-subtract":
+          await choosePracticeFocus(page, describePracticeFocus("dry-math", selection.dryMath));
+          await chooseRegrouping(page, selection.dryMathRegrouping);
+          return;
+        case "multiply-divide":
+          await choosePracticeFocus(page, matchFactPracticeEntry(selection.dryMathFacts.operations).label);
+          await chooseFactFamilies(page, selection.dryMathFacts.factFamilies);
+          return;
+        default: {
+          const unreachable: never = selection.dryMathStrand;
+          return unreachable;
+        }
       }
-      await choosePracticeFocus(page, describePracticeFocus("dry-math", selection.dryMath));
-      await chooseRegrouping(page, selection.dryMathRegrouping);
-      return;
     case "find-the-wow": {
       const { variant, quantity, equation } = selection.findTheWow;
       await chooseVariant(page, variant);

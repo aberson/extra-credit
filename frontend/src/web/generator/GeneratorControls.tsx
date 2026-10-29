@@ -93,6 +93,7 @@ import {
   earlierSettingsInUse,
   groupChanged,
   selectedChild,
+  type DryMathPracticeChosen,
   type WorksheetGroupKey,
   type WorksheetGroupValue,
   type WorksheetPanelAction,
@@ -253,9 +254,33 @@ function focusOptionIdFor(
   control: FocusControl,
   selection: WorksheetSelectionV2,
 ): string {
-  return control.kind === "dry-math" && selection.dryMathStrand === "multiply-divide"
-    ? matchFactPracticeEntry(selection.dryMathFacts.operations).id
-    : matchPracticeFocusOption(control.kind, control.value);
+  if (control.kind !== "dry-math") {
+    return matchPracticeFocusOption(control.kind, control.value);
+  }
+  switch (selection.dryMathStrand) {
+    case "add-subtract":
+      return matchPracticeFocusOption(control.kind, control.value);
+    case "multiply-divide":
+      return matchFactPracticeEntry(selection.dryMathFacts.operations).id;
+    default: {
+      const unreachable: never = selection.dryMathStrand;
+      return unreachable;
+    }
+  }
+}
+
+function dryMathExtraPracticeEntries(
+  selection: WorksheetSelectionV2,
+): typeof FACT_PRACTICE_ENTRIES {
+  switch (selection.dryMathStrand) {
+    case "add-subtract":
+    case "multiply-divide":
+      return FACT_PRACTICE_ENTRIES;
+    default: {
+      const unreachable: never = selection.dryMathStrand;
+      return unreachable;
+    }
+  }
 }
 
 /**
@@ -278,8 +303,17 @@ function groupsShownFor(
 ): readonly EarlierSettingsGroup[] {
   switch (selection.worksheetType) {
     case "dry-math":
-      // A facts page shows no addition and subtraction focus to start from.
-      return selection.dryMathStrand === "add-subtract" ? ["dryMath"] : [];
+      switch (selection.dryMathStrand) {
+        case "add-subtract":
+          return ["dryMath"];
+        case "multiply-divide":
+          // A facts page shows no addition and subtraction focus to start from.
+          return [];
+        default: {
+          const unreachable: never = selection.dryMathStrand;
+          return unreachable;
+        }
+      }
     case "find-the-wow":
       return [
         "findTheWow.variant",
@@ -595,23 +629,37 @@ export function GeneratorControls({
    */
   function chooseDryMathPractice(optionId: string): void {
     const factEntry = FACT_PRACTICE_ENTRIES.find(({ id }) => id === optionId);
+    let chosen: DryMathPracticeChosen | undefined;
     if (factEntry !== undefined) {
-      dispatch({
+      chosen = {
         type: "dryMathPracticeChosen",
         strand: "multiply-divide",
         dryMathFacts: {
           operations: [...factEntry.operations],
           factFamilies: [...factFamilies],
         },
-      });
+      };
+    } else {
+      const focus =
+        optionId === EARLIER_SETTING_OPTION_ID
+          ? selection.dryMath
+          : PRACTICE_FOCUS_CATALOG["dry-math"].find(({ id }) => id === optionId)?.focus;
+      if (focus !== undefined) {
+        chosen = { type: "dryMathPracticeChosen", strand: "add-subtract", dryMath: focus };
+      }
+    }
+    if (chosen === undefined) {
       return;
     }
-    const focus =
-      optionId === EARLIER_SETTING_OPTION_ID
-        ? selection.dryMath
-        : PRACTICE_FOCUS_CATALOG["dry-math"].find(({ id }) => id === optionId)?.focus;
-    if (focus !== undefined) {
-      dispatch({ type: "dryMathPracticeChosen", strand: "add-subtract", dryMath: focus });
+    switch (chosen.strand) {
+      case "add-subtract":
+      case "multiply-divide":
+        dispatch(chosen);
+        return;
+      default: {
+        const unreachable: never = chosen;
+        return unreachable;
+      }
     }
   }
 
@@ -910,7 +958,7 @@ export function GeneratorControls({
                   </option>
                 ))}
                 {focusControl.kind === "dry-math" &&
-                  FACT_PRACTICE_ENTRIES.map((entry) => (
+                  dryMathExtraPracticeEntries(selection).map((entry) => (
                     <option key={entry.id} value={entry.id}>
                       {entry.label}
                     </option>

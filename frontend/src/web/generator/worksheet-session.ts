@@ -26,6 +26,7 @@ import {
 import {
   OperationGridV2Schema,
   type ChildProfileV2,
+  type DryMathStrand,
   type WorksheetDefaultsV2,
   type WorksheetSelectionV2,
 } from "../../shared/config/schema";
@@ -105,17 +106,33 @@ export type WorksheetGroupChange = {
  * addition and subtraction focus, or the facts with the entry's operations
  * and the families already chosen.
  */
-export type DryMathPracticeChosen =
-  | {
-      readonly type: "dryMathPracticeChosen";
-      readonly strand: "add-subtract";
-      readonly dryMath: WorksheetGroupValue["dryMath"];
-    }
-  | {
-      readonly type: "dryMathPracticeChosen";
-      readonly strand: "multiply-divide";
-      readonly dryMathFacts: WorksheetGroupValue["dryMathFacts"];
-    };
+type DryMathPracticePayloadByStrand = {
+  readonly "add-subtract": {
+    readonly dryMath: WorksheetGroupValue["dryMath"];
+  };
+  readonly "multiply-divide": {
+    readonly dryMathFacts: WorksheetGroupValue["dryMathFacts"];
+  };
+};
+
+type AssertNever<TValue extends never> = [TValue] extends [never] ? unknown : never;
+
+/**
+ * Keeps this dispatch site in lockstep with the schema. Adding or removing a
+ * strand fails typecheck until its payload and reducer branch change here too.
+ */
+type ExactDryMathPracticeStrand = DryMathStrand &
+  AssertNever<
+    | Exclude<DryMathStrand, keyof DryMathPracticePayloadByStrand>
+    | Exclude<keyof DryMathPracticePayloadByStrand, DryMathStrand>
+  >;
+
+export type DryMathPracticeChosen = {
+  readonly [K in ExactDryMathPracticeStrand]: {
+    readonly type: "dryMathPracticeChosen";
+    readonly strand: K;
+  } & DryMathPracticePayloadByStrand[K];
+}[ExactDryMathPracticeStrand];
 
 export type WorksheetSessionAction =
   | {
@@ -309,13 +326,26 @@ export function worksheetSessionReducer(
       });
     case "dryMathPracticeChosen": {
       // One choice, two groups, one preview invalidation.
-      const chosen =
-        action.strand === "add-subtract"
-          ? withGroup(state.selection, "dryMath", action.dryMath)
-          : action.dryMathFacts.operations.length > 0 &&
-              action.dryMathFacts.factFamilies.length > 0
-            ? withGroup(state.selection, "dryMathFacts", action.dryMathFacts)
-            : undefined;
+      let chosen: WorksheetSelectionV2 | undefined;
+      let touchedPractice: "dryMath" | "dryMathFacts";
+      switch (action.strand) {
+        case "add-subtract":
+          chosen = withGroup(state.selection, "dryMath", action.dryMath);
+          touchedPractice = "dryMath";
+          break;
+        case "multiply-divide":
+          chosen =
+            action.dryMathFacts.operations.length > 0 &&
+            action.dryMathFacts.factFamilies.length > 0
+              ? withGroup(state.selection, "dryMathFacts", action.dryMathFacts)
+              : undefined;
+          touchedPractice = "dryMathFacts";
+          break;
+        default: {
+          const unreachable: never = action;
+          return unreachable;
+        }
+      }
       if (chosen === undefined) {
         return state;
       }
@@ -325,7 +355,7 @@ export function worksheetSessionReducer(
         touched: {
           ...state.touched,
           dryMathStrand: true,
-          [action.strand === "add-subtract" ? "dryMath" : "dryMathFacts"]: true,
+          [touchedPractice]: true,
         },
         previewEpoch: state.previewEpoch + 1,
       });

@@ -609,6 +609,29 @@ describe("worksheet renderer registry", () => {
     expect(document.body).not.toHaveTextContent("Private Topic");
   });
 
+  test.each([
+    ["addition and subtraction", {}],
+    ["regrouping", { dryMathRegrouping: "required" }],
+    ["multiplication and division facts", { dryMathStrand: "multiply-divide" }],
+  ] as const)("Dry Math marks the legacy answer blank for %s", (_name, overrides) => {
+    const result = createWorksheetSessionForSeed(
+      generationFor(profile, "dry-math", overrides),
+      0x9dcc_a8c5,
+      { worksheetIdSource: () => "11111111-1111-4111-8111-111111111111" },
+    );
+    if (!result.ok) {
+      throw new Error(result.message);
+    }
+    const { container } = render(
+      createElement(WorksheetPreview, { document: result.session.document }),
+    );
+    const blanks = [...container.querySelectorAll('[data-answer-blank="answer"]')];
+    expect(blanks).toHaveLength(result.session.document.items.length);
+    expect(blanks.map(({ textContent }) => textContent)).toEqual(
+      Array.from({ length: blanks.length }, () => "____"),
+    );
+  });
+
   test("WorksheetPreview reaches both registered Wow renderer variants", () => {
     for (const [sourceProfile, expectedMode] of [
       [quantityProfile, "quantity"],

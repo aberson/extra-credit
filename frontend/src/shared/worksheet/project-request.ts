@@ -119,6 +119,23 @@ function arithmeticMath(
   };
 }
 
+function dryMathCapabilities(
+  selection: WorksheetSelectionV2,
+): EffectiveMathSkillsV1 {
+  switch (selection.dryMathStrand) {
+    case "add-subtract":
+      return arithmeticMath(selection.dryMath, false);
+    case "multiply-divide":
+      // A facts page reads no addition and subtraction focus: its facts
+      // travel in the `practice` member, so every focus field stays inactive.
+      return { ...inactiveMath(), representations: ["equations"] };
+    default: {
+      const unreachable: never = selection.dryMathStrand;
+      return unreachable;
+    }
+  }
+}
+
 /**
  * The exact capabilities one selection projects for one family (DD13's
  * table). Each family reads only its own focus; every field it does not read
@@ -135,12 +152,7 @@ export function projectWorksheetCapabilities(
     case "dry-math":
       return {
         ...INACTIVE_WRITING_CAPABILITIES,
-        // A facts page reads no addition and subtraction focus: its facts
-        // travel in the `practice` member, so every focus field stays inactive.
-        mathSkills:
-          selection.dryMathStrand === "multiply-divide"
-            ? { ...inactiveMath(), representations: ["equations"] }
-            : arithmeticMath(selection.dryMath, false),
+        mathSkills: dryMathCapabilities(selection),
       };
     case "find-the-wow":
       return {
@@ -276,16 +288,22 @@ export function projectWorksheetPractice(
   if (worksheetType !== "dry-math") {
     return undefined;
   }
-  if (selection.dryMathStrand === "multiply-divide") {
-    return {
-      kind: "dry-math-facts",
-      operations: [...selection.dryMathFacts.operations],
-      factFamilies: [...selection.dryMathFacts.factFamilies],
-    };
+  switch (selection.dryMathStrand) {
+    case "add-subtract":
+      return selection.dryMathRegrouping === "required"
+        ? { kind: "dry-math-add-subtract", regrouping: "required" }
+        : undefined;
+    case "multiply-divide":
+      return {
+        kind: "dry-math-facts",
+        operations: [...selection.dryMathFacts.operations],
+        factFamilies: [...selection.dryMathFacts.factFamilies],
+      };
+    default: {
+      const unreachable: never = selection.dryMathStrand;
+      return unreachable;
+    }
   }
-  return selection.dryMathRegrouping === "required"
-    ? { kind: "dry-math-add-subtract", regrouping: "required" }
-    : undefined;
 }
 
 /**

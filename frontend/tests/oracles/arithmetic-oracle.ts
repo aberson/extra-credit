@@ -296,15 +296,29 @@ export function oracleFocusOf(request: GenerationRequestV1): OracleFocus {
     throw new Error(`The arithmetic oracle does not judge ${request.worksheetType}.`);
   }
   const practice = request.practice;
-  if (practice?.kind === "dry-math-facts") {
-    return { kind: "facts", operations: [...practice.operations], families: [...practice.factFamilies] };
-  }
   let regrouping: OracleRegrouping = "without";
-  if (practice !== undefined) {
-    if (practice.kind !== "dry-math-add-subtract" || practice.regrouping !== "required") {
+  switch (practice?.kind) {
+    case undefined:
+      break;
+    case "dry-math-add-subtract":
+      if (practice.regrouping !== "required") {
+        throw new Error("The arithmetic oracle met a practice choice it does not know.");
+      }
+      regrouping = "required";
+      break;
+    case "dry-math-facts":
+      return {
+        kind: "facts",
+        operations: [...practice.operations],
+        families: [...practice.factFamilies],
+      };
+    case "number-bonds":
+    case "operation-grid":
       throw new Error("The arithmetic oracle met a practice choice it does not know.");
+    default: {
+      const unreachable: never = practice;
+      return unreachable;
     }
-    regrouping = "required";
   }
   const skills = request.capabilities.mathSkills;
   return {

@@ -39,7 +39,20 @@ type FactsPractice = Extract<PracticeRequestV1, { readonly kind: "dry-math-facts
 
 /** The facts this request asks for, or `undefined` for an addition and subtraction page. */
 function factsPractice(request: GenerationRequestV1): FactsPractice | undefined {
-  return request.practice?.kind === "dry-math-facts" ? request.practice : undefined;
+  const practice = request.practice;
+  switch (practice?.kind) {
+    case "dry-math-facts":
+      return practice;
+    case undefined:
+    case "dry-math-add-subtract":
+    case "number-bonds":
+    case "operation-grid":
+      return undefined;
+    default: {
+      const unreachable: never = practice;
+      return unreachable;
+    }
+  }
 }
 
 export type DryMathDocumentV1 = WorksheetDocumentV1<DryMathItemV1>;
@@ -49,10 +62,20 @@ export type DryMathDocumentV1 = WorksheetDocumentV1<DryMathItemV1>;
  * without a `practice` member is today's regrouping-free page.
  */
 function regroupingRequired(request: GenerationRequestV1): boolean {
-  return (
-    request.practice?.kind === "dry-math-add-subtract" &&
-    request.practice.regrouping === "required"
-  );
+  const practice = request.practice;
+  switch (practice?.kind) {
+    case "dry-math-add-subtract":
+      return practice.regrouping === "required";
+    case undefined:
+    case "dry-math-facts":
+    case "number-bonds":
+    case "operation-grid":
+      return false;
+    default: {
+      const unreachable: never = practice;
+      return unreachable;
+    }
+  }
 }
 
 export function effectiveDryMathItemCount(request: GenerationRequestV1): number {
@@ -65,13 +88,23 @@ export function effectiveDryMathItemCount(request: GenerationRequestV1): number 
 export function enumerateDryMathCandidates(
   request: GenerationRequestV1,
 ): readonly ArithmeticCandidate[] {
-  const facts = factsPractice(request);
-  return facts === undefined
-    ? enumerateArithmeticCandidates(
+  const practice = request.practice;
+  switch (practice?.kind) {
+    case "dry-math-facts":
+      return enumerateFactCandidates(factsPractice(request) ?? practice);
+    case undefined:
+    case "dry-math-add-subtract":
+    case "number-bonds":
+    case "operation-grid":
+      return enumerateArithmeticCandidates(
         request.capabilities.mathSkills,
         regroupingRequired(request),
-      )
-    : enumerateFactCandidates(facts);
+      );
+    default: {
+      const unreachable: never = practice;
+      return unreachable;
+    }
+  }
 }
 
 /**
@@ -174,34 +207,44 @@ function dryMathShortfallFor(
   request: GenerationRequestV1,
   capacity: number,
 ): string | undefined {
-  if (factsPractice(request) !== undefined) {
-    return dryMathFactsShortfall(
-      capacity,
-      request.options.length,
-      request.options.printScale,
-    );
+  const practice = request.practice;
+  switch (practice?.kind) {
+    case "dry-math-facts":
+      return dryMathFactsShortfall(
+        capacity,
+        request.options.length,
+        request.options.printScale,
+      );
+    case undefined:
+    case "dry-math-add-subtract":
+    case "number-bonds":
+    case "operation-grid":
+      return dryMathCapacityShortfall(
+        capacity,
+        request.capabilities.mathSkills,
+        (maximums) =>
+          enumerateDryMathCandidates({
+            ...request,
+            capabilities: {
+              ...request.capabilities,
+              mathSkills: { ...request.capabilities.mathSkills, ...maximums },
+            },
+          }).length,
+        request.options.length,
+        request.options.printScale,
+        // The same focus without carrying or borrowing, measured only for a page
+        // that requires it, so the remedy can say when that choice would fill.
+        regroupingRequired(request)
+          ? () =>
+              enumerateArithmeticCandidates(request.capabilities.mathSkills, false)
+                .length
+          : undefined,
+      );
+    default: {
+      const unreachable: never = practice;
+      return unreachable;
+    }
   }
-  return dryMathCapacityShortfall(
-    capacity,
-    request.capabilities.mathSkills,
-    (maximums) =>
-      enumerateDryMathCandidates({
-        ...request,
-        capabilities: {
-          ...request.capabilities,
-          mathSkills: { ...request.capabilities.mathSkills, ...maximums },
-        },
-      }).length,
-    request.options.length,
-    request.options.printScale,
-    // The same focus without carrying or borrowing, measured only for a page
-    // that requires it, so the remedy can say when that choice would fill.
-    regroupingRequired(request)
-      ? () =>
-          enumerateArithmeticCandidates(request.capabilities.mathSkills, false)
-            .length
-      : undefined,
-  );
 }
 
 export function generateDryMath(

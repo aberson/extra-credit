@@ -329,6 +329,33 @@ async function operatorViolations(page: Page): Promise<readonly string[]> {
   });
 }
 
+/**
+ * Every visible answer blank narrower than the expected handwritten digit
+ * count needs, measured from its rendered glyph box, plus a violation when no
+ * blank is printed at all.
+ */
+async function answerBlankViolations(
+  page: Page,
+  expectedDigits: number,
+  floorMm: number,
+): Promise<readonly string[]> {
+  return await page.locator(".print-surface").evaluate(
+    (surface, { expectedDigits, floorMm }) => {
+      const blanks = [...surface.querySelectorAll('[data-answer-blank="answer"]')]
+        .filter((blank) => blank.getClientRects().length > 0);
+      const minimumWidthMm = expectedDigits * floorMm;
+      const narrow = blanks.flatMap((blank, index) => {
+        const widthMm = blank.getBoundingClientRect().width * 25.4 / 96;
+        return widthMm >= minimumWidthMm
+          ? []
+          : [`answerBlank[${index}] ${blank.textContent ?? ""}: ${widthMm} mm`];
+      });
+      return blanks.length === 0 ? ["no blank printed"] : narrow;
+    },
+    { expectedDigits, floorMm },
+  );
+}
+
 /** The screen transform an SVG element reports, read without the DOM library's types. */
 interface ScreenMatrix {
   readonly a: number;
@@ -997,6 +1024,13 @@ for (const fixture of printFixtures) {
           await measurePrint(page, `${name}-worksheet`, paper, scale,
             boundary.document, "worksheet",
             decorationApplicable ? decoration ? "art" : "doodle" : "absent");
+          if (fixture.selection.worksheetType === "dry-math") {
+            const perDigitFloorMm = scale === "standard" ? 4.5 : 5;
+            expect(
+              await answerBlankViolations(page, 2, perDigitFloorMm),
+              "Dry Math answer blanks",
+            ).toEqual([]);
+          }
           if (decorationApplicable && decoration) {
             // The saved From interests Theme keeps the art a version 1 page
             // drew: the prompt's topic for Sentence Builder, the first reviewed
@@ -1022,6 +1056,33 @@ for (const fixture of printFixtures) {
             expect(widest, "a subtraction from 100").toBeDefined();
             await expect(page.locator(`.print-surface [data-item-id="${widest?.id ?? ""}"]`))
               .toHaveText(/^100 − \d+ = _+$/u);
+            const perDigitFloorMm = scale === "standard" ? 4.5 : 5;
+            await withPrintStyle(
+              page,
+              '[data-answer-blank="answer"] { font-size: 1px !important; }',
+              async () => {
+                expect(
+                  (await answerBlankViolations(page, 2, perDigitFloorMm)).length,
+                  "a 1 px answer blank must fail",
+                ).toBeGreaterThan(0);
+              },
+            );
+            expect(
+              await answerBlankViolations(page, 2, perDigitFloorMm),
+              "answer blank size restored",
+            ).toEqual([]);
+            await withPrintStyle(
+              page,
+              '[data-answer-blank="answer"] { display: none !important; }',
+              async () => {
+                expect(await answerBlankViolations(page, 2, perDigitFloorMm))
+                  .toContain("no blank printed");
+              },
+            );
+            expect(
+              await answerBlankViolations(page, 2, perDigitFloorMm),
+              "answer blank display restored",
+            ).toEqual([]);
           }
           if (fixture.id === "dry-math-facts-144") {
             // The widest facts, a three-digit dividend over a two-digit divisor

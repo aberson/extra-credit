@@ -134,6 +134,15 @@ decoration reservations 24 mm square. For large worksheets, the same content is
 temporarily measured with standard print styles, then restored; response heights
 and cell widths must grow, while fixed reservations must stay equal.
 
+Every Dry Math worksheet row also measures each rendered underscore answer
+blank. The legacy four-underscore blank is treated as room for two digits and
+must provide at least 4.5 mm per digit at standard print and 5 mm per digit at
+large print. On the first Windows Chromium run, its width was 12.56 mm on both
+Letter and A4 at standard print (including the regrouping and facts rows) and
+14.13 mm on both papers at large print. A 1 px blank and a hidden blank must
+fail the gate before the restored page passes, so the measurement follows the
+printed glyphs rather than a CSS minimum width.
+
 After print media starts, applicable decoration-on rows wait for ready art,
 successfully decode its image, and require visible art with no doodle. Off rows
 require a visible doodle with no art. The selected state, asset, intrinsic image

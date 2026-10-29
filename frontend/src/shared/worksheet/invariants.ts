@@ -613,15 +613,25 @@ export function validateWorksheetInvariants(
     if (item.itemType === "dry-math") {
       const key = factKey(item.operation, item.leftOperand, item.rightOperand);
       // A Dry Math item in a Number Bonds document has no branch to pass.
-      const holds =
-        dryMathBranch !== undefined &&
-        (dryMathBranch.kind === "facts"
-          ? factItemHolds(item, dryMathBranch)
-          : addSubtractItemHolds(
+      let holds = false;
+      if (dryMathBranch !== undefined) {
+        switch (dryMathBranch.kind) {
+          case "add-subtract":
+            holds = addSubtractItemHolds(
               item,
               document.request.capabilities.mathSkills,
               dryMathBranch.regroupingRequired,
-            ));
+            );
+            break;
+          case "facts":
+            holds = factItemHolds(item, dryMathBranch);
+            break;
+          default: {
+            const unreachable: never = dryMathBranch;
+            holds = unreachable;
+          }
+        }
+      }
       if (dryMathFacts.has(key) || !holds) {
         return {
           ok: false,

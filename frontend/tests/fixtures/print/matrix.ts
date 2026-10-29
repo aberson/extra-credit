@@ -309,11 +309,27 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
       throw new Error(generated.message);
     }
     const first = generated.document.items[0];
+    let addSubtractRegroupingBoundary: boolean;
+    let factsBoundary: boolean;
+    switch (selection.dryMathStrand) {
+      case "add-subtract":
+        addSubtractRegroupingBoundary = selection.dryMathRegrouping === "required";
+        factsBoundary = false;
+        break;
+      case "multiply-divide":
+        addSubtractRegroupingBoundary = false;
+        factsBoundary = true;
+        break;
+      default: {
+        const unreachable: never = selection.dryMathStrand;
+        throw new Error(`Unsupported Dry Math strand: ${String(unreachable)}`);
+      }
+    }
     // Every problem carries or borrows: search for the widest row, a
     // subtraction from the Dry Math ceiling.
     if (
       selection.worksheetType === "dry-math" &&
-      selection.dryMathRegrouping === "required" &&
+      addSubtractRegroupingBoundary &&
       !generated.document.items.some(
         (item) =>
           item.itemType === "dry-math" &&
@@ -328,7 +344,7 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
     // two-digit factors.
     if (
       selection.worksheetType === "dry-math" &&
-      selection.dryMathStrand === "multiply-divide" &&
+      factsBoundary &&
       !(
         generated.document.items.some(
           (item) =>

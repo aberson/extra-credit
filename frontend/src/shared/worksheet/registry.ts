@@ -331,7 +331,16 @@ function numericLimitAdvice(
 
 /** Whether this selection asks Dry Math for multiplication and division facts. */
 function dryMathFactsChosen(context: WorksheetControlContextV2): boolean {
-  return context.selection.dryMathStrand === "multiply-divide";
+  switch (context.selection.dryMathStrand) {
+    case "add-subtract":
+      return false;
+    case "multiply-divide":
+      return true;
+    default: {
+      const unreachable: never = context.selection.dryMathStrand;
+      return unreachable;
+    }
+  }
 }
 
 /**
@@ -340,12 +349,67 @@ function dryMathFactsChosen(context: WorksheetControlContextV2): boolean {
  */
 function dryMathStatusMessage(context: WorksheetControlContextV2): string | undefined {
   const { dryMath, dryMathFacts, dryMathRegrouping } = context.selection;
-  if (dryMathFactsChosen(context)) {
-    return `Practice focus for Dry Math: ${describeFactsFocus(dryMathFacts)}.`;
+  switch (context.selection.dryMathStrand) {
+    case "add-subtract":
+      return dryMathRegrouping === "required"
+        ? `Practice focus for Dry Math: ${describePracticeFocus("dry-math", dryMath, dryMathRegrouping)}.`
+        : undefined;
+    case "multiply-divide":
+      return `Practice focus for Dry Math: ${describeFactsFocus(dryMathFacts)}.`;
+    default: {
+      const unreachable: never = context.selection.dryMathStrand;
+      return unreachable;
+    }
   }
-  return dryMathRegrouping === "required"
-    ? `Practice focus for Dry Math: ${describePracticeFocus("dry-math", dryMath, dryMathRegrouping)}.`
-    : undefined;
+}
+
+function dryMathLimitingResourceAdvice(
+  context: WorksheetControlContextV2,
+): string {
+  switch (context.selection.dryMathStrand) {
+    case "add-subtract":
+      return numericLimitAdvice(
+        DRY_MATH_DEFINITION.displayName,
+        OPERAND_RESULT_MAXIMUMS,
+      );
+    case "multiply-divide":
+      return FACTS_LIMITING_RESOURCE_ADVICE;
+    default: {
+      const unreachable: never = context.selection.dryMathStrand;
+      return unreachable;
+    }
+  }
+}
+
+function dryMathRelevantMaximums(
+  context: WorksheetControlContextV2,
+): readonly WorksheetRelevantMaximumV1[] {
+  switch (context.selection.dryMathStrand) {
+    case "add-subtract":
+      return OPERAND_RESULT_MAXIMUMS;
+    case "multiply-divide":
+      return NO_MAXIMUMS;
+    default: {
+      const unreachable: never = context.selection.dryMathStrand;
+      return unreachable;
+    }
+  }
+}
+
+function dryMathPracticeControls(
+  context: WorksheetControlContextV2,
+): Pick<WorksheetApplicableControlsV1, "regrouping" | "factFamilies"> {
+  const factsChosen = dryMathFactsChosen(context);
+  switch (context.selection.dryMathStrand) {
+    case "add-subtract":
+      return { regrouping: !factsChosen, factFamilies: factsChosen };
+    case "multiply-divide":
+      return { regrouping: !factsChosen, factFamilies: factsChosen };
+    default: {
+      const unreachable: never = context.selection.dryMathStrand;
+      return unreachable;
+    }
+  }
 }
 
 /** The capabilities this selection projects for one family. */
@@ -412,15 +476,8 @@ export const WORKSHEET_REGISTRY = {
       },
       // A facts page reads no operand or result maximum: its variety is
       // bounded by the chosen fact families alone.
-      getLimitingResourceAdvice: (context) =>
-        dryMathFactsChosen(context)
-          ? FACTS_LIMITING_RESOURCE_ADVICE
-          : numericLimitAdvice(
-              DRY_MATH_DEFINITION.displayName,
-              OPERAND_RESULT_MAXIMUMS,
-            ),
-      getRelevantMaximums: (context) =>
-        dryMathFactsChosen(context) ? NO_MAXIMUMS : OPERAND_RESULT_MAXIMUMS,
+      getLimitingResourceAdvice: dryMathLimitingResourceAdvice,
+      getRelevantMaximums: dryMathRelevantMaximums,
       getEffectiveUnit: ({ selection }) => ({
         count: getDryMathItemCount(selection.length, selection.printScale),
         singularLabel: "problem",
@@ -434,8 +491,7 @@ export const WORKSHEET_REGISTRY = {
         practiceFocus: true,
         variant: false,
         vocabulary: false,
-        regrouping: !dryMathFactsChosen(context),
-        factFamilies: dryMathFactsChosen(context),
+        ...dryMathPracticeControls(context),
         operationGrid: false,
         length: true,
         includeAnswerKey: true,
