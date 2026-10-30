@@ -67,6 +67,8 @@ export const DRY_MATH_TWO_DIGIT_MINIMUM = 10;
 export const DRY_MATH_TWO_DIGIT_MAXIMUM = 99;
 export const DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM = 2;
 export const DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM = 9;
+export const DRY_MATH_REMAINDER_DIVIDEND_MINIMUM = DRY_MATH_TWO_DIGIT_MINIMUM;
+export const DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM = DRY_MATH_TWO_DIGIT_MAXIMUM;
 
 /**
  * The smallest whole a Number Bonds problem may have: two parts of at least 1
@@ -250,6 +252,7 @@ export type PracticeRequestV1 =
       readonly kind: "dry-math-multi-digit";
       readonly operations: readonly FactOperation[];
     }
+  | { readonly kind: "dry-math-remainders" }
   | {
       readonly kind: "number-bonds";
       readonly variant: "sentence";
@@ -281,6 +284,7 @@ export interface GenerationRequestV1 {
 
 export type ObjectiveAnswerV1 =
   | { readonly kind: "number"; readonly value: number }
+  | { readonly kind: "quotient-remainder"; readonly quotient: number; readonly remainder: number }
   | { readonly kind: "choice"; readonly value: 0 | 1 | 2 }
   | {
       readonly kind: "comparison";
@@ -314,7 +318,9 @@ export interface DryMathItemV1 extends ObjectiveItemBaseV1 {
   readonly leftOperand: number;
   readonly rightOperand: number;
   readonly renderedSymbol: "+" | "−" | "×" | "÷";
-  readonly answer: { readonly kind: "number"; readonly value: number };
+  readonly answer:
+    | { readonly kind: "number"; readonly value: number }
+    | { readonly kind: "quotient-remainder"; readonly quotient: number; readonly remainder: number };
 }
 
 export interface QuantityWowChoiceV1 {

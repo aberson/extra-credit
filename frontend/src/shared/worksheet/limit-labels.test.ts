@@ -1466,6 +1466,7 @@ describe("every declared arm of the capacity and advice surface", () => {
                 case "dry-math-facts":
                 case "dry-math-three-digit":
                 case "dry-math-multi-digit":
+                case "dry-math-remainders":
                   needsNumericOperations = false;
                   break;
                 case undefined:
@@ -1539,6 +1540,9 @@ describe("every declared arm of the capacity and advice surface", () => {
                   threeDigitPage = true;
                   break;
                 case "multi-digit":
+                  threeDigitPage = true;
+                  break;
+                case "remainders":
                   threeDigitPage = true;
                   break;
                 default: {

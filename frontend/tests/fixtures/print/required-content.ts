@@ -217,11 +217,15 @@ export function requiredPrintContent(
       }
       text(`${selector} [data-problem-number]`, `${index + 1}.`);
       const answer = item.answer;
-      const answerText = answer.kind === "comparison"
+      const answerText = item.itemType === "dry-math" && answer.kind === "quotient-remainder"
+        ? `${Math.floor(item.leftOperand / item.rightOperand)} R ${item.leftOperand % item.rightOperand}`
+        : answer.kind === "comparison"
         ? { less: "fewer than", equal: "the same as", greater: "more than" }[answer.value]
         : answer.kind === "choice"
           ? `Choice ${answer.value + 1}`
-          : String(answer.value);
+          : answer.kind === "quotient-remainder"
+            ? `${answer.quotient} R ${answer.remainder}`
+            : String(answer.value);
       text(`${selector} [data-answer-value]`, answerText);
       if (item.itemType === "dry-math") {
         text(`${selector} [data-source-expression]`,
@@ -238,7 +242,10 @@ export function requiredPrintContent(
     }
     switch (item.itemType) {
       case "dry-math": {
-        const blank = "_".repeat(dryMathBlank(document.request.practice).underscores);
+        const blankShape = dryMathBlank(document.request.practice);
+        const blank = blankShape.kind === "remainder"
+          ? `${"_".repeat(blankShape.quotient)} R ${"_".repeat(blankShape.remainder)}`
+          : "_".repeat(blankShape.underscores);
         text(`${selector} > span`,
           `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ${blank}`);
         // The sign prints in its own element, so its own visibility is checked.

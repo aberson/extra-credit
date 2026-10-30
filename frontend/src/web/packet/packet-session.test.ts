@@ -219,6 +219,10 @@ describe("describeQueuedSheet", () => {
     });
     expect(describeQueuedSheet(sheet, PROFILES).detail).toBe("Three-digit ÷ one-digit division");
   });
+  test("a remainder sheet names its fixed focus", () => {
+    const sheet = sheetFor(FIRST_CHILD, { worksheetType: "dry-math", dryMathStrand: "remainders" });
+    expect(describeQueuedSheet(sheet, PROFILES).detail).toBe("Division with remainders");
+  });
 
   test("a child without a nickname is Profile N by list position, and a deleted one is a removed profile", () => {
     const sheet = sheetFor(SECOND_CHILD, { worksheetType: "find-the-wow" });

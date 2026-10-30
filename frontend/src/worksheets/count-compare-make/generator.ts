@@ -437,11 +437,19 @@ function sameAnswer(
   actual: ObjectiveAnswerV1,
   expected: ObjectiveAnswerV1 | undefined,
 ): boolean {
-  return (
-    expected !== undefined &&
-    actual.kind === expected.kind &&
-    actual.value === expected.value
-  );
+  if (expected === undefined || actual.kind !== expected.kind) return false;
+  switch (actual.kind) {
+    case "quotient-remainder":
+      return expected.kind === "quotient-remainder" && actual.quotient === expected.quotient && actual.remainder === expected.remainder;
+    case "grid":
+      return expected.kind === "grid" && actual.value.length === expected.value.length && actual.value.every((value, index) => value === expected.value[index]);
+    case "number":
+      return expected.kind === "number" && actual.value === expected.value;
+    case "choice":
+      return expected.kind === "choice" && actual.value === expected.value;
+    case "comparison":
+      return expected.kind === "comparison" && actual.value === expected.value;
+  }
 }
 
 function withinRange(value: number, low: number, high: number): boolean {

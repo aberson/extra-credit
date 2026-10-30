@@ -214,6 +214,8 @@ function detailOf(selection: WorksheetSelectionV2): string | undefined {
           return describeThreeDigitFocus(selection.dryMathThreeDigit, selection.dryMathRegrouping);
         case "multi-digit":
           return describeMultiDigitFocus(selection.dryMathMultiDigit);
+        case "remainders":
+          return "Division with remainders";
         default: {
           const unreachable: never = selection.dryMathStrand;
           return unreachable;

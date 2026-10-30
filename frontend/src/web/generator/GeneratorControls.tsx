@@ -9,6 +9,7 @@ import {
   FACT_PRACTICE_ENTRIES,
   THREE_DIGIT_PRACTICE_ENTRIES,
   MULTI_DIGIT_PRACTICE_ENTRIES,
+  REMAINDERS_PRACTICE_ENTRY,
   NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   SAVED_SETTING_OPTION_ID,
@@ -270,6 +271,8 @@ function focusOptionIdFor(
       return matchThreeDigitPracticeEntry(selection.dryMathThreeDigit.operations).id;
     case "multi-digit":
       return matchMultiDigitPracticeEntry(selection.dryMathMultiDigit.operations).id;
+    case "remainders":
+      return REMAINDERS_PRACTICE_ENTRY.id;
     default: {
       const unreachable: never = selection.dryMathStrand;
       return unreachable;
@@ -283,7 +286,8 @@ function dryMathExtraPracticeEntries(selection: WorksheetSelectionV2) {
     case "multiply-divide":
     case "three-digit":
     case "multi-digit":
-      return [...FACT_PRACTICE_ENTRIES, ...THREE_DIGIT_PRACTICE_ENTRIES, ...MULTI_DIGIT_PRACTICE_ENTRIES];
+    case "remainders":
+      return [...FACT_PRACTICE_ENTRIES, ...THREE_DIGIT_PRACTICE_ENTRIES, ...MULTI_DIGIT_PRACTICE_ENTRIES, REMAINDERS_PRACTICE_ENTRY];
     default: {
       const unreachable: never = selection.dryMathStrand;
       return unreachable;
@@ -320,6 +324,8 @@ function groupsShownFor(
         case "three-digit":
           return [];
         case "multi-digit":
+          return [];
+        case "remainders":
           return [];
         default: {
           const unreachable: never = selection.dryMathStrand;
@@ -661,6 +667,8 @@ export function GeneratorControls({
       };
     } else if (multiDigitEntry !== undefined) {
       chosen = { type: "dryMathPracticeChosen", strand: "multi-digit", dryMathMultiDigit: { operations: [...multiDigitEntry.operations] } };
+    } else if (optionId === REMAINDERS_PRACTICE_ENTRY.id) {
+      chosen = { type: "dryMathPracticeChosen", strand: "remainders" };
     } else {
       const focus =
         optionId === EARLIER_SETTING_OPTION_ID
@@ -678,6 +686,7 @@ export function GeneratorControls({
       case "multiply-divide":
       case "three-digit":
       case "multi-digit":
+      case "remainders":
         dispatch(chosen);
         return;
       default: {

@@ -343,6 +343,8 @@ function dryMathFactsChosen(context: WorksheetControlContextV2): boolean {
       return false;
     case "multi-digit":
       return false;
+    case "remainders":
+      return false;
     default: {
       const unreachable: never = context.selection.dryMathStrand;
       return unreachable;
@@ -367,6 +369,8 @@ function dryMathStatusMessage(context: WorksheetControlContextV2): string | unde
       return `Practice focus for Dry Math: ${describeThreeDigitFocus(dryMathThreeDigit, dryMathRegrouping)}.`;
     case "multi-digit":
       return `Practice focus for Dry Math: ${describeMultiDigitFocus(dryMathMultiDigit)}.`;
+    case "remainders":
+      return "Practice focus for Dry Math: Division with remainders.";
     default: {
       const unreachable: never = context.selection.dryMathStrand;
       return unreachable;
@@ -389,6 +393,8 @@ function dryMathLimitingResourceAdvice(
       return DRY_MATH_FIXED_POOL_ADVICE;
     case "multi-digit":
       return DRY_MATH_FIXED_POOL_ADVICE;
+    case "remainders":
+      return DRY_MATH_FIXED_POOL_ADVICE;
     default: {
       const unreachable: never = context.selection.dryMathStrand;
       return unreachable;
@@ -407,6 +413,8 @@ function dryMathRelevantMaximums(
     case "three-digit":
       return NO_MAXIMUMS;
     case "multi-digit":
+      return NO_MAXIMUMS;
+    case "remainders":
       return NO_MAXIMUMS;
     default: {
       const unreachable: never = context.selection.dryMathStrand;
@@ -427,6 +435,8 @@ function dryMathPracticeControls(
     case "three-digit":
       return { regrouping: true, factFamilies: false };
     case "multi-digit":
+      return { regrouping: false, factFamilies: false };
+    case "remainders":
       return { regrouping: false, factFamilies: false };
     default: {
       const unreachable: never = context.selection.dryMathStrand;

@@ -28,6 +28,7 @@ import {
   FACT_PRACTICE_ENTRIES,
   THREE_DIGIT_PRACTICE_ENTRIES,
   MULTI_DIGIT_PRACTICE_ENTRIES,
+  REMAINDERS_PRACTICE_ENTRY,
   NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   SENTENCE_VOCABULARY_LABELS,
@@ -1983,6 +1984,19 @@ describe("worksheet-first panel", () => {
     expect(screen.queryByRole("group", { name: "Fact families" })).toBeNull();
   });
 
+  test("Division with remainders is one action with no unrelated groups", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
+    fireEvent.change(screen.getByRole("combobox", { name: "Practice focus" }), {
+      target: { value: REMAINDERS_PRACTICE_ENTRY.id },
+    });
+    expect(onChange.mock.calls).toEqual([[
+      { type: "dryMathPracticeChosen", strand: "remainders" },
+    ]]);
+    expect(screen.queryByRole("group", { name: "Carrying and borrowing" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Fact families" })).toBeNull();
+  });
+
   test("Number Bonds is the fifth card, with nine sentence entries and its own Carrying and borrowing group after the focus, each choice one action", () => {
     const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
     renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
@@ -2346,6 +2360,7 @@ describe("worksheet-first panel", () => {
       "Two-digit × one-digit multiplication",
       "Three-digit ÷ one-digit division",
       "Two-digit × one-digit and three-digit ÷ one-digit",
+      "Division with remainders",
     ]);
     chooseWorksheet("count-compare-make");
     expect(optionLabels()).toEqual(catalogLabels("count-compare-make"));
@@ -2369,6 +2384,7 @@ describe("worksheet-first panel", () => {
       "Two-digit × one-digit multiplication",
       "Three-digit ÷ one-digit division",
       "Two-digit × one-digit and three-digit ÷ one-digit",
+      "Division with remainders",
     ]);
     expect(screen.getByRole("combobox", { name: "Practice focus" })).toHaveValue(
       "earlier-setting",

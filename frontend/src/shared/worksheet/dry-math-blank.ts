@@ -3,6 +3,7 @@ import {
   DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM,
   DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM,
   DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
+  DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM,
   DRY_MATH_TWO_DIGIT_MAXIMUM,
   type PracticeRequestV1,
 } from "./types.js";
@@ -15,6 +16,12 @@ export interface SingleDryMathBlank {
   readonly underscores: number;
 }
 
+export interface RemainderDryMathBlank {
+  readonly kind: "remainder";
+  readonly quotient: number;
+  readonly remainder: number;
+}
+
 /**
  * The answer blank owned by one Dry Math practice request.
  *
@@ -24,7 +31,7 @@ export interface SingleDryMathBlank {
  */
 export function dryMathBlank(
   practice: PracticeRequestV1 | undefined,
-): SingleDryMathBlank {
+): SingleDryMathBlank | RemainderDryMathBlank {
   switch (practice?.kind) {
     case "dry-math-three-digit":
       return {
@@ -38,6 +45,12 @@ export function dryMathBlank(
       );
       return { kind: "single", underscores: String(largest).length * 2 };
     }
+    case "dry-math-remainders":
+      return {
+        kind: "remainder",
+        quotient: String(Math.floor(DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM / DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM)).length * 2,
+        remainder: String(DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM - 1).length * 2,
+      };
     case undefined:
     case "dry-math-add-subtract":
     case "dry-math-facts":

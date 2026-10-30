@@ -288,6 +288,11 @@ export function describeMultiDigitFocus(group: DryMathMultiDigitV2): string {
   return matchMultiDigitPracticeEntry(group.operations).label;
 }
 
+export const REMAINDERS_PRACTICE_ENTRY = Object.freeze({
+  id: "division-with-remainders",
+  label: "Division with remainders",
+});
+
 /** A Number Bonds sentence focus: its operations and its largest whole. */
 export type NumberBondsFocus = Pick<NumberBondsV2, "operations" | "wholeMax">;
 

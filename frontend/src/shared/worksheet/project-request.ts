@@ -132,6 +132,7 @@ function dryMathCapabilities(
     case "three-digit":
       return { ...inactiveMath(), representations: ["equations"] };
     case "multi-digit":
+    case "remainders":
       return { ...inactiveMath(), representations: ["equations"] };
     default: {
       const unreachable: never = selection.dryMathStrand;
@@ -311,6 +312,8 @@ export function projectWorksheetPractice(
       };
     case "multi-digit":
       return { kind: "dry-math-multi-digit", operations: [...selection.dryMathMultiDigit.operations] };
+    case "remainders":
+      return { kind: "dry-math-remainders" };
     default: {
       const unreachable: never = selection.dryMathStrand;
       return unreachable;

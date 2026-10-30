@@ -48,8 +48,8 @@ Every generated page, in every family, stays inside one fixed envelope:
 | Bound | Value |
 |---|---|
 | Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, Carrying and borrowing, fact families, Operation Grid's operation, rows, columns, pre-filled count and placement, length, and print scale). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
-| Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, three-digit addition/subtraction with answers up to 1,000, two-digit × one-digit multiplication, three-digit ÷ one-digit division, and facts with factors, divisors and answers up to 12; Operation Grid headers run to 12 and powers cells to 1,000; every quantity, numeral, operand, and result in the other families stays at most 20. |
-| Sign | Nonnegative. No generated result is below zero, and every division is exact with a nonzero divisor. |
+| Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, three-digit addition/subtraction with answers up to 1,000, two-digit × one-digit multiplication, exact three-digit ÷ one-digit division, two-digit division with remainders, and facts with factors, divisors and answers up to 12; Operation Grid headers run to 12 and powers cells to 1,000; every quantity, numeral, operand, and result in the other families stays at most 20. |
+| Sign | Nonnegative. No generated result is below zero. Fact-family and multi-digit division is exact with a nonzero divisor; the remainders focus always has a nonzero remainder. |
 | Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once. In Number Bonds, "Include problems that carry or borrow" adds problems whose missing number needs carrying or borrowing; by default no Number Bonds problem makes or crosses ten. Operation Grid's cells follow from its headers alone, so an addition grid's sums that make or cross ten are a fixed part of the table rather than a choice. Otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
 | Personalization | A nickname and reviewed interest topics only. Raw unmatched interest text never reaches a request or a page. |
 | Locality | Generation is deterministic local code. The page talks to nothing but its own loopback server on 127.0.0.1: no account, no off-device request, no runtime model, and no telemetry. |
@@ -85,6 +85,10 @@ stay at most 12, so no dividend exceeds 144.
 The multi-digit focus uses a two-digit multiplicand and factor 2–9, or a
 three-digit dividend and divisor 2–9. Division remains exact. These bounds
 make place-value practice explicit without making a grade or fluency claim.
+
+The Division with remainders focus uses a two-digit dividend and divisor 2–9.
+Every quotient is at least 1 and every remainder is from 1 through one less
+than the divisor; the child writes both values around the printed R.
 
 - [Common Core Kindergarten Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/K/OA/)
 - [Common Core Grade 1 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/1/OA/)

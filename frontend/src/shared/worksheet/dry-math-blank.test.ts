@@ -9,11 +9,14 @@ describe("dryMathBlank", () => {
       operations: ["addition", "subtraction"],
       regrouping: "required",
     });
-    expect("_".repeat(blank.underscores)).toBe("________");
+    expect(blank).toEqual({ kind: "single", underscores: 8 });
   });
   test("uses six underscores for multi-digit answers", () => {
     const blank = dryMathBlank({ kind: "dry-math-multi-digit", operations: ["multiplication", "division"] });
-    expect("_".repeat(blank.underscores)).toBe("______");
+    expect(blank).toEqual({ kind: "single", underscores: 6 });
+  });
+  test("derives quotient and remainder blanks", () => {
+    expect(dryMathBlank({ kind: "dry-math-remainders" })).toEqual({ kind: "remainder", quotient: 4, remainder: 2 });
   });
 
   test.each([
@@ -32,6 +35,6 @@ describe("dryMathBlank", () => {
     ],
   ])("keeps the legacy literal for %s", (_name, practice) => {
     const blank = dryMathBlank(practice);
-    expect("_".repeat(blank.underscores)).toBe("____");
+    expect(blank).toEqual({ kind: "single", underscores: 4 });
   });
 });

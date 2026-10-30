@@ -119,6 +119,7 @@ type DryMathPracticePayloadByStrand = {
     readonly dryMathThreeDigit: WorksheetGroupValue["dryMathThreeDigit"];
   };
   readonly "multi-digit": { readonly dryMathMultiDigit: WorksheetGroupValue["dryMathMultiDigit"] };
+  readonly remainders: Record<never, never>;
 };
 
 type AssertNever<TValue extends never> = [TValue] extends [never] ? unknown : never;
@@ -335,7 +336,7 @@ export function worksheetSessionReducer(
     case "dryMathPracticeChosen": {
       // One choice, two groups, one preview invalidation.
       let chosen: WorksheetSelectionV2 | undefined;
-      let touchedPractice: "dryMath" | "dryMathFacts" | "dryMathThreeDigit" | "dryMathMultiDigit";
+      let touchedPractice: "dryMath" | "dryMathFacts" | "dryMathThreeDigit" | "dryMathMultiDigit" | undefined;
       switch (action.strand) {
         case "add-subtract":
           chosen = withGroup(state.selection, "dryMath", action.dryMath);
@@ -361,6 +362,10 @@ export function worksheetSessionReducer(
             ? withGroup(state.selection, "dryMathMultiDigit", action.dryMathMultiDigit) : undefined;
           touchedPractice = "dryMathMultiDigit";
           break;
+        case "remainders":
+          chosen = state.selection;
+          touchedPractice = undefined;
+          break;
         default: {
           const unreachable: never = action;
           return unreachable;
@@ -372,11 +377,9 @@ export function worksheetSessionReducer(
       return settled({
         ...state,
         selection: withGroup(chosen, "dryMathStrand", action.strand),
-        touched: {
-          ...state.touched,
-          dryMathStrand: true,
-          [touchedPractice]: true,
-        },
+        touched: touchedPractice === undefined
+          ? { ...state.touched, dryMathStrand: true }
+          : { ...state.touched, dryMathStrand: true, [touchedPractice]: true },
         previewEpoch: state.previewEpoch + 1,
       });
     }

@@ -114,6 +114,17 @@ describe("the one objective-answer dispatch", () => {
     expect(objectiveAnswerMatches(dryMathItem("division", 0, 0, 0))).toBe(false);
   });
 
+  test("recomputes quotient and remainder only for division", () => {
+    const division: DryMathItemV1 = {
+      ...dryMathItem("division", 47, 5, 0),
+      answer: { kind: "quotient-remainder", quotient: 9, remainder: 2 },
+    };
+    expect(recomputeObjectiveAnswer(division)).toEqual({ kind: "quotient-remainder", quotient: 9, remainder: 2 });
+    expect(objectiveAnswerMatches(division)).toBe(true);
+    expect(objectiveAnswerMatches({ ...division, answer: { kind: "quotient-remainder", quotient: 8, remainder: 2 } })).toBe(false);
+    expect(objectiveAnswerMatches({ ...division, operation: "addition", renderedSymbol: "+" })).toBe(false);
+  });
+
   test("solves a Number Bonds sentence's missing number from the numbers it shows", () => {
     // 8 + ? = 15, ? + 7 = 15, ? − 3 = 5 and 9 − ? = 4. The hidden operand is
     // deliberately wrong in each, so only the shown numbers can give these.

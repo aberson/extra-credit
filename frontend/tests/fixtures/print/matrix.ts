@@ -131,6 +131,19 @@ export const printFixtures: readonly PrintFixture[] = [
     letterStandardOnly: true,
   },
   {
+    id: "dry-math-remainders",
+    profileIndex: 2,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "dry-math",
+      dryMathStrand: "remainders",
+    },
+    printedOn: [
+      { paper: "letter", scale: "standard" },
+      { paper: "a4", scale: "large" },
+    ],
+  },
+  {
     id: "bonds-missing-20",
     profileIndex: 1,
     selection: {
@@ -364,6 +377,12 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
         threeDigitBoundary = false;
         multiDigitBoundary = true;
         break;
+      case "remainders":
+        addSubtractRegroupingBoundary = false;
+        factsBoundary = false;
+        threeDigitBoundary = false;
+        multiDigitBoundary = false;
+        break;
       default: {
         const unreachable: never = selection.dryMathStrand;
         throw new Error(`Unsupported Dry Math strand: ${String(unreachable)}`);
@@ -371,8 +390,8 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
     }
     if (
       selection.worksheetType === "dry-math" && multiDigitBoundary &&
-      !(generated.document.items.some((item) => item.itemType === "dry-math" && item.operation === "multiplication" && item.answer.value >= 800) &&
-        generated.document.items.some((item) => item.itemType === "dry-math" && item.operation === "division" && item.answer.value >= 100))
+      !(generated.document.items.some((item) => item.itemType === "dry-math" && item.operation === "multiplication" && item.answer.kind === "number" && item.answer.value >= 800) &&
+        generated.document.items.some((item) => item.itemType === "dry-math" && item.operation === "division" && item.answer.kind === "number" && item.answer.value >= 100))
     ) continue;
     if (
       selection.worksheetType === "dry-math" &&

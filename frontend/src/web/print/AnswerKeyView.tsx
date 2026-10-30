@@ -59,6 +59,8 @@ function answerText(answer: ObjectiveAnswerV1): string {
   switch (answer.kind) {
     case "number":
       return String(answer.value);
+    case "quotient-remainder":
+      return `${answer.quotient} R ${answer.remainder}`;
     case "choice":
       return `Choice ${answer.value + 1}`;
     case "comparison":

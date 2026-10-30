@@ -31,6 +31,8 @@ export const ORACLE_MULTI_DIGIT_TWO_DIGIT_MAXIMUM = 99;
 export const ORACLE_MULTI_DIGIT_FACTOR_MINIMUM = 2;
 export const ORACLE_MULTI_DIGIT_FACTOR_MAXIMUM = 9;
 export const ORACLE_MULTI_DIGIT_DIVIDEND_MAXIMUM = 999;
+export const ORACLE_REMAINDER_DIVIDEND_MINIMUM = 10;
+export const ORACLE_REMAINDER_DIVIDEND_MAXIMUM = 99;
 
 /** Appendix B.2: the largest factor, divisor and quotient, and the largest dividend. */
 export const ORACLE_FACT_FACTOR_MAXIMUM = 12;
@@ -90,8 +92,9 @@ export interface OracleMultiDigitFocus {
   readonly kind: "multi-digit";
   readonly operations: readonly string[];
 }
+export interface OracleRemaindersFocus { readonly kind: "remainders" }
 
-export type OracleFocus = OracleAddSubtractFocus | OracleFactsFocus | OracleThreeDigitFocus | OracleMultiDigitFocus;
+export type OracleFocus = OracleAddSubtractFocus | OracleFactsFocus | OracleThreeDigitFocus | OracleMultiDigitFocus | OracleRemaindersFocus;
 
 /** Independently count one fixed three-digit operation/regrouping partition. */
 export function oracleThreeDigitCapacity(
@@ -129,8 +132,7 @@ export interface OracleFact {
   readonly left: number;
   readonly right: number;
   readonly symbol: string;
-  /** The stated answer; `undefined` when it is not a number. */
-  readonly answer: number | undefined;
+  readonly answer: number | { readonly quotient: number; readonly remainder: number } | undefined;
 }
 
 const SYMBOLS: Readonly<Record<OracleOperation | OracleFactOperation, string>> = {
@@ -349,6 +351,15 @@ export function oracleCandidateKeys(focus: OracleFocus): ReadonlySet<string> {
     }
     return keys;
   }
+  if (focus.kind === "remainders") {
+    const keys = new Set<string>();
+    for (let divisor = 2; divisor <= 9; divisor += 1) {
+      for (let dividend = ORACLE_REMAINDER_DIVIDEND_MINIMUM; dividend <= ORACLE_REMAINDER_DIVIDEND_MAXIMUM; dividend += 1) {
+        if (dividend % divisor !== 0) keys.add(`division:${dividend}:${divisor}`);
+      }
+    }
+    return keys;
+  }
   const keys = new Set<string>();
   const operandLimit = Math.min(focus.operandMax, ORACLE_DRY_MATH_CEILING);
   const resultLimit = Math.min(focus.resultMax, ORACLE_DRY_MATH_CEILING);
@@ -404,6 +415,8 @@ export function oracleFocusOf(request: GenerationRequestV1): OracleFocus {
       };
     case "dry-math-multi-digit":
       return { kind: "multi-digit", operations: [...practice.operations] };
+    case "dry-math-remainders":
+      return { kind: "remainders" };
     case "number-bonds":
     case "operation-grid":
       throw new Error("The arithmetic oracle met a practice choice it does not know.");
@@ -423,6 +436,7 @@ export function oracleFocusOf(request: GenerationRequestV1): OracleFocus {
 
 /** The first violation of one multiplication or division fact, or `undefined` when it is clean. */
 function judgeFactsFact(fact: OracleFact, focus: OracleFactsFocus): OracleCode | undefined {
+  if (typeof fact.answer === "object") return "WRONG_ANSWER";
   if (!isOracleFactOperation(fact.operation)) {
     return "OUT_OF_SET";
   }
@@ -476,6 +490,15 @@ function judgeFactsFact(fact: OracleFact, focus: OracleFactsFocus): OracleCode |
 
 /** The first violation of one problem, or `undefined` when it is clean. */
 function judgeFact(fact: OracleFact, focus: OracleFocus): OracleCode | undefined {
+  if (focus.kind === "remainders") {
+    if (fact.operation !== "division" || fact.symbol !== SYMBOLS.division) return "OUT_OF_SET";
+    const division = oracleDivide(fact.left, fact.right);
+    if (division === undefined) return "ZERO_DIVISOR";
+    if (fact.left < ORACLE_REMAINDER_DIVIDEND_MINIMUM || fact.left > ORACLE_REMAINDER_DIVIDEND_MAXIMUM || fact.right < 2 || fact.right > 9) return "OVER_CEILING";
+    if (division.remainder === 0) return "REMAINDER";
+    return typeof fact.answer === "object" && fact.answer.quotient === division.quotient && fact.answer.remainder === division.remainder
+      ? undefined : "WRONG_ANSWER";
+  }
   if (focus.kind === "facts") {
     return judgeFactsFact(fact, focus);
   }
@@ -501,13 +524,14 @@ function judgeFact(fact: OracleFact, focus: OracleFocus): OracleCode | undefined
     ) {
       return value < 0 ? "NEGATIVE" : "OVER_CEILING";
     }
-    if (fact.answer !== value) return "WRONG_ANSWER";
+    if (typeof fact.answer !== "number" || fact.answer !== value) return "WRONG_ANSWER";
     return oracleRegroups(fact.operation, fact.left, fact.right) ===
       (focus.regrouping === "required")
       ? undefined
       : "REGROUPING_MISMATCH";
   }
   if (focus.kind === "multi-digit") {
+    if (typeof fact.answer === "object") return "WRONG_ANSWER";
     if (!isOracleFactOperation(fact.operation) || !focus.operations.includes(fact.operation)) return "OUT_OF_SET";
     if (fact.symbol !== SYMBOLS[fact.operation]) return "SYMBOL_MISMATCH";
     if (fact.operation === "multiplication") {
@@ -526,6 +550,7 @@ function judgeFact(fact: OracleFact, focus: OracleFocus): OracleCode | undefined
   if (fact.symbol !== SYMBOLS[fact.operation]) {
     return "SYMBOL_MISMATCH";
   }
+  if (typeof fact.answer === "object") return "WRONG_ANSWER";
   if (
     !Number.isInteger(fact.left) ||
     !Number.isInteger(fact.right) ||
@@ -600,7 +625,9 @@ export function judgeDocument(document: WorksheetDocumentV1): readonly OracleVio
         left: item.leftOperand,
         right: item.rightOperand,
         symbol: item.renderedSymbol,
-        answer: item.answer.kind === "number" ? item.answer.value : undefined,
+        answer: item.answer.kind === "number"
+          ? item.answer.value
+          : { quotient: item.answer.quotient, remainder: item.answer.remainder },
       };
     }),
     focus,
@@ -637,8 +664,9 @@ export function parseRenderedRow(
   readonly left: number;
   readonly right: number;
   readonly symbol: string;
+  readonly remainderBlank: boolean;
 } | undefined {
-  const match = /^\s*(\d+)\s*([+−×÷])\s*(\d+)\s*=\s*_+\s*$/u.exec(text);
+  const match = /^\s*(\d+)\s*([+−×÷])\s*(\d+)\s*=\s*_+(\s+R\s+_+)?\s*$/u.exec(text);
   const symbol = match?.[2] ?? "";
   const operation = OPERATIONS_BY_SYMBOL[symbol];
   if (match === null || operation === undefined) {
@@ -649,11 +677,12 @@ export function parseRenderedRow(
     left: Number(match[1]),
     right: Number(match[3]),
     symbol,
+    remainderBlank: match[4] !== undefined,
   };
 }
 
 /** The oracle's own solution of one parsed row, or `undefined` when it has none. */
-function solveRow(row: NonNullable<ReturnType<typeof parseRenderedRow>>): number | undefined {
+export function solveRow(row: NonNullable<ReturnType<typeof parseRenderedRow>>): number | { readonly quotient: number; readonly remainder: number } | undefined {
   switch (row.operation) {
     case "addition":
     case "subtraction":
@@ -664,7 +693,10 @@ function solveRow(row: NonNullable<ReturnType<typeof parseRenderedRow>>): number
       return oracleProduct(row.left, row.right);
     case "division": {
       const division = oracleDivide(row.left, row.right);
-      return division === undefined || division.remainder !== 0 ? undefined : division.quotient;
+      if (division === undefined) return undefined;
+      return row.remainderBlank
+        ? { quotient: division.quotient, remainder: division.remainder }
+        : division.remainder === 0 ? division.quotient : undefined;
     }
   }
 }
@@ -693,11 +725,12 @@ export function judgeRenderedPage(
     }
     const solution = solveRow(parsed);
     const expression = `${parsed.left} ${parsed.symbol} ${parsed.right}`;
+    const answerText = typeof solution === "object" ? `${solution.quotient} R ${solution.remainder}` : String(solution);
     const keyLine = keyLines.find(({ id }) => id === row.id);
     if (
       keyLine === undefined ||
       keyLine.source !== expression ||
-      keyLine.answer !== String(solution) ||
+      keyLine.answer !== answerText ||
       keyLine.text !== `${index + 1}. ${expression} = ${keyLine.answer}`
     ) {
       violations.push({ itemId: row.id, code: "KEY_MISMATCH" });

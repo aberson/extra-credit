@@ -673,6 +673,23 @@ describe("three-digit Dry Math defaults through the config API", () => {
     expect(stored.profiles).toEqual(config.profiles);
     expect(stored.defaults).toEqual(config.defaults);
   });
+  test("reads an earlier strand unchanged and persists only the remainders member", async () => {
+    const { app, configPath, token } = await setup();
+    const earlier = fixture("Fictional Remainders Reader");
+    const created = await app.inject({ method: "PUT", url: "/api/config", headers: { ...putHeaders(token), "if-none-match": "*" }, payload: earlier });
+    expect(created.statusCode).toBe(200);
+    const before = await readFile(configPath);
+    const read = await app.inject({ method: "GET", url: "/api/config", headers: { host: HOST, "x-extra-credit-token": token } });
+    const config = (read.json() as { config: AppConfigV2 }).config;
+    expect(config).toEqual(earlier);
+    expect((await readFile(configPath)).equals(before)).toBe(true);
+    config.defaults.dryMathStrand = "remainders";
+    const saved = await app.inject({ method: "PUT", url: "/api/config", headers: { ...putHeaders(token), "if-match": String(read.headers.etag) }, payload: config });
+    expect(saved.statusCode).toBe(200);
+    const stored = JSON.parse((await readFile(configPath)).toString("utf8")) as AppConfigV2;
+    expect(stored).toEqual({ ...earlier, defaults: { ...earlier.defaults, dryMathStrand: "remainders" } });
+    expect(stored.profiles).toEqual(earlier.profiles);
+  });
 });
 
 describe.each([

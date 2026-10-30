@@ -18,6 +18,7 @@ import {
   ORACLE_MULTI_DIGIT_FACTOR_MAXIMUM,
   ORACLE_MULTI_DIGIT_FACTOR_MINIMUM,
   ORACLE_MULTI_DIGIT_TWO_DIGIT_MAXIMUM,
+  ORACLE_REMAINDER_DIVIDEND_MAXIMUM,
 } from "../oracles/arithmetic-oracle.ts";
 import {
   acceptanceConfig,
@@ -344,10 +345,11 @@ async function answerBlankViolations(
   page: Page,
   expectedDigits: number,
   floorMm: number,
+  kind: "answer" | "quotient" | "remainder" = "answer",
 ): Promise<readonly string[]> {
   return await page.locator(".print-surface").evaluate(
-    (surface, { expectedDigits, floorMm }) => {
-      const blanks = [...surface.querySelectorAll('[data-answer-blank="answer"]')]
+    (surface, { expectedDigits, floorMm, kind }) => {
+      const blanks = [...surface.querySelectorAll(`[data-answer-blank="${kind}"]`)]
         .filter((blank) => blank.getClientRects().length > 0);
       const minimumWidthMm = expectedDigits * floorMm;
       const narrow = blanks.flatMap((blank, index) => {
@@ -358,7 +360,7 @@ async function answerBlankViolations(
       });
       return blanks.length === 0 ? ["no blank printed"] : narrow;
     },
-    { expectedDigits, floorMm },
+    { expectedDigits, floorMm, kind },
   );
 }
 
@@ -1030,7 +1032,7 @@ for (const fixture of printFixtures) {
           await measurePrint(page, `${name}-worksheet`, paper, scale,
             boundary.document, "worksheet",
             decorationApplicable ? decoration ? "art" : "doodle" : "absent");
-          if (fixture.selection.worksheetType === "dry-math") {
+          if (fixture.selection.worksheetType === "dry-math" && fixture.id !== "dry-math-remainders") {
             const perDigitFloorMm = scale === "standard" ? 4.5 : 5;
             const expectedDigits = fixture.id === "dry-math-three-digit-1000"
               ? String(1000).length
@@ -1123,8 +1125,8 @@ for (const fixture of printFixtures) {
             ).toEqual([]);
           }
           if (fixture.id === "dry-math-multi-digit") {
-            const product = boundary.document.items.find((item) => item.itemType === "dry-math" && item.operation === "multiplication" && item.answer.value >= 800);
-            const quotient = boundary.document.items.find((item) => item.itemType === "dry-math" && item.operation === "division" && item.answer.value >= 100);
+            const product = boundary.document.items.find((item) => item.itemType === "dry-math" && item.operation === "multiplication" && item.answer.kind === "number" && item.answer.value >= 800);
+            const quotient = boundary.document.items.find((item) => item.itemType === "dry-math" && item.operation === "division" && item.answer.kind === "number" && item.answer.value >= 100);
             expect(product, "a product of at least 800").toBeDefined();
             expect(quotient, "a quotient of at least 100").toBeDefined();
             await expect(page.locator(`.print-surface [data-item-id="${product?.id ?? ""}"]`)).toHaveText(/^\d{2} × \d = _{6}$/u);
@@ -1144,6 +1146,36 @@ for (const fixture of printFixtures) {
               expect((await answerBlankViolations(page, digits, floor)).length).toBeGreaterThan(0);
             });
             expect(await answerBlankViolations(page, digits, floor)).toEqual([]);
+          }
+          if (fixture.id === "dry-math-remainders") {
+            const remainderRows = await page.locator('.print-surface [data-item-id]').allTextContents();
+            expect(remainderRows.every((row) => /^\s*\d{2} ÷ \d = _{4} R _{2}\s*$/u.test(row))).toBe(true);
+            const floor = scale === "standard" ? 4.5 : 5;
+            const quotientDigits = String(Math.floor(
+              ORACLE_REMAINDER_DIVIDEND_MAXIMUM / ORACLE_MULTI_DIGIT_FACTOR_MINIMUM,
+            )).length;
+            const remainderDigits = String(ORACLE_MULTI_DIGIT_FACTOR_MAXIMUM - 1).length;
+            expect(await answerBlankViolations(page, quotientDigits, floor, "quotient")).toEqual([]);
+            expect(await answerBlankViolations(page, remainderDigits, floor, "remainder")).toEqual([]);
+            expect(await operatorViolations(page)).toEqual([]);
+            const rMarks = page.locator('.print-surface [data-remainder-mark]:visible');
+            await expect(rMarks).toHaveCount(boundary.document.items.length);
+            expect(await rMarks.evaluateAll((marks) => marks.every((mark) => mark.getBoundingClientRect().width * 25.4 / 96 >= 2))).toBe(true);
+            await withPrintStyle(page, '[data-remainder-mark] { visibility: hidden !important; }', async () => {
+              await expect(page.locator('.print-surface [data-remainder-mark]:visible')).toHaveCount(0);
+            });
+            await expect(rMarks).toHaveCount(boundary.document.items.length);
+            for (const kind of ["quotient", "remainder"] as const) {
+              const digits = kind === "quotient" ? quotientDigits : remainderDigits;
+              await withPrintStyle(page, `[data-answer-blank="${kind}"] { font-size: 1px !important; }`, async () => {
+                expect((await answerBlankViolations(page, digits, floor, kind)).length).toBeGreaterThan(0);
+              });
+              expect(await answerBlankViolations(page, digits, floor, kind)).toEqual([]);
+            }
+            await withPrintStyle(page, "[data-operator] { font-size: 1px !important; }", async () => {
+              expect((await operatorViolations(page)).length).toBeGreaterThan(0);
+            });
+            expect(await operatorViolations(page)).toEqual([]);
           }
           if (fixture.id === "dry-math-facts-144") {
             // The widest facts, a three-digit dividend over a two-digit divisor

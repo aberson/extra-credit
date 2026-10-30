@@ -352,6 +352,14 @@ describe("touched groups", () => {
     expect(back.selection.dryMathFacts).toEqual({ operations: ["division"], factFamilies: [3, 7] });
   });
 
+  test("choosing remainders changes only the strand and restores prior groups", () => {
+    const start = loaded(seedingDefaults, [equationChild]);
+    const chosen = apply(start, { type: "dryMathPracticeChosen", strand: "remainders" });
+    expect(chosen.selection).toEqual({ ...start.selection, dryMathStrand: "remainders" });
+    expect(WORKSHEET_GROUP_KEYS.filter((key) => chosen.touched[key])).toEqual(["dryMathStrand"]);
+    expect(defaultsForSave(chosen).dryMathStrand).toBe("remainders");
+  });
+
   test("Number Bonds is its own group, never seeded, saved as chosen, and never left without an operation", () => {
     const start = loaded(seedingDefaults, [equationChild, secondChild]);
     expect(start.selection.numberBonds).toEqual({ operations: ["addition"], wholeMax: 10, regrouping: "without" });

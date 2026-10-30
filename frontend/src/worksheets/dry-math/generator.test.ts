@@ -9,6 +9,7 @@ import {
   oracleFactClosedForm,
   oracleFactKeys,
   oracleCandidateKeys,
+  oracleDivide,
   oracleRegroups,
   oracleThreeDigitCapacity,
 } from "../../../tests/oracles/arithmetic-oracle.js";
@@ -67,6 +68,11 @@ type Layout = Pick<
   | "paperSize"
   | "printScale"
 >;
+
+function numberAnswerValue(answer: DryMathItemV1["answer"]): number {
+  if (answer.kind !== "number") throw new Error("Expected a numeric Dry Math answer.");
+  return answer.value;
+}
 
 const defaults: Layout = {
   useDisplayName: true,
@@ -177,6 +183,29 @@ function multiDigitRequest(
   return projected.request;
 }
 
+function remainderRequest(seed = "00000001"): GenerationRequestV1 {
+  const selection: WorksheetSelectionV2 = {
+    ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+    worksheetType: "dry-math",
+    dryMathStrand: "remainders",
+    length: "long",
+  };
+  const projected = projectGenerationRequest({ selection, generatorVersion: 1, seed });
+  if (!projected.ok) throw new Error(projected.message);
+  return projected.request;
+}
+
+function factsOnlyRequest(): GenerationRequestV1 {
+  const selection: WorksheetSelectionV2 = {
+    ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+    worksheetType: "dry-math",
+    dryMathStrand: "multiply-divide",
+  };
+  const projected = projectGenerationRequest({ selection, generatorVersion: 1, seed: "00000001" });
+  if (!projected.ok) throw new Error(projected.message);
+  return projected.request;
+}
+
 function generated(requestValue: GenerationRequestV1, worksheetId = "11111111-1111-4111-8111-111111111111") {
   const result = generateDryMath(requestValue, { worksheetId });
   if (!result.ok) {
@@ -223,7 +252,9 @@ function assertExhaustiveCandidateOracle(
     );
     expect(Number.isInteger(candidate.leftOperand)).toBe(true);
     expect(Number.isInteger(candidate.rightOperand)).toBe(true);
-    expect(Number.isInteger(candidate.answer)).toBe(true);
+    expect(candidate.answer.kind).toBe("number");
+    if (candidate.answer.kind !== "number") throw new Error("Expected a numeric candidate.");
+    expect(Number.isInteger(candidate.answer.value)).toBe(true);
     expect(candidate.leftOperand).toBeGreaterThanOrEqual(0);
     expect(candidate.rightOperand).toBeGreaterThanOrEqual(0);
     expect(candidate.leftOperand).toBeLessThanOrEqual(skills.operandMax);
@@ -232,10 +263,10 @@ function assertExhaustiveCandidateOracle(
       candidate.operation === "addition"
         ? candidate.leftOperand + candidate.rightOperand
         : candidate.leftOperand - candidate.rightOperand;
-    expect(candidate.answer).toBe(recomputed);
-    expect(candidate.answer).toBeGreaterThanOrEqual(0);
-    expect(candidate.answer).toBeLessThanOrEqual(skills.resultMax);
-    expect(candidate.answer).toBeLessThanOrEqual(100);
+    expect(candidate.answer.value).toBe(recomputed);
+    expect(candidate.answer.value).toBeGreaterThanOrEqual(0);
+    expect(candidate.answer.value).toBeLessThanOrEqual(skills.resultMax);
+    expect(candidate.answer.value).toBeLessThanOrEqual(100);
     expect(
       candidate.operation === "addition"
         ? carries(candidate.leftOperand, candidate.rightOperand)
@@ -345,7 +376,7 @@ describe("multi-digit multiplication and division", () => {
       "0000abcd": [["division",710,5,142],["division",338,2,169],["multiplication",84,4,336],["multiplication",35,2,70],["multiplication",17,9,153],["multiplication",45,9,405],["division",387,3,129],["division",930,3,310],["division",320,5,64],["division",634,2,317],["division",378,9,42],["multiplication",21,2,42],["multiplication",77,6,462],["multiplication",44,9,396],["division",720,4,180],["multiplication",12,4,48],["multiplication",87,5,435],["multiplication",75,3,225]],
     } as const;
     expect(result.document.items.map(({ operation, leftOperand, rightOperand, answer }) =>
-      [operation, leftOperand, rightOperand, answer.value])).toEqual(vectors[seed as keyof typeof vectors]);
+      [operation, leftOperand, rightOperand, numberAnswerValue(answer)])).toEqual(vectors[seed as keyof typeof vectors]);
   });
 
   test("property: every multi-digit document validates", () => {
@@ -378,6 +409,77 @@ describe("multi-digit multiplication and division", () => {
     ];
     for (const row of rows) expect(validateWorksheetInvariants({ ...result.document, items: [row, second, ...rest] })).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
     expect(validateWorksheetInvariants({ ...result.document, items: [first, { ...first, id: second.id }, ...rest] })).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+  });
+});
+
+describe("division with remainders", () => {
+  test("enumerates the exact 556-problem pool including 47 divided by 5", () => {
+    const requestValue = remainderRequest();
+    const candidates = enumerateDryMathCandidates(requestValue);
+    expect(candidates).toHaveLength(556);
+    expect(measureDryMathCapacity(requestValue)).toBe(556);
+    expect(new Set(candidates.map(({ operation, leftOperand, rightOperand }) => `${operation}:${leftOperand}:${rightOperand}`)))
+      .toEqual(oracleCandidateKeys({ kind: "remainders" }));
+    const known = candidates.find(({ leftOperand, rightOperand }) => leftOperand === 47 && rightOperand === 5);
+    expect(known).toEqual({
+      operation: "division", leftOperand: 47, rightOperand: 5, renderedSymbol: "÷",
+      answer: { kind: "quotient-remainder", quotient: 9, remainder: 2 },
+    });
+    for (const candidate of candidates) {
+      const divided = oracleDivide(candidate.leftOperand, candidate.rightOperand);
+      expect(divided).toEqual(candidate.answer.kind === "quotient-remainder"
+        ? { quotient: candidate.answer.quotient, remainder: candidate.answer.remainder }
+        : undefined);
+      expect(divided?.remainder).toBeGreaterThanOrEqual(1);
+      expect(divided?.remainder).toBeLessThan(candidate.rightOperand);
+    }
+  });
+
+  test("property: every seeded remainder document validates independently", () => {
+    fc.assert(fc.property(fc.integer({ min: 1, max: 0xffff_ffff }), (seed) => {
+      const document = generated(remainderRequest(formatSeedHex(seed)));
+      expect(validateWorksheetInvariants(document)).toBeUndefined();
+      expect(judgeDocument(document)).toEqual([]);
+    }), { numRuns: 200 });
+  });
+
+  test("is available at every length and print scale", () => {
+    for (const length of ["short", "standard", "long"] as const) {
+      for (const printScale of ["standard", "large"] as const) {
+        const requestValue = remainderRequest();
+        const result = generateDryMath({ ...requestValue, options: { ...requestValue.options, length, printScale } }, {
+          worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        });
+        expect(result.ok, `${length}/${printScale}`).toBe(true);
+      }
+    }
+  });
+
+  test("rejects every malformed remainder shape and answer-kind crossover", () => {
+    const document = generated(remainderRequest());
+    const [first, ...rest] = document.items;
+    if (first === undefined || first.answer.kind !== "quotient-remainder") throw new Error("Missing remainder row.");
+    const malformed: readonly DryMathItemV1[] = [
+      { ...first, leftOperand: 48, rightOperand: 4, answer: { kind: "quotient-remainder", quotient: 12, remainder: 0 } },
+      { ...first, answer: { kind: "quotient-remainder", quotient: first.answer.quotient, remainder: first.rightOperand } },
+      { ...first, answer: { kind: "quotient-remainder", quotient: first.answer.quotient + 1, remainder: first.answer.remainder } },
+      { ...first, answer: { kind: "number", value: first.answer.quotient } },
+      { ...first, answer: { kind: "quotient-remainder", quotient: 1.5, remainder: first.answer.remainder } },
+      { ...first, answer: { kind: "quotient-remainder", quotient: first.answer.quotient, remainder: 1.5 } },
+      { ...first, leftOperand: 100, rightOperand: 3, answer: { kind: "quotient-remainder", quotient: 33, remainder: 1 } },
+      { ...first, rightOperand: 1, answer: { kind: "quotient-remainder", quotient: first.leftOperand, remainder: 0 } },
+      { ...first, rightOperand: 10, answer: { kind: "quotient-remainder", quotient: Math.floor(first.leftOperand / 10), remainder: first.leftOperand % 10 } },
+    ];
+    for (const item of malformed) {
+      expect(validateWorksheetInvariants({ ...document, items: [item, ...rest] })).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+    }
+    for (const source of [request(), factsOnlyRequest(), threeDigitRequest(["addition"], "without"), multiDigitRequest(["multiplication"])]) {
+      const other = generated(source);
+      const [numeric, ...tail] = other.items;
+      if (numeric === undefined) throw new Error("Missing numeric row.");
+      expect(validateWorksheetInvariants({ ...other, items: [{ ...numeric, answer: { kind: "quotient-remainder", quotient: 1, remainder: 1 } }, ...tail] }))
+        .toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+    }
   });
 });
 
@@ -520,7 +622,7 @@ describe("three-digit addition and subtraction", () => {
       ],
     } as const;
     expect(generated.document.items.map(({ operation, leftOperand, rightOperand, answer }) =>
-      [operation, leftOperand, rightOperand, answer.value])).toEqual(vectors[seed as keyof typeof vectors]);
+      [operation, leftOperand, rightOperand, numberAnswerValue(answer)])).toEqual(vectors[seed as keyof typeof vectors]);
   });
 
   test("property: both regrouping partitions validate and differ for the same seed", () => {
@@ -693,7 +795,7 @@ describe("Dry Math documents", () => {
       for (const item of document.items) {
         const fact = item as DryMathItemV1;
         expect(operations).toContain(fact.operation);
-        for (const value of [fact.leftOperand, fact.rightOperand, fact.answer.value]) {
+        for (const value of [fact.leftOperand, fact.rightOperand, numberAnswerValue(fact.answer)]) {
           expect(value).toBeGreaterThanOrEqual(0);
           expect(value).toBeLessThanOrEqual(maximum);
           seen.add(value);
@@ -729,8 +831,8 @@ describe("Dry Math documents", () => {
       expect(fact.rightOperand).toBeGreaterThanOrEqual(0);
       expect(fact.leftOperand).toBeLessThanOrEqual(100);
       expect(fact.rightOperand).toBeLessThanOrEqual(100);
-      expect(fact.answer.value).toBeGreaterThanOrEqual(0);
-      expect(fact.answer.value).toBeLessThanOrEqual(100);
+      expect(numberAnswerValue(fact.answer)).toBeGreaterThanOrEqual(0);
+      expect(numberAnswerValue(fact.answer)).toBeLessThanOrEqual(100);
       expect(fact.answer).toEqual(recomputeObjectiveAnswer(fact));
       expect(
         fact.operation === "addition"
@@ -902,7 +1004,7 @@ describe("Every problem carries or borrows", () => {
   function rows(document: ReturnType<typeof generated>): readonly string[] {
     return document.items.map(
       (item) =>
-        `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ${item.answer.value}`,
+        `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ${numberAnswerValue(item.answer)}`,
     );
   }
 
@@ -1091,7 +1193,7 @@ describe("Multiplication and division facts by fact family", () => {
   function rows(document: ReturnType<typeof generated>): readonly string[] {
     return document.items.map(
       (item) =>
-        `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ${item.answer.value}`,
+        `${item.leftOperand} ${item.renderedSymbol} ${item.rightOperand} = ${numberAnswerValue(item.answer)}`,
     );
   }
 
@@ -1275,7 +1377,7 @@ describe("Multiplication and division facts by fact family", () => {
         "a wrong answer",
         (first: DryMathItemV1): DryMathItemV1 => ({
           ...first,
-          answer: { kind: "number", value: first.answer.value + 1 },
+          answer: { kind: "number", value: numberAnswerValue(first.answer) + 1 },
         }),
       ],
     ] as const)("%s fails", (_label, replace) => {

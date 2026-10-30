@@ -21,6 +21,8 @@ import {
   DRY_MATH_TWO_DIGIT_MAXIMUM,
   DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM,
   DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
+  DRY_MATH_REMAINDER_DIVIDEND_MINIMUM,
+  DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   GENERATION_INVARIANT_FAILED,
   NUMBER_BONDS_WHOLE_MINIMUM,
@@ -101,7 +103,8 @@ type DryMathBranch =
       readonly operations: readonly ("addition" | "subtraction")[];
       readonly regroupingRequired: boolean;
     }
-  | { readonly kind: "multi-digit"; readonly operations: readonly FactOperation[] };
+  | { readonly kind: "multi-digit"; readonly operations: readonly FactOperation[] }
+  | { readonly kind: "remainders" };
 
 /** Whether a facts member names canonical operations and ascending families in range. */
 function factsMemberIsWellFormed(
@@ -188,6 +191,8 @@ function dryMathBranchOf(request: GenerationRequestV1): DryMathBranch | undefine
       return multiDigitMemberIsWellFormed(practice)
         ? { kind: "multi-digit", operations: practice.operations }
         : undefined;
+    case "dry-math-remainders":
+      return { kind: "remainders" };
     default:
       return undefined;
   }
@@ -204,7 +209,7 @@ function addSubtractItemHolds(
   regroupingRequired: boolean,
 ): boolean {
   const operation = item.operation;
-  if (operation !== "addition" && operation !== "subtraction") {
+  if (item.answer.kind !== "number" || (operation !== "addition" && operation !== "subtraction")) {
     return false;
   }
   const symbolMatches =
@@ -253,7 +258,7 @@ function factItemHolds(
   branch: Extract<DryMathBranch, { readonly kind: "facts" }>,
 ): boolean {
   const operation = item.operation;
-  if (operation !== "multiplication" && operation !== "division") {
+  if (item.answer.kind !== "number" || (operation !== "multiplication" && operation !== "division")) {
     return false;
   }
   const left = item.leftOperand;
@@ -287,7 +292,7 @@ function threeDigitItemHolds(
   branch: Extract<DryMathBranch, { readonly kind: "three-digit" }>,
 ): boolean {
   const { operation, leftOperand: left, rightOperand: right } = item;
-  if (operation !== "addition" && operation !== "subtraction") {
+  if (item.answer.kind !== "number" || (operation !== "addition" && operation !== "subtraction")) {
     return false;
   }
   const answer = operation === "addition" ? left + right : left - right;
@@ -315,7 +320,7 @@ function multiDigitItemHolds(
   branch: Extract<DryMathBranch, { readonly kind: "multi-digit" }>,
 ): boolean {
   const { operation, leftOperand: left, rightOperand: right } = item;
-  if (operation !== "multiplication" && operation !== "division") return false;
+  if (item.answer.kind !== "number" || (operation !== "multiplication" && operation !== "division")) return false;
   if (!branch.operations.includes(operation)) return false;
   if (operation === "multiplication") {
     return item.renderedSymbol === "×" && left >= DRY_MATH_TWO_DIGIT_MINIMUM &&
@@ -325,6 +330,19 @@ function multiDigitItemHolds(
   return item.renderedSymbol === "÷" && left >= DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM &&
     left <= DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM && right >= DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM &&
     right <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM && left % right === 0 && item.answer.value === left / right;
+}
+
+function remaindersItemHolds(item: DryMathItemV1): boolean {
+  if (item.operation !== "division" || item.renderedSymbol !== "÷" || item.answer.kind !== "quotient-remainder") {
+    return false;
+  }
+  const { leftOperand: dividend, rightOperand: divisor, answer } = item;
+  return Number.isSafeInteger(dividend) && Number.isSafeInteger(divisor) &&
+    Number.isSafeInteger(answer.quotient) && Number.isSafeInteger(answer.remainder) &&
+    dividend >= DRY_MATH_REMAINDER_DIVIDEND_MINIMUM && dividend <= DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM &&
+    divisor >= DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM && divisor <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM &&
+    answer.quotient >= 1 && answer.remainder >= 1 && answer.remainder < divisor &&
+    answer.quotient * divisor + answer.remainder === dividend;
 }
 
 type NumberBondsPractice = Extract<PracticeRequestV1, { readonly kind: "number-bonds" }>;
@@ -619,7 +637,9 @@ export function validateWorksheetInvariants(
       (item.answerability === "objective" &&
         (item.answer === null ||
           (item.answer.kind === "number" &&
-            !Number.isSafeInteger(item.answer.value)))) ||
+            !Number.isSafeInteger(item.answer.value)) ||
+          (item.answer.kind === "quotient-remainder" &&
+            (!Number.isSafeInteger(item.answer.quotient) || !Number.isSafeInteger(item.answer.remainder))))) ||
       (item.answerability === "open" && item.answer !== null)
     ) {
       return {
@@ -631,7 +651,7 @@ export function validateWorksheetInvariants(
 
     if (
       item.itemType === "dry-math" &&
-      (item.answer.kind !== "number" || objectiveAnswerMatches(item) !== true)
+      objectiveAnswerMatches(item) !== true
     ) {
       return {
         ok: false,
@@ -727,6 +747,9 @@ export function validateWorksheetInvariants(
             break;
           case "multi-digit":
             holds = multiDigitItemHolds(item, dryMathBranch);
+            break;
+          case "remainders":
+            holds = remaindersItemHolds(item);
             break;
           default: {
             const unreachable: never = dryMathBranch;

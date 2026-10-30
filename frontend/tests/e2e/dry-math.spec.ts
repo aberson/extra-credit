@@ -760,3 +760,23 @@ test("multi-digit focus entries create exact multiplication and division pages",
     await expect(page.getByLabel("Worksheet preview").locator("[data-answer-blank]").first()).toHaveText("______");
   }
 });
+
+test("Division with remainders creates, previews and keys quotient-remainder rows", async ({ appServer, page }) => {
+  await appServer.seedConfig(acceptanceConfig);
+  await page.goto(appServer.origin);
+  await choosePracticeFocus(page, "Division with remainders");
+  await expect(page.locator("[data-selection-summary]")).toContainText(
+    "Practice focus for Dry Math: Division with remainders.",
+  );
+  await expect(controls(page).regrouping()).toHaveCount(0);
+  await page.getByRole("button", { name: "Create worksheet", exact: true }).click();
+  const { rows, keyLines } = await renderedPage(page);
+  expect(judgeRenderedPage(rows, keyLines, { kind: "remainders" })).toEqual([]);
+  await page.getByRole("button", { name: "Worksheet", exact: true }).click();
+  const preview = page.getByLabel("Worksheet preview");
+  await expect(preview.locator('[data-answer-blank="quotient"]').first()).toHaveText("____");
+  await expect(preview.locator('[data-answer-blank="remainder"]').first()).toHaveText("__");
+  await expect(preview.locator("[data-remainder-mark]").first()).toHaveText("R");
+  await expect(preview.locator("[data-item-id] > span").first()).toHaveAttribute("aria-label", /answer and remainder/u);
+  await expect(preview.locator("[data-answer-value]")).toHaveCount(0);
+});

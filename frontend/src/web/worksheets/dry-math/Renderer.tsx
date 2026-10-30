@@ -31,7 +31,6 @@ export function DryMathRenderer({ document }: WorksheetRendererProps) {
     return <p role="alert">This worksheet could not be rendered safely.</p>;
   }
   const blank = dryMathBlank(document.request.practice);
-  const blankText = "_".repeat(blank.underscores);
 
   return (
     <article aria-labelledby={`worksheet-${document.worksheetId}-title`}>
@@ -66,11 +65,15 @@ export function DryMathRenderer({ document }: WorksheetRendererProps) {
             }}
           >
             <span
-              aria-label={`${item.leftOperand} ${SPOKEN_OPERATORS[item.operation]} ${item.rightOperand}`}
+              aria-label={`${item.leftOperand} ${SPOKEN_OPERATORS[item.operation]} ${item.rightOperand}${blank.kind === "remainder" ? ", answer and remainder" : ""}`}
             >
               {item.leftOperand}{" "}
               <span data-operator={item.operation}>{item.renderedSymbol}</span>{" "}
-              {item.rightOperand} = <span data-answer-blank="answer">{blankText}</span>
+              {item.rightOperand} = {blank.kind === "remainder" ? <>
+                <span data-answer-blank="quotient">{"_".repeat(blank.quotient)}</span>{" "}
+                <span data-remainder-mark>R</span>{" "}
+                <span data-answer-blank="remainder">{"_".repeat(blank.remainder)}</span>
+              </> : <span data-answer-blank="answer">{"_".repeat(blank.underscores)}</span>}
             </span>
           </li>
         ))}

@@ -1075,6 +1075,15 @@ describe("Dry Math reads only the strand it shows", () => {
     );
   });
 
+  test("remainders projects its fixed practice kind and inactive math fields", () => {
+    const request = requestFor(selectionFor("dry-math", { dryMathStrand: "remainders" }));
+    expect(request.practice).toEqual({ kind: "dry-math-remainders" });
+    expect(request.capabilities.mathSkills).toEqual({
+      ...INACTIVE_MATH_FIELDS,
+      representations: ["equations"],
+    });
+  });
+
   test.each(["find-the-wow", "sentence-builder", "count-compare-make"] as const)(
     "%s ignores a saved multiply-divide strand and refuses a facts member",
     (worksheetType) => {

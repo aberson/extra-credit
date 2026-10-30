@@ -800,6 +800,9 @@ describe("worksheet renderer registry", () => {
       if (sourceItem.itemType !== "dry-math") {
         throw new Error("The Dry Math fixture contained a different item type.");
       }
+      if (sourceItem.answer.kind !== "number") {
+        throw new Error("The exact-facts fixture contained a non-numeric answer.");
+      }
       const expectedExpression = `${sourceItem.leftOperand} ${sourceItem.renderedSymbol} ${sourceItem.rightOperand}`;
       expect(keyItem).not.toHaveTextContent(sourceItem.id);
       expect(

@@ -56,6 +56,8 @@ import {
   judgeOperationGridDocument,
   oracleNumberBondKeys,
   oracleProduct,
+  parseRenderedRow,
+  solveRow,
   oracleSolveMissing,
   type OracleCode,
   type OracleGridFocus,
@@ -135,6 +137,11 @@ function withFirst(
     throw new Error("A calibration document had no items.");
   }
   return { ...document, items: [replace(first), ...rest] };
+}
+
+function numberAnswerValue(item: DryMathItemV1): number {
+  if (item.answer.kind !== "number") throw new Error("Expected a numeric Dry Math answer.");
+  return item.answer.value;
 }
 
 function codes(violations: readonly { readonly code: OracleCode }[]): readonly OracleCode[] {
@@ -223,7 +230,7 @@ describe("Appendix B.5 judge calibration", () => {
     const cases: readonly (readonly [OracleCode, WorksheetDocumentV1<DryMathItemV1>])[] = [
       ["WRONG_ANSWER", withFirst(required, (first) => ({
         ...first,
-        answer: { kind: "number", value: first.answer.value + 1 },
+        answer: { kind: "number", value: numberAnswerValue(first) + 1 },
       }))],
       ["DUPLICATE_FACT", {
         ...required,
@@ -255,7 +262,7 @@ describe("Appendix B.5 judge calibration", () => {
     }));
     const keyLines: RenderedKeyLine[] = document.items.map((entry, index) => {
       const source = `${entry.leftOperand} ${entry.renderedSymbol} ${entry.rightOperand}`;
-      const answer = String(entry.answer.value);
+      const answer = String(numberAnswerValue(entry));
       return { id: entry.id, source, answer, text: `${index + 1}. ${source} = ${answer}` };
     });
     const focus = { ...within100, regrouping: "required" } as const;
@@ -397,7 +404,7 @@ describe("Appendix B.5 judge calibration for facts", () => {
     const cases: readonly (readonly [OracleCode, WorksheetDocumentV1<DryMathItemV1>])[] = [
       ["WRONG_ANSWER", withFirst(multiplication, (first) => ({
         ...first,
-        answer: { kind: "number", value: first.answer.value + 1 },
+        answer: { kind: "number", value: numberAnswerValue(first) + 1 },
       }))],
       ["DUPLICATE_FACT", {
         ...multiplication,
@@ -428,7 +435,7 @@ describe("Appendix B.5 judge calibration for facts", () => {
     }));
     const keyLines: RenderedKeyLine[] = document.items.map((entry, index) => {
       const source = `${entry.leftOperand} ${entry.renderedSymbol} ${entry.rightOperand}`;
-      const answer = String(entry.answer.value);
+      const answer = String(numberAnswerValue(entry));
       return { id: entry.id, source, answer, text: `${index + 1}. ${source} = ${answer}` };
     });
     const focus = { kind: "facts", operations: ["multiplication", "division"], families: [3, 12] } as const;
@@ -448,6 +455,39 @@ describe("Appendix B.5 judge calibration for facts", () => {
     expect(divisions.length).toBeGreaterThan(0);
     expect(judgeRenderedPage(rows, keyLines, { ...focus, operations: ["multiplication"] }))
       .toEqual(divisions.map(({ id }) => ({ itemId: id, code: "OUT_OF_SET" })));
+  });
+});
+
+describe("division with remainders oracle", () => {
+  test("reads and solves a remainder row while refusing an R-less inexact row", () => {
+    const parsed = parseRenderedRow("47 ÷ 5 = ____ R __");
+    expect(parsed).toBeDefined();
+    if (parsed === undefined) throw new Error("Remainder row did not parse.");
+    expect(solveRow(parsed)).toEqual({ quotient: 9, remainder: 2 });
+    const inexact = parseRenderedRow("47 ÷ 5 = ____");
+    expect(inexact).toBeDefined();
+    if (inexact === undefined) throw new Error("Division row did not parse.");
+    expect(solveRow(inexact)).toBeUndefined();
+  });
+
+  test("judges a generated remainder page and its rendered key", () => {
+    const projection = projectGenerationRequest({
+      selection: { ...BASE, worksheetType: "dry-math", dryMathStrand: "remainders", length: "long" },
+      generatorVersion: 1,
+      seed: "00000001",
+    });
+    if (!projection.ok) throw new Error(projection.message);
+    const generated = generateDryMath(projection.request, { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    if (!generated.ok) throw new Error(generated.message);
+    expect(judgeDocument(generated.document)).toEqual([]);
+    const rows: RenderedRow[] = generated.document.items.map((item) => ({ id: item.id, text: `${item.leftOperand} ÷ ${item.rightOperand} = ____ R __` }));
+    const keyLines: RenderedKeyLine[] = generated.document.items.map((item, index) => {
+      if (item.answer.kind !== "quotient-remainder") throw new Error("Expected remainder answer.");
+      const source = `${item.leftOperand} ÷ ${item.rightOperand}`;
+      const answer = `${item.answer.quotient} R ${item.answer.remainder}`;
+      return { id: item.id, source, answer, text: `${index + 1}. ${source} = ${answer}` };
+    });
+    expect(judgeRenderedPage(rows, keyLines, { kind: "remainders" })).toEqual([]);
   });
 });
 

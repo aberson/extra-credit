@@ -14,6 +14,8 @@ import {
   DRY_MATH_TWO_DIGIT_MAXIMUM,
   DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM,
   DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
+  DRY_MATH_REMAINDER_DIVIDEND_MINIMUM,
+  DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM,
   DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
   GENERATION_CONSTRAINT_CONFLICT,
   GENERATION_INVARIANT_FAILED,
@@ -42,7 +44,7 @@ interface ArithmeticCandidate {
   readonly leftOperand: number;
   readonly rightOperand: number;
   readonly renderedSymbol: DryMathItemV1["renderedSymbol"];
-  readonly answer: number;
+  readonly answer: DryMathItemV1["answer"];
 }
 
 type FactsPractice = Extract<PracticeRequestV1, { readonly kind: "dry-math-facts" }>;
@@ -71,6 +73,7 @@ function factsPractice(request: GenerationRequestV1): FactsPractice | undefined 
       return practice;
     case "dry-math-three-digit":
     case "dry-math-multi-digit":
+    case "dry-math-remainders":
     case undefined:
     case "dry-math-add-subtract":
     case "number-bonds":
@@ -99,6 +102,7 @@ function regroupingRequired(request: GenerationRequestV1): boolean {
     case undefined:
     case "dry-math-facts":
     case "dry-math-multi-digit":
+    case "dry-math-remainders":
     case "number-bonds":
     case "operation-grid":
       return false;
@@ -125,6 +129,8 @@ export function enumerateDryMathCandidates(
       throw new Error("The three-digit pool is never enumerated.");
     case "dry-math-multi-digit":
       return enumerateMultiDigitCandidates(practice);
+    case "dry-math-remainders":
+      return enumerateRemainderCandidates();
     case "dry-math-facts":
       return enumerateFactCandidates(factsPractice(request) ?? practice);
     case undefined:
@@ -142,6 +148,24 @@ export function enumerateDryMathCandidates(
   }
 }
 
+function enumerateRemainderCandidates(): readonly ArithmeticCandidate[] {
+  const candidates: ArithmeticCandidate[] = [];
+  for (let divisor = DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM; divisor <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM; divisor += 1) {
+    for (let dividend = DRY_MATH_REMAINDER_DIVIDEND_MINIMUM; dividend <= DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM; dividend += 1) {
+      const remainder = dividend % divisor;
+      if (remainder === 0) continue;
+      candidates.push({
+        operation: "division",
+        leftOperand: dividend,
+        rightOperand: divisor,
+        renderedSymbol: "÷",
+        answer: { kind: "quotient-remainder", quotient: Math.floor(dividend / divisor), remainder },
+      });
+    }
+  }
+  return candidates;
+}
+
 function enumerateMultiDigitCandidates(practice: MultiDigitPractice): readonly ArithmeticCandidate[] {
   const candidates: ArithmeticCandidate[] = [];
   for (const operation of FACT_OPERATIONS) {
@@ -149,13 +173,13 @@ function enumerateMultiDigitCandidates(practice: MultiDigitPractice): readonly A
     if (operation === "multiplication") {
       for (let left = DRY_MATH_TWO_DIGIT_MINIMUM; left <= DRY_MATH_TWO_DIGIT_MAXIMUM; left += 1) {
         for (let right = DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM; right <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM; right += 1) {
-          candidates.push({ operation, leftOperand: left, rightOperand: right, renderedSymbol: "×", answer: left * right });
+          candidates.push({ operation, leftOperand: left, rightOperand: right, renderedSymbol: "×", answer: { kind: "number", value: left * right } });
         }
       }
     } else {
       for (let divisor = DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM; divisor <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM; divisor += 1) {
         for (let quotient = Math.ceil(DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM / divisor); quotient <= Math.floor(DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM / divisor); quotient += 1) {
-          candidates.push({ operation, leftOperand: divisor * quotient, rightOperand: divisor, renderedSymbol: "÷", answer: quotient });
+          candidates.push({ operation, leftOperand: divisor * quotient, rightOperand: divisor, renderedSymbol: "÷", answer: { kind: "number", value: quotient } });
         }
       }
     }
@@ -206,7 +230,7 @@ export function sampleThreeDigitItems(
         leftOperand,
         rightOperand,
         renderedSymbol: operation === "addition" ? "+" : "−",
-        answer,
+        answer: { kind: "number", value: answer },
       };
       facts.add(key);
       break;
@@ -244,7 +268,7 @@ function enumerateFactCandidates(facts: FactsPractice): readonly ArithmeticCandi
               leftOperand: left,
               rightOperand: right,
               renderedSymbol: "×",
-              answer: left * right,
+              answer: { kind: "number", value: left * right },
             });
           }
         }
@@ -260,7 +284,7 @@ function enumerateFactCandidates(facts: FactsPractice): readonly ArithmeticCandi
             leftOperand: dividend,
             rightOperand: divisor,
             renderedSymbol: "÷",
-            answer: quotient,
+            answer: { kind: "number", value: quotient },
           });
         }
       }
@@ -301,7 +325,7 @@ function enumerateArithmeticCandidates(
           leftOperand,
           rightOperand,
           renderedSymbol: operation === "addition" ? "+" : "−",
-          answer,
+          answer: { kind: "number", value: answer },
         });
       }
     }
@@ -332,6 +356,7 @@ function dryMathShortfallFor(
         ? undefined
         : DRY_MATH_FIXED_POOL_ADVICE;
     case "dry-math-multi-digit":
+    case "dry-math-remainders":
       return capacity >= getDryMathItemCount(request.options.length, request.options.printScale)
         ? undefined : DRY_MATH_FIXED_POOL_ADVICE;
     case undefined:
@@ -437,7 +462,7 @@ export function generateDryMath(
       leftOperand: candidate.leftOperand,
       rightOperand: candidate.rightOperand,
       renderedSymbol: candidate.renderedSymbol,
-      answer: { kind: "number", value: candidate.answer },
+      answer: candidate.answer,
     }));
   const document: DryMathDocumentV1 = {
     schemaVersion: 1,

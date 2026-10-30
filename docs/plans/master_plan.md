@@ -890,7 +890,7 @@ A step too large for one developer context is split before build (R4). Kill crit
 - **Depends on:** Step 41
 
 ### Step 43: Division with remainders
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** A parent picks the Dry Math practice focus "Division with remainders". Create, preview, key and print then give problems such as 47 ÷ 5 = ____ R __, whose key reads 47 ÷ 5 = 9 R 2. The status line and a queued packet row say "Division with remainders", and the choice survives a defaults save and a reload.
 - **Type:** code
 - **Issue:** #54

@@ -41,8 +41,9 @@ type AnswerRecomputation<TItem> =
   | typeof FAMILY_VALIDATED;
 
 /**
- * A Dry Math answer from the item's own operands. A division has an answer
- * only when it is exact with a nonzero divisor; any other division has none.
+ * A Dry Math answer from the item's own operands and stored answer kind.
+ * Number-kind division must be exact; quotient-remainder division recomputes
+ * both values for any nonzero divisor.
  */
 function dryMathAnswer(item: DryMathItemV1): ObjectiveAnswerV1 | undefined {
   const { leftOperand, rightOperand } = item;
@@ -54,9 +55,12 @@ function dryMathAnswer(item: DryMathItemV1): ObjectiveAnswerV1 | undefined {
     case "multiplication":
       return { kind: "number", value: leftOperand * rightOperand };
     case "division":
-      return rightOperand !== 0 && leftOperand % rightOperand === 0
-        ? { kind: "number", value: leftOperand / rightOperand }
-        : undefined;
+      if (rightOperand === 0) return undefined;
+      return item.answer.kind === "quotient-remainder"
+        ? { kind: "quotient-remainder", quotient: Math.floor(leftOperand / rightOperand), remainder: leftOperand % rightOperand }
+        : leftOperand % rightOperand === 0
+          ? { kind: "number", value: leftOperand / rightOperand }
+          : undefined;
   }
 }
 
@@ -219,6 +223,10 @@ export function objectiveAnswerMatches(
     return false;
   }
   const actual: ObjectiveAnswerV1 = item.answer;
+  if (expected.kind === "quotient-remainder" || actual.kind === "quotient-remainder") {
+    return expected.kind === "quotient-remainder" && actual.kind === "quotient-remainder" &&
+      expected.quotient === actual.quotient && expected.remainder === actual.remainder;
+  }
   if (expected.kind === "grid" || actual.kind === "grid") {
     // A grid matches only cell for cell, in the same row-by-row order.
     if (expected.kind !== "grid" || actual.kind !== "grid") {

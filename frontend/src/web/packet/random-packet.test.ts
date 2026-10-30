@@ -16,6 +16,7 @@ import {
   DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM,
   DRY_MATH_TWO_DIGIT_MAXIMUM,
   DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
+  DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM,
   WORKSHEET_TYPE_IDS,
   type WorksheetType,
 } from "../../shared/worksheet/types";
@@ -91,6 +92,8 @@ function largestNumber(selection: WorksheetSelectionV2): FocusScore {
               ? DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM
               : DRY_MATH_TWO_DIGIT_MAXIMUM * DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
           };
+        case "remainders":
+          return { kind: "number", value: DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM };
         default: {
           const unreachable: never = strand;
           return unreachable;
