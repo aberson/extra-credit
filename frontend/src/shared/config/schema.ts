@@ -18,6 +18,8 @@ import {
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
   OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_HEADER_START_MINIMUM,
+  OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   OPERATION_GRID_SIZE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
@@ -196,6 +198,7 @@ export const DEFAULT_OPERATION_GRID_SIZE = 10;
 export const DEFAULT_OPERATION_GRID_PREFILLED = 10;
 export const DEFAULT_OPERATION_GRID_PLACEMENT = "random" as const;
 export const DEFAULT_OPERATION_GRID_HEADER_ORDER = "in-order" as const;
+export const DEFAULT_OPERATION_GRID_HEADER_START = 1;
 
 const operationGridSize = () =>
   z
@@ -204,6 +207,14 @@ const operationGridSize = () =>
     .min(OPERATION_GRID_SIZE_MINIMUM)
     .max(OPERATION_GRID_SIZE_MAXIMUM)
     .default(DEFAULT_OPERATION_GRID_SIZE);
+
+const operationGridHeaderStart = () =>
+  z
+    .number()
+    .int()
+    .min(OPERATION_GRID_HEADER_START_MINIMUM)
+    .max(OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM)
+    .default(DEFAULT_OPERATION_GRID_HEADER_START);
 
 /**
  * Operation Grid's choices: the operation, the rows and columns, how many
@@ -224,6 +235,8 @@ export const OperationGridV2Schema = z.strictObject({
     .default(DEFAULT_OPERATION_GRID_PREFILLED),
   placement: z.enum(OPERATION_GRID_PLACEMENTS).default(DEFAULT_OPERATION_GRID_PLACEMENT),
   headerOrder: z.enum(OPERATION_GRID_HEADER_ORDERS).default(DEFAULT_OPERATION_GRID_HEADER_ORDER),
+  rowStart: operationGridHeaderStart(),
+  columnStart: operationGridHeaderStart(),
 });
 
 export const DryMathFocusV2Schema = arithmeticFocusV2Schema(
@@ -277,6 +290,8 @@ const worksheetSelectionShape = {
     prefilled: DEFAULT_OPERATION_GRID_PREFILLED,
     placement: DEFAULT_OPERATION_GRID_PLACEMENT,
     headerOrder: DEFAULT_OPERATION_GRID_HEADER_ORDER,
+    rowStart: DEFAULT_OPERATION_GRID_HEADER_START,
+    columnStart: DEFAULT_OPERATION_GRID_HEADER_START,
   })),
   findTheWow: z.strictObject({
     variant: z.enum(FIND_THE_WOW_VARIANTS),

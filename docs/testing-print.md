@@ -51,12 +51,12 @@ items, prompts, banks, and answers. Count/Compare compares every rendered item's
 activity, quantities, choices, and target with the boundary document, including
 the quantity-20 cases. No manufactured worksheet is injected into React.
 
-The 104 worksheet cases cross every row below with Letter/A4 and standard/large,
+The 106 worksheet cases cross every row below with Letter/A4 and standard/large,
 except the carrying and borrowing row, the multiplication and division facts
 row and the Number Bonds row, which each print once at Letter/standard, and the
-three Operation Grid rows, which print only on the papers and scales the table
+four Operation Grid rows, which print only on the papers and scales the table
 names. Sentence Builder and Count/Compare also cross decoration off/on.
-Applicable keys add 36 separate one-page PDF checks, once
+Applicable keys add 38 separate one-page PDF checks, once
 per key-bearing row at each paper/scale it prints: the key does not consume decoration.
 Dry Math and both Wow variants run once per paper/scale; a separate production
 session/render test proves a hidden stored decoration-on preference canonicalizes
@@ -88,6 +88,7 @@ overflow in both DOM geometry and an actual multi-page PDF.
 | Operation Grid `grid-multiplication-10` (Letter/standard only) | One 10 × 10 grid | Multiplication, Diagonal first with 10 cells pre-filled: the reference screenshot's shape |
 | Operation Grid `grid-addition-12` (Letter/standard and A4/standard only) | One 12 × 12 grid | Addition, the largest grid, 14 cells pre-filled at random; sums reach 24 |
 | Operation Grid `grid-powers-10x3` (Letter/large only) | One 10 × 3 grid | Powers, the largest powers grid, 3 cells pre-filled at random; its key prints 1,000 |
+| Operation Grid `grid-multiplication-offset-mixed` (Letter/standard and A4/standard only) | One 12 × 12 grid | Multiplication with mixed row and column headers from 20 to 31, 72 cells pre-filled at random; products reach 961 |
 | Clock Explorer `clock-hours-12` | 4 / 4 clocks | Four on-the-hour clocks on a seed that draws 12:00, whose hands overlap, and 10:00 or 11:00; every dial is 40/45 mm with all twelve labels at the instruction size, and every hour line is 18/22 mm long at the line height |
 | Tally Detective `tally-totals-20` | 4 / 4 tallies | Four tallies on a seed that draws 20, four full bundles, and 19, three bundles and four loose marks; every strip is 72 × 20 mm (81 × 22.5 mm large), and every count line is 18/22 mm long at the line height |
 | Quantity Wow | 8 / 6 groups | Quantity pictures, practice focus Quantities to 10 |
@@ -125,7 +126,9 @@ guide/ten-frame cells 5/6 mm square, Number Bonds answer boxes 14 × 9 mm,
 measured on its single Letter/standard row (no print test measures the
 16 × 11 mm large-scale size in tokens.css), and every Operation Grid cell,
 headers and corner included, 14.5/17 mm square, room for four handwritten
-digits. A 12 × 12 grid fits one Letter or A4 page at standard scale; large print
+digits. A border-inset text-containment check uses a 0.05 mm tolerance. On every
+grid row, 4 mm letter spacing on given-cell text must produce a `text outside
+cell` failure; removing it must restore a clean result. A 12 × 12 grid fits one Letter or A4 page at standard scale; large print
 offers grids up to 10 × 10 and refuses a larger one with its remedy rather than
 shrinking it. On each grid row a collapsed cell must fail its size and a table
 cut short must fail containment, then both restore clean. Clock Explorer dials
@@ -187,8 +190,8 @@ Registered worksheet/key components also render together in Vitest to detect
 duplicate document-scoped IDs. Parent controls must be hidden in print media.
 
 Evidence is written only to the ignored `.build-step/print-evidence/` directory:
-PDFs, JSON content/page/geometry reports, and screenshots for all 140 distinct
-measured surfaces (104 worksheets and 36 keys). These are disposable review evidence, not committed
+PDFs, JSON content/page/geometry reports, and screenshots for all 144 distinct
+measured surfaces (106 worksheets and 38 keys). These are disposable review evidence, not committed
 fixtures. The CI contract discovers the full print matrix through Playwright's
 actual unfiltered test entry point and guards against OS skips and pixel baselines.
 The Step 1 Ubuntu 24.04 workflow runs that same `check` command. Local Windows

@@ -1064,7 +1064,7 @@ A step too large for one developer context is split before build (R4). Kill crit
 - **Depends on:** Step 43
 
 ### Step 45: Grid headers that start above 1
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** A parent choosing Operation Grid can start the row and column numbers above 1, for example rows and columns 6 to 15, in order or mixed up. The child then practises sums and products past the times-table range. The parent does this through the existing Create, preview, key and print journey.
 - **Type:** code
 - **Issue:** #56

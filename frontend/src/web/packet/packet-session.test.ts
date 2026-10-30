@@ -261,11 +261,13 @@ describe("describeQueuedSheet", () => {
   test("an Operation Grid sheet names its grid and has no length", () => {
     const operationGrid = {
       ...BASE_SELECTION.operationGrid,
-      operation: "addition",
-      rows: 4,
-      columns: 6,
-      prefilled: 1,
+      operation: "multiplication",
+      rows: 10,
+      columns: 10,
+      prefilled: 10,
       headerOrder: "mixed",
+      rowStart: 6,
+      columnStart: 6,
     } as const;
     const sheet = sheetFor(SECOND_CHILD, { worksheetType: "operation-grid", operationGrid });
     const description = describeQueuedSheet(sheet, PROFILES);
@@ -276,7 +278,7 @@ describe("describeQueuedSheet", () => {
     });
     expect(description).not.toHaveProperty("length");
     expect(description.detail).toBe(
-      "Addition x + y, 4 rows by 6 columns, 1 cell pre-filled, Random, row and column numbers mixed up",
+      "Multiplication x × y, 10 rows from 6 to 15 by 10 columns from 6 to 15, 10 cells pre-filled, Random, row and column numbers mixed up",
     );
   });
 

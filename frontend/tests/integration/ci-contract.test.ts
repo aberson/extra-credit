@@ -43,9 +43,9 @@ const PACKET_PRINT_SPEC_ROW = /(?<![\w-])packet-print\.spec\.ts:\d+:\d+/u;
 describe("CI and package-script contract", () => {
   it("discovers the mandatory print matrix through the same unfiltered browser entry point", async () => {
     const listed = (await listedBrowserTests()).filter((line) => PRINT_SPEC_ROW.test(line));
-    // 104 worksheet rows, four order-bound sweeps, earliest-print probe,
+    // 106 worksheet rows, four order-bound sweeps, earliest-print probe,
     // and 13 manual lifecycle cases.
-    expect(listed).toHaveLength(122);
+    expect(listed).toHaveLength(124);
     expect(listed.filter((line) => line.includes("count ordering and frame bounds"))).toHaveLength(4);
     for (const paper of ["letter", "a4"]) {
       for (const scale of ["standard", "large"]) {
@@ -60,8 +60,8 @@ describe("CI and package-script contract", () => {
           // grid and Letter/large the powers grid. Every paper and scale
           // prints the one Clock Explorer row and the one Tally Detective row.
           const gridCells: Readonly<Record<string, number>> = {
-            "letter-standard": 2,
-            "a4-standard": 1,
+            "letter-standard": 3,
+            "a4-standard": 2,
             "letter-large": 1,
           };
           const gridRows = gridCells[`${paper}-${scale}`] ?? 0;

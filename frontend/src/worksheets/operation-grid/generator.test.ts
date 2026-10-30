@@ -24,6 +24,8 @@ import {
   OPERATION_GRID_POWERS_BASE_MAXIMUM,
   OPERATION_GRID_POWERS_CELL_MAXIMUM,
   OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_HEADER_MAXIMUM,
+  OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   OPERATION_GRID_SIZE_MINIMUM,
   type GenerationRequestV1,
@@ -32,6 +34,8 @@ import {
 } from "../../shared/worksheet/types.js";
 import {
   OPERATION_GRID_DEFINITION,
+  describeOperationGrid,
+  operationGridRefusal,
   operationGridPresetCount,
 } from "./definition.js";
 import {
@@ -94,6 +98,8 @@ function grid(choices: Partial<OperationGridV2>): OperationGridV2 {
     prefilled: 10,
     placement: "random",
     headerOrder: "in-order",
+    rowStart: 1,
+    columnStart: 1,
     ...choices,
   };
 }
@@ -182,6 +188,142 @@ describe("Operation Grid generator", () => {
       mixed.columnHeaders.map((column) => row * column)));
   });
 
+  test("offset headers preserve given indexes, shift in-order axes, and mix the shifted ranges", () => {
+    const base = { operation: "addition" as const, rows: 6, columns: 5, prefilled: 9, placement: "random" as const };
+    const fromOne = gridOf(generated(gridRequest(grid({ ...base }), "0000abcd")));
+    const offset = gridOf(generated(gridRequest(grid({ ...base, rowStart: 6, columnStart: 11 }), "0000abcd")));
+    expect(givenIndexes(offset)).toEqual(givenIndexes(fromOne));
+    expect(offset.rowHeaders).toEqual([6, 7, 8, 9, 10, 11]);
+    expect(offset.columnHeaders).toEqual([11, 12, 13, 14, 15]);
+    expect(offset.cells.map(({ value }) => value)).toEqual(oracleGrid("addition", 6, 5, 6, 11).flat());
+
+    const mixed = gridOf(generated(gridRequest(grid({
+      ...base, rowStart: 6, columnStart: 11, headerOrder: "mixed",
+    }), "0000abcd")));
+    expect(givenIndexes(mixed)).toEqual(givenIndexes(fromOne));
+    expect([...mixed.rowHeaders].sort((a, b) => a - b)).toEqual([6, 7, 8, 9, 10, 11]);
+    expect([...mixed.columnHeaders].sort((a, b) => a - b)).toEqual([11, 12, 13, 14, 15]);
+    expect(mixed.rowHeaders).not.toEqual([6, 7, 8, 9, 10, 11]);
+    expect(mixed.columnHeaders).not.toEqual([11, 12, 13, 14, 15]);
+    expect(judgeOperationGridDocument(generated(gridRequest(grid({
+      ...base, rowStart: 6, columnStart: 11, headerOrder: "mixed",
+    }), "0000abcd")))).toEqual([]);
+  });
+
+  test("offset limits and refusal precedence name the binding choice", () => {
+    expect(OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM).toBeGreaterThanOrEqual(
+      OPERATION_GRID_HEADER_MAXIMUM - OPERATION_GRID_SIZE_MINIMUM + 1,
+    );
+    expect(operationGridRefusal(grid({ operation: "addition", rows: 2, columns: 2, prefilled: 3, rowStart: 98 }), "standard"))
+      .toBeUndefined();
+    expect(operationGridRefusal(grid({ operation: "addition", rows: 10, rowStart: 95 }), "standard"))
+      .toBe("Row numbers may end at 99. Choose a first row number of 90 or less.");
+    expect(operationGridRefusal(grid({ operation: "multiplication", columns: 10, columnStart: 95 }), "standard"))
+      .toBe("Column numbers may end at 99. Choose a first column number of 90 or less.");
+    expect(operationGridRefusal(grid({ operation: "multiplication", rows: 2, columns: 2, prefilled: 3, rowStart: 31, columnStart: 32 }), "standard"))
+      .toBe("This multiplication grid would include a product above 999. Choose smaller first row or column numbers, or fewer rows or columns.");
+    expect(operationGridRefusal(grid({ operation: "multiplication", rows: 2, columns: 2, prefilled: 3, rowStart: 26, columnStart: 36 }), "standard"))
+      .toBeUndefined(); // last headers 27 × 37 = 999
+    const product999 = generated(gridRequest(grid({
+      operation: "multiplication", rows: 2, columns: 2, prefilled: 3, rowStart: 26, columnStart: 36,
+    })));
+    expect(gridOf(product999).cells.map(({ value }) => value)).toEqual(
+      oracleGrid("multiplication", 2, 2, 26, 36).flat(),
+    );
+    expect(Math.max(...gridOf(product999).cells.map(({ value }) => value))).toBe(999);
+    expect(judgeOperationGridDocument(product999)).toEqual([]);
+    expect(operationGridRefusal(grid({ operation: "multiplication", rows: 2, columns: 2, prefilled: 3, rowStart: 24, columnStart: 39 }), "standard"))
+      .toContain("product above 999"); // last headers 25 × 40 = 1,000
+    const powers = operationGridRefusal(grid({ operation: "powers", rows: 7, columns: 2, rowStart: 5 }), "standard");
+    expect(powers).toContain("last row number must be 10 or less");
+    expect(powers).not.toContain("99");
+    expect(operationGridRefusal(grid({ rows: 4, columns: 4, placement: "diagonal-first", rowStart: 6, columnStart: 7 }), "standard"))
+      .toBe("Diagonal first needs row and column numbers to start at the same value. Choose matching first numbers, or Random placement.");
+  });
+
+  test("offset choices have exact parent-facing wording while the default stays byte-identical", () => {
+    expect(describeOperationGrid(grid({}))).toBe(
+      "Multiplication x × y, 10 rows by 10 columns, 10 cells pre-filled, Random",
+    );
+    expect(describeOperationGrid(grid({ rowStart: 6, columnStart: 6, headerOrder: "mixed" }))).toBe(
+      "Multiplication x × y, 10 rows from 6 to 15 by 10 columns from 6 to 15, 10 cells pre-filled, Random, row and column numbers mixed up",
+    );
+  });
+
+  test("offset request and header invariants fail closed", () => {
+    const document = generated(gridRequest(grid({ operation: "addition", rows: 4, columns: 4, rowStart: 6, columnStart: 11 })));
+    const invalidRequests = [
+      { ...(document.request.practice as object), rowStart: 1 },
+      { ...(document.request.practice as object), columnStart: 1 },
+      { ...(document.request.practice as object), rowStart: 99 },
+      { ...(document.request.practice as object), rowStart: 98 },
+      { ...(document.request.practice as object), operation: "multiplication", rowStart: 31, columnStart: 32 },
+      { ...(document.request.practice as object), operation: "powers", rows: 4, columns: 2, prefilled: 3, rowStart: 8, columnStart: undefined },
+      { ...(document.request.practice as object), operation: "powers", rows: 2, columns: 3, prefilled: 3, rowStart: undefined, columnStart: 2 },
+      { ...(document.request.practice as object), placement: "diagonal-first", columnStart: 7 },
+    ];
+    for (const practice of invalidRequests) {
+      expect(validateOperationGridDocument({
+        ...document, request: { ...document.request, practice } as unknown as GenerationRequestV1,
+      })?.code).toBe(GENERATION_INVARIANT_FAILED);
+    }
+    const wrongHeader = mutated(document, (item) => {
+      item.rowHeaders = [5, ...item.rowHeaders.slice(1)];
+    });
+    expect(validateOperationGridDocument(wrongHeader)?.code).toBe(GENERATION_INVARIANT_FAILED);
+    const overCell = mutated(document, (item) => {
+      item.cells = item.cells.map((cell, index) => index === 0 ? { ...cell, value: 1000 } : cell);
+      item.answer = { kind: "grid", value: item.cells.map(({ value }) => value) };
+    });
+    expect(validateOperationGridDocument(overCell)?.code).toBe(GENERATION_INVARIANT_FAILED);
+  });
+
+  test("property: valid offset grids match the independent oracle", () => {
+    const choice = fc.oneof(
+      fc.record({
+        operation: fc.constantFrom("addition" as const, "multiplication" as const),
+        rows: fc.integer({ min: 2, max: 12 }),
+        columns: fc.integer({ min: 2, max: 12 }),
+        rowStart: fc.integer({ min: 1, max: 20 }),
+        columnStart: fc.integer({ min: 1, max: 20 }),
+        headerOrder: fc.constantFrom("in-order" as const, "mixed" as const),
+      }),
+      fc.record({
+        operation: fc.constant("powers" as const),
+        rows: fc.integer({ min: 2, max: 10 }),
+        columns: fc.integer({ min: 2, max: 3 }),
+        headerOrder: fc.constantFrom("in-order" as const, "mixed" as const),
+      }).map(({ rows, columns, ...rest }) => ({
+        ...rest, rows, columns, rowStart: 11 - rows, columnStart: 4 - columns,
+      })),
+    );
+    fc.assert(fc.property(choice, (picked) => {
+      const document = generated(gridRequest(grid({ ...picked, prefilled: 3 }), "1234abcd"));
+      expect(judgeOperationGridDocument(document)).toEqual([]);
+    }), { numRuns: 200 });
+  });
+
+  test("every legal first number on either axis works in both header orders", () => {
+    for (const headerOrder of ["in-order", "mixed"] as const) {
+      for (const operation of ["addition", "multiplication", "powers"] as const) {
+        const rowMaximum = operation === "powers" ? 9 : 98;
+        const columnMaximum = operation === "powers" ? 2 : 98;
+        for (let rowStart = 1; rowStart <= rowMaximum; rowStart += 1) {
+          const document = generated(gridRequest(grid({
+            operation, rows: 2, columns: 2, prefilled: 1, headerOrder, rowStart, columnStart: 1,
+          })));
+          expect(judgeOperationGridDocument(document), `${operation} ${headerOrder} row ${rowStart}`).toEqual([]);
+        }
+        for (let columnStart = 1; columnStart <= columnMaximum; columnStart += 1) {
+          const document = generated(gridRequest(grid({
+            operation, rows: 2, columns: 2, prefilled: 1, headerOrder, rowStart: 1, columnStart,
+          })));
+          expect(judgeOperationGridDocument(document), `${operation} ${headerOrder} column ${columnStart}`).toEqual([]);
+        }
+      }
+    }
+  });
+
   test("property: every mixed-header document validates", () => {
     fc.assert(fc.property(
       fc.integer({ min: 2, max: 12 }),
@@ -204,6 +346,12 @@ describe("Operation Grid generator", () => {
     }), "00000001")));
     expect({ rows: item.rowHeaders, columns: item.columnHeaders, given: givenIndexes(item) }).toEqual({
       rows: [2, 1, 3], columns: [1, 2, 4, 3], given: [2, 3, 6],
+    });
+    const offset = gridOf(generated(gridRequest(grid({
+      rows: 3, columns: 4, prefilled: 3, headerOrder: "mixed", rowStart: 6, columnStart: 6,
+    }), "00000001")));
+    expect({ rows: offset.rowHeaders, columns: offset.columnHeaders, given: givenIndexes(offset) }).toEqual({
+      rows: [7, 6, 8], columns: [6, 7, 9, 8], given: [2, 3, 6],
     });
   });
 
@@ -442,11 +590,13 @@ describe("Operation Grid negatives", () => {
     });
   });
 
-  test("the powers cell ceiling refuses only a powers value above 1,000", () => {
+  test("operation-specific cell ceilings are enforced", () => {
     expect(operationGridCellWithinCeiling("powers", OPERATION_GRID_POWERS_CELL_MAXIMUM)).toBe(true);
     expect(operationGridCellWithinCeiling("powers", OPERATION_GRID_POWERS_CELL_MAXIMUM + 1)).toBe(false);
-    expect(operationGridCellWithinCeiling("multiplication", OPERATION_GRID_POWERS_CELL_MAXIMUM + 1)).toBe(true);
-    expect(operationGridCellWithinCeiling("addition", OPERATION_GRID_POWERS_CELL_MAXIMUM + 1)).toBe(true);
+    expect(operationGridCellWithinCeiling("multiplication", 999)).toBe(true);
+    expect(operationGridCellWithinCeiling("multiplication", 1000)).toBe(false);
+    expect(operationGridCellWithinCeiling("addition", 999)).toBe(true);
+    expect(operationGridCellWithinCeiling("addition", 1000)).toBe(false);
   });
 
   test("a powers cell above 1,000 fails", () => {

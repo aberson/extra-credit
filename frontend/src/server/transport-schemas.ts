@@ -31,6 +31,8 @@ import {
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
   OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_HEADER_START_MINIMUM,
+  OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   OPERATION_GRID_SIZE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
@@ -273,6 +275,12 @@ const operationGridSizeSchema = {
   maximum: OPERATION_GRID_SIZE_MAXIMUM,
 } as const;
 
+const operationGridHeaderStartSchema = {
+  type: "integer",
+  minimum: OPERATION_GRID_HEADER_START_MINIMUM,
+  maximum: OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM,
+} as const;
+
 /**
  * Operation Grid's choices. Every field carries a Zod default, so every field
  * stays out of `required`; whether a valid choice can print is the family's
@@ -286,8 +294,10 @@ const operationGridSchema = strictObjectSchema(
     prefilled: { type: "integer", minimum: 0, maximum: OPERATION_GRID_PREFILLED_MAXIMUM },
     placement: { enum: OPERATION_GRID_PLACEMENTS },
     headerOrder: { enum: OPERATION_GRID_HEADER_ORDERS },
+    rowStart: operationGridHeaderStartSchema,
+    columnStart: operationGridHeaderStartSchema,
   },
-  ["operation", "rows", "columns", "prefilled", "placement", "headerOrder"],
+  ["operation", "rows", "columns", "prefilled", "placement", "headerOrder", "rowStart", "columnStart"],
 );
 
 const worksheetDefaultsProperties = {

@@ -22,8 +22,8 @@ import {
 
 /*
  * Operation Grid (master plan Step 34): one table per document. Every cell is
- * computed from its two headers; the seeded stream decides only which cells
- * print pre-filled. Random placement picks all of them by seed. Diagonal first
+ * computed from its two headers; the seeded stream decides which cells print
+ * pre-filled and, when requested, the mixed header order. Random placement picks all of them by seed. Diagonal first
  * gives the `i = j` cells first, picking among them by seed when fewer than
  * the diagonal are asked for, and then seeded extras off the diagonal.
  */
@@ -37,9 +37,9 @@ function operationGridPractice(request: GenerationRequestV1): OperationGridPract
   return request.practice?.kind === "operation-grid" ? request.practice : undefined;
 }
 
-/** Headers 1 through `count`. */
-function headersTo(count: number): readonly number[] {
-  return Array.from({ length: count }, (_, index) => index + 1);
+/** `count` consecutive headers beginning at `start`. */
+function headersFrom(start: number, count: number): readonly number[] {
+  return Array.from({ length: count }, (_, index) => start + index);
 }
 
 /**
@@ -65,10 +65,9 @@ export function chooseGivenCells(
 }
 
 function mixedHeaders(
-  count: number,
+  ascending: readonly number[],
   random: Pick<ReturnType<typeof createSeededRandom>, "nextBounded">,
 ): readonly number[] {
-  const ascending = headersTo(count);
   const shuffled = [...seededShuffle(ascending, random)];
   if (shuffled.every((value, index) => value === ascending[index])) {
     [shuffled[0], shuffled[1]] = [shuffled[1]!, shuffled[0]!];
@@ -124,12 +123,14 @@ export function generateOperationGrid(
 
   const random = createSeededRandom(request.seed);
   const given = chooseGivenCells(practice, random);
+  const ascendingRows = headersFrom(practice.rowStart ?? 1, practice.rows);
+  const ascendingColumns = headersFrom(practice.columnStart ?? 1, practice.columns);
   const rowHeaders = practice.headerOrder === "mixed"
-    ? mixedHeaders(practice.rows, random)
-    : headersTo(practice.rows);
+    ? mixedHeaders(ascendingRows, random)
+    : ascendingRows;
   const columnHeaders = practice.headerOrder === "mixed"
-    ? mixedHeaders(practice.columns, random)
-    : headersTo(practice.columns);
+    ? mixedHeaders(ascendingColumns, random)
+    : ascendingColumns;
   const values = rowHeaders.flatMap((row) =>
     columnHeaders.map((column) => operationGridCellValue(practice.operation, row, column)),
   );

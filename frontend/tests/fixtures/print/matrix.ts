@@ -12,6 +12,7 @@ import {
   FACT_FACTOR_MAXIMUM,
   OPERATION_GRID_POWERS_BASE_MAXIMUM,
   OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_CELL_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   V1_NUMERIC_MAXIMUM,
   type PrintScale,
@@ -213,6 +214,29 @@ export const printFixtures: readonly PrintFixture[] = [
       },
     },
     printedOn: [{ paper: "letter", scale: "large" }],
+  },
+  {
+    id: "grid-multiplication-offset-mixed",
+    profileIndex: 0,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "operation-grid",
+      operationGrid: {
+        ...shippedSelection.operationGrid,
+        operation: "multiplication",
+        rows: OPERATION_GRID_SIZE_MAXIMUM,
+        columns: OPERATION_GRID_SIZE_MAXIMUM,
+        rowStart: Math.floor(Math.sqrt(OPERATION_GRID_CELL_MAXIMUM)) - OPERATION_GRID_SIZE_MAXIMUM + 1,
+        columnStart: Math.floor(Math.sqrt(OPERATION_GRID_CELL_MAXIMUM)) - OPERATION_GRID_SIZE_MAXIMUM + 1,
+        prefilled: 72,
+        placement: "random",
+        headerOrder: "mixed",
+      },
+    },
+    printedOn: [
+      { paper: "letter", scale: "standard" },
+      { paper: "a4", scale: "standard" },
+    ],
   },
   // Clock Explorer: four clocks on every paper and scale, the boundary seed
   // holding 12:00, whose hands overlap, and 10:00 or 11:00, the widest hour

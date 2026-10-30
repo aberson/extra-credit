@@ -2,10 +2,11 @@ import { DEFAULT_WORKSHEET_DEFAULTS_V2 } from "../config/defaults.js";
 import { MATH_PRESETS } from "../config/math-presets.js";
 import { normalizedInterestKey } from "../config/normalize.js";
 import { presentationBandForVocabulary } from "../config/practice-focus.js";
-import type {
-  ArithmeticFocusV2,
-  ChildProfileV2,
-  WorksheetSelectionV2,
+import {
+  DEFAULT_OPERATION_GRID_HEADER_START,
+  type ArithmeticFocusV2,
+  type ChildProfileV2,
+  type WorksheetSelectionV2,
 } from "../config/schema.js";
 import { parseSeedHex } from "./seeded-random.js";
 import {
@@ -287,10 +288,12 @@ export function projectWorksheetPractice(
     };
   }
   if (worksheetType === "operation-grid") {
-    const { columns, operation, placement, prefilled, rows, headerOrder } = selection.operationGrid;
+    const { columns, operation, placement, prefilled, rows, headerOrder, rowStart, columnStart } = selection.operationGrid;
     return {
       kind: "operation-grid", operation, rows, columns, prefilled, placement,
       ...(headerOrder === "mixed" ? { headerOrder } : {}),
+      ...(rowStart !== DEFAULT_OPERATION_GRID_HEADER_START ? { rowStart } : {}),
+      ...(columnStart !== DEFAULT_OPERATION_GRID_HEADER_START ? { columnStart } : {}),
     };
   }
   if (worksheetType !== "dry-math") {

@@ -387,8 +387,10 @@ describe("touched groups", () => {
       prefilled: 10,
       placement: "random",
       headerOrder: "in-order",
+      rowStart: 1,
+      columnStart: 1,
     });
-    const value = { operation: "powers", rows: 10, columns: 3, prefilled: 4, placement: "random", headerOrder: "mixed" } as const;
+    const value = { operation: "powers", rows: 10, columns: 3, prefilled: 4, placement: "random", headerOrder: "mixed", rowStart: 1, columnStart: 1 } as const;
     const chosen = apply(start, groupChanged("operationGrid", { ...value }));
     expect(WORKSHEET_GROUP_KEYS.filter((key) => chosen.touched[key])).toEqual(["operationGrid"]);
     expect(chosen.previewEpoch).toBe(start.previewEpoch + 1);

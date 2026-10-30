@@ -28,6 +28,7 @@ import {
 } from "./fixtures/packet-controls.ts";
 import {
   installPrintSeedStub,
+  gridCellTextViolations,
   readPrintGeometry,
   readRequiredContent,
 } from "./fixtures/print-checks.ts";
@@ -230,6 +231,9 @@ for (const cell of cells) {
         entry.surface === "worksheet" && entry.sheet.document.worksheetType === "count-compare-make");
       expect(geometry.violations, `${name}: containment`).toEqual([]);
       expect(geometry.violations.filter((violation) => violation.startsWith("clipped"))).toEqual([]);
+      if (entry.sheet.document.worksheetType === "operation-grid") {
+        expect(await gridCellTextViolations(surface), `${name}: grid cell text`).toEqual([]);
+      }
       expect(await surface.evaluate((node) =>
         node.ownerDocument.defaultView?.getComputedStyle(node).getPropertyValue("page"),
       ), `${name}: named page`).toBe(`extra-credit-${cell.paper}`);

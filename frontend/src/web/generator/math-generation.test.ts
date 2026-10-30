@@ -363,6 +363,8 @@ describe("Operation Grid through the production caller", () => {
         prefilled: 7,
         placement: "random",
         headerOrder: "in-order",
+        rowStart: 1,
+        columnStart: 1,
       } as const;
       const created = createWorksheetSessionForSeed(gridGeneration(operationGrid), 0x2026_0034, DEPENDENCIES);
       if (!created.ok) {
@@ -396,18 +398,30 @@ describe("Operation Grid through the production caller", () => {
       prefilled: 10,
       placement: "random",
       headerOrder: "mixed",
+      rowStart: 6,
+      columnStart: 6,
     } as const;
     const created = createWorksheetSessionForSeed(gridGeneration(operationGrid), 0x2026_0044, DEPENDENCIES);
     if (!created.ok) {
       throw new Error(created.message);
     }
-    expect(created.session.document.request.practice).toEqual({ kind: "operation-grid", ...operationGrid });
+    expect(created.session.document.request.practice).toEqual({
+      kind: "operation-grid",
+      operation: "multiplication",
+      rows: 10,
+      columns: 10,
+      prefilled: 10,
+      placement: "random",
+      headerOrder: "mixed",
+      rowStart: 6,
+      columnStart: 6,
+    });
     expect(validateWorksheetInvariants(created.session.document)).toBeUndefined();
     expect(judgeOperationGridDocument(created.session.document)).toEqual([]);
   });
 
   test("Make another finds a different grid with random placement, and explains the one fixed Diagonal grid", () => {
-    const random = gridGeneration({ operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random", headerOrder: "in-order" });
+    const random = gridGeneration({ operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random", headerOrder: "in-order", rowStart: 1, columnStart: 1 });
     const first = createWorksheetSessionForSeed(random, 1, DEPENDENCIES);
     if (!first.ok) {
       throw new Error(first.message);
@@ -423,6 +437,8 @@ describe("Operation Grid through the production caller", () => {
       prefilled: 10,
       placement: "diagonal-first",
       headerOrder: "in-order",
+      rowStart: 1,
+      columnStart: 1,
     });
     const fixed = createWorksheetSessionForSeed(diagonal, 1, DEPENDENCIES);
     if (!fixed.ok) {

@@ -1046,6 +1046,8 @@ export interface OracleGridFocus {
   readonly prefilled: number;
   readonly placement: OracleGridPlacement;
   readonly headerOrder?: "in-order" | "mixed";
+  readonly rowStart?: number;
+  readonly columnStart?: number;
 }
 
 /**
@@ -1073,9 +1075,11 @@ export function oracleGrid(
   operation: OracleGridOperation,
   rows: number,
   columns: number,
+  rowStart = 1,
+  columnStart = 1,
 ): readonly (readonly number[])[] {
   return Array.from({ length: rows }, (_, row) =>
-    Array.from({ length: columns }, (_, column) => oracleGridCell(operation, row + 1, column + 1)),
+    Array.from({ length: columns }, (_, column) => oracleGridCell(operation, rowStart + row, columnStart + column)),
   );
 }
 
@@ -1083,15 +1087,22 @@ export function oracleGrid(
 export function oracleGridPrintable(focus: OracleGridFocus): boolean {
   const sized = (value: number) =>
     Number.isInteger(value) && value >= ORACLE_GRID_SIZE_MINIMUM && value <= ORACLE_GRID_SIZE_MAXIMUM;
+  const rowStart = focus.rowStart ?? 1;
+  const columnStart = focus.columnStart ?? 1;
+  const lastRow = rowStart + focus.rows - 1;
+  const lastColumn = columnStart + focus.columns - 1;
   return (
     sized(focus.rows) &&
     sized(focus.columns) &&
+    rowStart >= 1 && columnStart >= 1 && rowStart <= 98 && columnStart <= 98 &&
+    lastRow <= 99 && lastColumn <= 99 &&
     (focus.operation !== "powers" ||
-      (focus.rows <= ORACLE_POWERS_BASE_MAXIMUM && focus.columns <= ORACLE_POWERS_EXPONENT_MAXIMUM)) &&
+      (lastRow <= ORACLE_POWERS_BASE_MAXIMUM && lastColumn <= ORACLE_POWERS_EXPONENT_MAXIMUM)) &&
+    (focus.operation !== "multiplication" || lastRow * lastColumn <= 999) &&
     focus.prefilled >= 0 &&
     focus.prefilled < focus.rows * focus.columns &&
     (focus.placement !== "diagonal-first" ||
-      (focus.operation !== "powers" && focus.rows === focus.columns && focus.headerOrder !== "mixed"))
+      (focus.operation !== "powers" && focus.rows === focus.columns && focus.headerOrder !== "mixed" && rowStart === columnStart))
   );
 }
 
@@ -1121,18 +1132,18 @@ export interface OracleGridViolation {
   readonly code: OracleGridCode;
 }
 
-function oneToCount(count: number): readonly number[] {
-  return Array.from({ length: count }, (_, index) => index + 1);
+function fromStart(start: number, count: number): readonly number[] {
+  return Array.from({ length: count }, (_, index) => start + index);
 }
 
-function isPermutation(headers: readonly number[], count: number): boolean {
+function isPermutation(headers: readonly number[], start: number, count: number): boolean {
   return headers.length === count && [...headers].sort((left, right) => left - right)
-    .every((header, index) => header === index + 1);
+    .every((header, index) => header === start + index);
 }
 
-function headersMatchOrder(headers: readonly number[], count: number, order: OracleGridFocus["headerOrder"]): boolean {
-  const ascending = JSON.stringify(headers) === JSON.stringify(oneToCount(count));
-  return order === "mixed" ? isPermutation(headers, count) && !ascending : ascending;
+function headersMatchOrder(headers: readonly number[], start: number, count: number, order: OracleGridFocus["headerOrder"]): boolean {
+  const ascending = JSON.stringify(headers) === JSON.stringify(fromStart(start, count));
+  return order === "mixed" ? isPermutation(headers, start, count) && !ascending : ascending;
 }
 
 /**
@@ -1151,8 +1162,8 @@ export function judgeGridTable(
   }
   if (
     table.corner !== ORACLE_GRID_SYMBOLS[focus.operation] ||
-    !headersMatchOrder(table.columnHeaders, focus.columns, focus.headerOrder) ||
-    !headersMatchOrder(table.rowHeaders, focus.rows, focus.headerOrder) ||
+    !headersMatchOrder(table.columnHeaders, focus.columnStart ?? 1, focus.columns, focus.headerOrder) ||
+    !headersMatchOrder(table.rowHeaders, focus.rowStart ?? 1, focus.rows, focus.headerOrder) ||
     table.cells.length !== focus.rows
   ) {
     violations.push({ where: "headers", code: "HEADER_MISMATCH" });
@@ -1214,6 +1225,8 @@ export function oracleGridFocusOf(request: GenerationRequestV1): OracleGridFocus
     prefilled: practice.prefilled,
     placement: practice.placement,
     ...(practice.headerOrder === "mixed" ? { headerOrder: "mixed" as const } : {}),
+    ...(practice.rowStart === undefined ? {} : { rowStart: practice.rowStart }),
+    ...(practice.columnStart === undefined ? {} : { columnStart: practice.columnStart }),
   };
 }
 

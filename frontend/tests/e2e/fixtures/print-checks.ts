@@ -120,6 +120,37 @@ export async function readRequiredContent(
   }, required);
 }
 
+/** Every visible Operation Grid cell's text stays inside that cell. */
+export async function gridCellTextViolations(target: Page | Locator): Promise<readonly string[]> {
+  return await surfaceOf(target).evaluate((surface) => {
+    const violations: string[] = [];
+    const tolerance = 0.05 * 96 / 25.4;
+    for (const [index, cell] of [...surface.querySelectorAll("[data-grid-cell]")].entries()) {
+      const text = [...cell.childNodes].find((node) => node.nodeType === 3 &&
+        (node.textContent ?? "").trim() !== "");
+      if (text === undefined) continue;
+      const range = cell.ownerDocument.createRange();
+      range.selectNodeContents(text);
+      const textBox = range.getBoundingClientRect();
+      const cellBox = cell.getBoundingClientRect();
+      const style = cell.ownerDocument.defaultView?.getComputedStyle(cell);
+      const border = (side: "Left" | "Right" | "Top" | "Bottom") =>
+        Number.parseFloat(style?.getPropertyValue(`border-${side.toLowerCase()}-width`) ?? "0") || 0;
+      const contentBox = {
+        left: cellBox.left + border("Left"),
+        right: cellBox.right - border("Right"),
+        top: cellBox.top + border("Top"),
+        bottom: cellBox.bottom - border("Bottom"),
+      };
+      if (textBox.left < contentBox.left - tolerance || textBox.right > contentBox.right + tolerance ||
+        textBox.top < contentBox.top - tolerance || textBox.bottom > contentBox.bottom + tolerance) {
+        violations.push(`text outside cell: ${index}`);
+      }
+    }
+    return violations;
+  });
+}
+
 export async function readPrintGeometry(target: Page | Locator, columnFlow = false) {
   return await surfaceOf(target).evaluate((surface, columns) => {
     const bounds = surface.getBoundingClientRect();

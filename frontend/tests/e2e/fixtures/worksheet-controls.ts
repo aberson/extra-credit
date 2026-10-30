@@ -33,6 +33,8 @@ import { FIND_THE_WOW_VARIANT_LABELS } from "../../../src/worksheets/find-the-wo
 import { NUMBER_BONDS_REGROUPING_LABELS } from "../../../src/worksheets/number-bonds/definition.ts";
 import {
   OPERATION_GRID_COLUMNS_LABEL,
+  OPERATION_GRID_ROW_START_LABEL,
+  OPERATION_GRID_COLUMN_START_LABEL,
   OPERATION_GRID_OPERATION_LABELS,
   OPERATION_GRID_OPERATION_LEGEND,
   OPERATION_GRID_PLACEMENT_LABELS,
@@ -80,6 +82,8 @@ export interface WorksheetControls {
   /** Operation Grid's "Rows" and "Columns" number inputs. */
   readonly gridRows: () => Locator;
   readonly gridColumns: () => Locator;
+  readonly gridRowStart: () => Locator;
+  readonly gridColumnStart: () => Locator;
   /** Operation Grid's "Placement" radio group. */
   readonly gridPlacement: () => Locator;
   readonly gridHeaderOrder: () => Locator;
@@ -118,6 +122,10 @@ export function controls(page: Page): WorksheetControls {
     gridRows: () => page.getByRole("spinbutton", { name: OPERATION_GRID_ROWS_LABEL, exact: true }),
     gridColumns: () =>
       page.getByRole("spinbutton", { name: OPERATION_GRID_COLUMNS_LABEL, exact: true }),
+    gridRowStart: () =>
+      page.getByRole("spinbutton", { name: OPERATION_GRID_ROW_START_LABEL, exact: true }),
+    gridColumnStart: () =>
+      page.getByRole("spinbutton", { name: OPERATION_GRID_COLUMN_START_LABEL, exact: true }),
     gridPlacement: () =>
       page.getByRole("group", { name: OPERATION_GRID_PLACEMENT_LEGEND, exact: true }),
     gridHeaderOrder: () =>
@@ -248,8 +256,8 @@ export async function chooseFactFamilies(page: Page, families: readonly number[]
  */
 export async function chooseOperationGrid(
   page: Page,
-  grid: Omit<WorksheetSelectionV2["operationGrid"], "headerOrder"> &
-    Partial<Pick<WorksheetSelectionV2["operationGrid"], "headerOrder">>,
+  grid: Omit<WorksheetSelectionV2["operationGrid"], "headerOrder" | "rowStart" | "columnStart"> &
+    Partial<Pick<WorksheetSelectionV2["operationGrid"], "headerOrder" | "rowStart" | "columnStart">>,
 ): Promise<void> {
   const named = controls(page);
   const operation = named.gridOperation().getByRole("radio", {
@@ -262,6 +270,12 @@ export async function chooseOperationGrid(
   await expect(named.gridRows()).toHaveValue(String(grid.rows));
   await named.gridColumns().fill(String(grid.columns));
   await expect(named.gridColumns()).toHaveValue(String(grid.columns));
+  const rowStart = grid.rowStart ?? 1;
+  const columnStart = grid.columnStart ?? 1;
+  await named.gridRowStart().fill(String(rowStart));
+  await expect(named.gridRowStart()).toHaveValue(String(rowStart));
+  await named.gridColumnStart().fill(String(columnStart));
+  await expect(named.gridColumnStart()).toHaveValue(String(columnStart));
   const headerOrder = grid.headerOrder ?? "in-order";
   const headerOrderRadio = named.gridHeaderOrder().getByRole("radio", {
     name: OPERATION_GRID_HEADER_ORDER_LABELS[headerOrder],

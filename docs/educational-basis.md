@@ -47,8 +47,8 @@ Every generated page, in every family, stays inside one fixed envelope:
 
 | Bound | Value |
 |---|---|
-| Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, Carrying and borrowing, fact families, Operation Grid's operation, rows, columns, header order, pre-filled count and placement, length, and print scale). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
-| Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, three-digit addition/subtraction with answers up to 1,000, two-digit × one-digit multiplication, exact three-digit ÷ one-digit division, two-digit division with remainders, and facts with factors, divisors and answers up to 12; Operation Grid headers run to 12 and powers cells to 1,000; every quantity, numeral, operand, and result in the other families stays at most 20. |
+| Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, Carrying and borrowing, fact families, Operation Grid's operation, rows, columns, first row and column numbers, header order, pre-filled count and placement, length, and print scale). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
+| Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, three-digit addition/subtraction with answers up to 1,000, two-digit × one-digit multiplication, exact three-digit ÷ one-digit division, two-digit division with remainders, and facts with factors, divisors and answers up to 12; Operation Grid headers may end at 99, addition and multiplication cells stay at most 999, and powers cells stay at most 1,000; every quantity, numeral, operand, and result in the other families stays at most 20. |
 | Sign | Nonnegative. No generated result is below zero. Fact-family and multi-digit division is exact with a nonzero divisor; the remainders focus always has a nonzero remainder. |
 | Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once. In Number Bonds, "Include problems that carry or borrow" adds problems whose missing number needs carrying or borrowing; by default no Number Bonds problem makes or crosses ten. Operation Grid's cells follow from its headers alone, so an addition grid's sums that make or cross ten are a fixed part of the table rather than a choice. Otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
 | Personalization | A nickname and reviewed interest topics only. Raw unmatched interest text never reaches a request or a page. |
@@ -131,14 +131,17 @@ depends on the worksheet choices alone, not on which child is selected.
 ### `operation-grid` — Operation Grid
 
 One table per page. Column headers run across the top and row headers down the
-side, each from 1 to the size the parent chooses (2 to 12, 10 × 10 by default).
+side. The parent chooses 2 to 12 headers on each axis and its first number from
+1 to 98 (10 × 10 starting at 1 by default); the last header may not exceed 99.
 The parent can keep each axis in order or mix each axis into a seeded,
 non-ascending permutation; mixed headers make each fact a recall task instead
 of exposing the next answer by position. Diagonal first requires headers in
-order because its progression is defined by matching row and column numbers.
+order and equal first row and column numbers because its progression is defined
+by matching row and column numbers.
 The corner shows the operation: `+` for addition, `×` for multiplication or
 `^` for powers. Every cell is its row header combined with its column header,
-so every cell has exactly one answer. A few cells print filled in as anchors,
+so every cell has exactly one answer; addition and multiplication cells may not
+exceed 999. A few cells print filled in as anchors,
 the number the parent sets with a number input or a preset (Nearly blank,
 Half, Mostly filled, or Diagonal), and at least one cell is always left for the
 child; the rest are empty boxes sized for four handwritten digits. Random
@@ -153,7 +156,9 @@ exceeds 1,000, and a larger powers grid is refused with a remedy rather than
 narrowed. Choosing it asserts no grade, placement, or readiness for it.
 
 - [Common Core Grade 1 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/1/OA/) — cited for addition facts and the meaning of the equal sign.
+- [Common Core Grade 2 Number and Operations in Base Ten, 2.NBT.B.7](https://www.thecorestandards.org/Math/Content/2/NBT/#CCSS.Math.Content.2.NBT.B.7) — cited for addition with two-digit headers.
 - [Common Core Grade 3 Operations and Algebraic Thinking](https://www.thecorestandards.org/Math/Content/3/OA/) — cited for multiplication within 100 and the patterns of a multiplication table.
+- [Common Core Grade 4 Number and Operations in Base Ten, 4.NBT.B.5](https://www.thecorestandards.org/Math/Content/4/NBT/#CCSS.Math.Content.4.NBT.B.5) — cited for multiplying two-digit headers.
 - [Common Core Grade 6 Expressions and Equations](https://www.thecorestandards.org/Math/Content/6/EE/) — cited only for what a whole-number exponent means.
 - [IES Teaching Math to Young Children](https://ies.ed.gov/ncee/wwc/practiceguide/18)
 

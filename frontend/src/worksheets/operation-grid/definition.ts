@@ -6,6 +6,9 @@ import type {
 import {
   OPERATION_GRID_POWERS_BASE_MAXIMUM,
   OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_HEADER_MAXIMUM,
+  OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM,
+  OPERATION_GRID_CELL_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   OPERATION_GRID_SIZE_MINIMUM,
   type OperationGridItemV1,
@@ -18,7 +21,7 @@ import {
 
 /*
  * Operation Grid: one fill-in table per page. Row headers run down the side
- * and column headers across the top, each from 1; every cell is its row
+ * and column headers across the top, each from its chosen first number; every cell is its row
  * header combined with its column header by the chosen operation, a few cells
  * print pre-filled as anchors and the child completes the rest. A selection
  * the family cannot print is refused with the remedy that names only the
@@ -71,6 +74,8 @@ export const OPERATION_GRID_HEADER_ORDER_LEGEND = "Header order";
 export const OPERATION_GRID_SIZE_LEGEND = "Grid size";
 export const OPERATION_GRID_ROWS_LABEL = "Rows";
 export const OPERATION_GRID_COLUMNS_LABEL = "Columns";
+export const OPERATION_GRID_ROW_START_LABEL = "First row number";
+export const OPERATION_GRID_COLUMN_START_LABEL = "First column number";
 export const OPERATION_GRID_PREFILLED_LABEL = "Pre-filled cells";
 export const OPERATION_GRID_PRESETS_LABEL = "Pre-filled cells presets";
 
@@ -79,7 +84,7 @@ export const OPERATION_GRID_CARD_DESCRIPTION =
   "Fill in a table from its row and column numbers, with a few cells given.";
 
 /** The help under the size and pre-filled controls. */
-export const OPERATION_GRID_SIZE_HELP = `Rows and columns each run from ${OPERATION_GRID_SIZE_MINIMUM} to ${OPERATION_GRID_SIZE_MAXIMUM}, and at least one cell always stays blank. Powers use the row number as the base and the column number as the exponent, so a powers grid has at most ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM} columns and ${OPERATION_GRID_POWERS_BASE_MAXIMUM} rows.`;
+export const OPERATION_GRID_SIZE_HELP = `Rows and columns each run from ${OPERATION_GRID_SIZE_MINIMUM} to ${OPERATION_GRID_SIZE_MAXIMUM}, and first row and column numbers each run from 1 to ${OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM}. Headers may end at ${OPERATION_GRID_HEADER_MAXIMUM}, and addition or multiplication cells may not exceed ${OPERATION_GRID_CELL_MAXIMUM}. At least one cell always stays blank. Powers use the row number as the base and the column number as the exponent, so a powers grid has at most ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM} columns and ${OPERATION_GRID_POWERS_BASE_MAXIMUM} rows.`;
 
 /** The help under the pre-filled presets. */
 export const OPERATION_GRID_PRESET_HELP =
@@ -126,6 +131,8 @@ export interface OperationGridChoices {
   readonly prefilled: number;
   readonly placement: OperationGridPlacement;
   readonly headerOrder?: OperationGridHeaderOrder;
+  readonly rowStart?: number;
+  readonly columnStart?: number;
 }
 
 /**
@@ -139,15 +146,43 @@ export function operationGridRefusal(
   printScale: PrintScale,
 ): string | undefined {
   const { columns, operation, placement, prefilled, rows, headerOrder } = choices;
+  const rowStart = choices.rowStart ?? 1;
+  const columnStart = choices.columnStart ?? 1;
+  const lastRow = rowStart + rows - 1;
+  const lastColumn = columnStart + columns - 1;
   const sentences: string[] = [];
-  if (operation === "powers" && columns > OPERATION_GRID_POWERS_EXPONENT_MAXIMUM) {
+  if (operation === "powers" && lastColumn > OPERATION_GRID_POWERS_EXPONENT_MAXIMUM) {
     sentences.push(
-      `Powers use exponents from 1 to ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM}, so a powers grid has at most ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM} columns. Choose ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM} or fewer columns.`,
+      columnStart === 1
+        ? `Powers use exponents from 1 to ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM}, so a powers grid has at most ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM} columns. Choose ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM} or fewer columns.`
+        : `Powers use exponents from 1 to ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM}, so the last column number must be ${OPERATION_GRID_POWERS_EXPONENT_MAXIMUM} or less. Choose a smaller first column number or fewer columns.`,
     );
   }
-  if (operation === "powers" && rows > OPERATION_GRID_POWERS_BASE_MAXIMUM) {
+  if (operation === "powers" && lastRow > OPERATION_GRID_POWERS_BASE_MAXIMUM) {
     sentences.push(
-      `Powers use bases from 1 to ${OPERATION_GRID_POWERS_BASE_MAXIMUM}, so a powers grid has at most ${OPERATION_GRID_POWERS_BASE_MAXIMUM} rows. Choose ${OPERATION_GRID_POWERS_BASE_MAXIMUM} or fewer rows.`,
+      rowStart === 1
+        ? `Powers use bases from 1 to ${OPERATION_GRID_POWERS_BASE_MAXIMUM}, so a powers grid has at most ${OPERATION_GRID_POWERS_BASE_MAXIMUM} rows. Choose ${OPERATION_GRID_POWERS_BASE_MAXIMUM} or fewer rows.`
+        : `Powers use bases from 1 to ${OPERATION_GRID_POWERS_BASE_MAXIMUM}, so the last row number must be ${OPERATION_GRID_POWERS_BASE_MAXIMUM} or less. Choose a smaller first row number or fewer rows.`,
+    );
+  }
+  if (operation !== "powers" && lastRow > OPERATION_GRID_HEADER_MAXIMUM) {
+    sentences.push(
+      `Row numbers may end at ${OPERATION_GRID_HEADER_MAXIMUM}. Choose a first row number of ${OPERATION_GRID_HEADER_MAXIMUM - rows + 1} or less.`,
+    );
+  }
+  if (operation !== "powers" && lastColumn > OPERATION_GRID_HEADER_MAXIMUM) {
+    sentences.push(
+      `Column numbers may end at ${OPERATION_GRID_HEADER_MAXIMUM}. Choose a first column number of ${OPERATION_GRID_HEADER_MAXIMUM - columns + 1} or less.`,
+    );
+  }
+  if (
+    operation === "multiplication" &&
+    lastRow <= OPERATION_GRID_HEADER_MAXIMUM &&
+    lastColumn <= OPERATION_GRID_HEADER_MAXIMUM &&
+    lastRow * lastColumn > OPERATION_GRID_CELL_MAXIMUM
+  ) {
+    sentences.push(
+      `This multiplication grid would include a product above ${OPERATION_GRID_CELL_MAXIMUM}. Choose smaller first row or column numbers, or fewer rows or columns.`,
     );
   }
   if (printScale === "large") {
@@ -177,6 +212,8 @@ export function operationGridRefusal(
     );
   } else if (placement === "diagonal-first" && headerOrder === "mixed") {
     sentences.push("Diagonal first needs row and column numbers in order. Choose In order, or Random placement.");
+  } else if (placement === "diagonal-first" && rowStart !== columnStart) {
+    sentences.push("Diagonal first needs row and column numbers to start at the same value. Choose matching first numbers, or Random placement.");
   }
   return sentences.length === 0 ? undefined : sentences.join(" ");
 }
@@ -238,7 +275,12 @@ export const OPERATION_GRID_MIXED_SUMMARY_PHRASE = ", row and column numbers mix
  */
 export function describeOperationGrid(choices: OperationGridChoices): string {
   const cells = choices.prefilled === 1 ? "cell" : "cells";
-  return `${OPERATION_GRID_OPERATION_LABELS[choices.operation]}, ${choices.rows} rows by ${choices.columns} columns, ${choices.prefilled} ${cells} pre-filled, ${OPERATION_GRID_PLACEMENT_LABELS[choices.placement]}${choices.headerOrder === "mixed" ? OPERATION_GRID_MIXED_SUMMARY_PHRASE : ""}`;
+  const rowStart = choices.rowStart ?? 1;
+  const columnStart = choices.columnStart ?? 1;
+  const size = rowStart === 1 && columnStart === 1
+    ? `${choices.rows} rows by ${choices.columns} columns`
+    : `${choices.rows} rows from ${rowStart} to ${rowStart + choices.rows - 1} by ${choices.columns} columns from ${columnStart} to ${columnStart + choices.columns - 1}`;
+  return `${OPERATION_GRID_OPERATION_LABELS[choices.operation]}, ${size}, ${choices.prefilled} ${cells} pre-filled, ${OPERATION_GRID_PLACEMENT_LABELS[choices.placement]}${choices.headerOrder === "mixed" ? OPERATION_GRID_MIXED_SUMMARY_PHRASE : ""}`;
 }
 
 /**

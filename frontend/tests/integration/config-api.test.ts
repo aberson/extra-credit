@@ -692,8 +692,8 @@ describe("three-digit Dry Math defaults through the config API", () => {
   });
 });
 
-describe("Operation Grid header order through the config API", () => {
-  test("an omitted v2 field defaults without a read rewrite, then an explicit mixed save changes only that key", async () => {
+describe("Operation Grid additive fields through the config API", () => {
+  test("omitted v2 fields default without a read rewrite, then a starts-only save changes only the two new keys", async () => {
     const { app, configPath, token } = await setup();
     const earlier = fixture("Fictional Mixed Header Reader") as unknown as {
       defaults: { operationGrid: Partial<AppConfigV2["defaults"]["operationGrid"]> };
@@ -701,6 +701,8 @@ describe("Operation Grid header order through the config API", () => {
       schemaVersion: 2;
     };
     delete earlier.defaults.operationGrid.headerOrder;
+    delete earlier.defaults.operationGrid.rowStart;
+    delete earlier.defaults.operationGrid.columnStart;
     const raw = Buffer.from(`${JSON.stringify(earlier, null, 2)}\n`, "utf8");
     await writeFile(configPath, raw);
 
@@ -712,11 +714,14 @@ describe("Operation Grid header order through the config API", () => {
     expect(read.statusCode).toBe(200);
     const config = (read.json() as { config: AppConfigV2 }).config;
     expect(config.defaults.operationGrid.headerOrder).toBe("in-order");
+    expect(config.defaults.operationGrid.rowStart).toBe(1);
+    expect(config.defaults.operationGrid.columnStart).toBe(1);
     expect((await readFile(configPath)).equals(raw)).toBe(true);
 
     const beforeProfiles = structuredClone(config.profiles);
     const beforeOperationGrid = structuredClone(config.defaults.operationGrid);
-    config.defaults.operationGrid.headerOrder = "mixed";
+    config.defaults.operationGrid.rowStart = 6;
+    config.defaults.operationGrid.columnStart = 11;
     const saved = await app.inject({
       method: "PUT",
       url: "/api/config",
@@ -726,10 +731,12 @@ describe("Operation Grid header order through the config API", () => {
     expect(saved.statusCode).toBe(200);
     const stored = JSON.parse((await readFile(configPath)).toString("utf8")) as AppConfigV2;
     expect(stored.profiles).toEqual(beforeProfiles);
-    expect(stored.defaults.operationGrid).toEqual({ ...beforeOperationGrid, headerOrder: "mixed" });
+    expect(stored.defaults.operationGrid).toEqual({
+      ...beforeOperationGrid, rowStart: 6, columnStart: 11,
+    });
     expect(stored.defaults).toEqual({
       ...config.defaults,
-      operationGrid: { ...beforeOperationGrid, headerOrder: "mixed" },
+      operationGrid: { ...beforeOperationGrid, rowStart: 6, columnStart: 11 },
     });
   });
 });

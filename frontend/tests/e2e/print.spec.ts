@@ -31,6 +31,7 @@ import { isIdentityOnlyProfile } from "../fixtures/profiles.ts";
 import { expect, test } from "./fixtures/app-server.ts";
 import {
   installPrintSeedStub,
+  gridCellTextViolations,
   readPrintGeometry,
   readRequiredContent,
 } from "./fixtures/print-checks.ts";
@@ -1355,6 +1356,14 @@ for (const fixture of printFixtures) {
             if (item?.itemType === "operation-grid") {
               expect(cells).toHaveLength((item.rowHeaders.length + 1) * (item.columnHeaders.length + 1));
             }
+            expect(await gridCellTextViolations(page), "grid cell text").toEqual([]);
+            await withPrintStyle(page,
+              '.print-surface [data-grid-cell="given"] { letter-spacing: 4mm !important; }',
+              async () => {
+                expect((await gridCellTextViolations(page)).some((violation) =>
+                  violation.startsWith("text outside cell:")), "wide given text must fail").toBe(true);
+              });
+            expect(await gridCellTextViolations(page), "grid cell text restored").toEqual([]);
             await withPrintStyle(page,
               ".print-surface [data-grid-cell] { width: 1px !important; min-width: 1px !important; " +
               "max-width: 1px !important; height: 1px !important; }",
@@ -1671,10 +1680,10 @@ test("manual print uses the compiled app with canonical temporary profiles and c
   request,
 }) => {
   // The worksheet-choice matrix built from the committed example expands to
-  // 99 distinct worksheet cases, 31 of which also measure a key PDF.
+  // 101 distinct worksheet cases, 33 of which also measure a key PDF.
   expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
-  expect(matrixCases).toHaveLength(99);
-  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(31);
+  expect(matrixCases).toHaveLength(101);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(33);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {

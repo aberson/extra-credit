@@ -117,6 +117,50 @@ test("mixed 10 x 10 headers persist, preview and key against the oracle, and eac
   }
 });
 
+test("offset headers save, reload, render in order or mixed, and refuse an end above 99", async ({ appServer, page }) => {
+  test.setTimeout(90_000);
+  await appServer.seedConfig(acceptanceConfig);
+  await page.goto(appServer.origin);
+  await chooseWorksheet(page, "operation-grid");
+  const mixed: OracleGridFocus = {
+    operation: "multiplication", rows: 10, columns: 10, prefilled: 10,
+    placement: "random", headerOrder: "mixed", rowStart: 6, columnStart: 6,
+  };
+  await chooseOperationGrid(page, mixed);
+  const named = controls(page);
+  const ordered = await page.locator(
+    '[data-panel-control="operation-grid-columns"], [data-panel-control="operation-grid-row-start"], [data-panel-control="operation-grid-column-start"], [data-panel-control="operation-grid-header-order"]',
+  ).evaluateAll((labels) => labels.map((label) => label.getAttribute("data-panel-control")));
+  expect(ordered).toEqual([
+    "operation-grid-columns", "operation-grid-row-start", "operation-grid-column-start",
+    "operation-grid-header-order",
+  ]);
+  await page.getByRole("button", { name: "Save these as worksheet defaults", exact: true }).click();
+  await page.reload();
+  await expect(named.gridRowStart()).toHaveValue("6");
+  await expect(named.gridColumnStart()).toHaveValue("6");
+  await named.create().click();
+  let rendered = await renderedGrids(page);
+  expect(judgeGridTable(rendered.worksheet, mixed, false)).toEqual([]);
+  expect(judgeGridTable(rendered.key, mixed, true)).toEqual([]);
+
+  const inOrder: OracleGridFocus = {
+    operation: "addition", rows: 10, columns: 10, prefilled: 10,
+    placement: "random", rowStart: 21, columnStart: 11,
+  };
+  await chooseOperationGrid(page, inOrder);
+  await named.create().click();
+  rendered = await renderedGrids(page);
+  expect(judgeGridTable(rendered.worksheet, inOrder, false)).toEqual([]);
+  expect(judgeGridTable(rendered.key, inOrder, true)).toEqual([]);
+
+  await named.gridRowStart().fill("95");
+  await expect(page.locator("[data-blocking-message]")).toHaveText(
+    "Row numbers may end at 99. Choose a first row number of 90 or less.",
+  );
+  await expect(named.create()).toBeDisabled();
+});
+
 test("presets update the pre-filled input and the next preview, and Diagonal chooses Diagonal first", async ({ appServer, page }) => {
   test.setTimeout(60_000);
   await appServer.seedConfig(acceptanceConfig);

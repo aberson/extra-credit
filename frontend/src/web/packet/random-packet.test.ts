@@ -589,10 +589,10 @@ describe("makeRandomPacket", () => {
     expect(randomPacketMessage(result)).toBe(`Added ${PACKET_SHEET_LIMIT} random sheets to the packet.`);
   });
 
-  test("a saved mixed header order never leaks into any random-packet Operation Grid level", () => {
+  test("saved mixed and offset headers never leak into any random-packet Operation Grid level", () => {
     const parent: WorksheetSelectionV2 = {
       ...BASE,
-      operationGrid: { ...BASE.operationGrid, headerOrder: "mixed" },
+      operationGrid: { ...BASE.operationGrid, headerOrder: "mixed", rowStart: 6, columnStart: 6 },
     };
     for (const level of RANDOM_PACKET_LEVELS) {
       const result = make(["operation-grid"], PACKET_SHEET_LIMIT, level, 0x4400, parent);
@@ -601,6 +601,8 @@ describe("makeRandomPacket", () => {
       }
       for (const { document } of result.sheets) {
         expect(document.request.practice).not.toHaveProperty("headerOrder");
+        expect(document.request.practice).not.toHaveProperty("rowStart");
+        expect(document.request.practice).not.toHaveProperty("columnStart");
         expect(document.worksheetType).toBe("operation-grid");
         const item = document.items[0] as OperationGridItemV1;
         expect(item.rowHeaders).toEqual(Array.from({ length: item.rowHeaders.length }, (_, index) => index + 1));

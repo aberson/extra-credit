@@ -824,17 +824,23 @@ const RETIRED_ARMS: readonly { readonly id: string; readonly deletedPath: string
  * pasting the observed set back in without deciding the new prose is right.
  */
 const DECLARED_SENTENCE_SHAPES: readonly string[] = [
+  "Column numbers may end at N. Choose a first column number of N or less.",
   "Diagonal first needs a square grid. Choose the same number of rows and columns, or Random placement.",
   "Diagonal first needs row and column numbers in order. Choose In order, or Random placement.",
+  "Diagonal first needs row and column numbers to start at the same value. Choose matching first numbers, or Random placement.",
   "Diagonal first works with addition and multiplication grids. Choose Random placement.",
   "Large print fits at most N columns. Choose N or fewer columns, or Standard print scale under More options.",
   "Large print fits at most N rows. Choose N or fewer rows, or Standard print scale under More options.",
   "Large print fits at most N rows. Choose N or fewer rows, or Standard print scale under More options. Large print fits at most N columns. Choose N or fewer columns, or Standard print scale under More options.",
   "Powers use bases from N to N, so a powers grid has at most N rows. Choose N or fewer rows.",
   "Powers use bases from N to N, so a powers grid has at most N rows. Choose N or fewer rows. Large print fits at most N rows. Choose N or fewer rows, or Standard print scale under More options.",
+  "Powers use bases from N to N, so the last row number must be N or less. Choose a smaller first row number or fewer rows.",
   "Powers use exponents from N to N, so a powers grid has at most N columns. Choose N or fewer columns.",
+  "Powers use exponents from N to N, so the last column number must be N or less. Choose a smaller first column number or fewer columns.",
+  "Row numbers may end at N. Choose a first row number of N or less.",
   "The chosen fact families give N unique facts, but this length needs N. Choose more fact families, or a shorter length under More options.",
   "This grid has N cells and at least one must stay blank. Choose N or fewer pre-filled cells.",
+  "This multiplication grid would include a product above N. Choose smaller first row or column numbers, or fewer rows or columns.",
   "This practice focus has N unique problems, but this length needs N. Choose a practice focus with a wider range.",
   "This practice focus has N unique problems, but this length needs N. Choose a practice focus with a wider range. Or choose a shorter length under More options.",
   "This practice focus provides N unique equation groups, but this length needs N. Choose a practice focus with a wider results range.",
@@ -1265,6 +1271,14 @@ const OPERATION_GRID_SOURCES: readonly SweepSource[] = [
     headerOrder: "mixed",
   }),
   operationGridSource("mixed random", { headerOrder: "mixed" }),
+  operationGridSource("row header ceiling", { rows: 10, rowStart: 95 }),
+  operationGridSource("column header ceiling", { columns: 10, columnStart: 95 }),
+  operationGridSource("product ceiling", { rows: 2, columns: 2, prefilled: 3, rowStart: 31, columnStart: 32 }),
+  operationGridSource("powers row start", { operation: "powers", rows: 7, columns: 2, rowStart: 5 }),
+  operationGridSource("powers column start", { operation: "powers", rows: 2, columns: 2, prefilled: 3, columnStart: 3 }),
+  operationGridSource("diagonal unequal starts", {
+    rows: 4, columns: 4, placement: "diagonal-first", rowStart: 6, columnStart: 7,
+  }),
   operationGridSource("tall", { rows: OPERATION_GRID_SIZE_MAXIMUM, columns: 10 }),
   operationGridSource("wide", { rows: 10, columns: OPERATION_GRID_SIZE_MAXIMUM }),
 ];
@@ -2295,6 +2309,19 @@ describe("Operation Grid refusals", () => {
       capacity: { sufficient: true },
       statusMessage:
         "Operation Grid: Multiplication x × y, 10 rows by 10 columns, 10 cells pre-filled, Random, row and column numbers mixed up.",
+    });
+    const offsetMixed = registration.controls.getCapabilitySupport({
+      selection: {
+        ...base,
+        worksheetType: "operation-grid",
+        operationGrid: { ...base.operationGrid, headerOrder: "mixed", rowStart: 6, columnStart: 6 },
+      },
+    });
+    expect(offsetMixed).toEqual({
+      available: true,
+      capacity: { sufficient: true },
+      statusMessage:
+        "Operation Grid: Multiplication x × y, 10 rows from 6 to 15 by 10 columns from 6 to 15, 10 cells pre-filled, Random, row and column numbers mixed up.",
     });
   });
 });

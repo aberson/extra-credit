@@ -47,6 +47,8 @@ import {
   FACT_FACTOR_MAXIMUM,
   NUMBER_BONDS_WHOLE_MINIMUM,
   OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_HEADER_START_MINIMUM,
+  OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   OPERATION_GRID_SIZE_MINIMUM,
   V1_NUMERIC_MAXIMUM,
@@ -351,6 +353,18 @@ const PARITY_ROWS: Readonly<Record<string, ParityRow>> = {
     members: OPERATION_GRID_HEADER_ORDERS,
     probes: [...enumRow(OPERATION_GRID_HEADER_ORDERS).probes, probe("absent", undefined, true)],
   },
+  "$.defaults.operationGrid.rowStart": {
+    probes: [
+      ...integerRow(OPERATION_GRID_HEADER_START_MINIMUM, OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM).probes,
+      probe("absent", undefined, true),
+    ],
+  },
+  "$.defaults.operationGrid.columnStart": {
+    probes: [
+      ...integerRow(OPERATION_GRID_HEADER_START_MINIMUM, OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM).probes,
+      probe("absent", undefined, true),
+    ],
+  },
   "$.defaults.findTheWow": objectRow(),
   "$.defaults.findTheWow.variant": enumRow(FIND_THE_WOW_VARIANTS),
   "$.defaults.findTheWow.quantity": objectRow(),
@@ -608,6 +622,8 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       prefilled: 10,
       placement: "random",
       headerOrder: "in-order",
+      rowStart: 1,
+      columnStart: 1,
     });
     // Parsing never adds the key to the object it read.
     expect(Object.keys(earlier.defaults)).not.toContain("operationGrid");
@@ -621,6 +637,8 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       prefilled: 10,
       placement: "random",
       headerOrder: "in-order",
+      rowStart: 1,
+      columnStart: 1,
     });
     // Mirror: a stored Operation Grid choice and worksheet type are read back as stored.
     earlier.defaults.worksheetType = "operation-grid";
@@ -631,6 +649,8 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       prefilled: 83,
       placement: "diagonal-first",
       headerOrder: "in-order",
+      rowStart: 1,
+      columnStart: 1,
     };
     const stored = AppConfigV2Schema.parse(earlier);
     expect(stored.defaults.worksheetType).toBe("operation-grid");
@@ -641,6 +661,8 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       prefilled: 83,
       placement: "diagonal-first",
       headerOrder: "in-order",
+      rowStart: 1,
+      columnStart: 1,
     });
   });
 

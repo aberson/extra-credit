@@ -216,7 +216,7 @@ describe("selectionFromEarlierSettings (Appendix B.3)", () => {
   });
 
   test("earlier settings never set Operation Grid", () => {
-    const operationGrid = { operation: "addition", rows: 4, columns: 9, prefilled: 3, placement: "random", headerOrder: "in-order" } as const;
+    const operationGrid = { operation: "addition", rows: 4, columns: 9, prefilled: 3, placement: "random", headerOrder: "in-order", rowStart: 1, columnStart: 1 } as const;
     const result = selectionFromEarlierSettings(legacy(uniform(100)), { ...BASE, operationGrid });
     expect(result.selection.operationGrid).toEqual(operationGrid);
     expect(result.groups).not.toContain("operationGrid");

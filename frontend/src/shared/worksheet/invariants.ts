@@ -29,6 +29,10 @@ import {
   OPERATION_GRID_POWERS_BASE_MAXIMUM,
   OPERATION_GRID_POWERS_CELL_MAXIMUM,
   OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,
+  OPERATION_GRID_HEADER_START_MINIMUM,
+  OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM,
+  OPERATION_GRID_HEADER_MAXIMUM,
+  OPERATION_GRID_CELL_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   OPERATION_GRID_SIZE_MINIMUM,
   TALLY_DETECTIVE_ITEM_COUNT,
@@ -438,6 +442,14 @@ function isGridSize(value: number): boolean {
   );
 }
 
+function isCanonicalGridStart(value: number | undefined): boolean {
+  return value === undefined || (
+    Number.isInteger(value) &&
+    value > OPERATION_GRID_HEADER_START_MINIMUM &&
+    value <= OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM
+  );
+}
+
 /**
  * The Operation Grid member a request carries, or `undefined` when it carries
  * none Operation Grid can print: a known operation and placement, rows and
@@ -451,31 +463,45 @@ function operationGridPracticeOf(request: GenerationRequestV1): OperationGridPra
   if (practice?.kind !== "operation-grid") {
     return undefined;
   }
-  const { columns, operation, placement, prefilled, rows, headerOrder } = practice;
+  const { columns, operation, placement, prefilled, rows, headerOrder, rowStart, columnStart } = practice;
+  const effectiveRowStart = rowStart ?? OPERATION_GRID_HEADER_START_MINIMUM;
+  const effectiveColumnStart = columnStart ?? OPERATION_GRID_HEADER_START_MINIMUM;
+  const lastRow = effectiveRowStart + rows - 1;
+  const lastColumn = effectiveColumnStart + columns - 1;
   const wellFormed =
     (OPERATION_GRID_OPERATIONS as readonly string[]).includes(operation) &&
     (OPERATION_GRID_PLACEMENTS as readonly string[]).includes(placement) &&
     isGridSize(rows) &&
     isGridSize(columns) &&
+    isCanonicalGridStart(rowStart) &&
+    isCanonicalGridStart(columnStart) &&
+    lastRow <= OPERATION_GRID_HEADER_MAXIMUM &&
+    lastColumn <= OPERATION_GRID_HEADER_MAXIMUM &&
     (operation !== "powers" ||
-      (rows <= OPERATION_GRID_POWERS_BASE_MAXIMUM &&
-        columns <= OPERATION_GRID_POWERS_EXPONENT_MAXIMUM)) &&
+      (lastRow <= OPERATION_GRID_POWERS_BASE_MAXIMUM &&
+        lastColumn <= OPERATION_GRID_POWERS_EXPONENT_MAXIMUM)) &&
+    (operation !== "multiplication" || lastRow * lastColumn <= OPERATION_GRID_CELL_MAXIMUM) &&
     Number.isInteger(prefilled) &&
     prefilled >= 0 &&
     prefilled <= rows * columns - 1 &&
     (headerOrder === undefined || headerOrder === "mixed") &&
-    (placement !== "diagonal-first" || (operation !== "powers" && rows === columns && headerOrder !== "mixed"));
+    (placement !== "diagonal-first" || (
+      operation !== "powers" &&
+      rows === columns &&
+      headerOrder !== "mixed" &&
+      effectiveRowStart === effectiveColumnStart
+    ));
   return wellFormed ? practice : undefined;
 }
 
-/** Headers that run 1, 2, ... up to `count`, and nothing else. */
-function headersRunFromOne(headers: readonly number[], count: number): boolean {
-  return headers.length === count && headers.every((header, index) => header === index + 1);
+/** Headers that run from `start` for `count` consecutive values, and nothing else. */
+function headersRunFrom(headers: readonly number[], start: number, count: number): boolean {
+  return headers.length === count && headers.every((header, index) => header === start + index);
 }
 
-function headersAreMixedPermutation(headers: readonly number[], count: number): boolean {
-  return headers.length === count && !headersRunFromOne(headers, count) &&
-    [...headers].sort((left, right) => left - right).every((header, index) => header === index + 1);
+function headersAreMixedPermutation(headers: readonly number[], start: number, count: number): boolean {
+  return headers.length === count && !headersRunFrom(headers, start, count) &&
+    [...headers].sort((left, right) => left - right).every((header, index) => header === start + index);
 }
 
 /**
@@ -489,12 +515,14 @@ export function operationGridCellWithinCeiling(
   operation: OperationGridItemV1["operation"],
   value: number,
 ): boolean {
-  return operation !== "powers" || value <= OPERATION_GRID_POWERS_CELL_MAXIMUM;
+  return value <= (operation === "powers"
+    ? OPERATION_GRID_POWERS_CELL_MAXIMUM
+    : OPERATION_GRID_CELL_MAXIMUM);
 }
 
 /**
- * The one Operation Grid item: the request's operation, headers from 1 to its
- * rows and columns, one cell per row and column holding the exact result its
+ * The one Operation Grid item: the request's operation, consecutive headers
+ * from each chosen start, one cell per row and column holding the exact result its
  * headers imply and within its ceiling, an answer that is exactly those cells
  * in order, exactly `prefilled` given cells, and under Diagonal first every
  * diagonal cell given before any other cell is. At least one blank cell is
@@ -506,15 +534,17 @@ function operationGridItemHolds(
   practice: OperationGridPractice,
 ): boolean {
   const { columns, rows } = practice;
+  const rowStart = practice.rowStart ?? OPERATION_GRID_HEADER_START_MINIMUM;
+  const columnStart = practice.columnStart ?? OPERATION_GRID_HEADER_START_MINIMUM;
   const answer = item.answer;
   if (
     item.operation !== practice.operation ||
     !(practice.headerOrder === "mixed"
-      ? headersAreMixedPermutation(item.rowHeaders, rows)
-      : headersRunFromOne(item.rowHeaders, rows)) ||
+      ? headersAreMixedPermutation(item.rowHeaders, rowStart, rows)
+      : headersRunFrom(item.rowHeaders, rowStart, rows)) ||
     !(practice.headerOrder === "mixed"
-      ? headersAreMixedPermutation(item.columnHeaders, columns)
-      : headersRunFromOne(item.columnHeaders, columns)) ||
+      ? headersAreMixedPermutation(item.columnHeaders, columnStart, columns)
+      : headersRunFrom(item.columnHeaders, columnStart, columns)) ||
     item.cells.length !== rows * columns ||
     answer.kind !== "grid" ||
     answer.value.length !== item.cells.length ||

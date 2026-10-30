@@ -51,6 +51,8 @@ import {
 import {
   FACT_FACTOR_MAXIMUM,
   OPERATION_GRID_PREFILLED_MAXIMUM,
+  OPERATION_GRID_HEADER_START_MINIMUM,
+  OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM,
   OPERATION_GRID_SIZE_MAXIMUM,
   OPERATION_GRID_SIZE_MINIMUM,
 } from "../../shared/worksheet/types";
@@ -76,6 +78,8 @@ import {
 import {
   OPERATION_GRID_CARD_DESCRIPTION,
   OPERATION_GRID_COLUMNS_LABEL,
+  OPERATION_GRID_ROW_START_LABEL,
+  OPERATION_GRID_COLUMN_START_LABEL,
   OPERATION_GRID_OPERATION_LABELS,
   OPERATION_GRID_OPERATION_LEGEND,
   OPERATION_GRID_PLACEMENT_LABELS,
@@ -884,6 +888,26 @@ export function GeneratorControls({
                   name="operation-grid-columns"
                   onCommit={(columns) => changeOperationGrid({ columns })}
                   value={selection.operationGrid.columns}
+                />
+                <NumberField
+                  describedBy={OPERATION_GRID_SIZE_HELP_ID}
+                  disabled={disabled}
+                  label={OPERATION_GRID_ROW_START_LABEL}
+                  maximum={OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM}
+                  minimum={OPERATION_GRID_HEADER_START_MINIMUM}
+                  name="operation-grid-row-start"
+                  onCommit={(rowStart) => changeOperationGrid({ rowStart })}
+                  value={selection.operationGrid.rowStart}
+                />
+                <NumberField
+                  describedBy={OPERATION_GRID_SIZE_HELP_ID}
+                  disabled={disabled}
+                  label={OPERATION_GRID_COLUMN_START_LABEL}
+                  maximum={OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM}
+                  minimum={OPERATION_GRID_HEADER_START_MINIMUM}
+                  name="operation-grid-column-start"
+                  onCommit={(columnStart) => changeOperationGrid({ columnStart })}
+                  value={selection.operationGrid.columnStart}
                 />
                 <p id={OPERATION_GRID_SIZE_HELP_ID}>{OPERATION_GRID_SIZE_HELP}</p>
               </fieldset>

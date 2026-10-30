@@ -79,10 +79,14 @@ export const NUMBER_BONDS_WHOLE_MINIMUM = 2;
 
 /**
  * The fewest and the most rows or columns an Operation Grid may have. Its
- * headers run from 1 to that count.
+ * headers have a configurable start; the size is the number of headers.
  */
 export const OPERATION_GRID_SIZE_MINIMUM = 2;
 export const OPERATION_GRID_SIZE_MAXIMUM = 12;
+export const OPERATION_GRID_HEADER_START_MINIMUM = 1;
+export const OPERATION_GRID_HEADER_START_PERSISTED_MAXIMUM = 98;
+export const OPERATION_GRID_HEADER_MAXIMUM = 99;
+export const OPERATION_GRID_CELL_MAXIMUM = 999;
 
 /**
  * A powers grid's bounds: row headers are bases from 1 to at most
@@ -270,6 +274,8 @@ export type PracticeRequestV1 =
       readonly prefilled: number;
       readonly placement: OperationGridPlacement;
       readonly headerOrder?: "mixed";
+      readonly rowStart?: number;
+      readonly columnStart?: number;
     };
 
 export interface GenerationRequestV1 {

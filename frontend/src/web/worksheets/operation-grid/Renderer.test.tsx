@@ -88,11 +88,12 @@ function focusOf(choices: OperationGridV2): OracleGridFocus {
 }
 
 const CASES: readonly OperationGridV2[] = [
-  { operation: "addition", rows: 12, columns: 12, prefilled: 14, placement: "random", headerOrder: "in-order" },
-  { operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "diagonal-first", headerOrder: "in-order" },
-  { operation: "multiplication", rows: 4, columns: 7, prefilled: 20, placement: "random", headerOrder: "in-order" },
-  { operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random", headerOrder: "mixed" },
-  { operation: "powers", rows: 10, columns: 3, prefilled: 4, placement: "random", headerOrder: "in-order" },
+  { operation: "addition", rows: 12, columns: 12, prefilled: 14, placement: "random", headerOrder: "in-order", rowStart: 1, columnStart: 1 },
+  { operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "diagonal-first", headerOrder: "in-order", rowStart: 1, columnStart: 1 },
+  { operation: "multiplication", rows: 4, columns: 7, prefilled: 20, placement: "random", headerOrder: "in-order", rowStart: 1, columnStart: 1 },
+  { operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random", headerOrder: "mixed", rowStart: 1, columnStart: 1 },
+  { operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random", headerOrder: "mixed", rowStart: 6, columnStart: 6 },
+  { operation: "powers", rows: 10, columns: 3, prefilled: 4, placement: "random", headerOrder: "in-order", rowStart: 1, columnStart: 1 },
 ];
 
 describe("Operation Grid renderer and key", () => {
@@ -157,7 +158,7 @@ describe("Operation Grid renderer and key", () => {
   });
 
   test("the table is semantic: scoped headers, a named table and a spoken corner", () => {
-    const document = gridDocument({ operation: "multiplication", rows: 3, columns: 4, prefilled: 2, placement: "random", headerOrder: "in-order" });
+    const document = gridDocument({ operation: "multiplication", rows: 3, columns: 4, prefilled: 2, placement: "random", headerOrder: "in-order", rowStart: 1, columnStart: 1 });
     render(createElement(OperationGridRenderer, { document }));
     const table = screen.getByRole("table", { name: "Multiplication x × y grid, 3 rows by 4 columns" });
     expect(within(table).getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(["1", "2", "3", "4"]);
@@ -174,7 +175,7 @@ describe("Operation Grid renderer and key", () => {
 
   test("the nickname heads the page, and the key keeps its own heading", () => {
     const document = gridDocument(
-      { operation: "addition", rows: 2, columns: 2, prefilled: 1, placement: "random", headerOrder: "in-order" },
+      { operation: "addition", rows: 2, columns: 2, prefilled: 1, placement: "random", headerOrder: "in-order", rowStart: 1, columnStart: 1 },
       "00000001",
       "Fictional Gridder",
     );
@@ -191,7 +192,7 @@ describe("Operation Grid renderer and key", () => {
   });
 
   test("a document that is not one Operation Grid is refused rather than drawn", () => {
-    const document = gridDocument({ operation: "addition", rows: 2, columns: 2, prefilled: 1, placement: "random", headerOrder: "in-order" });
+    const document = gridDocument({ operation: "addition", rows: 2, columns: 2, prefilled: 1, placement: "random", headerOrder: "in-order", rowStart: 1, columnStart: 1 });
     render(createElement(OperationGridRenderer, { document: { ...document, items: [...document.items, ...document.items] } }));
     expect(screen.getByRole("alert")).toHaveTextContent("This worksheet could not be rendered safely.");
     expect(screen.queryByRole("table")).toBeNull();
