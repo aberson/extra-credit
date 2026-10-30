@@ -518,6 +518,8 @@ describe("the built-in version 2 defaults", () => {
         prefilled: 10,
         placement: "random",
         headerOrder: "in-order",
+        rowStart: 1,
+        columnStart: 1,
       },
       findTheWow: {
         variant: "quantity",

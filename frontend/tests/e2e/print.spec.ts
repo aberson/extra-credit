@@ -1680,10 +1680,10 @@ test("manual print uses the compiled app with canonical temporary profiles and c
   request,
 }) => {
   // The worksheet-choice matrix built from the committed example expands to
-  // 101 distinct worksheet cases, 33 of which also measure a key PDF.
+  // 106 distinct worksheet cases, 38 of which also measure a key PDF.
   expect(new Set(matrixCases.map(({ name }) => name)).size).toBe(matrixCases.length);
-  expect(matrixCases).toHaveLength(101);
-  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(33);
+  expect(matrixCases).toHaveLength(106);
+  expect(matrixCases.filter(({ keyPdf }) => keyPdf)).toHaveLength(38);
   const moduleUrl = new URL("../manual/print-harness.mjs", import.meta.url);
   const { startManualPrintHarness } = await import(moduleUrl.href);
   const harness = await startManualPrintHarness() as {

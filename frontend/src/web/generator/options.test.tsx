@@ -2128,9 +2128,13 @@ describe("worksheet-first panel", () => {
     expect(within(operation).getByRole("radio", { name: "Multiplication x × y" })).toBeChecked();
     const rows = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "Rows" });
     const columns = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "Columns" });
+    const rowStart = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "First row number" });
+    const columnStart = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "First column number" });
     const prefilled = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "Pre-filled cells" });
-    expect([rows().value, columns().value, prefilled().value]).toEqual(["10", "10", "10"]);
-    expect([rows().min, rows().max, prefilled().min, prefilled().max]).toEqual(["2", "12", "0", "143"]);
+    expect([rows().value, columns().value, rowStart().value, columnStart().value, prefilled().value])
+      .toEqual(["10", "10", "1", "1", "10"]);
+    expect([rows().min, rows().max, rowStart().min, rowStart().max, columnStart().min, columnStart().max, prefilled().min, prefilled().max])
+      .toEqual(["2", "12", "1", "98", "1", "98", "0", "143"]);
     const headerOrder = screen.getByRole("group", { name: "Header order" });
     expect(within(headerOrder).getByRole("radio", { name: "In order" })).toBeChecked();
     const placement = screen.getByRole("group", { name: "Placement" });
@@ -2147,6 +2151,8 @@ describe("worksheet-first panel", () => {
       operation,
       rows(),
       columns(),
+      rowStart(),
+      columnStart(),
       headerOrder,
       placement,
       prefilled(),
@@ -2186,6 +2192,8 @@ describe("worksheet-first panel", () => {
         prefilled: 10,
         placement: "random",
         headerOrder: "in-order",
+        rowStart: 1,
+        columnStart: 1,
         ...changes,
       },
     });
@@ -2197,6 +2205,20 @@ describe("worksheet-first panel", () => {
     fireEvent.click(within(headerOrder).getByRole("radio", { name: "In order" }));
     expect(onChange.mock.calls).toEqual([[grid({})]]);
     expect(summary()).not.toContain("row and column numbers mixed up");
+
+    onChange.mockClear();
+    fireEvent.change(rowStart(), { target: { value: "6" } });
+    expect(onChange.mock.calls).toEqual([[grid({ rowStart: 6 })]]);
+    onChange.mockClear();
+    fireEvent.change(columnStart(), { target: { value: "11" } });
+    expect(onChange.mock.calls).toEqual([[grid({ rowStart: 6, columnStart: 11 })]]);
+    expect(summary()).toContain("10 rows from 6 to 15 by 10 columns from 11 to 20");
+    onChange.mockClear();
+    fireEvent.change(rowStart(), { target: { value: "1" } });
+    expect(onChange.mock.calls).toEqual([[grid({ columnStart: 11 })]]);
+    onChange.mockClear();
+    fireEvent.change(columnStart(), { target: { value: "1" } });
+    expect(onChange.mock.calls).toEqual([[grid({})]]);
 
     onChange.mockClear();
     fireEvent.click(within(presets).getByRole("button", { name: "Half (50%)" }));

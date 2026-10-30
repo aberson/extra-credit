@@ -63,7 +63,7 @@ export function isIdentityOnlyProfile(record: unknown): boolean {
  * derives and pins it; the upgrade round trips compare the file they wrote.
  */
 export const GOLDEN_UPGRADED_V1_FIXTURE_SHA256 =
-  "bfdd7ed3cd87663a21c1bd13a40b13df86217ba43568072c4dc48ebf387d60bf";
+  "0cfeff5089929e92c887071f9c80f6305040b85c2a82df1996744ab26932a15e";
 
 function classifiedConfig(stored: unknown): AppConfigV2 {
   const classified = classifyStoredConfig(stored);
