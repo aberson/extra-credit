@@ -21,6 +21,7 @@ import type {
   CountCompareFocusV2,
   DryMathFactsV2,
   DryMathThreeDigitV2,
+  DryMathMultiDigitV2,
   MathSkillsV1,
   NumberBondsV2,
   PresentationBand,
@@ -265,6 +266,26 @@ export function describeThreeDigitFocus(
   return `${matchThreeDigitPracticeEntry(group.operations).label}${
     regrouping === "required" ? REGROUPING_SUMMARY_PHRASE : ""
   }`;
+}
+
+export interface MultiDigitPracticeEntry {
+  readonly id: string;
+  readonly label: string;
+  readonly operations: readonly DryMathMultiDigitV2["operations"][number][];
+}
+export const MULTI_DIGIT_PRACTICE_ENTRIES: readonly MultiDigitPracticeEntry[] = Object.freeze([
+  Object.freeze({ id: "multi-digit-multiplication", label: "Two-digit × one-digit multiplication", operations: Object.freeze(["multiplication"] as const) }),
+  Object.freeze({ id: "multi-digit-division", label: "Three-digit ÷ one-digit division", operations: Object.freeze(["division"] as const) }),
+  Object.freeze({ id: "multi-digit-both", label: "Two-digit × one-digit and three-digit ÷ one-digit", operations: Object.freeze(["multiplication", "division"] as const) }),
+]);
+export function matchMultiDigitPracticeEntry(operations: readonly DryMathMultiDigitV2["operations"][number][]): MultiDigitPracticeEntry {
+  const entry = MULTI_DIGIT_PRACTICE_ENTRIES.find((candidate) =>
+    candidate.operations.length === operations.length && candidate.operations.every((operation, index) => operations[index] === operation));
+  if (entry === undefined) throw new Error("Multi-digit operations must be a nonempty canonical subset.");
+  return entry;
+}
+export function describeMultiDigitFocus(group: DryMathMultiDigitV2): string {
+  return matchMultiDigitPracticeEntry(group.operations).label;
 }
 
 /** A Number Bonds sentence focus: its operations and its largest whole. */

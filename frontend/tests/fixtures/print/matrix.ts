@@ -120,6 +120,17 @@ export const printFixtures: readonly PrintFixture[] = [
     ],
   },
   {
+    id: "dry-math-multi-digit",
+    profileIndex: 2,
+    selection: {
+      ...shippedSelection,
+      worksheetType: "dry-math",
+      dryMathStrand: "multi-digit",
+      dryMathMultiDigit: { operations: ["multiplication", "division"] },
+    },
+    letterStandardOnly: true,
+  },
+  {
     id: "bonds-missing-20",
     profileIndex: 1,
     selection: {
@@ -327,27 +338,42 @@ export function createPrintFixture(fixture: PrintFixture, printScale: PrintScale
     let addSubtractRegroupingBoundary: boolean;
     let factsBoundary: boolean;
     let threeDigitBoundary: boolean;
+    let multiDigitBoundary: boolean;
     switch (selection.dryMathStrand) {
       case "add-subtract":
         addSubtractRegroupingBoundary = selection.dryMathRegrouping === "required";
         factsBoundary = false;
         threeDigitBoundary = false;
+        multiDigitBoundary = false;
         break;
       case "multiply-divide":
         addSubtractRegroupingBoundary = false;
         factsBoundary = true;
         threeDigitBoundary = false;
+        multiDigitBoundary = false;
         break;
       case "three-digit":
         addSubtractRegroupingBoundary = false;
         factsBoundary = false;
         threeDigitBoundary = true;
+        multiDigitBoundary = false;
+        break;
+      case "multi-digit":
+        addSubtractRegroupingBoundary = false;
+        factsBoundary = false;
+        threeDigitBoundary = false;
+        multiDigitBoundary = true;
         break;
       default: {
         const unreachable: never = selection.dryMathStrand;
         throw new Error(`Unsupported Dry Math strand: ${String(unreachable)}`);
       }
     }
+    if (
+      selection.worksheetType === "dry-math" && multiDigitBoundary &&
+      !(generated.document.items.some((item) => item.itemType === "dry-math" && item.operation === "multiplication" && item.answer.value >= 800) &&
+        generated.document.items.some((item) => item.itemType === "dry-math" && item.operation === "division" && item.answer.value >= 100))
+    ) continue;
     if (
       selection.worksheetType === "dry-math" &&
       threeDigitBoundary &&

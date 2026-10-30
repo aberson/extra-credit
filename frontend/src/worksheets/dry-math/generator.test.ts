@@ -8,6 +8,7 @@ import {
   judgeDocument,
   oracleFactClosedForm,
   oracleFactKeys,
+  oracleCandidateKeys,
   oracleRegroups,
   oracleThreeDigitCapacity,
 } from "../../../tests/oracles/arithmetic-oracle.js";
@@ -160,6 +161,22 @@ function threeDigitRequest(
   return projected.request;
 }
 
+function multiDigitRequest(
+  operations: readonly ("multiplication" | "division")[],
+  seed = "00000001",
+): GenerationRequestV1 {
+  const selection: WorksheetSelectionV2 = {
+    ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2),
+    worksheetType: "dry-math",
+    dryMathStrand: "multi-digit",
+    dryMathMultiDigit: { operations: [...operations] },
+    length: "long",
+  };
+  const projected = projectGenerationRequest({ selection, generatorVersion: 1, seed });
+  if (!projected.ok) throw new Error(projected.message);
+  return projected.request;
+}
+
 function generated(requestValue: GenerationRequestV1, worksheetId = "11111111-1111-4111-8111-111111111111") {
   const result = generateDryMath(requestValue, { worksheetId });
   if (!result.ok) {
@@ -289,6 +306,78 @@ describe("xorshift32", () => {
     expect(permutations.size).toBe(6);
     expect(new Set(observedBounds)).toEqual(new Set([2, 3]));
     expect(input).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("multi-digit multiplication and division", () => {
+  test.each([
+    [["multiplication"] as const, 720],
+    [["division"] as const, 1645],
+    [["multiplication", "division"] as const, 2365],
+  ])("enumerates and generates the exact %j pool", (operations, capacity) => {
+    const request = multiDigitRequest(operations);
+    expect(enumerateDryMathCandidates(request)).toHaveLength(capacity);
+    expect(measureDryMathCapacity(request)).toBe(capacity);
+    const generated = generateDryMath(request, { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    if (!generated.ok) throw new Error(generated.message);
+    expect(validateWorksheetInvariants(generated.document)).toBeUndefined();
+    expect(judgeDocument(generated.document)).toEqual([]);
+    const candidates = enumerateDryMathCandidates(request);
+    const keys = candidates.map(({ operation, leftOperand, rightOperand }) => `${operation}:${leftOperand}:${rightOperand}`);
+    expect(new Set(keys).size).toBe(candidates.length);
+    expect(new Set(keys)).toEqual(oracleCandidateKeys({ kind: "multi-digit", operations }));
+  });
+
+  test("same seed with another operation subset changes the items", () => {
+    const keys = (request: GenerationRequestV1) => {
+      const result = generateDryMath(request, { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+      if (!result.ok) throw new Error(result.message);
+      return result.document.items.map(({ operation, leftOperand, rightOperand }) => `${operation}:${leftOperand}:${rightOperand}`);
+    };
+    expect(keys(multiDigitRequest(["multiplication"]))).not.toEqual(keys(multiDigitRequest(["division"])));
+  });
+
+  test.each(["00000001", "0000abcd"])("pins multi-digit vector %s", (seed) => {
+    const result = generateDryMath(multiDigitRequest(["multiplication", "division"], seed), { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    if (!result.ok) throw new Error(result.message);
+    const vectors = {
+      "00000001": [["multiplication",98,3,294],["division",268,4,67],["multiplication",30,4,120],["multiplication",45,3,135],["division",684,6,114],["multiplication",88,8,704],["multiplication",54,5,270],["multiplication",49,8,392],["division",384,4,96],["division",555,3,185],["division",966,2,483],["multiplication",64,6,384],["division",147,7,21],["division",324,6,54],["division",978,3,326],["multiplication",75,3,225],["division",164,4,41],["division",582,2,291]],
+      "0000abcd": [["division",710,5,142],["division",338,2,169],["multiplication",84,4,336],["multiplication",35,2,70],["multiplication",17,9,153],["multiplication",45,9,405],["division",387,3,129],["division",930,3,310],["division",320,5,64],["division",634,2,317],["division",378,9,42],["multiplication",21,2,42],["multiplication",77,6,462],["multiplication",44,9,396],["division",720,4,180],["multiplication",12,4,48],["multiplication",87,5,435],["multiplication",75,3,225]],
+    } as const;
+    expect(result.document.items.map(({ operation, leftOperand, rightOperand, answer }) =>
+      [operation, leftOperand, rightOperand, answer.value])).toEqual(vectors[seed as keyof typeof vectors]);
+  });
+
+  test("property: every multi-digit document validates", () => {
+    fc.assert(fc.property(fc.integer({ min: 1, max: 0xffff_ffff }), (seed) => {
+      const result = generateDryMath(multiDigitRequest(["multiplication", "division"], formatSeedHex(seed)), { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(validateWorksheetInvariants(result.document)).toBeUndefined();
+        expect(judgeDocument(result.document)).toEqual([]);
+      }
+    }), { numRuns: 200 });
+  });
+
+  test("multi-digit invariants reject malformed rows and duplicates", () => {
+    const result = generateDryMath(multiDigitRequest(["multiplication", "division"]), { worksheetId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" });
+    if (!result.ok) throw new Error(result.message);
+    const [first, second, ...rest] = result.document.items;
+    if (!first || !second) throw new Error("page too short");
+    const rows: readonly DryMathItemV1[] = [
+      { ...first, operation: "multiplication", renderedSymbol: "×", leftOperand: 9, rightOperand: 2, answer: { kind: "number", value: 18 } },
+      { ...first, operation: "multiplication", renderedSymbol: "×", leftOperand: 10, rightOperand: 1, answer: { kind: "number", value: 10 } },
+      { ...first, operation: "multiplication", renderedSymbol: "×", leftOperand: 10, rightOperand: 10, answer: { kind: "number", value: 100 } },
+      { ...first, operation: "division", renderedSymbol: "÷", leftOperand: 101, rightOperand: 2, answer: { kind: "number", value: 50 } },
+      { ...first, operation: "division", renderedSymbol: "÷", leftOperand: 90, rightOperand: 2, answer: { kind: "number", value: 45 } },
+      { ...first, operation: "division", renderedSymbol: "÷", leftOperand: 100, rightOperand: 0, answer: { kind: "number", value: 0 } },
+      { ...first, operation: "division", renderedSymbol: "÷", leftOperand: 100, rightOperand: 1, answer: { kind: "number", value: 100 } },
+      { ...first, operation: "division", renderedSymbol: "÷", leftOperand: 100, rightOperand: 10, answer: { kind: "number", value: 10 } },
+      { ...first, operation: "division", renderedSymbol: "÷", leftOperand: 1000, rightOperand: 2, answer: { kind: "number", value: 500 } },
+      { ...first, operation: "addition", renderedSymbol: "+", leftOperand: 10, rightOperand: 2, answer: { kind: "number", value: 12 } },
+    ];
+    for (const row of rows) expect(validateWorksheetInvariants({ ...result.document, items: [row, second, ...rest] })).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
+    expect(validateWorksheetInvariants({ ...result.document, items: [first, { ...first, id: second.id }, ...rest] })).toMatchObject({ ok: false, code: "GENERATION_INVARIANT_FAILED" });
   });
 });
 

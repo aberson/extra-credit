@@ -334,6 +334,24 @@ describe("touched groups", () => {
     expect(WorksheetDefaultsV2Schema.parse(body)).toEqual(body);
   });
 
+  test("switching multi-digit to facts and back restores both stored groups", () => {
+    const start = loaded(seedingDefaults, [equationChild]);
+    const multi = apply(start, {
+      type: "dryMathPracticeChosen", strand: "multi-digit",
+      dryMathMultiDigit: { operations: ["division"] },
+    });
+    const facts = apply(multi, {
+      type: "dryMathPracticeChosen", strand: "multiply-divide",
+      dryMathFacts: { operations: ["division"], factFamilies: [3, 7] },
+    });
+    const back = apply(facts, {
+      type: "dryMathPracticeChosen", strand: "multi-digit",
+      dryMathMultiDigit: multi.selection.dryMathMultiDigit,
+    });
+    expect(back.selection.dryMathMultiDigit).toEqual({ operations: ["division"] });
+    expect(back.selection.dryMathFacts).toEqual({ operations: ["division"], factFamilies: [3, 7] });
+  });
+
   test("Number Bonds is its own group, never seeded, saved as chosen, and never left without an operation", () => {
     const start = loaded(seedingDefaults, [equationChild, secondChild]);
     expect(start.selection.numberBonds).toEqual({ operations: ["addition"], wholeMax: 10, regrouping: "without" });

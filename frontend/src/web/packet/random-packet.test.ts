@@ -13,6 +13,9 @@ import type {
 import {
   FACT_FACTOR_MAXIMUM,
   DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
+  DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM,
+  DRY_MATH_TWO_DIGIT_MAXIMUM,
+  DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
   WORKSHEET_TYPE_IDS,
   type WorksheetType,
 } from "../../shared/worksheet/types";
@@ -81,6 +84,13 @@ function largestNumber(selection: WorksheetSelectionV2): FocusScore {
           };
         case "three-digit":
           return { kind: "number", value: DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM };
+        case "multi-digit":
+          return {
+            kind: "number",
+            value: selection.dryMathMultiDigit.operations.includes("division")
+              ? DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM
+              : DRY_MATH_TWO_DIGIT_MAXIMUM * DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
+          };
         default: {
           const unreachable: never = strand;
           return unreachable;

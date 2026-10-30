@@ -105,7 +105,8 @@ byte-identical `.v1-…bak` backup of the earlier file.
   that no array bound is derived from. The `operations` arrays (Dry Math,
   `dryMathThreeDigit`, Number Bonds, the Two Whats and a Wow equation focus,
   and the earlier `mathSkills`)
-  are capped at `MATH_OPERATIONS.length`, the Dry Math facts `operations` at
+  are capped at `MATH_OPERATIONS.length`, the Dry Math facts and
+  `dryMathMultiDigit.operations` arrays at
   `FACT_OPERATIONS.length`, and `representations` at
   `REPRESENTATIONS.length`, in both `schema.ts`/`legacy-v1.ts` and
   `transport-schemas.ts`. A member added to any of these lists also raises that cap,

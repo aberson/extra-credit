@@ -490,6 +490,7 @@ describe("the built-in version 2 defaults", () => {
       dryMathStrand: "add-subtract",
       dryMathFacts: { operations: ["multiplication"], factFamilies: [2, 5, 10] },
       dryMathThreeDigit: { operations: ["addition", "subtraction"] },
+      dryMathMultiDigit: { operations: ["multiplication"] },
       numberBonds: { operations: ["addition"], wholeMax: 10, regrouping: "without" },
       operationGrid: {
         operation: "multiplication",

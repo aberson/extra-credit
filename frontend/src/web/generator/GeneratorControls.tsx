@@ -8,6 +8,7 @@ import {
   EARLIER_SETTING_OPTION_ID,
   FACT_PRACTICE_ENTRIES,
   THREE_DIGIT_PRACTICE_ENTRIES,
+  MULTI_DIGIT_PRACTICE_ENTRIES,
   NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   SAVED_SETTING_OPTION_ID,
@@ -15,6 +16,7 @@ import {
   describePracticeFocus,
   matchFactPracticeEntry,
   matchThreeDigitPracticeEntry,
+  matchMultiDigitPracticeEntry,
   matchNumberBondsFocusOption,
   matchPracticeFocusOption,
   savedSettingOptionLabel,
@@ -266,6 +268,8 @@ function focusOptionIdFor(
       return matchFactPracticeEntry(selection.dryMathFacts.operations).id;
     case "three-digit":
       return matchThreeDigitPracticeEntry(selection.dryMathThreeDigit.operations).id;
+    case "multi-digit":
+      return matchMultiDigitPracticeEntry(selection.dryMathMultiDigit.operations).id;
     default: {
       const unreachable: never = selection.dryMathStrand;
       return unreachable;
@@ -278,7 +282,8 @@ function dryMathExtraPracticeEntries(selection: WorksheetSelectionV2) {
     case "add-subtract":
     case "multiply-divide":
     case "three-digit":
-      return [...FACT_PRACTICE_ENTRIES, ...THREE_DIGIT_PRACTICE_ENTRIES];
+    case "multi-digit":
+      return [...FACT_PRACTICE_ENTRIES, ...THREE_DIGIT_PRACTICE_ENTRIES, ...MULTI_DIGIT_PRACTICE_ENTRIES];
     default: {
       const unreachable: never = selection.dryMathStrand;
       return unreachable;
@@ -313,6 +318,8 @@ function groupsShownFor(
           // A facts page shows no addition and subtraction focus to start from.
           return [];
         case "three-digit":
+          return [];
+        case "multi-digit":
           return [];
         default: {
           const unreachable: never = selection.dryMathStrand;
@@ -635,6 +642,7 @@ export function GeneratorControls({
   function chooseDryMathPractice(optionId: string): void {
     const factEntry = FACT_PRACTICE_ENTRIES.find(({ id }) => id === optionId);
     const threeDigitEntry = THREE_DIGIT_PRACTICE_ENTRIES.find(({ id }) => id === optionId);
+    const multiDigitEntry = MULTI_DIGIT_PRACTICE_ENTRIES.find(({ id }) => id === optionId);
     let chosen: DryMathPracticeChosen | undefined;
     if (factEntry !== undefined) {
       chosen = {
@@ -651,6 +659,8 @@ export function GeneratorControls({
         strand: "three-digit",
         dryMathThreeDigit: { operations: [...threeDigitEntry.operations] },
       };
+    } else if (multiDigitEntry !== undefined) {
+      chosen = { type: "dryMathPracticeChosen", strand: "multi-digit", dryMathMultiDigit: { operations: [...multiDigitEntry.operations] } };
     } else {
       const focus =
         optionId === EARLIER_SETTING_OPTION_ID
@@ -667,6 +677,7 @@ export function GeneratorControls({
       case "add-subtract":
       case "multiply-divide":
       case "three-digit":
+      case "multi-digit":
         dispatch(chosen);
         return;
       default: {

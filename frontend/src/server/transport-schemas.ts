@@ -242,6 +242,12 @@ const dryMathThreeDigitSchema = strictObjectSchema({
     items: { enum: MATH_OPERATIONS },
   },
 });
+const dryMathMultiDigitSchema = strictObjectSchema({
+  operations: {
+    type: "array", minItems: 1, maxItems: FACT_OPERATIONS.length,
+    uniqueItems: true, items: { enum: FACT_OPERATIONS },
+  },
+});
 
 /** Number Bonds' sentences: canonical operation order stays Zod's rule. */
 const numberBondsSchema = strictObjectSchema({
@@ -289,6 +295,7 @@ const worksheetDefaultsProperties = {
   dryMathStrand: { enum: DRY_MATH_STRANDS },
   dryMathFacts: dryMathFactsSchema,
   dryMathThreeDigit: dryMathThreeDigitSchema,
+  dryMathMultiDigit: dryMathMultiDigitSchema,
   numberBonds: numberBondsSchema,
   operationGrid: operationGridSchema,
   findTheWow: strictObjectSchema({
@@ -388,6 +395,7 @@ export const APP_CONFIG_TRANSPORT_SCHEMA = {
       "dryMathStrand",
       "dryMathFacts",
       "dryMathThreeDigit",
+      "dryMathMultiDigit",
       "numberBonds",
       "operationGrid",
     ]),

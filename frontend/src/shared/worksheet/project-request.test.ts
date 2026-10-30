@@ -8,6 +8,7 @@ import {
 import { profileWithLegacyChoices } from "../config/earlier-settings.js";
 import {
   DRY_MATH_STRANDS,
+  FACT_OPERATIONS,
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
@@ -514,6 +515,9 @@ const selectionArbitrary: fc.Arbitrary<WorksheetSelectionV2> = fc.record({
   dryMathThreeDigit: fc.record({
     operations: fc.constantFrom(["addition"] as const, ["subtraction"] as const, [...MATH_OPERATIONS]),
   }),
+  dryMathMultiDigit: fc.record({
+    operations: fc.constantFrom(["multiplication"] as const, ["division"] as const, [...FACT_OPERATIONS]),
+  }),
   numberBonds: numberBondsArbitrary,
   operationGrid: operationGridArbitrary,
   findTheWow: fc.record({
@@ -568,6 +572,7 @@ function withOwnFields(
         dryMathStrand: source.dryMathStrand,
         dryMathFacts: source.dryMathFacts,
         dryMathThreeDigit: source.dryMathThreeDigit,
+        dryMathMultiDigit: source.dryMathMultiDigit,
       };
     case "find-the-wow":
       return {

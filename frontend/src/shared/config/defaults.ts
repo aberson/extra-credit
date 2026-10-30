@@ -12,6 +12,7 @@ import {
   APP_CONFIG_SCHEMA_VERSION,
   DEFAULT_DRY_MATH_FACTS_OPERATIONS,
   DEFAULT_DRY_MATH_THREE_DIGIT_OPERATIONS,
+  DEFAULT_DRY_MATH_MULTI_DIGIT_OPERATIONS,
   DEFAULT_FACT_FAMILIES,
   DEFAULT_NUMBER_BONDS_OPERATIONS,
   DEFAULT_NUMBER_BONDS_REGROUPING,
@@ -62,6 +63,7 @@ export const DEFAULT_WORKSHEET_DEFAULTS_V2: Readonly<WorksheetDefaultsV2> =
     dryMathThreeDigit: {
       operations: [...DEFAULT_DRY_MATH_THREE_DIGIT_OPERATIONS],
     },
+    dryMathMultiDigit: { operations: [...DEFAULT_DRY_MATH_MULTI_DIGIT_OPERATIONS] },
     numberBonds: {
       operations: [...DEFAULT_NUMBER_BONDS_OPERATIONS],
       wholeMax: DEFAULT_NUMBER_BONDS_WHOLE_MAXIMUM,
@@ -123,6 +125,7 @@ export function cloneWorksheetDefaults(
     dryMathThreeDigit: {
       operations: [...defaults.dryMathThreeDigit.operations],
     },
+    dryMathMultiDigit: { operations: [...defaults.dryMathMultiDigit.operations] },
     numberBonds: {
       ...defaults.numberBonds,
       operations: [...defaults.numberBonds.operations],
@@ -159,6 +162,7 @@ export function worksheetSelectionOf(
     dryMathStrand: copy.dryMathStrand,
     dryMathFacts: copy.dryMathFacts,
     dryMathThreeDigit: copy.dryMathThreeDigit,
+    dryMathMultiDigit: copy.dryMathMultiDigit,
     numberBonds: copy.numberBonds,
     operationGrid: copy.operationGrid,
     findTheWow: copy.findTheWow,

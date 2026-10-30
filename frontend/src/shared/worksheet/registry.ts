@@ -1,6 +1,7 @@
 import {
   describeFactsFocus,
   describeThreeDigitFocus,
+  describeMultiDigitFocus,
   describeNumberBonds,
   describePracticeFocus,
   presentationBandForVocabulary,
@@ -340,6 +341,8 @@ function dryMathFactsChosen(context: WorksheetControlContextV2): boolean {
       return true;
     case "three-digit":
       return false;
+    case "multi-digit":
+      return false;
     default: {
       const unreachable: never = context.selection.dryMathStrand;
       return unreachable;
@@ -352,7 +355,7 @@ function dryMathFactsChosen(context: WorksheetControlContextV2): boolean {
  * addition and subtraction focus changes the page, so the parent sees it.
  */
 function dryMathStatusMessage(context: WorksheetControlContextV2): string | undefined {
-  const { dryMath, dryMathFacts, dryMathThreeDigit, dryMathRegrouping } = context.selection;
+  const { dryMath, dryMathFacts, dryMathThreeDigit, dryMathMultiDigit, dryMathRegrouping } = context.selection;
   switch (context.selection.dryMathStrand) {
     case "add-subtract":
       return dryMathRegrouping === "required"
@@ -362,6 +365,8 @@ function dryMathStatusMessage(context: WorksheetControlContextV2): string | unde
       return `Practice focus for Dry Math: ${describeFactsFocus(dryMathFacts)}.`;
     case "three-digit":
       return `Practice focus for Dry Math: ${describeThreeDigitFocus(dryMathThreeDigit, dryMathRegrouping)}.`;
+    case "multi-digit":
+      return `Practice focus for Dry Math: ${describeMultiDigitFocus(dryMathMultiDigit)}.`;
     default: {
       const unreachable: never = context.selection.dryMathStrand;
       return unreachable;
@@ -382,6 +387,8 @@ function dryMathLimitingResourceAdvice(
       return FACTS_LIMITING_RESOURCE_ADVICE;
     case "three-digit":
       return DRY_MATH_FIXED_POOL_ADVICE;
+    case "multi-digit":
+      return DRY_MATH_FIXED_POOL_ADVICE;
     default: {
       const unreachable: never = context.selection.dryMathStrand;
       return unreachable;
@@ -398,6 +405,8 @@ function dryMathRelevantMaximums(
     case "multiply-divide":
       return NO_MAXIMUMS;
     case "three-digit":
+      return NO_MAXIMUMS;
+    case "multi-digit":
       return NO_MAXIMUMS;
     default: {
       const unreachable: never = context.selection.dryMathStrand;
@@ -417,6 +426,8 @@ function dryMathPracticeControls(
       return { regrouping: !factsChosen, factFamilies: factsChosen };
     case "three-digit":
       return { regrouping: true, factFamilies: false };
+    case "multi-digit":
+      return { regrouping: false, factFamilies: false };
     default: {
       const unreachable: never = context.selection.dryMathStrand;
       return unreachable;

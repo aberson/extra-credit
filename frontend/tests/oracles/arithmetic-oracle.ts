@@ -27,6 +27,10 @@ export const ORACLE_DRY_MATH_CEILING = 100;
 export const ORACLE_THREE_DIGIT_OPERAND_MINIMUM = 100;
 export const ORACLE_THREE_DIGIT_OPERAND_MAXIMUM = 999;
 export const ORACLE_THREE_DIGIT_RESULT_MAXIMUM = 1000;
+export const ORACLE_MULTI_DIGIT_TWO_DIGIT_MAXIMUM = 99;
+export const ORACLE_MULTI_DIGIT_FACTOR_MINIMUM = 2;
+export const ORACLE_MULTI_DIGIT_FACTOR_MAXIMUM = 9;
+export const ORACLE_MULTI_DIGIT_DIVIDEND_MAXIMUM = 999;
 
 /** Appendix B.2: the largest factor, divisor and quotient, and the largest dividend. */
 export const ORACLE_FACT_FACTOR_MAXIMUM = 12;
@@ -82,8 +86,12 @@ export interface OracleThreeDigitFocus {
   readonly operations: readonly string[];
   readonly regrouping: OracleRegrouping;
 }
+export interface OracleMultiDigitFocus {
+  readonly kind: "multi-digit";
+  readonly operations: readonly string[];
+}
 
-export type OracleFocus = OracleAddSubtractFocus | OracleFactsFocus | OracleThreeDigitFocus;
+export type OracleFocus = OracleAddSubtractFocus | OracleFactsFocus | OracleThreeDigitFocus | OracleMultiDigitFocus;
 
 /** Independently count one fixed three-digit operation/regrouping partition. */
 export function oracleThreeDigitCapacity(
@@ -330,6 +338,17 @@ export function oracleCandidateKeys(focus: OracleFocus): ReadonlySet<string> {
     }
     return keys;
   }
+  if (focus.kind === "multi-digit") {
+    const keys = new Set<string>();
+    for (const operation of focus.operations) {
+      if (operation === "multiplication") {
+        for (let left = 10; left <= 99; left += 1) for (let right = 2; right <= 9; right += 1) keys.add(`${operation}:${left}:${right}`);
+      } else if (operation === "division") {
+        for (let divisor = 2; divisor <= 9; divisor += 1) for (let quotient = Math.ceil(100 / divisor); quotient <= Math.floor(999 / divisor); quotient += 1) keys.add(`${operation}:${divisor * quotient}:${divisor}`);
+      }
+    }
+    return keys;
+  }
   const keys = new Set<string>();
   const operandLimit = Math.min(focus.operandMax, ORACLE_DRY_MATH_CEILING);
   const resultLimit = Math.min(focus.resultMax, ORACLE_DRY_MATH_CEILING);
@@ -383,6 +402,8 @@ export function oracleFocusOf(request: GenerationRequestV1): OracleFocus {
         operations: [...practice.operations],
         regrouping: practice.regrouping,
       };
+    case "dry-math-multi-digit":
+      return { kind: "multi-digit", operations: [...practice.operations] };
     case "number-bonds":
     case "operation-grid":
       throw new Error("The arithmetic oracle met a practice choice it does not know.");
@@ -485,6 +506,19 @@ function judgeFact(fact: OracleFact, focus: OracleFocus): OracleCode | undefined
       (focus.regrouping === "required")
       ? undefined
       : "REGROUPING_MISMATCH";
+  }
+  if (focus.kind === "multi-digit") {
+    if (!isOracleFactOperation(fact.operation) || !focus.operations.includes(fact.operation)) return "OUT_OF_SET";
+    if (fact.symbol !== SYMBOLS[fact.operation]) return "SYMBOL_MISMATCH";
+    if (fact.operation === "multiplication") {
+      if (fact.left < 10 || fact.left > 99 || fact.right < 2 || fact.right > 9) return "OVER_CEILING";
+      return fact.answer === oracleProduct(fact.left, fact.right) ? undefined : "WRONG_ANSWER";
+    }
+    const division = oracleDivide(fact.left, fact.right);
+    if (division === undefined) return "ZERO_DIVISOR";
+    if (fact.left < 100 || fact.left > 999 || fact.right < 2 || fact.right > 9) return "OVER_CEILING";
+    if (division.remainder !== 0) return "REMAINDER";
+    return fact.answer === division.quotient ? undefined : "WRONG_ANSWER";
   }
   if (!isOracleOperation(fact.operation)) {
     return "OUT_OF_SET";

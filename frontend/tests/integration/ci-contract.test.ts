@@ -43,9 +43,9 @@ const PACKET_PRINT_SPEC_ROW = /(?<![\w-])packet-print\.spec\.ts:\d+:\d+/u;
 describe("CI and package-script contract", () => {
   it("discovers the mandatory print matrix through the same unfiltered browser entry point", async () => {
     const listed = (await listedBrowserTests()).filter((line) => PRINT_SPEC_ROW.test(line));
-    // 101 worksheet rows, four order-bound sweeps, earliest-print probe,
+    // 102 worksheet rows, four order-bound sweeps, earliest-print probe,
     // and 13 manual lifecycle cases.
-    expect(listed).toHaveLength(119);
+    expect(listed).toHaveLength(120);
     expect(listed.filter((line) => line.includes("count ordering and frame bounds"))).toHaveLength(4);
     for (const paper of ["letter", "a4"]) {
       for (const scale of ["standard", "large"]) {
@@ -66,7 +66,7 @@ describe("CI and package-script contract", () => {
           };
           const gridRows = gridCells[`${paper}-${scale}`] ?? 0;
           const dryMathCells: Readonly<Record<string, number>> = {
-            "letter-standard": 1,
+            "letter-standard": 2,
             "a4-large": 1,
           };
           const dryMathRows = dryMathCells[`${paper}-${scale}`] ?? 0;
@@ -84,7 +84,7 @@ describe("CI and package-script contract", () => {
           expect(rows.filter((line) => line.includes("grid-"))).toHaveLength(
             decoration === "true" ? 0 : gridRows,
           );
-          expect(rows.filter((line) => line.includes("dry-math-three-digit"))).toHaveLength(
+          expect(rows.filter((line) => line.includes("dry-math-three-digit") || line.includes("dry-math-multi-digit"))).toHaveLength(
             decoration === "true" ? 0 : dryMathRows,
           );
           if (decoration === "true") {

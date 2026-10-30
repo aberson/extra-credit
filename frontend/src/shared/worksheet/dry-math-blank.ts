@@ -1,4 +1,11 @@
-import { DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM, type PracticeRequestV1 } from "./types.js";
+import {
+  DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
+  DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM,
+  DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM,
+  DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
+  DRY_MATH_TWO_DIGIT_MAXIMUM,
+  type PracticeRequestV1,
+} from "./types.js";
 
 /** The four underscore glyphs every shipped Dry Math practice kind uses. */
 export const LEGACY_DRY_MATH_BLANK_UNDERSCORES = 4;
@@ -24,6 +31,13 @@ export function dryMathBlank(
         kind: "single",
         underscores: String(DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM).length * 2,
       };
+    case "dry-math-multi-digit": {
+      const largest = Math.max(
+        DRY_MATH_TWO_DIGIT_MAXIMUM * DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
+        Math.floor(DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM / DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM),
+      );
+      return { kind: "single", underscores: String(largest).length * 2 };
+    }
     case undefined:
     case "dry-math-add-subtract":
     case "dry-math-facts":

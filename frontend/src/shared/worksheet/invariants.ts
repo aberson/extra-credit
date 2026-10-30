@@ -17,6 +17,10 @@ import {
   DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM,
   DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM,
   DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
+  DRY_MATH_TWO_DIGIT_MINIMUM,
+  DRY_MATH_TWO_DIGIT_MAXIMUM,
+  DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM,
+  DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
   FACT_FACTOR_MAXIMUM,
   GENERATION_INVARIANT_FAILED,
   NUMBER_BONDS_WHOLE_MINIMUM,
@@ -96,7 +100,8 @@ type DryMathBranch =
       readonly kind: "three-digit";
       readonly operations: readonly ("addition" | "subtraction")[];
       readonly regroupingRequired: boolean;
-    };
+    }
+  | { readonly kind: "multi-digit"; readonly operations: readonly FactOperation[] };
 
 /** Whether a facts member names canonical operations and ascending families in range. */
 function factsMemberIsWellFormed(
@@ -138,6 +143,16 @@ function threeDigitMemberIsWellFormed(
   );
 }
 
+function multiDigitMemberIsWellFormed(
+  practice: Extract<PracticeRequestV1, { readonly kind: "dry-math-multi-digit" }>,
+): boolean {
+  const indexes = practice.operations.map((operation) =>
+    (FACT_OPERATIONS as readonly string[]).indexOf(operation),
+  );
+  return indexes.length > 0 && indexes.every((index, position) =>
+    index >= 0 && (position === 0 || index > (indexes[position - 1] ?? index)));
+}
+
 /**
  * The Dry Math branch a request's `practice` member selects: absent means
  * today's regrouping-free page. `undefined` marks a member Dry Math does not
@@ -168,6 +183,10 @@ function dryMathBranchOf(request: GenerationRequestV1): DryMathBranch | undefine
             operations: practice.operations,
             regroupingRequired: practice.regrouping === "required",
           }
+        : undefined;
+    case "dry-math-multi-digit":
+      return multiDigitMemberIsWellFormed(practice)
+        ? { kind: "multi-digit", operations: practice.operations }
         : undefined;
     default:
       return undefined;
@@ -289,6 +308,23 @@ function threeDigitItemHolds(
     item.answer.value === answer &&
     regroups(operation, left, right) === branch.regroupingRequired
   );
+}
+
+function multiDigitItemHolds(
+  item: DryMathItemV1,
+  branch: Extract<DryMathBranch, { readonly kind: "multi-digit" }>,
+): boolean {
+  const { operation, leftOperand: left, rightOperand: right } = item;
+  if (operation !== "multiplication" && operation !== "division") return false;
+  if (!branch.operations.includes(operation)) return false;
+  if (operation === "multiplication") {
+    return item.renderedSymbol === "×" && left >= DRY_MATH_TWO_DIGIT_MINIMUM &&
+      left <= DRY_MATH_TWO_DIGIT_MAXIMUM && right >= DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM &&
+      right <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM && item.answer.value === left * right;
+  }
+  return item.renderedSymbol === "÷" && left >= DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM &&
+    left <= DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM && right >= DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM &&
+    right <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM && left % right === 0 && item.answer.value === left / right;
 }
 
 type NumberBondsPractice = Extract<PracticeRequestV1, { readonly kind: "number-bonds" }>;
@@ -688,6 +724,9 @@ export function validateWorksheetInvariants(
             break;
           case "three-digit":
             holds = threeDigitItemHolds(item, dryMathBranch);
+            break;
+          case "multi-digit":
+            holds = multiDigitItemHolds(item, dryMathBranch);
             break;
           default: {
             const unreachable: never = dryMathBranch;

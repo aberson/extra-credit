@@ -165,7 +165,7 @@ A profile contains an optional nickname, a review date, and up to five broad int
 ## Key design decisions
 
 - Educational content is governed by the parent's explicit worksheet choices: the worksheet type, its variant, and a practice focus or vocabulary stated in words.
-- Dry Math supports addition/subtraction presets through 100, a separate three-digit addition/subtraction focus with answers through 1,000, and exact multiplication and division facts to 12 × 12 for the fact families the parent checks; quantity and Wow activities stay within 20. Dry Math carries and borrows only when the parent chooses "Every problem carries or borrows" under Carrying and borrowing, every division is exact with a nonzero divisor, and no activity produces negative results.
+- Dry Math supports addition/subtraction presets through 100, three-digit addition/subtraction with answers through 1,000, two-digit × one-digit multiplication, three-digit ÷ one-digit division, and exact facts to 12 × 12 for checked fact families; quantity and Wow activities stay within 20. Dry Math carries and borrows only when the parent chooses "Every problem carries or borrows" under Carrying and borrowing, every division is exact with a nonzero divisor, and no activity produces negative results.
 - A seed and generator version reproduce the same educational content.
 - Answer keys derive from the same immutable worksheet document shown to the child.
 - Instructional visuals remain present when decorative graphics are disabled.

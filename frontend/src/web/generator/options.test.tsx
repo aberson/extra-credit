@@ -27,6 +27,7 @@ import {
 import {
   FACT_PRACTICE_ENTRIES,
   THREE_DIGIT_PRACTICE_ENTRIES,
+  MULTI_DIGIT_PRACTICE_ENTRIES,
   NUMBER_BONDS_FOCUS_CATALOG,
   PRACTICE_FOCUS_CATALOG,
   SENTENCE_VOCABULARY_LABELS,
@@ -1967,6 +1968,21 @@ describe("worksheet-first panel", () => {
     expect(screen.queryByRole("group", { name: "Fact families" })).toBeNull();
   });
 
+  test("multi-digit entries set their own operations and hide unrelated groups", () => {
+    const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
+    renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
+    const focus = screen.getByRole("combobox", { name: "Practice focus" });
+    for (const entry of MULTI_DIGIT_PRACTICE_ENTRIES) {
+      onChange.mockClear();
+      fireEvent.change(focus, { target: { value: entry.id } });
+      expect(onChange.mock.calls).toEqual([[
+        { type: "dryMathPracticeChosen", strand: "multi-digit", dryMathMultiDigit: { operations: [...entry.operations] } },
+      ]]);
+    }
+    expect(screen.queryByRole("group", { name: "Carrying and borrowing" })).toBeNull();
+    expect(screen.queryByRole("group", { name: "Fact families" })).toBeNull();
+  });
+
   test("Number Bonds is the fifth card, with nine sentence entries and its own Carrying and borrowing group after the focus, each choice one action", () => {
     const onChange = vi.fn<(action: WorksheetPanelAction) => void>();
     renderPanel({ defaults: storedDefaults(), onChange, profiles: [nicknamed] });
@@ -2327,6 +2343,9 @@ describe("worksheet-first panel", () => {
       "Three-digit addition within 1,000",
       "Three-digit subtraction within 1,000",
       "Three-digit addition and subtraction within 1,000",
+      "Two-digit × one-digit multiplication",
+      "Three-digit ÷ one-digit division",
+      "Two-digit × one-digit and three-digit ÷ one-digit",
     ]);
     chooseWorksheet("count-compare-make");
     expect(optionLabels()).toEqual(catalogLabels("count-compare-make"));
@@ -2347,6 +2366,9 @@ describe("worksheet-first panel", () => {
       "Three-digit addition within 1,000",
       "Three-digit subtraction within 1,000",
       "Three-digit addition and subtraction within 1,000",
+      "Two-digit × one-digit multiplication",
+      "Three-digit ÷ one-digit division",
+      "Two-digit × one-digit and three-digit ÷ one-digit",
     ]);
     expect(screen.getByRole("combobox", { name: "Practice focus" })).toHaveValue(
       "earlier-setting",

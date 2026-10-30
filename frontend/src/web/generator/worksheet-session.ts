@@ -43,6 +43,7 @@ export const WORKSHEET_GROUP_KEYS = [
   "dryMathStrand",
   "dryMathFacts",
   "dryMathThreeDigit",
+  "dryMathMultiDigit",
   "numberBonds",
   "operationGrid",
   "findTheWow.variant",
@@ -117,6 +118,7 @@ type DryMathPracticePayloadByStrand = {
   readonly "three-digit": {
     readonly dryMathThreeDigit: WorksheetGroupValue["dryMathThreeDigit"];
   };
+  readonly "multi-digit": { readonly dryMathMultiDigit: WorksheetGroupValue["dryMathMultiDigit"] };
 };
 
 type AssertNever<TValue extends never> = [TValue] extends [never] ? unknown : never;
@@ -318,6 +320,7 @@ export function worksheetSessionReducer(
         (action.group === "dryMathFacts" &&
           (action.value.operations.length === 0 || action.value.factFamilies.length === 0)) ||
         (action.group === "dryMathThreeDigit" && action.value.operations.length === 0) ||
+        (action.group === "dryMathMultiDigit" && action.value.operations.length === 0) ||
         (action.group === "numberBonds" && action.value.operations.length === 0) ||
         (action.group === "operationGrid" && !OperationGridV2Schema.safeParse(action.value).success)
       ) {
@@ -332,7 +335,7 @@ export function worksheetSessionReducer(
     case "dryMathPracticeChosen": {
       // One choice, two groups, one preview invalidation.
       let chosen: WorksheetSelectionV2 | undefined;
-      let touchedPractice: "dryMath" | "dryMathFacts" | "dryMathThreeDigit";
+      let touchedPractice: "dryMath" | "dryMathFacts" | "dryMathThreeDigit" | "dryMathMultiDigit";
       switch (action.strand) {
         case "add-subtract":
           chosen = withGroup(state.selection, "dryMath", action.dryMath);
@@ -352,6 +355,11 @@ export function worksheetSessionReducer(
               ? withGroup(state.selection, "dryMathThreeDigit", action.dryMathThreeDigit)
               : undefined;
           touchedPractice = "dryMathThreeDigit";
+          break;
+        case "multi-digit":
+          chosen = action.dryMathMultiDigit.operations.length > 0
+            ? withGroup(state.selection, "dryMathMultiDigit", action.dryMathMultiDigit) : undefined;
+          touchedPractice = "dryMathMultiDigit";
           break;
         default: {
           const unreachable: never = action;

@@ -13,6 +13,7 @@ import {
 import {
   PRACTICE_FOCUS_CATALOG,
   THREE_DIGIT_PRACTICE_ENTRIES,
+  MULTI_DIGIT_PRACTICE_ENTRIES,
 } from "../config/practice-focus.js";
 import {
   NUMBER_BONDS_REGROUPING_MODES,
@@ -1185,6 +1186,14 @@ const THREE_DIGIT_SOURCES: readonly SweepSource[] = THREE_DIGIT_PRACTICE_ENTRIES
     dryMathThreeDigit: { operations: [...entry.operations] },
   },
 }));
+const MULTI_DIGIT_SOURCES: readonly SweepSource[] = MULTI_DIGIT_PRACTICE_ENTRIES.map((entry) => ({
+  name: `multi-digit ${entry.id}`,
+  selection: {
+    ...SWEEP_BASE,
+    dryMathStrand: "multi-digit" as const,
+    dryMathMultiDigit: { operations: [...entry.operations] },
+  },
+}));
 
 /**
  * Number Bonds sentences: every schema-valid largest whole with each operation
@@ -1264,6 +1273,7 @@ const SWEEP_SOURCES: readonly SweepSource[] = [
   ...REGROUPING_SOURCES,
   ...FACTS_SOURCES,
   ...THREE_DIGIT_SOURCES,
+  ...MULTI_DIGIT_SOURCES,
   ...NUMBER_BONDS_SOURCES,
   ...OPERATION_GRID_SOURCES,
 ];
@@ -1455,6 +1465,7 @@ describe("every declared arm of the capacity and advice surface", () => {
               switch (practice?.kind) {
                 case "dry-math-facts":
                 case "dry-math-three-digit":
+                case "dry-math-multi-digit":
                   needsNumericOperations = false;
                   break;
                 case undefined:
@@ -1525,6 +1536,9 @@ describe("every declared arm of the capacity and advice surface", () => {
                   factsPage = true;
                   break;
                 case "three-digit":
+                  threeDigitPage = true;
+                  break;
+                case "multi-digit":
                   threeDigitPage = true;
                   break;
                 default: {

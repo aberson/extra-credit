@@ -652,6 +652,27 @@ describe("three-digit Dry Math defaults through the config API", () => {
     expect(stored.defaults.dryMathThreeDigit).toEqual({ operations: ["subtraction"] });
     expect(stored.defaults.dryMathRegrouping).toBe("required");
   });
+  test("defaults and persists the multi-digit group", async () => {
+    const { app, configPath, token } = await setup();
+    const earlier = fixture("Fictional Multi Digit Reader");
+    delete (earlier.defaults as Partial<AppConfigV2["defaults"]>).dryMathMultiDigit;
+    const created = await app.inject({ method: "PUT", url: "/api/config", headers: { ...putHeaders(token), "if-none-match": "*" }, payload: earlier });
+    expect(created.statusCode).toBe(200);
+    const before = await readFile(configPath);
+    const read = await app.inject({ method: "GET", url: "/api/config", headers: { host: HOST, "x-extra-credit-token": token } });
+    const config = (read.json() as { config: AppConfigV2 }).config;
+    expect(config.defaults.dryMathMultiDigit).toEqual({ operations: ["multiplication"] });
+    expect((await readFile(configPath)).equals(before)).toBe(true);
+    config.defaults.dryMathStrand = "multi-digit";
+    config.defaults.dryMathMultiDigit = { operations: ["division"] };
+    const saved = await app.inject({ method: "PUT", url: "/api/config", headers: { ...putHeaders(token), "if-match": String(read.headers.etag) }, payload: config });
+    expect(saved.statusCode).toBe(200);
+    const stored = JSON.parse((await readFile(configPath)).toString("utf8")) as AppConfigV2;
+    expect(stored.defaults.dryMathStrand).toBe("multi-digit");
+    expect(stored.defaults.dryMathMultiDigit).toEqual({ operations: ["division"] });
+    expect(stored.profiles).toEqual(config.profiles);
+    expect(stored.defaults).toEqual(config.defaults);
+  });
 });
 
 describe.each([

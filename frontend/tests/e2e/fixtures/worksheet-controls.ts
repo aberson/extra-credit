@@ -6,6 +6,7 @@ import {
   describePracticeFocus,
   matchFactPracticeEntry,
   matchThreeDigitPracticeEntry,
+  matchMultiDigitPracticeEntry,
 } from "../../../src/shared/config/practice-focus.ts";
 import type {
   FindTheWowVariant,
@@ -306,6 +307,9 @@ export async function chooseWorksheetChoices(
             matchThreeDigitPracticeEntry(selection.dryMathThreeDigit.operations).label,
           );
           await chooseRegrouping(page, selection.dryMathRegrouping);
+          return;
+        case "multi-digit":
+          await choosePracticeFocus(page, matchMultiDigitPracticeEntry(selection.dryMathMultiDigit.operations).label);
           return;
         default: {
           const unreachable: never = selection.dryMathStrand;

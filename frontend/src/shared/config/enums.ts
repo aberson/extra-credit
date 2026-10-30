@@ -38,7 +38,7 @@ export const REGROUPING_MODES = ["without", "required"] as const;
  * division facts, or three-digit addition and subtraction. An additive
  * schema version 2 field whose default is `add-subtract`.
  */
-export const DRY_MATH_STRANDS = ["add-subtract", "multiply-divide", "three-digit"] as const;
+export const DRY_MATH_STRANDS = ["add-subtract", "multiply-divide", "three-digit", "multi-digit"] as const;
 /** The fact operations of the multiply-divide strand, in canonical order. */
 export const FACT_OPERATIONS = ["multiplication", "division"] as const;
 /**

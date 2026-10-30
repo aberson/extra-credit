@@ -63,6 +63,10 @@ export const FACT_DIVIDEND_MAXIMUM = FACT_FACTOR_MAXIMUM * FACT_FACTOR_MAXIMUM;
 export const DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM = 100;
 export const DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM = 999;
 export const DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM = 1000;
+export const DRY_MATH_TWO_DIGIT_MINIMUM = 10;
+export const DRY_MATH_TWO_DIGIT_MAXIMUM = 99;
+export const DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM = 2;
+export const DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM = 9;
 
 /**
  * The smallest whole a Number Bonds problem may have: two parts of at least 1
@@ -241,6 +245,10 @@ export type PracticeRequestV1 =
       readonly kind: "dry-math-three-digit";
       readonly operations: readonly MathOperation[];
       readonly regrouping: "without" | "required";
+    }
+  | {
+      readonly kind: "dry-math-multi-digit";
+      readonly operations: readonly FactOperation[];
     }
   | {
       readonly kind: "number-bonds";

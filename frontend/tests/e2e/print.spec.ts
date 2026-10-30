@@ -14,6 +14,12 @@ import { countOrderBound, countSeedFixture, type CountActivity } from "../fixtur
 import { oracleHourFromHands, type OracleHandVector } from "../oracles/clock-oracle.ts";
 import { oracleReadTally, type OracleSegment } from "../oracles/tally-oracle.ts";
 import {
+  ORACLE_MULTI_DIGIT_DIVIDEND_MAXIMUM,
+  ORACLE_MULTI_DIGIT_FACTOR_MAXIMUM,
+  ORACLE_MULTI_DIGIT_FACTOR_MINIMUM,
+  ORACLE_MULTI_DIGIT_TWO_DIGIT_MAXIMUM,
+} from "../oracles/arithmetic-oracle.ts";
+import {
   acceptanceConfig,
   boundaryNickname,
   createPrintFixture,
@@ -1028,7 +1034,12 @@ for (const fixture of printFixtures) {
             const perDigitFloorMm = scale === "standard" ? 4.5 : 5;
             const expectedDigits = fixture.id === "dry-math-three-digit-1000"
               ? String(1000).length
-              : 2;
+              : fixture.id === "dry-math-multi-digit"
+                ? String(Math.max(
+                    ORACLE_MULTI_DIGIT_TWO_DIGIT_MAXIMUM * ORACLE_MULTI_DIGIT_FACTOR_MAXIMUM,
+                    Math.floor(ORACLE_MULTI_DIGIT_DIVIDEND_MAXIMUM / ORACLE_MULTI_DIGIT_FACTOR_MINIMUM),
+                  )).length
+                : 2;
             expect(
               await answerBlankViolations(page, expectedDigits, perDigitFloorMm),
               "Dry Math answer blanks",
@@ -1110,6 +1121,29 @@ for (const fixture of printFixtures) {
               await answerBlankViolations(page, 2, perDigitFloorMm),
               "answer blank display restored",
             ).toEqual([]);
+          }
+          if (fixture.id === "dry-math-multi-digit") {
+            const product = boundary.document.items.find((item) => item.itemType === "dry-math" && item.operation === "multiplication" && item.answer.value >= 800);
+            const quotient = boundary.document.items.find((item) => item.itemType === "dry-math" && item.operation === "division" && item.answer.value >= 100);
+            expect(product, "a product of at least 800").toBeDefined();
+            expect(quotient, "a quotient of at least 100").toBeDefined();
+            await expect(page.locator(`.print-surface [data-item-id="${product?.id ?? ""}"]`)).toHaveText(/^\d{2} × \d = _{6}$/u);
+            await expect(page.locator(`.print-surface [data-item-id="${quotient?.id ?? ""}"]`)).toHaveText(/^\d{3} ÷ \d = _{6}$/u);
+            expect(await operatorViolations(page)).toEqual([]);
+            const floor = scale === "standard" ? 4.5 : 5;
+            const digits = String(Math.max(
+              ORACLE_MULTI_DIGIT_TWO_DIGIT_MAXIMUM * ORACLE_MULTI_DIGIT_FACTOR_MAXIMUM,
+              Math.floor(ORACLE_MULTI_DIGIT_DIVIDEND_MAXIMUM / ORACLE_MULTI_DIGIT_FACTOR_MINIMUM),
+            )).length;
+            expect(await answerBlankViolations(page, digits, floor)).toEqual([]);
+            await withPrintStyle(page, "[data-operator] { font-size: 1px !important; }", async () => {
+              expect((await operatorViolations(page)).length).toBeGreaterThan(0);
+            });
+            expect(await operatorViolations(page)).toEqual([]);
+            await withPrintStyle(page, '[data-answer-blank="answer"] { font-size: 1px !important; }', async () => {
+              expect((await answerBlankViolations(page, digits, floor)).length).toBeGreaterThan(0);
+            });
+            expect(await answerBlankViolations(page, digits, floor)).toEqual([]);
           }
           if (fixture.id === "dry-math-facts-144") {
             // The widest facts, a three-digit dividend over a two-digit divisor

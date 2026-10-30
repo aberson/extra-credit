@@ -211,6 +211,7 @@ export function selectionFromEarlierSettings(
       dryMathThreeDigit: {
         operations: [...base.dryMathThreeDigit.operations],
       },
+      dryMathMultiDigit: { operations: [...base.dryMathMultiDigit.operations] },
       // Nor Number Bonds, whose carrying and borrowing choice stays the
       // parent's explicit one: no earlier setting describes it.
       numberBonds: {

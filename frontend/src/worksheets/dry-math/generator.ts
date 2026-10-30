@@ -9,6 +9,11 @@ import {
 import {
   FACT_FACTOR_MAXIMUM,
   DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM,
+  DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM,
+  DRY_MATH_TWO_DIGIT_MINIMUM,
+  DRY_MATH_TWO_DIGIT_MAXIMUM,
+  DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM,
+  DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
   DRY_MATH_THREE_DIGIT_RESULT_MAXIMUM,
   GENERATION_CONSTRAINT_CONFLICT,
   GENERATION_INVARIANT_FAILED,
@@ -42,6 +47,7 @@ interface ArithmeticCandidate {
 
 type FactsPractice = Extract<PracticeRequestV1, { readonly kind: "dry-math-facts" }>;
 type ThreeDigitPractice = Extract<PracticeRequestV1, { readonly kind: "dry-math-three-digit" }>;
+type MultiDigitPractice = Extract<PracticeRequestV1, { readonly kind: "dry-math-multi-digit" }>;
 
 function threeDigitPracticeIsWellFormed(practice: ThreeDigitPractice): boolean {
   const operations = practice.operations as readonly string[];
@@ -64,6 +70,7 @@ function factsPractice(request: GenerationRequestV1): FactsPractice | undefined 
     case "dry-math-facts":
       return practice;
     case "dry-math-three-digit":
+    case "dry-math-multi-digit":
     case undefined:
     case "dry-math-add-subtract":
     case "number-bonds":
@@ -91,6 +98,7 @@ function regroupingRequired(request: GenerationRequestV1): boolean {
       return practice.regrouping === "required";
     case undefined:
     case "dry-math-facts":
+    case "dry-math-multi-digit":
     case "number-bonds":
     case "operation-grid":
       return false;
@@ -115,6 +123,8 @@ export function enumerateDryMathCandidates(
   switch (practice?.kind) {
     case "dry-math-three-digit":
       throw new Error("The three-digit pool is never enumerated.");
+    case "dry-math-multi-digit":
+      return enumerateMultiDigitCandidates(practice);
     case "dry-math-facts":
       return enumerateFactCandidates(factsPractice(request) ?? practice);
     case undefined:
@@ -130,6 +140,27 @@ export function enumerateDryMathCandidates(
       return unreachable;
     }
   }
+}
+
+function enumerateMultiDigitCandidates(practice: MultiDigitPractice): readonly ArithmeticCandidate[] {
+  const candidates: ArithmeticCandidate[] = [];
+  for (const operation of FACT_OPERATIONS) {
+    if (!practice.operations.includes(operation)) continue;
+    if (operation === "multiplication") {
+      for (let left = DRY_MATH_TWO_DIGIT_MINIMUM; left <= DRY_MATH_TWO_DIGIT_MAXIMUM; left += 1) {
+        for (let right = DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM; right <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM; right += 1) {
+          candidates.push({ operation, leftOperand: left, rightOperand: right, renderedSymbol: "×", answer: left * right });
+        }
+      }
+    } else {
+      for (let divisor = DRY_MATH_ONE_DIGIT_FACTOR_MINIMUM; divisor <= DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM; divisor += 1) {
+        for (let quotient = Math.ceil(DRY_MATH_THREE_DIGIT_OPERAND_MINIMUM / divisor); quotient <= Math.floor(DRY_MATH_THREE_DIGIT_OPERAND_MAXIMUM / divisor); quotient += 1) {
+          candidates.push({ operation, leftOperand: divisor * quotient, rightOperand: divisor, renderedSymbol: "÷", answer: quotient });
+        }
+      }
+    }
+  }
+  return candidates;
 }
 
 /**
@@ -300,6 +331,9 @@ function dryMathShortfallFor(
       return capacity >= getDryMathItemCount(request.options.length, request.options.printScale)
         ? undefined
         : DRY_MATH_FIXED_POOL_ADVICE;
+    case "dry-math-multi-digit":
+      return capacity >= getDryMathItemCount(request.options.length, request.options.printScale)
+        ? undefined : DRY_MATH_FIXED_POOL_ADVICE;
     case undefined:
     case "dry-math-add-subtract":
     case "number-bonds":

@@ -131,6 +131,7 @@ export function getDryMathCapabilitySupport(
   switch (practiceKind) {
     case "dry-math-facts":
     case "dry-math-three-digit":
+    case "dry-math-multi-digit":
       return { available: true };
     case undefined:
     case "dry-math-add-subtract":

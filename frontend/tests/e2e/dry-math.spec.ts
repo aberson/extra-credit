@@ -742,3 +742,21 @@ test("three-digit focus entries create oracle-valid pages with four-digit blanks
     await expect(page.getByLabel("Worksheet preview").locator("[data-answer-value]")).toHaveCount(0);
   }
 });
+
+test("multi-digit focus entries create exact multiplication and division pages", async ({ appServer, page }) => {
+  await appServer.seedConfig(acceptanceConfig);
+  await page.goto(appServer.origin);
+  for (const [label, operations] of [
+    ["Two-digit × one-digit multiplication", ["multiplication"]],
+    ["Three-digit ÷ one-digit division", ["division"]],
+    ["Two-digit × one-digit and three-digit ÷ one-digit", ["multiplication", "division"]],
+  ] as const) {
+    await choosePracticeFocus(page, label);
+    await expect(controls(page).regrouping()).toHaveCount(0);
+    await page.getByRole("button", { name: "Create worksheet", exact: true }).click();
+    const { rows, keyLines } = await renderedPage(page);
+    expect(judgeRenderedPage(rows, keyLines, { kind: "multi-digit", operations })).toEqual([]);
+    await page.getByRole("button", { name: "Worksheet", exact: true }).click();
+    await expect(page.getByLabel("Worksheet preview").locator("[data-answer-blank]").first()).toHaveText("______");
+  }
+});

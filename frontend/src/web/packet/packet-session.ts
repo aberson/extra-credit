@@ -16,6 +16,7 @@ import {
   describeNumberBonds,
   describePracticeFocus,
   describeThreeDigitFocus,
+  describeMultiDigitFocus,
 } from "../../shared/config/practice-focus";
 import type { ChildProfileV2, WorksheetSelectionV2 } from "../../shared/config/schema";
 import {
@@ -211,6 +212,8 @@ function detailOf(selection: WorksheetSelectionV2): string | undefined {
           return describeFactsFocus(selection.dryMathFacts);
         case "three-digit":
           return describeThreeDigitFocus(selection.dryMathThreeDigit, selection.dryMathRegrouping);
+        case "multi-digit":
+          return describeMultiDigitFocus(selection.dryMathMultiDigit);
         default: {
           const unreachable: never = selection.dryMathStrand;
           return unreachable;

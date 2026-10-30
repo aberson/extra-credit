@@ -212,6 +212,13 @@ describe("describeQueuedSheet", () => {
       "Three-digit subtraction within 1,000",
     );
   });
+  test("a multi-digit sheet names its selected operation focus", () => {
+    const sheet = sheetFor(FIRST_CHILD, {
+      worksheetType: "dry-math", dryMathStrand: "multi-digit",
+      dryMathMultiDigit: { operations: ["division"] },
+    });
+    expect(describeQueuedSheet(sheet, PROFILES).detail).toBe("Three-digit ÷ one-digit division");
+  });
 
   test("a child without a nickname is Profile N by list position, and a deleted one is a removed profile", () => {
     const sheet = sheetFor(SECOND_CHILD, { worksheetType: "find-the-wow" });

@@ -818,7 +818,7 @@ A step too large for one developer context is split before build (R4). Kill crit
 - **Depends on:** Step 40
 
 ### Step 42: Bigger multiplication and division
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** A parent picks a Dry Math practice focus of two-digit × one-digit multiplication (such as 47 × 6), three-digit ÷ one-digit exact division (such as 852 ÷ 4), or both. Create, preview, key and print then give those problems with three-digit blanks, the status line and a queued packet row name the focus, and the choice survives a defaults save and a reload.
 - **Type:** code
 - **Issue:** #53

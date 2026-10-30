@@ -175,6 +175,19 @@ describe("Dry Math three-digit practice through the production caller", () => {
   });
 });
 
+describe("Dry Math multi-digit practice through the production caller", () => {
+  test("returns a validated oracle-equal document", () => {
+    const selected: GenerationSelection = { profile: fictionalChild, selection: {
+      ...worksheetSelectionOf(DEFAULT_WORKSHEET_DEFAULTS_V2), worksheetType: "dry-math",
+      dryMathStrand: "multi-digit", dryMathMultiDigit: { operations: ["multiplication", "division"] }, length: "long",
+    } };
+    const created = createWorksheetSessionForSeed(selected, 0x0000_abcd, DEPENDENCIES);
+    if (!created.ok) throw new Error(created.message);
+    expect(validateWorksheetInvariants(created.session.document)).toBeUndefined();
+    expect(judgeDocument(created.session.document)).toEqual([]);
+  });
+});
+
 describe("Dry Math multiplication and division facts through the production caller", () => {
   function factsGeneration(
     operations: WorksheetSelectionV2["dryMathFacts"]["operations"],

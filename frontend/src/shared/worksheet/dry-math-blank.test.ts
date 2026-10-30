@@ -11,6 +11,10 @@ describe("dryMathBlank", () => {
     });
     expect("_".repeat(blank.underscores)).toBe("________");
   });
+  test("uses six underscores for multi-digit answers", () => {
+    const blank = dryMathBlank({ kind: "dry-math-multi-digit", operations: ["multiplication", "division"] });
+    expect("_".repeat(blank.underscores)).toBe("______");
+  });
 
   test.each([
     ["an absent practice member", undefined],
