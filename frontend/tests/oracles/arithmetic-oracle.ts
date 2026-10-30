@@ -1045,6 +1045,7 @@ export interface OracleGridFocus {
   readonly columns: number;
   readonly prefilled: number;
   readonly placement: OracleGridPlacement;
+  readonly headerOrder?: "in-order" | "mixed";
 }
 
 /**
@@ -1090,7 +1091,7 @@ export function oracleGridPrintable(focus: OracleGridFocus): boolean {
     focus.prefilled >= 0 &&
     focus.prefilled < focus.rows * focus.columns &&
     (focus.placement !== "diagonal-first" ||
-      (focus.operation !== "powers" && focus.rows === focus.columns))
+      (focus.operation !== "powers" && focus.rows === focus.columns && focus.headerOrder !== "mixed"))
   );
 }
 
@@ -1124,6 +1125,16 @@ function oneToCount(count: number): readonly number[] {
   return Array.from({ length: count }, (_, index) => index + 1);
 }
 
+function isPermutation(headers: readonly number[], count: number): boolean {
+  return headers.length === count && [...headers].sort((left, right) => left - right)
+    .every((header, index) => header === index + 1);
+}
+
+function headersMatchOrder(headers: readonly number[], count: number, order: OracleGridFocus["headerOrder"]): boolean {
+  const ascending = JSON.stringify(headers) === JSON.stringify(oneToCount(count));
+  return order === "mixed" ? isPermutation(headers, count) && !ascending : ascending;
+}
+
 /**
  * Judges one grid against its focus. On a worksheet (`completed` false) every
  * given cell prints its oracle value and every other cell is empty; on a key
@@ -1140,13 +1151,14 @@ export function judgeGridTable(
   }
   if (
     table.corner !== ORACLE_GRID_SYMBOLS[focus.operation] ||
-    JSON.stringify(table.columnHeaders) !== JSON.stringify(oneToCount(focus.columns)) ||
-    JSON.stringify(table.rowHeaders) !== JSON.stringify(oneToCount(focus.rows)) ||
+    !headersMatchOrder(table.columnHeaders, focus.columns, focus.headerOrder) ||
+    !headersMatchOrder(table.rowHeaders, focus.rows, focus.headerOrder) ||
     table.cells.length !== focus.rows
   ) {
     violations.push({ where: "headers", code: "HEADER_MISMATCH" });
   }
-  const expected = oracleGrid(focus.operation, focus.rows, focus.columns);
+  const expected = table.rowHeaders.map((row) =>
+    table.columnHeaders.map((column) => oracleGridCell(focus.operation, row, column)));
   let given = 0;
   let blank = 0;
   let diagonalGiven = 0;
@@ -1201,6 +1213,7 @@ export function oracleGridFocusOf(request: GenerationRequestV1): OracleGridFocus
     columns: practice.columns,
     prefilled: practice.prefilled,
     placement: practice.placement,
+    ...(practice.headerOrder === "mixed" ? { headerOrder: "mixed" as const } : {}),
   };
 }
 
@@ -1232,7 +1245,8 @@ export function judgeOperationGridDocument(
       }),
     ),
   });
-  const expected = oracleGrid(focus.operation, focus.rows, focus.columns).flat();
+  const expected = item.rowHeaders.flatMap((row) =>
+    item.columnHeaders.map((column) => oracleGridCell(focus.operation, row, column)));
   const answer = item.answer.kind === "grid" ? item.answer.value : [];
   const keyMatches =
     answer.length === expected.length && expected.every((value, index) => answer[index] === value);

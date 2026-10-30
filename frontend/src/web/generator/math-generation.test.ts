@@ -362,6 +362,7 @@ describe("Operation Grid through the production caller", () => {
         columns: operation === "powers" ? 3 : 12,
         prefilled: 7,
         placement: "random",
+        headerOrder: "in-order",
       } as const;
       const created = createWorksheetSessionForSeed(gridGeneration(operationGrid), 0x2026_0034, DEPENDENCIES);
       if (!created.ok) {
@@ -369,7 +370,14 @@ describe("Operation Grid through the production caller", () => {
       }
       const { document } = created.session;
       expect(document.worksheetType).toBe("operation-grid");
-      expect(document.request.practice).toEqual({ kind: "operation-grid", ...operationGrid });
+      expect(document.request.practice).toEqual({
+        kind: "operation-grid",
+        operation,
+        rows: operationGrid.rows,
+        columns: operationGrid.columns,
+        prefilled: operationGrid.prefilled,
+        placement: operationGrid.placement,
+      });
       expect(document.request.displayName).toBe("Fictional Regrouper");
       expect(validateWorksheetInvariants(document)).toBeUndefined();
       expect(judgeOperationGridDocument(document)).toEqual([]);
@@ -380,8 +388,26 @@ describe("Operation Grid through the production caller", () => {
     },
   );
 
+  test("mixed headers reach the production caller as a canonical request and an oracle-equal document", () => {
+    const operationGrid = {
+      operation: "multiplication",
+      rows: 10,
+      columns: 10,
+      prefilled: 10,
+      placement: "random",
+      headerOrder: "mixed",
+    } as const;
+    const created = createWorksheetSessionForSeed(gridGeneration(operationGrid), 0x2026_0044, DEPENDENCIES);
+    if (!created.ok) {
+      throw new Error(created.message);
+    }
+    expect(created.session.document.request.practice).toEqual({ kind: "operation-grid", ...operationGrid });
+    expect(validateWorksheetInvariants(created.session.document)).toBeUndefined();
+    expect(judgeOperationGridDocument(created.session.document)).toEqual([]);
+  });
+
   test("Make another finds a different grid with random placement, and explains the one fixed Diagonal grid", () => {
-    const random = gridGeneration({ operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random" });
+    const random = gridGeneration({ operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random", headerOrder: "in-order" });
     const first = createWorksheetSessionForSeed(random, 1, DEPENDENCIES);
     if (!first.ok) {
       throw new Error(first.message);
@@ -396,6 +422,7 @@ describe("Operation Grid through the production caller", () => {
       columns: 10,
       prefilled: 10,
       placement: "diagonal-first",
+      headerOrder: "in-order",
     });
     const fixed = createWorksheetSessionForSeed(diagonal, 1, DEPENDENCIES);
     if (!fixed.ok) {

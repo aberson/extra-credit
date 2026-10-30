@@ -14,6 +14,7 @@ import {
   NUMBER_BONDS_REGROUPING_MODES,
   OPERATION_GRID_OPERATIONS,
   OPERATION_GRID_PLACEMENTS,
+  OPERATION_GRID_HEADER_ORDERS,
   PAPER_SIZES,
   PRINT_SCALES,
   REGROUPING_MODES,
@@ -503,6 +504,7 @@ const operationGridArbitrary: fc.Arbitrary<OperationGridV2> = fc.record({
   columns: fc.integer({ min: OPERATION_GRID_SIZE_MINIMUM, max: OPERATION_GRID_SIZE_MAXIMUM }),
   prefilled: fc.integer({ min: 0, max: OPERATION_GRID_PREFILLED_MAXIMUM }),
   placement: fc.constantFrom(...OPERATION_GRID_PLACEMENTS),
+  headerOrder: fc.constantFrom(...OPERATION_GRID_HEADER_ORDERS),
 });
 
 /** Any schema-valid worksheet selection. */
@@ -732,6 +734,7 @@ describe("Number Bonds reads only its own choices", () => {
     // The nickname and the answer key still apply.
     expect(request.displayName).toBe("Distinctive Nickname");
     expect(request.options.includeAnswerKey).toBe(true);
+
   });
 
   test("property: varying numberBonds leaves every other family's request deep-equal, and moves Number Bonds' own", () => {
@@ -782,7 +785,7 @@ describe("Operation Grid reads only its own choices", () => {
   test("its request carries the Operation Grid kind with inactive math and writing fields, standard length, no topics and no decoration", () => {
     const request = requestFor(
       selectionFor("operation-grid", {
-        operationGrid: { operation: "powers", rows: 7, columns: 3, prefilled: 5, placement: "random" },
+        operationGrid: { operation: "powers", rows: 7, columns: 3, prefilled: 5, placement: "random", headerOrder: "in-order" },
         includeDecorativeGraphics: true,
         useInterests: true,
         theme: "space",
@@ -815,7 +818,7 @@ describe("Operation Grid reads only its own choices", () => {
             useInterests: true,
             theme: "space",
             length,
-            operationGrid: { operation: "powers", rows: 7, columns: 3, prefilled: 5, placement: "random" },
+            operationGrid: { operation: "powers", rows: 7, columns: 3, prefilled: 5, placement: "random", headerOrder: "in-order" },
           }),
         ),
       ).toEqual(request);
@@ -823,6 +826,18 @@ describe("Operation Grid reads only its own choices", () => {
     // The nickname and the answer key still apply.
     expect(request.displayName).toBe("Distinctive Nickname");
     expect(request.options.includeAnswerKey).toBe(true);
+
+    const mixed = requestFor(selectionFor("operation-grid", {
+      operationGrid: {
+        operation: "powers",
+        rows: 7,
+        columns: 3,
+        prefilled: 5,
+        placement: "random",
+        headerOrder: "mixed",
+      },
+    }));
+    expect(mixed.practice).toEqual({ ...request.practice, headerOrder: "mixed" });
   });
 
   test("property: varying operationGrid leaves every other family's request deep-equal, and moves Operation Grid's own", () => {
@@ -835,7 +850,12 @@ describe("Operation Grid reads only its own choices", () => {
           const chosen = selectionFor(worksheetType, source);
           const varied = { ...chosen, operationGrid };
           if (worksheetType === "operation-grid") {
-            expect(requestFor(varied).practice).toEqual({ kind: "operation-grid", ...operationGrid });
+            const { headerOrder, ...canonical } = operationGrid;
+            expect(requestFor(varied).practice).toEqual({
+              kind: "operation-grid",
+              ...canonical,
+              ...(headerOrder === "mixed" ? { headerOrder } : {}),
+            });
           } else {
             expect(requestFor(varied)).toEqual(requestFor(chosen));
           }

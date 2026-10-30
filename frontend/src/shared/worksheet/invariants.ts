@@ -451,7 +451,7 @@ function operationGridPracticeOf(request: GenerationRequestV1): OperationGridPra
   if (practice?.kind !== "operation-grid") {
     return undefined;
   }
-  const { columns, operation, placement, prefilled, rows } = practice;
+  const { columns, operation, placement, prefilled, rows, headerOrder } = practice;
   const wellFormed =
     (OPERATION_GRID_OPERATIONS as readonly string[]).includes(operation) &&
     (OPERATION_GRID_PLACEMENTS as readonly string[]).includes(placement) &&
@@ -463,13 +463,19 @@ function operationGridPracticeOf(request: GenerationRequestV1): OperationGridPra
     Number.isInteger(prefilled) &&
     prefilled >= 0 &&
     prefilled <= rows * columns - 1 &&
-    (placement !== "diagonal-first" || (operation !== "powers" && rows === columns));
+    (headerOrder === undefined || headerOrder === "mixed") &&
+    (placement !== "diagonal-first" || (operation !== "powers" && rows === columns && headerOrder !== "mixed"));
   return wellFormed ? practice : undefined;
 }
 
 /** Headers that run 1, 2, ... up to `count`, and nothing else. */
 function headersRunFromOne(headers: readonly number[], count: number): boolean {
   return headers.length === count && headers.every((header, index) => header === index + 1);
+}
+
+function headersAreMixedPermutation(headers: readonly number[], count: number): boolean {
+  return headers.length === count && !headersRunFromOne(headers, count) &&
+    [...headers].sort((left, right) => left - right).every((header, index) => header === index + 1);
 }
 
 /**
@@ -503,8 +509,12 @@ function operationGridItemHolds(
   const answer = item.answer;
   if (
     item.operation !== practice.operation ||
-    !headersRunFromOne(item.rowHeaders, rows) ||
-    !headersRunFromOne(item.columnHeaders, columns) ||
+    !(practice.headerOrder === "mixed"
+      ? headersAreMixedPermutation(item.rowHeaders, rows)
+      : headersRunFromOne(item.rowHeaders, rows)) ||
+    !(practice.headerOrder === "mixed"
+      ? headersAreMixedPermutation(item.columnHeaders, columns)
+      : headersRunFromOne(item.columnHeaders, columns)) ||
     item.cells.length !== rows * columns ||
     answer.kind !== "grid" ||
     answer.value.length !== item.cells.length ||

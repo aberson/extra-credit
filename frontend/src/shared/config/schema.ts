@@ -31,6 +31,7 @@ import {
   NUMBER_BONDS_REGROUPING_MODES,
   OPERATION_GRID_OPERATIONS,
   OPERATION_GRID_PLACEMENTS,
+  OPERATION_GRID_HEADER_ORDERS,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
@@ -194,6 +195,7 @@ export const DEFAULT_OPERATION_GRID_OPERATION = "multiplication" as const;
 export const DEFAULT_OPERATION_GRID_SIZE = 10;
 export const DEFAULT_OPERATION_GRID_PREFILLED = 10;
 export const DEFAULT_OPERATION_GRID_PLACEMENT = "random" as const;
+export const DEFAULT_OPERATION_GRID_HEADER_ORDER = "in-order" as const;
 
 const operationGridSize = () =>
   z
@@ -221,6 +223,7 @@ export const OperationGridV2Schema = z.strictObject({
     .max(OPERATION_GRID_PREFILLED_MAXIMUM)
     .default(DEFAULT_OPERATION_GRID_PREFILLED),
   placement: z.enum(OPERATION_GRID_PLACEMENTS).default(DEFAULT_OPERATION_GRID_PLACEMENT),
+  headerOrder: z.enum(OPERATION_GRID_HEADER_ORDERS).default(DEFAULT_OPERATION_GRID_HEADER_ORDER),
 });
 
 export const DryMathFocusV2Schema = arithmeticFocusV2Schema(
@@ -273,6 +276,7 @@ const worksheetSelectionShape = {
     columns: DEFAULT_OPERATION_GRID_SIZE,
     prefilled: DEFAULT_OPERATION_GRID_PREFILLED,
     placement: DEFAULT_OPERATION_GRID_PLACEMENT,
+    headerOrder: DEFAULT_OPERATION_GRID_HEADER_ORDER,
   })),
   findTheWow: z.strictObject({
     variant: z.enum(FIND_THE_WOW_VARIANTS),
@@ -386,6 +390,7 @@ export {
   NUMBER_BONDS_REGROUPING_MODES,
   OPERATION_GRID_OPERATIONS,
   OPERATION_GRID_PLACEMENTS,
+  OPERATION_GRID_HEADER_ORDERS,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,

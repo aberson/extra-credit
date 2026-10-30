@@ -1,6 +1,7 @@
 import type {
   OPERATION_GRID_OPERATIONS,
   OPERATION_GRID_PLACEMENTS,
+  OPERATION_GRID_HEADER_ORDERS,
 } from "../../shared/config/enums.js";
 import {
   OPERATION_GRID_POWERS_BASE_MAXIMUM,
@@ -10,6 +11,7 @@ import {
   type OperationGridItemV1,
   type OperationGridOperation,
   type OperationGridPlacement,
+  type OperationGridHeaderOrder,
   type PrintScale,
   type WorksheetDocumentV1,
 } from "../../shared/worksheet/types.js";
@@ -58,8 +60,14 @@ export const OPERATION_GRID_PLACEMENT_LABELS = {
   "diagonal-first": "Diagonal first",
 } as const satisfies Record<(typeof OPERATION_GRID_PLACEMENTS)[number], string>;
 
+export const OPERATION_GRID_HEADER_ORDER_LABELS = {
+  "in-order": "In order",
+  mixed: "Mixed up",
+} as const satisfies Record<(typeof OPERATION_GRID_HEADER_ORDERS)[number], string>;
+
 export const OPERATION_GRID_OPERATION_LEGEND = "Operation";
 export const OPERATION_GRID_PLACEMENT_LEGEND = "Placement";
+export const OPERATION_GRID_HEADER_ORDER_LEGEND = "Header order";
 export const OPERATION_GRID_SIZE_LEGEND = "Grid size";
 export const OPERATION_GRID_ROWS_LABEL = "Rows";
 export const OPERATION_GRID_COLUMNS_LABEL = "Columns";
@@ -117,6 +125,7 @@ export interface OperationGridChoices {
   readonly columns: number;
   readonly prefilled: number;
   readonly placement: OperationGridPlacement;
+  readonly headerOrder?: OperationGridHeaderOrder;
 }
 
 /**
@@ -129,7 +138,7 @@ export function operationGridRefusal(
   choices: OperationGridChoices,
   printScale: PrintScale,
 ): string | undefined {
-  const { columns, operation, placement, prefilled, rows } = choices;
+  const { columns, operation, placement, prefilled, rows, headerOrder } = choices;
   const sentences: string[] = [];
   if (operation === "powers" && columns > OPERATION_GRID_POWERS_EXPONENT_MAXIMUM) {
     sentences.push(
@@ -166,6 +175,8 @@ export function operationGridRefusal(
     sentences.push(
       "Diagonal first needs a square grid. Choose the same number of rows and columns, or Random placement.",
     );
+  } else if (placement === "diagonal-first" && headerOrder === "mixed") {
+    sentences.push("Diagonal first needs row and column numbers in order. Choose In order, or Random placement.");
   }
   return sentences.length === 0 ? undefined : sentences.join(" ");
 }
@@ -210,13 +221,24 @@ export function operationGridPresetCount(
 export const OPERATION_GRID_LIMITING_RESOURCE_ADVICE =
   "Operation Grid varies only in which cells are pre-filled. Choose Random placement or a different number of pre-filled cells, or create a new worksheet later.";
 
+export const OPERATION_GRID_MIXED_LIMITING_RESOURCE_ADVICE =
+  "Operation Grid varies in its header order and in which cells are pre-filled. Choose Random placement or a different number of pre-filled cells, or create a new worksheet later.";
+
+export function operationGridLimitingResourceAdvice(choices: OperationGridChoices): string {
+  return choices.headerOrder === "mixed"
+    ? OPERATION_GRID_MIXED_LIMITING_RESOURCE_ADVICE
+    : OPERATION_GRID_LIMITING_RESOURCE_ADVICE;
+}
+
+export const OPERATION_GRID_MIXED_SUMMARY_PHRASE = ", row and column numbers mixed up";
+
 /**
  * The one parent-facing summary of an Operation Grid choice, for example
  * "Multiplication x × y, 10 rows by 10 columns, 10 cells pre-filled, Random".
  */
 export function describeOperationGrid(choices: OperationGridChoices): string {
   const cells = choices.prefilled === 1 ? "cell" : "cells";
-  return `${OPERATION_GRID_OPERATION_LABELS[choices.operation]}, ${choices.rows} rows by ${choices.columns} columns, ${choices.prefilled} ${cells} pre-filled, ${OPERATION_GRID_PLACEMENT_LABELS[choices.placement]}`;
+  return `${OPERATION_GRID_OPERATION_LABELS[choices.operation]}, ${choices.rows} rows by ${choices.columns} columns, ${choices.prefilled} ${cells} pre-filled, ${OPERATION_GRID_PLACEMENT_LABELS[choices.placement]}${choices.headerOrder === "mixed" ? OPERATION_GRID_MIXED_SUMMARY_PHRASE : ""}`;
 }
 
 /**

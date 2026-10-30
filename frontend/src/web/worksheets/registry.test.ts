@@ -1135,6 +1135,7 @@ const otherOperationGrid: SelectionEdit = (selection) => ({
     columns: selection.operationGrid.columns === 6 ? 7 : 6,
     prefilled: selection.operationGrid.prefilled === 4 ? 5 : 4,
     placement: "random",
+    headerOrder: "in-order",
   },
 });
 
@@ -3285,6 +3286,7 @@ function catalogSweepCells(): readonly SweepCell[] {
             columns,
             prefilled: operationGridPresetCount(id, rows, columns),
             placement: id === "diagonal" ? "diagonal-first" : "random",
+            headerOrder: "in-order",
           },
         })),
       );

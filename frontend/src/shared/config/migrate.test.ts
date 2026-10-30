@@ -328,6 +328,25 @@ describe("the v1 -> v2 migration over generated v1 configs", () => {
     const classified = classifyStoredConfig(current);
     expect(classified).toEqual({ kind: "current", config: current });
   });
+
+  test("current v2 Operation Grid defaults read an omitted header order without mutating the stored object", () => {
+    const current = structuredCloneJson(expectLegacy(fictionalV1([fictionalProfile(1)])).config) as unknown as {
+      defaults: Record<string, unknown> & { operationGrid?: Record<string, unknown> };
+    };
+    delete current.defaults.operationGrid?.headerOrder;
+    const before = structuredCloneJson(current);
+    const classified = classifyStoredConfig(current);
+    expect(classified.kind).toBe("current");
+    expect(classified.kind === "current" ? classified.config.defaults.operationGrid.headerOrder : undefined).toBe("in-order");
+    expect(current).toEqual(before);
+
+    delete current.defaults.operationGrid;
+    const withoutGroup = structuredCloneJson(current);
+    const groupClassified = classifyStoredConfig(current);
+    expect(groupClassified.kind).toBe("current");
+    expect(groupClassified.kind === "current" ? groupClassified.config.defaults.operationGrid.headerOrder : undefined).toBe("in-order");
+    expect(current).toEqual(withoutGroup);
+  });
 });
 
 function structuredCloneJson<T>(value: T): T {
@@ -498,6 +517,7 @@ describe("the built-in version 2 defaults", () => {
         columns: 10,
         prefilled: 10,
         placement: "random",
+        headerOrder: "in-order",
       },
       findTheWow: {
         variant: "quantity",

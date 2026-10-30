@@ -22,6 +22,7 @@ import {
   FIND_THE_WOW_VARIANTS,
   MATH_OPERATIONS,
   NUMBER_BONDS_REGROUPING_MODES,
+  OPERATION_GRID_HEADER_ORDERS,
   OPERATION_GRID_OPERATIONS,
   OPERATION_GRID_PLACEMENTS,
   PAPER_SIZES,
@@ -346,6 +347,10 @@ const PARITY_ROWS: Readonly<Record<string, ParityRow>> = {
     members: OPERATION_GRID_PLACEMENTS,
     probes: [...enumRow(OPERATION_GRID_PLACEMENTS).probes, probe("absent", undefined, true)],
   },
+  "$.defaults.operationGrid.headerOrder": {
+    members: OPERATION_GRID_HEADER_ORDERS,
+    probes: [...enumRow(OPERATION_GRID_HEADER_ORDERS).probes, probe("absent", undefined, true)],
+  },
   "$.defaults.findTheWow": objectRow(),
   "$.defaults.findTheWow.variant": enumRow(FIND_THE_WOW_VARIANTS),
   "$.defaults.findTheWow.quantity": objectRow(),
@@ -602,6 +607,7 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       columns: 10,
       prefilled: 10,
       placement: "random",
+      headerOrder: "in-order",
     });
     // Parsing never adds the key to the object it read.
     expect(Object.keys(earlier.defaults)).not.toContain("operationGrid");
@@ -614,6 +620,7 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       columns: 3,
       prefilled: 10,
       placement: "random",
+      headerOrder: "in-order",
     });
     // Mirror: a stored Operation Grid choice and worksheet type are read back as stored.
     earlier.defaults.worksheetType = "operation-grid";
@@ -623,6 +630,7 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       columns: 7,
       prefilled: 83,
       placement: "diagonal-first",
+      headerOrder: "in-order",
     };
     const stored = AppConfigV2Schema.parse(earlier);
     expect(stored.defaults.worksheetType).toBe("operation-grid");
@@ -632,6 +640,7 @@ describe("AppConfigV2 schema and composed transport parity", () => {
       columns: 7,
       prefilled: 83,
       placement: "diagonal-first",
+      headerOrder: "in-order",
     });
   });
 

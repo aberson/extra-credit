@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import { PDFDocument } from "pdf-lib";
 
 import { acceptanceConfig } from "../fixtures/profiles.js";
 import {
@@ -74,6 +75,47 @@ for (const focus of OPERATIONS) {
     expect((await appServer.readRaw()).equals(seeded)).toBe(true);
   });
 }
+
+test("mixed 10 x 10 headers persist, preview and key against the oracle, and each surface prints on one page", async ({ appServer, page }) => {
+  test.setTimeout(90_000);
+  await appServer.seedConfig(acceptanceConfig);
+  await page.goto(appServer.origin);
+  await chooseWorksheet(page, "operation-grid");
+  const focus: OracleGridFocus = {
+    operation: "multiplication",
+    rows: 10,
+    columns: 10,
+    prefilled: 10,
+    placement: "random",
+    headerOrder: "mixed",
+  };
+  await chooseOperationGrid(page, focus);
+  await page.getByRole("button", { name: "Save these as worksheet defaults", exact: true }).click();
+  await expect(page.getByText("Worksheet defaults saved locally.")).toBeVisible();
+  expect((await appServer.readConfig()).defaults.operationGrid.headerOrder).toBe("mixed");
+
+  await page.reload();
+  await expect(controls(page).worksheetCard("operation-grid")).toBeChecked();
+  await expect(
+    controls(page).gridHeaderOrder().getByRole("radio", { name: "Mixed up", exact: true }),
+  ).toBeChecked();
+  await controls(page).create().click();
+  const { worksheet, key } = await renderedGrids(page);
+  expect(judgeGridTable(worksheet, focus, false)).toEqual([]);
+  expect(judgeGridTable(key, focus, true)).toEqual([]);
+
+  for (const surface of ["worksheet", "answer"] as const) {
+    await page.getByRole("button", {
+      name: surface === "answer" ? "Parent answer key" : "Worksheet",
+      exact: true,
+    }).click();
+    await page.emulateMedia({ media: "print" });
+    await expect(page.locator(`.print-surface[data-surface="${surface}"]`)).toBeVisible();
+    const pdf = await PDFDocument.load(await page.pdf({ preferCSSPageSize: true }));
+    expect(pdf.getPageCount(), surface).toBe(1);
+    await page.emulateMedia({ media: "screen" });
+  }
+});
 
 test("presets update the pre-filled input and the next preview, and Diagonal chooses Diagonal first", async ({ appServer, page }) => {
   test.setTimeout(60_000);

@@ -47,7 +47,7 @@ Every generated page, in every family, stays inside one fixed envelope:
 
 | Bound | Value |
 |---|---|
-| Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, Carrying and borrowing, fact families, Operation Grid's operation, rows, columns, pre-filled count and placement, length, and print scale). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
+| Availability | Whether a page can be created depends only on the worksheet choices (type, variant, practice focus or vocabulary, Carrying and borrowing, fact families, Operation Grid's operation, rows, columns, header order, pre-filled count and placement, length, and print scale). A child's earlier settings can seed those choices until the first worksheet-defaults save. |
 | Numeric range | The practice focus the parent chooses states it in words. Dry Math offers addition and subtraction ranges up to 100, three-digit addition/subtraction with answers up to 1,000, two-digit × one-digit multiplication, exact three-digit ÷ one-digit division, two-digit division with remainders, and facts with factors, divisors and answers up to 12; Operation Grid headers run to 12 and powers cells to 1,000; every quantity, numeral, operand, and result in the other families stays at most 20. |
 | Sign | Nonnegative. No generated result is below zero. Fact-family and multi-digit division is exact with a nonzero divisor; the remainders focus always has a nonzero remainder. |
 | Regrouping | Only when the parent chooses it. In Dry Math, "Every problem carries or borrows" makes every addition carry and every subtraction borrow at least once. In Number Bonds, "Include problems that carry or borrow" adds problems whose missing number needs carrying or borrowing; by default no Number Bonds problem makes or crosses ten. Operation Grid's cells follow from its headers alone, so an addition grid's sums that make or cross ten are a fixed part of the table rather than a choice. Otherwise, and in every other family, no generated addition carries and no generated subtraction borrows. |
@@ -131,8 +131,12 @@ depends on the worksheet choices alone, not on which child is selected.
 ### `operation-grid` — Operation Grid
 
 One table per page. Column headers run across the top and row headers down the
-side, each from 1 to the size the parent chooses (2 to 12, 10 × 10 by default),
-and the corner shows the operation: `+` for addition, `×` for multiplication or
+side, each from 1 to the size the parent chooses (2 to 12, 10 × 10 by default).
+The parent can keep each axis in order or mix each axis into a seeded,
+non-ascending permutation; mixed headers make each fact a recall task instead
+of exposing the next answer by position. Diagonal first requires headers in
+order because its progression is defined by matching row and column numbers.
+The corner shows the operation: `+` for addition, `×` for multiplication or
 `^` for powers. Every cell is its row header combined with its column header,
 so every cell has exactly one answer. A few cells print filled in as anchors,
 the number the parent sets with a number input or a preset (Nearly blank,

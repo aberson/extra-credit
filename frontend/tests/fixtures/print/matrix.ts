@@ -167,6 +167,7 @@ export const printFixtures: readonly PrintFixture[] = [
       ...shippedSelection,
       worksheetType: "operation-grid",
       operationGrid: {
+        ...shippedSelection.operationGrid,
         operation: "multiplication",
         rows: 10,
         columns: 10,
@@ -183,6 +184,7 @@ export const printFixtures: readonly PrintFixture[] = [
       ...shippedSelection,
       worksheetType: "operation-grid",
       operationGrid: {
+        ...shippedSelection.operationGrid,
         operation: "addition",
         rows: OPERATION_GRID_SIZE_MAXIMUM,
         columns: OPERATION_GRID_SIZE_MAXIMUM,
@@ -202,6 +204,7 @@ export const printFixtures: readonly PrintFixture[] = [
       ...shippedSelection,
       worksheetType: "operation-grid",
       operationGrid: {
+        ...shippedSelection.operationGrid,
         operation: "powers",
         rows: OPERATION_GRID_POWERS_BASE_MAXIMUM,
         columns: OPERATION_GRID_POWERS_EXPONENT_MAXIMUM,

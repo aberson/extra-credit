@@ -37,6 +37,8 @@ import {
   OPERATION_GRID_OPERATION_LEGEND,
   OPERATION_GRID_PLACEMENT_LABELS,
   OPERATION_GRID_PLACEMENT_LEGEND,
+  OPERATION_GRID_HEADER_ORDER_LABELS,
+  OPERATION_GRID_HEADER_ORDER_LEGEND,
   OPERATION_GRID_PREFILLED_LABEL,
   OPERATION_GRID_PRESETS_LABEL,
   OPERATION_GRID_ROWS_LABEL,
@@ -80,6 +82,7 @@ export interface WorksheetControls {
   readonly gridColumns: () => Locator;
   /** Operation Grid's "Placement" radio group. */
   readonly gridPlacement: () => Locator;
+  readonly gridHeaderOrder: () => Locator;
   /** Operation Grid's "Pre-filled cells" number input and its presets. */
   readonly gridPrefilled: () => Locator;
   readonly gridPresets: () => Locator;
@@ -117,6 +120,8 @@ export function controls(page: Page): WorksheetControls {
       page.getByRole("spinbutton", { name: OPERATION_GRID_COLUMNS_LABEL, exact: true }),
     gridPlacement: () =>
       page.getByRole("group", { name: OPERATION_GRID_PLACEMENT_LEGEND, exact: true }),
+    gridHeaderOrder: () =>
+      page.getByRole("group", { name: OPERATION_GRID_HEADER_ORDER_LEGEND, exact: true }),
     gridPrefilled: () =>
       page.getByRole("spinbutton", { name: OPERATION_GRID_PREFILLED_LABEL, exact: true }),
     gridPresets: () => page.getByRole("group", { name: OPERATION_GRID_PRESETS_LABEL, exact: true }),
@@ -243,7 +248,8 @@ export async function chooseFactFamilies(page: Page, families: readonly number[]
  */
 export async function chooseOperationGrid(
   page: Page,
-  grid: WorksheetSelectionV2["operationGrid"],
+  grid: Omit<WorksheetSelectionV2["operationGrid"], "headerOrder"> &
+    Partial<Pick<WorksheetSelectionV2["operationGrid"], "headerOrder">>,
 ): Promise<void> {
   const named = controls(page);
   const operation = named.gridOperation().getByRole("radio", {
@@ -256,6 +262,13 @@ export async function chooseOperationGrid(
   await expect(named.gridRows()).toHaveValue(String(grid.rows));
   await named.gridColumns().fill(String(grid.columns));
   await expect(named.gridColumns()).toHaveValue(String(grid.columns));
+  const headerOrder = grid.headerOrder ?? "in-order";
+  const headerOrderRadio = named.gridHeaderOrder().getByRole("radio", {
+    name: OPERATION_GRID_HEADER_ORDER_LABELS[headerOrder],
+    exact: true,
+  });
+  await headerOrderRadio.check();
+  await expect(headerOrderRadio).toBeChecked();
   const placement = named.gridPlacement().getByRole("radio", {
     name: OPERATION_GRID_PLACEMENT_LABELS[grid.placement],
     exact: true,

@@ -3,6 +3,7 @@ import type {
   NUMBER_BONDS_REGROUPING_MODES,
   OPERATION_GRID_OPERATIONS,
   OPERATION_GRID_PLACEMENTS,
+  OPERATION_GRID_HEADER_ORDERS,
   PAPER_SIZES,
   PRINT_SCALES,
   WORKSHEET_LENGTHS,
@@ -181,6 +182,7 @@ export type NumberBondsRegrouping = (typeof NUMBER_BONDS_REGROUPING_MODES)[numbe
 export type OperationGridOperation = (typeof OPERATION_GRID_OPERATIONS)[number];
 /** Where Operation Grid's pre-filled cells go. */
 export type OperationGridPlacement = (typeof OPERATION_GRID_PLACEMENTS)[number];
+export type OperationGridHeaderOrder = (typeof OPERATION_GRID_HEADER_ORDERS)[number];
 export type MathRepresentation = MathSkillsV1["representations"][number];
 // `enums.ts` imports `TOPIC_IDS` from this module as a value, so these three
 // derive from its arrays through `import type` only (D30).
@@ -267,6 +269,7 @@ export type PracticeRequestV1 =
       readonly columns: number;
       readonly prefilled: number;
       readonly placement: OperationGridPlacement;
+      readonly headerOrder?: "mixed";
     };
 
 export interface GenerationRequestV1 {

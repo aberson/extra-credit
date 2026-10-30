@@ -287,8 +287,11 @@ export function projectWorksheetPractice(
     };
   }
   if (worksheetType === "operation-grid") {
-    const { columns, operation, placement, prefilled, rows } = selection.operationGrid;
-    return { kind: "operation-grid", operation, rows, columns, prefilled, placement };
+    const { columns, operation, placement, prefilled, rows, headerOrder } = selection.operationGrid;
+    return {
+      kind: "operation-grid", operation, rows, columns, prefilled, placement,
+      ...(headerOrder === "mixed" ? { headerOrder } : {}),
+    };
   }
   if (worksheetType !== "dry-math") {
     return undefined;

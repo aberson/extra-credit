@@ -9,6 +9,7 @@ import {
   NUMBER_BONDS_REGROUPING_MODES,
   OPERATION_GRID_OPERATIONS,
   OPERATION_GRID_PLACEMENTS,
+  OPERATION_GRID_HEADER_ORDERS,
   PAPER_SIZES,
   PRESENTATION_BANDS,
   PRINT_SCALES,
@@ -284,8 +285,9 @@ const operationGridSchema = strictObjectSchema(
     columns: operationGridSizeSchema,
     prefilled: { type: "integer", minimum: 0, maximum: OPERATION_GRID_PREFILLED_MAXIMUM },
     placement: { enum: OPERATION_GRID_PLACEMENTS },
+    headerOrder: { enum: OPERATION_GRID_HEADER_ORDERS },
   },
-  ["operation", "rows", "columns", "prefilled", "placement"],
+  ["operation", "rows", "columns", "prefilled", "placement", "headerOrder"],
 );
 
 const worksheetDefaultsProperties = {

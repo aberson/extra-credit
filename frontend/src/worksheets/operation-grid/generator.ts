@@ -48,10 +48,9 @@ function headersTo(count: number): readonly number[] {
  */
 export function chooseGivenCells(
   practice: OperationGridPractice,
-  seed: GenerationRequestV1["seed"],
+  random: Pick<ReturnType<typeof createSeededRandom>, "nextBounded">,
 ): ReadonlySet<number> {
   const { columns, placement, prefilled, rows } = practice;
-  const random = createSeededRandom(seed);
   const indexes = Array.from({ length: rows * columns }, (_, index) => index);
   if (placement === "random") {
     return new Set(seededShuffle(indexes, random).slice(0, prefilled));
@@ -63,6 +62,18 @@ export function chooseGivenCells(
     random,
   );
   return new Set([...diagonal, ...others].slice(0, prefilled));
+}
+
+function mixedHeaders(
+  count: number,
+  random: Pick<ReturnType<typeof createSeededRandom>, "nextBounded">,
+): readonly number[] {
+  const ascending = headersTo(count);
+  const shuffled = [...seededShuffle(ascending, random)];
+  if (shuffled.every((value, index) => value === ascending[index])) {
+    [shuffled[0], shuffled[1]] = [shuffled[1]!, shuffled[0]!];
+  }
+  return shuffled;
 }
 
 /**
@@ -111,9 +122,14 @@ export function generateOperationGrid(
     return { ok: false, code: GENERATION_CONSTRAINT_CONFLICT, message: refusal };
   }
 
-  const rowHeaders = headersTo(practice.rows);
-  const columnHeaders = headersTo(practice.columns);
-  const given = chooseGivenCells(practice, request.seed);
+  const random = createSeededRandom(request.seed);
+  const given = chooseGivenCells(practice, random);
+  const rowHeaders = practice.headerOrder === "mixed"
+    ? mixedHeaders(practice.rows, random)
+    : headersTo(practice.rows);
+  const columnHeaders = practice.headerOrder === "mixed"
+    ? mixedHeaders(practice.columns, random)
+    : headersTo(practice.columns);
   const values = rowHeaders.flatMap((row) =>
     columnHeaders.map((column) => operationGridCellValue(practice.operation, row, column)),
   );

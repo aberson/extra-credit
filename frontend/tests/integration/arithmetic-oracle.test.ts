@@ -741,7 +741,7 @@ describe("Number Bonds missing number sentences (Appendix B.3 and B.4)", () => {
 describe("the Operation Grid oracle slice", () => {
   function gridRequest(focus: OracleGridFocus, seed = "00000001"): GenerationRequestV1 {
     const projection = projectGenerationRequest({
-      selection: { ...BASE, worksheetType: "operation-grid", operationGrid: focus },
+      selection: { ...BASE, worksheetType: "operation-grid", operationGrid: { ...BASE.operationGrid, ...focus } },
       generatorVersion: 1,
       seed,
     });
@@ -785,22 +785,27 @@ describe("the Operation Grid oracle slice", () => {
     for (const operation of ["addition", "multiplication", "powers"] as const satisfies readonly OracleGridOperation[]) {
       const rowMaximum = operation === "powers" ? ORACLE_POWERS_BASE_MAXIMUM : ORACLE_GRID_SIZE_MAXIMUM;
       const columnMaximum = operation === "powers" ? ORACLE_POWERS_EXPONENT_MAXIMUM : ORACLE_GRID_SIZE_MAXIMUM;
-      for (let rows = ORACLE_GRID_SIZE_MINIMUM; rows <= rowMaximum; rows += 1) {
-        for (let columns = ORACLE_GRID_SIZE_MINIMUM; columns <= columnMaximum; columns += 1) {
-          const focus: OracleGridFocus = {
-            operation,
-            rows,
-            columns,
-            prefilled: Math.min(rows, columns),
-            placement: operation !== "powers" && rows === columns ? "diagonal-first" : "random",
-          };
-          const document = gridDocument(focus);
-          expect(judgeOperationGridDocument(document), `${operation} ${rows}x${columns}`).toEqual([]);
-          judged += 1;
+      for (const headerOrder of ["in-order", "mixed"] as const) {
+        for (let rows = ORACLE_GRID_SIZE_MINIMUM; rows <= rowMaximum; rows += 1) {
+          for (let columns = ORACLE_GRID_SIZE_MINIMUM; columns <= columnMaximum; columns += 1) {
+            const focus: OracleGridFocus = {
+              operation,
+              rows,
+              columns,
+              prefilled: Math.min(rows, columns),
+              placement: headerOrder === "in-order" && operation !== "powers" && rows === columns
+                ? "diagonal-first"
+                : "random",
+              headerOrder,
+            };
+            const document = gridDocument(focus);
+            expect(judgeOperationGridDocument(document), `${operation} ${headerOrder} ${rows}x${columns}`).toEqual([]);
+            judged += 1;
+          }
         }
       }
     }
-    expect(judged).toBe(11 * 11 * 2 + 9 * 2);
+    expect(judged).toBe((11 * 11 * 2 + 9 * 2) * 2);
   });
 
   test("calibration: a known-good table passes and each kind of known-garbage table fails with its own code", () => {
@@ -837,7 +842,7 @@ describe("the Operation Grid oracle slice", () => {
     expect(codesOf({ ...keyed, cells: [[1, 2, 3], [2, 4, 7], [3, 6, 9]] }, true)).toEqual(["WRONG_CELL"]);
     // The wrong corner, or headers that do not run from 1.
     expect(codesOf({ ...good, corner: "+" })).toEqual(["HEADER_MISMATCH"]);
-    expect(codesOf({ ...good, columnHeaders: [0, 1, 2] })).toEqual(["HEADER_MISMATCH"]);
+    expect(codesOf({ ...good, columnHeaders: [0, 1, 2] })).toEqual(["HEADER_MISMATCH", "WRONG_CELL"]);
     // One given cell too many, then a page with every cell given.
     expect(codesOf(
       { ...good, cells: [[1, 2, null], [null, 4, null], [null, null, 9]], given: [[true, true, false], [false, true, false], [false, false, true]] },

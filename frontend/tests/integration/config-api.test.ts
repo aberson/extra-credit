@@ -692,6 +692,48 @@ describe("three-digit Dry Math defaults through the config API", () => {
   });
 });
 
+describe("Operation Grid header order through the config API", () => {
+  test("an omitted v2 field defaults without a read rewrite, then an explicit mixed save changes only that key", async () => {
+    const { app, configPath, token } = await setup();
+    const earlier = fixture("Fictional Mixed Header Reader") as unknown as {
+      defaults: { operationGrid: Partial<AppConfigV2["defaults"]["operationGrid"]> };
+      profiles: AppConfigV2["profiles"];
+      schemaVersion: 2;
+    };
+    delete earlier.defaults.operationGrid.headerOrder;
+    const raw = Buffer.from(`${JSON.stringify(earlier, null, 2)}\n`, "utf8");
+    await writeFile(configPath, raw);
+
+    const read = await app.inject({
+      method: "GET",
+      url: "/api/config",
+      headers: { host: HOST, "x-extra-credit-token": token },
+    });
+    expect(read.statusCode).toBe(200);
+    const config = (read.json() as { config: AppConfigV2 }).config;
+    expect(config.defaults.operationGrid.headerOrder).toBe("in-order");
+    expect((await readFile(configPath)).equals(raw)).toBe(true);
+
+    const beforeProfiles = structuredClone(config.profiles);
+    const beforeOperationGrid = structuredClone(config.defaults.operationGrid);
+    config.defaults.operationGrid.headerOrder = "mixed";
+    const saved = await app.inject({
+      method: "PUT",
+      url: "/api/config",
+      headers: { ...putHeaders(token), "if-match": String(read.headers.etag) },
+      payload: config,
+    });
+    expect(saved.statusCode).toBe(200);
+    const stored = JSON.parse((await readFile(configPath)).toString("utf8")) as AppConfigV2;
+    expect(stored.profiles).toEqual(beforeProfiles);
+    expect(stored.defaults.operationGrid).toEqual({ ...beforeOperationGrid, headerOrder: "mixed" });
+    expect(stored.defaults).toEqual({
+      ...config.defaults,
+      operationGrid: { ...beforeOperationGrid, headerOrder: "mixed" },
+    });
+  });
+});
+
 describe.each([
   ["Clock Explorer", "clock-explorer"],
   ["Tally Detective", "tally-detective"],

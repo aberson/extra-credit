@@ -186,6 +186,7 @@ const CATALOG_CELLS: readonly { readonly name: string; readonly selection: Works
         ...base,
         worksheetType: "operation-grid" as const,
         operationGrid: {
+          ...base.operationGrid,
           operation,
           rows,
           columns,

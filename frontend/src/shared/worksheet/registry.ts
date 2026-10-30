@@ -58,7 +58,7 @@ import {
 } from "../../worksheets/number-bonds/generator.js";
 import {
   OPERATION_GRID_DEFINITION,
-  OPERATION_GRID_LIMITING_RESOURCE_ADVICE,
+  operationGridLimitingResourceAdvice,
   describeOperationGrid,
   operationGridRefusal,
 } from "../../worksheets/operation-grid/definition.js";
@@ -779,7 +779,7 @@ export const WORKSHEET_REGISTRY = {
           : { available: false, message: refusal };
       },
       // Its size and operation fix the grid; only the pre-filled cells vary.
-      getLimitingResourceAdvice: () => OPERATION_GRID_LIMITING_RESOURCE_ADVICE,
+      getLimitingResourceAdvice: ({ selection }) => operationGridLimitingResourceAdvice(selection.operationGrid),
       getRelevantMaximums: () => NO_MAXIMUMS,
       getEffectiveUnit: () => ({
         count: 1,

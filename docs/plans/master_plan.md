@@ -987,7 +987,7 @@ A step too large for one developer context is split before build (R4). Kill crit
 - **Depends on:** Step 42
 
 ### Step 44: Mixed-up grid headers
-- **Status:** PENDING
+- **Status:** DONE (2026-10-29)
 - **Problem:** A parent choosing Operation Grid can mix up the order of the row and column numbers. The child then has to recall each fact rather than count along a row. The parent does this through the existing Create, preview, key and print journey.
 - **Type:** code
 - **Issue:** #55

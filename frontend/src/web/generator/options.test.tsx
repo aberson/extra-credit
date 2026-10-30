@@ -2131,6 +2131,8 @@ describe("worksheet-first panel", () => {
     const prefilled = (): HTMLInputElement => screen.getByRole("spinbutton", { name: "Pre-filled cells" });
     expect([rows().value, columns().value, prefilled().value]).toEqual(["10", "10", "10"]);
     expect([rows().min, rows().max, prefilled().min, prefilled().max]).toEqual(["2", "12", "0", "143"]);
+    const headerOrder = screen.getByRole("group", { name: "Header order" });
+    expect(within(headerOrder).getByRole("radio", { name: "In order" })).toBeChecked();
     const placement = screen.getByRole("group", { name: "Placement" });
     expect(within(placement).getByRole("radio", { name: "Random" })).toBeChecked();
     const presets = screen.getByRole("group", { name: "Pre-filled cells presets" });
@@ -2145,6 +2147,7 @@ describe("worksheet-first panel", () => {
       operation,
       rows(),
       columns(),
+      headerOrder,
       placement,
       prefilled(),
       presets,
@@ -2176,8 +2179,25 @@ describe("worksheet-first panel", () => {
     const grid = (changes: Partial<WorksheetSelectionV2["operationGrid"]>) => ({
       type: "changed",
       group: "operationGrid",
-      value: { operation: "multiplication", rows: 10, columns: 10, prefilled: 10, placement: "random", ...changes },
+      value: {
+        operation: "multiplication",
+        rows: 10,
+        columns: 10,
+        prefilled: 10,
+        placement: "random",
+        headerOrder: "in-order",
+        ...changes,
+      },
     });
+    onChange.mockClear();
+    fireEvent.click(within(headerOrder).getByRole("radio", { name: "Mixed up" }));
+    expect(onChange.mock.calls).toEqual([[grid({ headerOrder: "mixed" })]]);
+    expect(summary()).toContain(", row and column numbers mixed up.");
+    onChange.mockClear();
+    fireEvent.click(within(headerOrder).getByRole("radio", { name: "In order" }));
+    expect(onChange.mock.calls).toEqual([[grid({})]]);
+    expect(summary()).not.toContain("row and column numbers mixed up");
+
     onChange.mockClear();
     fireEvent.click(within(presets).getByRole("button", { name: "Half (50%)" }));
     expect(onChange.mock.calls).toEqual([[grid({ prefilled: 50 })]]);

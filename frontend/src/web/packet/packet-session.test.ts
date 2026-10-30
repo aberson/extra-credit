@@ -260,11 +260,12 @@ describe("describeQueuedSheet", () => {
 
   test("an Operation Grid sheet names its grid and has no length", () => {
     const operationGrid = {
+      ...BASE_SELECTION.operationGrid,
       operation: "addition",
       rows: 4,
       columns: 6,
       prefilled: 1,
-      placement: "random",
+      headerOrder: "mixed",
     } as const;
     const sheet = sheetFor(SECOND_CHILD, { worksheetType: "operation-grid", operationGrid });
     const description = describeQueuedSheet(sheet, PROFILES);
@@ -274,7 +275,9 @@ describe("describeQueuedSheet", () => {
       child: "Profile 2",
     });
     expect(description).not.toHaveProperty("length");
-    expect(description.detail).toMatch(/4 rows by 6 columns, 1 cell pre-filled/u);
+    expect(description.detail).toBe(
+      "Addition x + y, 4 rows by 6 columns, 1 cell pre-filled, Random, row and column numbers mixed up",
+    );
   });
 
   test("Clock Explorer and Tally Detective sheets name only the family and the child", () => {

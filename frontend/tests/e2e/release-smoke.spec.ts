@@ -817,6 +817,7 @@ test("compiled Operation Grid page: create, key and print a ten by ten multiplic
     columns: 10,
     prefilled: 10,
     placement: "diagonal-first",
+    headerOrder: "in-order",
   } as const;
 
   await page.goto(appServer.origin);

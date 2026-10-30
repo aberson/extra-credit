@@ -30,6 +30,7 @@ import {
   NUMBER_BONDS_REGROUPING_MODES,
   OPERATION_GRID_OPERATIONS,
   OPERATION_GRID_PLACEMENTS,
+  OPERATION_GRID_HEADER_ORDERS,
   REGROUPING_MODES,
   SENTENCE_VOCABULARY_OPTIONS,
   THEME_CHOICES,
@@ -79,6 +80,8 @@ import {
   OPERATION_GRID_OPERATION_LEGEND,
   OPERATION_GRID_PLACEMENT_LABELS,
   OPERATION_GRID_PLACEMENT_LEGEND,
+  OPERATION_GRID_HEADER_ORDER_LABELS,
+  OPERATION_GRID_HEADER_ORDER_LEGEND,
   OPERATION_GRID_PREFILL_PRESETS,
   OPERATION_GRID_PREFILLED_LABEL,
   OPERATION_GRID_PRESET_HELP,
@@ -884,6 +887,17 @@ export function GeneratorControls({
                 />
                 <p id={OPERATION_GRID_SIZE_HELP_ID}>{OPERATION_GRID_SIZE_HELP}</p>
               </fieldset>
+              <RadioGroup
+                disabled={disabled}
+                legend={OPERATION_GRID_HEADER_ORDER_LEGEND}
+                name="operation-grid-header-order"
+                onSelect={(headerOrder) => changeOperationGrid({ headerOrder })}
+                options={OPERATION_GRID_HEADER_ORDERS.map((headerOrder) => ({
+                  value: headerOrder,
+                  label: OPERATION_GRID_HEADER_ORDER_LABELS[headerOrder],
+                }))}
+                value={selection.operationGrid.headerOrder}
+              />
               <RadioGroup
                 disabled={disabled}
                 legend={OPERATION_GRID_PLACEMENT_LEGEND}

@@ -634,6 +634,18 @@ test("Operation Grid: axe is clean on its controls, page and key, keyboard reach
   await expect(multiplication).toBeChecked();
   await tabTo(page, panel.gridRows());
   await tabTo(page, panel.gridColumns());
+  const inOrder = panel.gridHeaderOrder().getByRole("radio", { name: "In order", exact: true });
+  await tabTo(page, inOrder);
+  await page.keyboard.press("ArrowDown");
+  const mixed = panel.gridHeaderOrder().getByRole("radio", { name: "Mixed up", exact: true });
+  await expect(mixed).toBeFocused();
+  await expect(mixed).toBeChecked();
+  await expect(page.locator("[data-selection-summary]")).toContainText(
+    ", row and column numbers mixed up",
+  );
+  await page.keyboard.press("ArrowUp");
+  await expect(inOrder).toBeFocused();
+  await expect(inOrder).toBeChecked();
   await tabTo(page, panel.gridPlacement().getByRole("radio", { name: "Random", exact: true }));
   await tabTo(page, panel.gridPrefilled());
   await page.keyboard.press("Control+A");

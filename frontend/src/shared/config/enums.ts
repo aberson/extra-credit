@@ -60,5 +60,6 @@ export const OPERATION_GRID_OPERATIONS = ["addition", "multiplication", "powers"
  * default is `random`.
  */
 export const OPERATION_GRID_PLACEMENTS = ["random", "diagonal-first"] as const;
+export const OPERATION_GRID_HEADER_ORDERS = ["in-order", "mixed"] as const;
 /** The decorative theme: art from interests, one reviewed topic, or neutral. */
 export const THEME_CHOICES = ["from-interests", ...TOPIC_IDS] as const;

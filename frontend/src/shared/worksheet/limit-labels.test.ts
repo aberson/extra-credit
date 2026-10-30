@@ -60,6 +60,7 @@ import {
 } from "../../worksheets/number-bonds/definition.js";
 import {
   OPERATION_GRID_LIMITING_RESOURCE_ADVICE,
+  OPERATION_GRID_MIXED_LIMITING_RESOURCE_ADVICE,
   operationGridRefusal,
   type OperationGridChoices,
 } from "../../worksheets/operation-grid/definition.js";
@@ -824,6 +825,7 @@ const RETIRED_ARMS: readonly { readonly id: string; readonly deletedPath: string
  */
 const DECLARED_SENTENCE_SHAPES: readonly string[] = [
   "Diagonal first needs a square grid. Choose the same number of rows and columns, or Random placement.",
+  "Diagonal first needs row and column numbers in order. Choose In order, or Random placement.",
   "Diagonal first works with addition and multiplication grids. Choose Random placement.",
   "Large print fits at most N columns. Choose N or fewer columns, or Standard print scale under More options.",
   "Large print fits at most N rows. Choose N or fewer rows, or Standard print scale under More options.",
@@ -1258,6 +1260,11 @@ const OPERATION_GRID_SOURCES: readonly SweepSource[] = [
     prefilled: 3,
     placement: "diagonal-first",
   }),
+  operationGridSource("diagonal mixed", {
+    placement: "diagonal-first",
+    headerOrder: "mixed",
+  }),
+  operationGridSource("mixed random", { headerOrder: "mixed" }),
   operationGridSource("tall", { rows: OPERATION_GRID_SIZE_MAXIMUM, columns: 10 }),
   operationGridSource("wide", { rows: 10, columns: OPERATION_GRID_SIZE_MAXIMUM }),
 ];
@@ -1577,11 +1584,14 @@ describe("every declared arm of the capacity and advice surface", () => {
             } else if (worksheetType === "operation-grid") {
               // Operation Grid's one grid is fixed by its operation and size,
               // never a declared focus maximum, and its advice names the
-              // pre-filled cells.
+              // pre-filled cells and, when mixed, the header order.
               observe("NA-operation-grid");
               expect(`${where}: ${maximums.length}`).toBe(`${where}: 0`);
+              const advice = selection.operationGrid.headerOrder === "mixed"
+                ? OPERATION_GRID_MIXED_LIMITING_RESOURCE_ADVICE
+                : OPERATION_GRID_LIMITING_RESOURCE_ADVICE;
               expect(`${where}: ${registration.controls.getLimitingResourceAdvice(context)}`).toBe(
-                `${where}: ${OPERATION_GRID_LIMITING_RESOURCE_ADVICE}`,
+                `${where}: ${advice}`,
               );
             } else if (worksheetType === "clock-explorer") {
               // Clock Explorer's twelve hours are its whole domain: no
@@ -2229,6 +2239,15 @@ describe("Operation Grid refusals", () => {
     ).toBe("Diagonal first works with addition and multiplication grids. Choose Random placement.");
   });
 
+  test("Diagonal first with mixed headers names only the in-order requirement", () => {
+    expect(
+      operationGridRefusal(grid({ placement: "diagonal-first", headerOrder: "mixed" }), "standard"),
+    ).toBe(
+      "Diagonal first needs row and column numbers in order. Choose In order, or Random placement.",
+    );
+    expect(operationGridRefusal(grid({ headerOrder: "mixed" }), "standard")).toBeUndefined();
+  });
+
   test("large print caps the size it offers and names only the side that binds", () => {
     expect(operationGridRefusal(grid({ rows: 11, columns: 10 }), "large")).toBe(
       "Large print fits at most 10 rows. Choose 10 or fewer rows, or Standard print scale under More options.",
@@ -2263,6 +2282,19 @@ describe("Operation Grid refusals", () => {
       capacity: { sufficient: true },
       statusMessage:
         "Operation Grid: Multiplication x × y, 10 rows by 10 columns, 10 cells pre-filled, Random.",
+    });
+    const mixed = registration.controls.getCapabilitySupport({
+      selection: {
+        ...base,
+        worksheetType: "operation-grid",
+        operationGrid: { ...base.operationGrid, headerOrder: "mixed" },
+      },
+    });
+    expect(mixed).toEqual({
+      available: true,
+      capacity: { sufficient: true },
+      statusMessage:
+        "Operation Grid: Multiplication x × y, 10 rows by 10 columns, 10 cells pre-filled, Random, row and column numbers mixed up.",
     });
   });
 });

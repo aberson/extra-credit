@@ -93,6 +93,7 @@ function grid(choices: Partial<OperationGridV2>): OperationGridV2 {
     columns: 10,
     prefilled: 10,
     placement: "random",
+    headerOrder: "in-order",
     ...choices,
   };
 }
@@ -146,6 +147,65 @@ describe("Operation Grid generator", () => {
       expect(checked).toBeGreaterThan(operation === "powers" ? 60 : 400);
     },
   );
+
+  test.each(["addition", "multiplication", "powers"] as const)(
+    "%s: every legal size supports a non-ascending permutation on both axes",
+    (operation) => {
+      for (const [rows, columns] of legalSizes(operation)) {
+        const document = generated(gridRequest(grid({
+          operation, rows, columns, prefilled: 1, placement: "random", headerOrder: "mixed",
+        })));
+        const item = gridOf(document);
+        expect([...item.rowHeaders].sort((left, right) => left - right)).toEqual(
+          Array.from({ length: rows }, (_, index) => index + 1),
+        );
+        expect([...item.columnHeaders].sort((left, right) => left - right)).toEqual(
+          Array.from({ length: columns }, (_, index) => index + 1),
+        );
+        expect(item.rowHeaders).not.toEqual(Array.from({ length: rows }, (_, index) => index + 1));
+        expect(item.columnHeaders).not.toEqual(Array.from({ length: columns }, (_, index) => index + 1));
+        expect(item.cells.map(({ value }) => value)).toEqual(item.rowHeaders.flatMap((row) =>
+          item.columnHeaders.map((column) => operation === "addition" ? row + column : operation === "multiplication" ? row * column : row ** column)));
+        expect(validateOperationGridDocument(document)).toBeUndefined();
+      }
+    },
+  );
+
+  test("mixing headers preserves the given indexes and recomputes cells from the printed axes", () => {
+    const base = { operation: "multiplication" as const, rows: 10, columns: 10, prefilled: 17, placement: "random" as const };
+    const inOrder = gridOf(generated(gridRequest(grid({ ...base, headerOrder: "in-order" }), "0000abcd")));
+    const mixed = gridOf(generated(gridRequest(grid({ ...base, headerOrder: "mixed" }), "0000abcd")));
+    expect(givenIndexes(mixed)).toEqual(givenIndexes(inOrder));
+    expect(mixed.rowHeaders).not.toEqual(inOrder.rowHeaders);
+    expect(mixed.columnHeaders).not.toEqual(inOrder.columnHeaders);
+    expect(mixed.cells.map(({ value }) => value)).toEqual(mixed.rowHeaders.flatMap((row) =>
+      mixed.columnHeaders.map((column) => row * column)));
+  });
+
+  test("property: every mixed-header document validates", () => {
+    fc.assert(fc.property(
+      fc.integer({ min: 2, max: 12 }),
+      fc.integer({ min: 2, max: 12 }),
+      fc.integer({ min: 1, max: 0xffff_ffff }),
+      (rows, columns, seed) => {
+        const document = generated(gridRequest(grid({
+          operation: "multiplication", rows, columns, prefilled: 1,
+          placement: "random", headerOrder: "mixed",
+        }), formatSeedHex(seed)));
+        expect(validateOperationGridDocument(document)).toBeUndefined();
+        expect(judgeOperationGridDocument(document)).toEqual([]);
+      },
+    ), { numRuns: 200 });
+  });
+
+  test("pins one mixed-header vector", () => {
+    const item = gridOf(generated(gridRequest(grid({
+      rows: 3, columns: 4, prefilled: 3, headerOrder: "mixed",
+    }), "00000001")));
+    expect({ rows: item.rowHeaders, columns: item.columnHeaders, given: givenIndexes(item) }).toEqual({
+      rows: [2, 1, 3], columns: [1, 2, 4, 3], given: [2, 3, 6],
+    });
+  });
 
   test("powers cells never exceed the powers bound, and the largest powers grid reaches it", () => {
     const item = gridOf(
@@ -285,6 +345,22 @@ const KNOWN_GIVEN = {
 
 describe("Operation Grid negatives", () => {
   const base = () => generated(gridRequest(grid({ rows: 4, columns: 4, prefilled: 5 })));
+
+  test("rejects repeated, out-of-range, or ascending mixed headers and an explicit in-order request member", () => {
+    const mixed = generated(gridRequest(grid({ rows: 4, columns: 4, prefilled: 5, headerOrder: "mixed" })));
+    for (const headers of [[1, 1, 3, 4], [1, 2, 3, 5], [1, 2, 3, 4]] as const) {
+      const wrong = mutated(mixed, (item) => { item.rowHeaders = [...headers]; });
+      expect(validateOperationGridDocument(wrong)?.code).toBe(GENERATION_INVARIANT_FAILED);
+    }
+    const request = gridRequest(grid({ headerOrder: "in-order" }));
+    const noncanonical = {
+      ...request,
+      practice: { ...(request.practice as object), headerOrder: "in-order" },
+    } as unknown as GenerationRequestV1;
+    expect(generateOperationGrid(noncanonical, { worksheetId: WORKSHEET_ID })).toMatchObject({
+      ok: false, code: GENERATION_INVARIANT_FAILED,
+    });
+  });
 
   test("a wrong cell value fails with GENERATION_INVARIANT_FAILED", () => {
     const wrong = mutated(base(), (item) => {
@@ -434,6 +510,34 @@ describe("Operation Grid negatives", () => {
       code: GENERATION_CONSTRAINT_CONFLICT,
       message: "Diagonal first works with addition and multiplication grids. Choose Random placement.",
     });
+    const mixed = generateOperationGrid(
+      gridRequest(grid({ rows: 4, columns: 4, prefilled: 4, placement: "diagonal-first", headerOrder: "mixed" })),
+      { worksheetId: WORKSHEET_ID },
+    );
+    expect(mixed).toEqual({
+      ok: false,
+      code: GENERATION_CONSTRAINT_CONFLICT,
+      message: "Diagonal first needs row and column numbers in order. Choose In order, or Random placement.",
+    });
+    const mixedRandom = generated(gridRequest(grid({
+      rows: 4,
+      columns: 4,
+      prefilled: 4,
+      headerOrder: "mixed",
+    })));
+    const mixedClaimed = {
+      ...mixedRandom,
+      request: {
+        ...mixedRandom.request,
+        practice: { ...(mixedRandom.request.practice as object), placement: "diagonal-first" },
+      },
+    } as OperationGridDocumentV1;
+    expect(validateOperationGridDocument(mixedClaimed)).toEqual({
+      ok: false,
+      code: GENERATION_INVARIANT_FAILED,
+      message: "The request carried a practice choice this worksheet family does not accept.",
+    });
+    expect(validateOperationGridDocument(mixedRandom)).toBeUndefined();
     // A document claiming Diagonal first on a non-square grid fails the invariants.
     const random = generated(gridRequest(grid({ rows: 4, columns: 5, prefilled: 4 })));
     const claimed = {

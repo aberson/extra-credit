@@ -17,6 +17,7 @@ import {
   DRY_MATH_TWO_DIGIT_MAXIMUM,
   DRY_MATH_ONE_DIGIT_FACTOR_MAXIMUM,
   DRY_MATH_REMAINDER_DIVIDEND_MAXIMUM,
+  type OperationGridItemV1,
   WORKSHEET_TYPE_IDS,
   type WorksheetType,
 } from "../../shared/worksheet/types";
@@ -221,22 +222,18 @@ const challengeSelections = {
       ...BASE,
       worksheetType: "operation-grid",
       operationGrid: {
-        operation: "multiplication",
+        ...BASE.operationGrid,
         rows: 12,
         columns: 12,
         prefilled: 14,
-        placement: "random",
       },
     },
     {
       ...BASE,
       worksheetType: "operation-grid",
       operationGrid: {
-        operation: "multiplication",
-        rows: 10,
-        columns: 10,
+        ...BASE.operationGrid,
         prefilled: 0,
-        placement: "random",
       },
     },
   ],
@@ -263,11 +260,9 @@ const expertSelections = {
       ...BASE,
       worksheetType: "operation-grid",
       operationGrid: {
+        ...BASE.operationGrid,
         operation: "powers",
-        rows: 10,
         columns: 3,
-        prefilled: 10,
-        placement: "random",
       },
     },
     challengeSelections["operation-grid"][1],
@@ -388,6 +383,7 @@ describe("defaults-first packet focus", () => {
     dryMathFacts: { operations: ["division"], factFamilies: [0, 1, 11, 12] },
     numberBonds: { operations: ["subtraction"], wholeMax: 19, regrouping: "included" },
     operationGrid: {
+      ...BASE.operationGrid,
       operation: "powers",
       rows: 9,
       columns: 3,
@@ -591,5 +587,25 @@ describe("makeRandomPacket", () => {
     const packet = result.sheets.reduce((state, sheet) => packetReducer(state, { type: "add", sheet }), EMPTY_PACKET);
     expect(packet.sheets).toEqual(result.sheets);
     expect(randomPacketMessage(result)).toBe(`Added ${PACKET_SHEET_LIMIT} random sheets to the packet.`);
+  });
+
+  test("a saved mixed header order never leaks into any random-packet Operation Grid level", () => {
+    const parent: WorksheetSelectionV2 = {
+      ...BASE,
+      operationGrid: { ...BASE.operationGrid, headerOrder: "mixed" },
+    };
+    for (const level of RANDOM_PACKET_LEVELS) {
+      const result = make(["operation-grid"], PACKET_SHEET_LIMIT, level, 0x4400, parent);
+      if (!result.ok) {
+        throw new Error(`${level}: ${result.message}`);
+      }
+      for (const { document } of result.sheets) {
+        expect(document.request.practice).not.toHaveProperty("headerOrder");
+        expect(document.worksheetType).toBe("operation-grid");
+        const item = document.items[0] as OperationGridItemV1;
+        expect(item.rowHeaders).toEqual(Array.from({ length: item.rowHeaders.length }, (_, index) => index + 1));
+        expect(item.columnHeaders).toEqual(Array.from({ length: item.columnHeaders.length }, (_, index) => index + 1));
+      }
+    }
   });
 });
