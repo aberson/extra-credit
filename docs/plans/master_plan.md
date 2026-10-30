@@ -19,7 +19,7 @@ Original bytes preserved with hashes and initial Git state (kept privately outsi
 
 Binding [operator decisions](../feature-seeds/operator-decisions.md): P9 supersedes P4 durable drafts; P10 supersedes P7 unattended multi-plan chain. Lean kept step fields supersede old appendix/decision rows.
 
-Current build scope (2026-10-28, master Decision Inventory P6/P7, distinct from operator-decisions.md P6/P7): Steps 35, 36, 31 and 33, built in that order and DONE on 2026-10-29; Step 37 and the operator steps follow. Earlier track statuses and acceptance gates remain authoritative. Phase H (harder practice, planned 2026-10-29): Step 38, the Random packet, is built on the `random-packet` branch; Steps 39-55 and the HR1 screen review follow after plan review, redline, wrap and issue publication.
+Current build scope (2026-10-29, master Decision Inventory P6/P7, distinct from operator-decisions.md P6/P7): Steps 35, 36, 31 and 33 are DONE; Step 37 and the operator steps follow. Phase H Steps 38-45 are DONE on `main`; Steps 46-55 remain separate sequential build runs, followed by HR1. Earlier track statuses and acceptance gates remain authoritative.
 
 ## 2. Vision
 
@@ -43,7 +43,7 @@ P10: one track/window at a time with its operator screen review before the next 
 
 ## 7. Track structure
 
-Shipped substrate 1-19, math 24-26 and Operation Grid 34; retained acceptance WF1/WF2,MA2,M1/M2/M3. Optional math27; packets31 then33 built after Phase V 35/36 (P6 waived the MA2 dispatch gate; MA2 still PENDING), and packetPK1 afterward. Phase H (harder practice): random packet 38 built, then 39-55 sequentially and HR1. Future scoped content remains deferred. Plan03 code depends on shipped19, not optional27; current orchestration still honors inter-plan screen review, except that Phase H waives its per-track review for one HR1 after Step 55 (amended by HD5).
+Shipped substrate 1-19, math 24-26 and Operation Grid 34; retained acceptance WF1/WF2,MA2,M1/M2/M3. Optional math27; packets31 then33 built after Phase V 35/36 (P6 waived the MA2 dispatch gate; MA2 still PENDING), and packetPK1 afterward. Phase H (harder practice): Steps 38-45 are built; Steps 46-55 remain sequential, then HR1. Future scoped content remains deferred. Plan03 code depends on shipped19, not optional27; current orchestration still honors inter-plan screen review, except that Phase H waives its per-track review for one HR1 after Step 55 (amended by HD5).
 
 Track **goal/scope** is its leaves; **prerequisites** are explicit; **tests/validation** are Done-when and existing full check; **effort** is sidecar ranges; **gate** distinguishes code from actual acceptance; **kill criterion** is changed private state, weakened invariant, unresolved architecture or failed required evidence; **rollback** retains previous store bytes/outputs and isolated candidates, never resets profiles or replays superseded migration.
 
@@ -56,12 +56,12 @@ DONE34/35/36 ->MA2 screen review (P6: not a dispatch gate); DONE36 ->37 operator
 Shipped surfaces ->M1 physical ->M2 family
 Each authorized release: release:verify ->push ->M3 exact Ubuntu run
 WF1/WF2 acceptance evidence remains explicit, not inferred from later code
-DONE33 ->DONE38 random packet ->39 ->40 ->...->55 ->HR1 (Phase H, sequential; HP3 waives the Step 37 hold on clock times)
+DONE33 ->DONE38 ->DONE39 ->DONE40 ->DONE41 ->DONE42 ->DONE43 ->DONE44 ->DONE45 ->46 ->...->55 ->HR1 (Phase H, sequential; HP3 waives the Step 37 hold on clock times)
 ```
 
 ## 9. Baseline
 
-As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff7331`. Initial untracked operator screenshot preserved byte-for-byte; it is a pre-existing release-audit blocker, not a privacy exemption. Steps1-13 and14-19 DONE;20 folded into18;21 folded into24;22/23 removed;24/25/26 DONE, latest source gate1047 Vitest/195 Playwright. Optional27 not built. Packets31/33 not built, issues not assigned;28-30 removed; 32 and the archived packet plan's Step 34 (packet smoke/docs) folded into 31/33. The master's Step 34 is a different, later unit: Operation Grid (#42), DONE at `8b2546a`. Age/Difficulty/profile capability gates replaced by worksheet choices; no schema3. Additive v2 keys use defaults; removals/renames require explicit version/read path; blocked unknown-key/enum state preserves bytes. Existing quantity/Wow<=20; symbolic add/sub<=100; factors0-12/exact dividends<=144. Regrouping explicit, no negative answers. No automated history establishes physical/family/hosted CI acceptance. Since then: Step 34 (Operation Grid, #42) merged at `8b2546a`; the operator screenshot now lives outside the checkout at `C:/Users/abero/extra-credit-private/examples/`, so it is no longer a release-audit blocker; Step 34's full gate was 1118 Vitest (40 files)/206 Playwright. Since then (2026-10-29): Steps 35 (Clock Explorer, #43, `ec33261`), 36 (Tally Detective, #44, `ed1a03c`), 31 (session packet queue, #47, `4bc6607`) and 33 (packet preview and print, #48, `4ec5733`) merged; the latest accepted full gate on `main` is 1356 Vitest (49 files)/232 Playwright. Step 38 (Random packet) passed 1403 Vitest (51 files)/233 Playwright on the `random-packet` branch. After its merge, one `npm --prefix frontend run check` on `main` records its counts here as the Phase H floor (they must not be below 1403 Vitest (51 files)/233 Playwright), and no Phase H step's full gate may fall below that floor.
+As of reconciliation (2026-10-14): HEAD `268183162e3fe9a4778bc8d8fc07544872ff7331`. Initial untracked operator screenshot preserved byte-for-byte; it is a pre-existing release-audit blocker, not a privacy exemption. Steps1-13 and14-19 DONE;20 folded into18;21 folded into24;22/23 removed;24/25/26 DONE, latest source gate1047 Vitest/195 Playwright. Optional27 not built. Packets31/33 not built, issues not assigned;28-30 removed; 32 and the archived packet plan's Step 34 (packet smoke/docs) folded into 31/33. The master's Step 34 is a different, later unit: Operation Grid (#42), DONE at `8b2546a`. Age/Difficulty/profile capability gates replaced by worksheet choices; no schema3. Additive v2 keys use defaults; removals/renames require explicit version/read path; blocked unknown-key/enum state preserves bytes. Existing quantity/Wow<=20; symbolic add/sub<=100; factors0-12/exact dividends<=144. Regrouping explicit, no negative answers. No automated history establishes physical/family/hosted CI acceptance. Since then: Step 34 (Operation Grid, #42) merged at `8b2546a`; the operator screenshot now lives outside the checkout at `C:/Users/abero/extra-credit-private/examples/`, so it is no longer a release-audit blocker; Step 34's full gate was 1118 Vitest (40 files)/206 Playwright. Since then (2026-10-29): Steps 35 (Clock Explorer, #43, `ec33261`), 36 (Tally Detective, #44, `ed1a03c`), 31 (session packet queue, #47, `4bc6607`) and 33 (packet preview and print, #48, `4ec5733`) merged. Step 38 and then Steps 39-45 shipped the first Phase H automated slice; Steps 39-45 closed issues #50-#56. The accepted full gate on `main` is 1512 Vitest (52 files)/246 Playwright with lint, typecheck, build and log-privacy clean. Steps 46-55 retain that count as their floor and remain PENDING.
 
 ## 10. Phases
 
@@ -492,6 +492,38 @@ Fresh context notes:
 | Load and memory | Under Windows Defender load, `foundation.spec.ts`'s supervisor-close test times out (wait for three CPU samples under 50% and rerun); once a release-audit test failed on a host `VirtualAlloc` out-of-memory error and passed on rerun. |
 | Manual UAT naming | The `## Manual UAT` items M1-M2 at the end of this plan are build-phase review deferrals (both already met by the final 1356/232 check), distinct from the Step M1-M3 operator steps. |
 
+### Steps 39-45 wrap — harder packet levels, Dry Math and Operation Grid (2026-10-29)
+
+**Issues #50-#56 closed. 1512/1512 Vitest tests (52 files) and 246/246 Playwright specs passing; lint, all three typecheck projects, production build and log-privacy calibration clean.**
+
+This closes only the first automated Phase H slice. Steps 46-55, HR1, Step 37 and the operator/manual tracks remain pending and keep their existing issue boundaries.
+
+What was built:
+- Random packet adds Challenge and Expert levels from built-in defaults, never from a parent's saved family settings; every level and scale retains a viable candidate for every selected family.
+- Dry Math dispatch is exhaustive by strand and its answer blanks are centrally sized and print-calibrated. New practice covers three-digit addition/subtraction through 1,000, two-digit by one-digit multiplication, exact three-digit by one-digit division, and two-digit division with remainders.
+- Operation Grid can deterministically mix row and column headers and start either axis above 1. Defaults preserve prior ascending 1-based requests; offset headers end at 99, and addition/multiplication cells remain at most 999.
+- Version advanced from 1.4.0 through 1.10.0, one minor release per shipped step. README, educational basis, print-testing guidance and project instructions describe the new choices and bounds.
+- Proof includes independent arithmetic oracles, persistence/projection tests, compiled accessibility and browser flows, Letter/A4 print containment and text-fit calibration, packet coverage, release smoke and privacy calibration.
+
+Files changed (`bc84eb9`..`faa9758`, seven implementation checkpoints plus one test-contract correction):
+
+| Area | Files |
+|---|---|
+| Random packet | `frontend/src/web/packet/{random-packet,RandomPacketForm}.ts*` and tests; `frontend/tests/e2e/{packet-queue,fixtures/packet-controls}.ts` |
+| Dry Math | `frontend/src/worksheets/dry-math/{definition,generator}.ts` and tests; shared worksheet arithmetic, blank, invariant, projection and oracle modules; Dry Math renderer and compiled e2e coverage |
+| Operation Grid | `frontend/src/worksheets/operation-grid/{definition,generator}.ts` and tests; renderer tests; generator controls; config/schema/transport projection; operation-grid, packet, print and release-smoke coverage |
+| Shared persistence and contracts | `frontend/src/shared/config/*`, `frontend/src/shared/worksheet/*`, `frontend/src/server/transport-schemas.ts`, integration schema/config/golden tests and fictional profile fixtures |
+| Docs and release | `README.md`, `CLAUDE.md`, `docs/{educational-basis,testing-print}.md`, this plan, and `frontend/{package.json,package-lock.json}` |
+
+Fresh context notes:
+
+| Topic | Detail |
+|---|---|
+| Stop boundary | This wrap does not complete Phase H. Steps 46-55 are PENDING with issues #57-#66 OPEN; HR1, Step 37 and operator issues #45, #10 and #13 remain operator handoff work. |
+| Canonical defaults | `headerOrder: "in-order"`, `rowStart: 1` and `columnStart: 1` are omitted from canonical requests so existing default behavior and wording stay unchanged. |
+| Print matrix | The compiled manual-print matrix now has 106 worksheet cases and 38 answer-key PDFs; the documented total is 144 surfaces. |
+| Private config | The live checkout has no `config/children.local.json`; the operator-approved backup is outside the repository at `C:/Users/abero/extra-credit-private/config-backup/children.local.json`. |
+
 
 ## Phase V: Visual math first batch
 
@@ -560,9 +592,9 @@ Abbreviations used in Phase H: CCM is Count, Compare & Make (`count-compare-make
 
 Specification: the [harder practice specification](harder-practice-spec.md) is the technical contract for Steps 40-54. It covers constants, persisted keys, request shapes, generation, oracles, print geometry and consumer sites, plus the notes Steps 39 and 55 read. It also holds § Coordinator rulings and § Design defaults, and was verified against source on 2026-10-29. The master alone owns step IDs, statuses, dependencies and issues. The coordinator rulings R1(a)-(c) and R2-R4 are defined once, in the Decision Inventory and in the spec's § Coordinator rulings, and steps cite them by ID. The operator answers A1-A4 are recorded in row HP5.
 
-Preconditions before the first Phase H build:
-- The `random-packet` branch is committed and merged to `main` with operator approval. It holds Step 38, the 1.4.0 version, this plan and `docs/plans/harder-practice-spec.md`, which is untracked today. Build-phase checkpoints run `git add --all` over the working copy.
-- After that merge, one `npm --prefix frontend run check` passes on `main`. §9 records its counts as the Phase H floor; Step 38's branch gate was 1403 Vitest (51 files) and 233 Playwright.
+Preconditions established before Step 39 and retained for each later Phase H run:
+- Step 38, the 1.4.0 version, this plan and `docs/plans/harder-practice-spec.md` were committed and merged to `main` with operator approval. Build-phase checkpoints run `git add --all` over the working copy.
+- The post-Step-45 `npm --prefix frontend run check` passes on `main`. §9 records 1512 Vitest (52 files) and 246 Playwright as the current Phase H floor.
 - The private reconciliation folder stays outside the checkout. It was moved to `C:/Users/abero/extra-credit-private/plan-reconciliation/` on 2026-10-29 (A4). Before each gate, `git status --porcelain` shows no untracked file, because any untracked file fails the release audit as `PERSONALIZED_ARTIFACT`.
 - §6 applies unchanged:
   - ports 4310/4311 are free and the retained launcher is stopped;
@@ -626,7 +658,7 @@ Order: Steps 39-55 run one at a time in ID order, because they share types, inva
 A step too large for one developer context is split before build (R4). Kill criterion: a failed mathematical or print invariant, a changed golden or existing document, changed private data, or a persisted bound that would need schemaVersion 3. Backout: drop the step's merge. Previous config bytes and documents remain valid, because every key is additive.
 
 ### Step 38: Random packet
-- **Status:** DONE (2026-10-29; built on the `random-packet` branch on direct operator request; merge to `main` and its post-merge check are Phase H preconditions)
+- **Status:** DONE (2026-10-29)
 - **Problem:** A parent can tick the worksheet families to include, choose how many pages (one worksheet each, up to the packet's room) and a difficulty (Easier, Medium, Harder), and fill the session packet with newly generated worksheets for the chosen child in one action.
 - **Type:** code
 - **Issue:** none; built on direct operator request (2026-10-29)
